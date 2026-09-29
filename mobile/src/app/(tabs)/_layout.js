@@ -1,6 +1,9 @@
 import { Platform, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useRealtime } from '../../lib/realtime';
+import { useAuth } from '../../lib/auth';
+import { mediaUrl } from '../../lib/api';
+import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +29,24 @@ function HoverTab({ children, style, onPress, onLongPress, accessibilityState, a
         hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 6px rgba(176,143,255,0.8))' } : null]}>
       {children}
     </Pressable>
+  );
+}
+
+// Profile tab: your own profile photo in a small ring (gradient ring when you're on the tab)
+function ProfileTabIcon({ focused }) {
+  const { user } = useAuth();
+  const ring = focused ? gradients.button : [colors.border, colors.border];
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <LinearGradient colors={ring} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 30, height: 30, borderRadius: 15, padding: 1.5 }}>
+        <View style={{ flex: 1, borderRadius: 14, padding: 1, backgroundColor: colors.void }}>
+          {user?.avatarUrl
+            ? <Image source={{ uri: mediaUrl(user.avatarUrl) }} style={{ flex: 1, borderRadius: 13 }} contentFit="cover" />
+            : <View style={{ flex: 1, borderRadius: 13, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="person" size={14} color={colors.muted} /></View>}
+        </View>
+      </LinearGradient>
+      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 1, backgroundColor: focused ? colors.spark : 'transparent' }} />
+    </View>
   );
 }
 
@@ -98,7 +119,7 @@ export default function TabsLayout() {
       {/* Discover stays reachable from Home ("Make connections") and Search, not in the tab bar */}
       <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
       <Tabs.Screen name="activity" options={{ title: 'Activity', tabBarIcon: icon('heart') }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon('person-circle') }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} /> }} />
     </Tabs>
   );
 }
