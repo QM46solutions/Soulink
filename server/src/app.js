@@ -11,6 +11,9 @@ import safetyRoutes from './routes/safety.js';
 import notificationRoutes from './routes/notifications.js';
 import conversationRoutes from './routes/conversations.js';
 import faceRoutes from './routes/face.js';
+import soulRoutes from './routes/soul.js';
+import placesRoutes from './routes/places.js';
+import feedRoutes from './routes/feed.js';
 
 export function createApp() {
   const app = express();
@@ -35,6 +38,9 @@ export function createApp() {
   app.use('/notifications', notificationRoutes);
   app.use('/conversations', conversationRoutes);
   app.use('/face', faceRoutes);
+  app.use('/soul', soulRoutes);
+  app.use('/places', placesRoutes);
+  app.use('/feed', feedRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

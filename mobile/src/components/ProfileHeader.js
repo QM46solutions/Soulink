@@ -28,7 +28,7 @@ export function AuraAvatar({ user, size = 84 }) {
 export default function ProfileHeader({ user, counts, canViewLists, actions }) {
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
   return (
-    <View style={{ padding: space.lg }}>
+    <View style={{ padding: space.xl }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <AuraAvatar user={user} />
         <View style={{ flex: 1, flexDirection: 'row', marginLeft: space.md }}>
@@ -43,6 +43,22 @@ export default function ProfileHeader({ user, counts, canViewLists, actions }) {
           {user.verified ? <VerifiedBadge size={16} /> : null}
           {user.isPremium ? <Ionicons name="diamond" size={14} color={colors.gold} style={{ marginLeft: 6 }} /> : null}
         </View>
+        {user.verified || user.soulType ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
+            {user.verified ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(66,232,192,0.45)', backgroundColor: 'rgba(66,232,192,0.08)', marginRight: 6, marginBottom: 4 }}>
+                <Ionicons name="shield-checkmark" size={12} color={colors.mint} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.mint, fontFamily: fonts.semibold, fontSize: 11 }}>Verified Real Soul</Text>
+              </View>
+            ) : null}
+            {user.soulType ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.10)', marginBottom: 4 }}>
+                <Ionicons name="sparkles" size={12} color={colors.aura} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 11 }}>{user.soulType}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         {user.city ? (
           <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2, fontFamily: fonts.body }}>
             <Ionicons name="location-outline" size={12} /> {user.city}

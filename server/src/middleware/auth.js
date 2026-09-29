@@ -1,3 +1,5 @@
+import { HttpError } from '../lib/errors.js';
+import { config } from '../config.js';
 import { verifyToken } from '../lib/auth.js';
 import { one, query } from '../db.js';
 import { unauthorized } from '../lib/errors.js';
@@ -25,4 +27,12 @@ export async function requireAuth(req, res, next) {
   } catch (e) {
     next(e);
   }
+}
+
+/** Blocks connecting (follow, requests, new chats) until the person has created their Soul DNA. */
+export function requireSoul(req, res, next) {
+  if (config.soulRequired && !req.user?.soul_ready) {
+    return next(new HttpError(403, 'Create your Soul DNA first to start connecting.', 'soul_required'));
+  }
+  return next();
 }

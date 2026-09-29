@@ -29,6 +29,8 @@ export const config = {
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
   faceProvider: process.env.FACE_PROVIDER || 'local',
   // Face ID is required before a new account can finish sign-up (switched off only for automated tests)
+  // Soul DNA must be created before connecting with anyone (switched off only for automated tests)
+  soulRequired: bool(process.env.SOUL_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   faceRequired: bool(process.env.FACE_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
   minAge: 18,

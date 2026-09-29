@@ -53,7 +53,9 @@ export default function UserProfile() {
   const rel = data.relationship;
 
   const act = async (fn) => { setBusy(true); try { await fn(); await load(); } catch (e) { notice('Oops', e.message); } finally { setBusy(false); } };
-  const follow = () => act(() => api(`/users/${target.id}/follow`, { method: 'POST' }));
+  // Connecting unlocks after Soul DNA is created
+  const needSoul = () => { if (me.soulReady) return false; router.push('/soul'); return true; };
+  const follow = () => { if (!needSoul()) act(() => api(`/users/${target.id}/follow`, { method: 'POST' })); };
   const unfollow = async () => {
     const ok = await confirm(
       rel.following === 'pending' ? 'Cancel follow request?' : `Unfollow ${target.username}?`,
@@ -64,6 +66,7 @@ export default function UserProfile() {
   };
 
   const openChat = async () => {
+    if (needSoul()) return;
     try {
       const r = await api('/conversations/direct', { method: 'POST', body: { userId: target.id } });
       router.push(`/chat/${r.conversation.id}`);
@@ -79,7 +82,7 @@ export default function UserProfile() {
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       {rel.requestedYou ? (
-        <View style={{ backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)', margin: space.lg, marginBottom: 0, padding: space.md, borderRadius: 16 }}>
+        <View style={{ backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)', margin: space.xl, marginBottom: 0, padding: space.md, borderRadius: 20 }}>
           <Text style={{ fontFamily: fonts.body, color: colors.text, marginBottom: space.sm }}>{target.username} wants to follow you</Text>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
             <Button title="Confirm" small style={{ flex: 1 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
@@ -96,7 +99,15 @@ export default function UserProfile() {
           {!rel.isMe ? <Button title="Message" variant="secondary" small style={{ flex: 1 }} onPress={openChat} /> : null}
         </>}
       />
-      {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, paddingHorizontal: space.lg }}>Follows you</Text> : null}
+      {data.soulScore ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginHorizontal: space.xl, marginBottom: space.md, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
+          <Ionicons name="sparkles" size={14} color={colors.aura} style={{ marginRight: 6 }} />
+          <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Soul Score {data.soulScore}%</Text>
+        </View>
+      ) : !rel.isMe && !me.soulReady ? (
+        <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
+      ) : null}
+      {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, paddingHorizontal: space.xl }}>Follows you</Text> : null}
       {data.canViewContent
         ? <Empty icon="camera-outline" title="No posts yet" />
         : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and followers." />}

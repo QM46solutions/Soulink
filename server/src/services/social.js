@@ -61,6 +61,7 @@ export const userCard = (u) => ({
   avatarUrl: u.avatar_url,
   isPrivate: u.is_private,
   verified: u.face_verified,
+  soulType: u.soul_type ?? null,
 });
 
 /** Full profile as seen by someone else. */
@@ -87,5 +88,6 @@ export const meView = (u) => ({
     consentTracking: u.consent_tracking,
   },
   onboardingDone: u.onboarding_done,
+  soulReady: !!u.soul_ready,
   createdAt: u.created_at,
 });

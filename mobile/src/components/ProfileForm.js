@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { colors, space, fonts } from '../lib/theme';
 import { Button, Chip, ErrorText, Input, s } from './ui';
 import { AuraAvatar } from './ProfileHeader';
+import CityField from './CityField';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -133,7 +134,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
         {GENDERS.map((g) => <Chip key={g.v} label={g.l} selected={gender === g.v} onPress={() => setGender(gender === g.v ? null : g.v)} />)}
       </View>
 
-      <Input label="City" value={city} onChangeText={setCity} placeholder="Hyderabad" maxLength={60} />
+      <CityField value={city} onChange={setCity} autoLocate={false} />
       <Input label="Bio" value={bio} onChangeText={setBio} placeholder="A little about you" multiline maxLength={300} hint={`${bio.length}/300`} />
 
       <Text style={s.label}>Interests</Text>

@@ -4,7 +4,8 @@ import { one, many, query, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, badRequest, notFound, forbidden } from '../lib/errors.js';
 import { ageFrom } from '../lib/auth.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireSoul } from '../middleware/auth.js';
+import { soulScore, TRAITS } from '../services/soulQuiz.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import {
   canViewContent, counts, isBlockedEither, meView, notify, publicProfile, relationship, userCard,
@@ -118,7 +119,7 @@ r.get('/me/follow-requests', ah(async (req, res) => {
   res.json({ requests: rows.map((u) => ({ user: userCard(u), requestedAt: u.requested_at })) });
 }));
 
-r.post('/me/follow-requests/:userId/accept', ah(async (req, res) => {
+r.post('/me/follow-requests/:userId/accept', requireSoul, ah(async (req, res) => {
   const row = await one(
     `UPDATE follows SET status=N'accepted' OUTPUT INSERTED.follower_id WHERE follower_id=$1 AND followee_id=$2 AND status=N'pending'`,
     [String(req.params.userId).toLowerCase(), req.user.id],
@@ -151,7 +152,16 @@ r.get('/u/:username', ah(async (req, res) => {
   const u = await loadTarget(req, 'username');
   const rel = await relationship(req.user.id, u.id);
   const canView = canViewContent(u, rel);
-  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView });
+  // Soul Score between you and them (both need an active Soul DNA)
+  let score = null;
+  if (req.user.soul_ready && u.soul_ready && u.id !== req.user.id) {
+    const sp = await many(`SELECT user_id, ${TRAITS.join(', ')} FROM soul_profiles WHERE user_id IN ($1, $2)`, [req.user.id, u.id]);
+    const mine = sp.find((x) => x.user_id === req.user.id);
+    const theirs = sp.find((x) => x.user_id === u.id);
+    const list = (v) => { try { return Array.isArray(v) ? v : JSON.parse(v || '[]'); } catch { return []; } };
+    if (mine && theirs) score = soulScore(mine, theirs, list(req.user.interests), list(u.interests));
+  }
+  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score });
 }));
 
 async function listFollows(req, res, direction) {
@@ -171,7 +181,7 @@ async function listFollows(req, res, direction) {
 r.get('/:id/followers', ah((req, res) => listFollows(req, res, 'followers')));
 r.get('/:id/following', ah((req, res) => listFollows(req, res, 'following')));
 
-r.post('/:id/follow', ah(async (req, res) => {
+r.post('/:id/follow', requireSoul, ah(async (req, res) => {
   const u = await loadTarget(req);
   if (u.id === req.user.id) throw badRequest("You can't follow yourself");
   const existing = await one('SELECT status FROM follows WHERE follower_id=$1 AND followee_id=$2', [req.user.id, u.id]);

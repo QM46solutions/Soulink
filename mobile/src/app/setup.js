@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth';
 import { BrandHeader, BrandScreen } from '../components/BrandScreen';
 import { AuraAvatar } from '../components/ProfileHeader';
 import FaceScan from '../components/FaceScan';
+import CityField from '../components/CityField';
 import { Button, Chip, ErrorText, Input, s } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
@@ -180,8 +181,7 @@ export default function Setup() {
             {GENDERS.map((g) => <Chip key={g.v} label={g.l} selected={gender === g.v} onPress={() => setGender(gender === g.v ? null : g.v)} />)}
           </View>
 
-          <Input label="City" value={city} onChangeText={setCity} placeholder="Hyderabad" maxLength={60}
-            left={<Ionicons name="location-outline" size={18} color={colors.muted} style={{ marginRight: 8 }} />} />
+          <CityField value={city} onChange={setCity} />
         </View>
       ) : null}
 

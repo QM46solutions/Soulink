@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { one, many, query, tx } from '../db.js';
 import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile, mediaKind } from '../providers/storage.js';
 import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
@@ -210,7 +210,7 @@ r.get('/unread', ah(async (req, res) => {
 // ---------- start conversations ----------
 
 // POST /conversations/direct { userId } → the 1:1 thread with that person (created if needed)
-r.post('/direct', ah(async (req, res) => {
+r.post('/direct', requireSoul, ah(async (req, res) => {
   const { userId } = z.object({ userId: uuid }).parse(req.body);
   const me = req.user.id;
   if (userId === me) throw badRequest("You can't message yourself");
@@ -238,7 +238,7 @@ r.post('/direct', ah(async (req, res) => {
 }));
 
 // POST /conversations/group { title?, userIds[] }
-r.post('/group', ah(async (req, res) => {
+r.post('/group', requireSoul, ah(async (req, res) => {
   const data = z.object({
     title: z.string().trim().max(100).optional(),
     userIds: z.array(uuid).min(2, 'Pick at least 2 people for a group').max(MAX_GROUP_MEMBERS - 1),

@@ -55,6 +55,12 @@
           "cameraPermission": "Soulink uses the camera for your Face ID scan, so every profile is a real person.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Soulink uses your location once to fill in your city. You can always type it instead."
+        }
       ]
     ]
   }

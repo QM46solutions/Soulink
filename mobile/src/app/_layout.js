@@ -58,6 +58,7 @@ function RootStack() {
       </Stack.Protected>
       <Stack.Protected guard={loggedIn && onboarded}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="soul" options={{ headerShown: false }} />
         <Stack.Screen name="user/[username]" options={{ title: '' }} />
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
