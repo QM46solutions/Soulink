@@ -24,6 +24,7 @@ r.get('/', ah(async (req, res) => {
       id: n.id,
       type: n.type,
       entityId: n.entity_id,
+      meta: n.meta ? (typeof n.meta === 'string' ? JSON.parse(n.meta) : n.meta) : null,
       read: !!n.read_at,
       createdAt: n.created_at,
       actor: n.a_id ? userCard({ id: n.a_id, username: n.a_username, display_name: n.a_display, avatar_url: n.a_avatar, is_private: n.a_private, face_verified: n.a_verified }) : null,

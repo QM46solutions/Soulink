@@ -8,6 +8,8 @@ import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile, mediaKind } from '../providers/storage.js';
 import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
+import { config } from '../config.js';
+import { connectionBetween } from '../services/connections.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -18,7 +20,8 @@ const displayName = (u) => u.display_name || u.username;
 
 // ---------- helpers ----------
 
-const directKey = (a, b) => [a, b].sort().join(':');
+// Upper-case both ids first so the same pair always gives the same key, whoever starts the chat
+export const directKey = (a, b) => [String(a).toUpperCase(), String(b).toUpperCase()].sort().join(':');
 
 /** Does `follower` follow `followee` (accepted)? */
 async function follows(follower, followee) {
@@ -110,7 +113,7 @@ async function memberIds(conversationId) {
 }
 
 /** Inserts a message (and bumps the conversation), then pushes it to every member's phone. */
-async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null }) {
+export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null }) {
   const msg = await tx(async (c) => {
     const m = (await c.query(
       `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms)
@@ -129,7 +132,7 @@ async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null,
   return message;
 }
 
-async function systemMessage(conv, text) {
+export async function systemMessage(conv, text) {
   return postMessage(conv, null, { kind: 'system', body: text });
 }
 
@@ -216,6 +219,9 @@ r.post('/direct', requireSoul, ah(async (req, res) => {
   if (userId === me) throw badRequest("You can't message yourself");
   const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1', [userId]);
   if (!target || (await isBlockedEither(me, userId))) throw notFound('User not found');
+  if (config.connectRequired && !(await connectionBetween(me, userId))) {
+    throw forbidden('Connect first: the chat opens once they accept your request.', 'not_connected');
+  }
 
   const key = directKey(me, userId);
   let conv = await one('SELECT * FROM conversations WHERE direct_key=$1', [key]);
@@ -250,6 +256,9 @@ r.post('/group', requireSoul, ah(async (req, res) => {
   const users = await many(`SELECT * FROM users WHERE onboarding_done = 1 AND id IN (${ph})`, ids);
   if (users.length !== ids.length) throw badRequest('Some of those people could not be found');
   for (const id of ids) if (await isBlockedEither(me, id)) throw badRequest('Some of those people could not be found');
+  if (config.connectRequired) {
+    for (const id of ids) if (!(await connectionBetween(me, id))) throw forbidden('You can only add people you are connected with.', 'not_connected');
+  }
 
   const requestFlags = await Promise.all(ids.map((id) => isRequestFor(id, me)));
   const conv = await tx(async (c) => {

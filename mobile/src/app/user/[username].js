@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -22,11 +22,16 @@ export default function UserProfile() {
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [conn, setConn] = useState(null);
   const load = useCallback(async () => {
-    try { setData(await api(`/users/u/${encodeURIComponent(username)}`)); setError(null); } catch (e) { setError(e); }
-  }, [username]);
+    try {
+      const d = await api(`/users/u/${encodeURIComponent(username)}`);
+      setData(d); setError(null);
+      if (d.user.id !== me.id) api(`/connections/status/${d.user.id}`).then(setConn).catch(() => {});
+    } catch (e) { setError(e); }
+  }, [username, me.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load])); // refresh after coming back from Connect / requests
 
   const target = data?.user;
 
@@ -77,7 +82,17 @@ export default function UserProfile() {
   if (rel.isMe) followBtn = <Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />;
   else if (rel.following === 'accepted') followBtn = <Button title="Following" icon="chevron-down" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
   else if (rel.following === 'pending') followBtn = <Button title="Requested" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
-  else followBtn = <Button title={rel.followsYou ? 'Follow back' : 'Follow'} style={{ flex: 1, height: 48 }} onPress={follow} loading={busy} />;
+  else followBtn = <Button title={rel.followsYou ? 'Follow back' : 'Follow'} variant="secondary" style={{ flex: 1, height: 48 }} onPress={follow} loading={busy} />;
+
+  // Connect button: Connect → Requested → (they answer) → Message. Follow stays separate (for posts).
+  const goConnect = () => { if (!needSoul()) router.push({ pathname: '/connect/[userId]', params: { userId: target.id, username: target.username } }); };
+  let connectBtn;
+  if (!conn) connectBtn = <Button title="Connect" style={{ flex: 1, height: 48 }} onPress={goConnect} />;
+  else if (conn.connected) connectBtn = <Button title="Message" icon="chatbubble-ellipses-outline" style={{ flex: 1, height: 48 }} onPress={openChat} />;
+  else if (conn.request?.direction === 'incoming') connectBtn = <Button title="Respond" style={{ flex: 1, height: 48 }} onPress={() => router.push('/connections/requests')} />;
+  else if (conn.request) connectBtn = <Button title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/connections/requests')} />;
+  else if (conn.cooldownUntil) connectBtn = <Button title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} variant="secondary" disabled style={{ flex: 1, height: 48 }} onPress={() => {}} />;
+  else connectBtn = <Button title="Connect" style={{ flex: 1, height: 48 }} onPress={goConnect} />;
 
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
@@ -96,9 +111,12 @@ export default function UserProfile() {
         canViewLists={data.canViewContent}
         actions={<>
           {followBtn}
-          {!rel.isMe ? <Button title="Message" variant="secondary" style={{ flex: 1, height: 48 }} onPress={openChat} /> : null}
+          {!rel.isMe ? connectBtn : null}
         </>}
       />
+      {conn?.connected ? (
+        <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
+      ) : null}
       {data.soulScore ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginBottom: space.md, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
           <Ionicons name="sparkles" size={14} color={colors.aura} style={{ marginRight: 6 }} />

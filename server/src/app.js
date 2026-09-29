@@ -15,6 +15,7 @@ import soulRoutes from './routes/soul.js';
 import placesRoutes from './routes/places.js';
 import feedRoutes from './routes/feed.js';
 import devRoutes from './routes/dev.js';
+import connectionRoutes from './routes/connections.js';
 
 export function createApp() {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/face', faceRoutes);
   app.use('/soul', soulRoutes);
   app.use('/feed', feedRoutes);
+  app.use('/connections', connectionRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

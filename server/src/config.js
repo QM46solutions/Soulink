@@ -31,6 +31,8 @@ export const config = {
   // Face ID is required before a new account can finish sign-up (switched off only for automated tests)
   // Soul DNA must be created before connecting with anyone (switched off only for automated tests)
   soulRequired: bool(process.env.SOUL_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
+  // Chat opens only between connected people (Connect request accepted); off only for automated tests
+  connectRequired: bool(process.env.CONNECT_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   faceRequired: bool(process.env.FACE_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
   minAge: 18,

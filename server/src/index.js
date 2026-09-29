@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { migrate } from './migrate.js';
 import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
+import { startHoldTimer } from './services/connections.js';
 
 try {
   await migrate({ log: false });
@@ -17,6 +18,7 @@ try {
 }
 
 const server = http.createServer(createApp());
+startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
 initRealtime(server);
 
 server.listen(config.port, '0.0.0.0', () => {

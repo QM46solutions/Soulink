@@ -48,9 +48,10 @@ export async function counts(userId) {
   );
 }
 
-export async function notify(userId, actorId, type, entityId = null) {
+export async function notify(userId, actorId, type, entityId = null, meta = null) {
   if (userId === actorId) return;
-  await query(`INSERT INTO notifications (user_id, actor_id, type, entity_id) VALUES ($1,$2,$3,$4)`, [userId, actorId, type, entityId]);
+  await query(`INSERT INTO notifications (user_id, actor_id, type, entity_id, meta) VALUES ($1,$2,$3,$4,$5)`, [userId, actorId, type, entityId, meta ? JSON.stringify(meta) : null]);
+  try { (await import('../realtime.js')).emitToUsers([userId], 'notification:new', { type }); } catch { /* realtime not running (tests) */ }
 }
 
 /** Compact user card used in lists (search, followers, requests). */
@@ -89,5 +90,6 @@ export const meView = (u) => ({
   },
   onboardingDone: u.onboarding_done,
   soulReady: !!u.soul_ready,
+  openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
   createdAt: u.created_at,
 });
