@@ -38,11 +38,18 @@ function Pill({ icon, text, color, border, bg }) {
  * Profile top section, centred like the welcome screen: aura photo, name, badges, city, bio, interests,
  * then a glass row of Posts / Followers / Following, then the action buttons (full width, rounded).
  */
-export default function ProfileHeader({ user, counts, canViewLists, actions }) {
+export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress }) {
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
   return (
     <View style={{ paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: space.lg, alignItems: 'center' }}>
-      <AuraAvatar user={user} size={112} />
+      <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} accessibilityLabel={onAvatarPress ? 'Change profile photo' : undefined}>
+        <AuraAvatar user={user} size={112} />
+        {onAvatarPress ? (
+          <View style={{ position: 'absolute', right: 2, bottom: 2, backgroundColor: colors.spark, borderRadius: 16, padding: 7, borderWidth: 2, borderColor: colors.void }}>
+            <Ionicons name="camera" size={15} color="#fff" />
+          </View>
+        ) : null}
+      </Pressable>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}>
         <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 22, textAlign: 'center' }}>{user.displayName || user.username}</Text>
         {user.isPremium ? <Ionicons name="diamond" size={15} color={colors.gold} style={{ marginLeft: 6 }} /> : null}

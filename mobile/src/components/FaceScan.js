@@ -4,7 +4,7 @@
 //   1 look straight  →  2 turn your head one way  →  3 turn the other way   (proves a live person)
 // The server turns the scan into a face fingerprint and blocks faces that already have an account.
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -55,7 +55,6 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   const [pose, setPose] = useState(0);
   const [shots, setShots] = useState(0);
   const [error, setError] = useState(null);
-  const [useAsAvatar, setUseAsAvatar] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
   const [coach, setCoach] = useState(null); // { text, good }
   const cam = useRef(null);
@@ -115,7 +114,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           }
         }
         setPhase('checking');
-        const r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar }, timeoutMs: 90000 });
+        const r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar: false }, timeoutMs: 90000 });
         if (!alive.current) return;
         setPhase('done');
         onVerified?.(r.user);
@@ -159,10 +158,6 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
             ))}
           </View>
         )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: space.lg }}>
-          <Switch value={useAsAvatar} onValueChange={setUseAsAvatar} trackColor={{ true: colors.soul, false: colors.border }} thumbColor="#fff" />
-          <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, marginLeft: space.sm }}>Use my scan as profile photo</Text>
-        </View>
         <Button title={failed ? 'Try again' : 'Start face scan'} onPress={start} style={{ marginTop: space.xl }} />
       </View>
     );

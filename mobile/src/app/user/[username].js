@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader from '../../components/ProfileHeader';
+import SoulScoreOrb from '../../components/SoulScoreOrb';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
 import { confirm, notice } from '../../lib/confirm';
@@ -118,10 +119,7 @@ export default function UserProfile() {
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
       {data.soulScore ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginBottom: space.md, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
-          <Ionicons name="sparkles" size={14} color={colors.aura} style={{ marginRight: 6 }} />
-          <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Soul Score {data.soulScore}%</Text>
-        </View>
+        <SoulScoreOrb score={data.soulScore} name={(target.displayName || target.username).split(' ')[0]} />
       ) : !rel.isMe && !me.soulReady ? (
         <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}

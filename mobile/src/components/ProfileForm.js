@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { colors, space, fonts } from '../lib/theme';
 import { Button, Chip, ErrorText, Input, s } from './ui';
 import { AuraAvatar } from './ProfileHeader';
 import CityField from './CityField';
+import { usePhotoPicker } from './PhotoPicker';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -23,6 +23,7 @@ const maxDob = () => { const d = new Date(); d.setFullYear(d.getFullYear() - 18)
  */
 export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requireAll }) {
   const [avatarUri, setAvatarUri] = useState(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [username, setUsername] = useState(initial.username || '');
   const [displayName, setDisplayName] = useState(initial.displayName || '');
   const [birthDate, setBirthDate] = useState(initial.birthDate || null);
@@ -47,12 +48,12 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
     return () => clearTimeout(debounce.current);
   }, [username, initial.username]);
 
-  const pickPhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { setError('Allow photo access to choose a profile picture'); return; }
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!r.canceled && r.assets?.[0]) setAvatarUri(r.assets[0].uri);
-  };
+  const photo = usePhotoPicker({
+    onPicked: (uri) => { setAvatarUri(uri); setRemoveAvatar(false); },
+    onRemove: () => { setAvatarUri(null); setRemoveAvatar(true); },
+    onError: setError,
+    hasPhoto: !!avatarUri || (!!initial.avatarUrl && !removeAvatar),
+  });
 
   const toggleInterest = (i) =>
     setInterests((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : cur.length >= 15 ? cur : [...cur, i]));
@@ -74,18 +75,21 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
           isPrivate,
         },
         avatarUri,
+        removeAvatar,
       });
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
-      <Pressable onPress={pickPhoto} style={{ alignSelf: 'center', marginBottom: space.xl }}>
-        <AuraAvatar size={104} user={{ avatarUrl: avatarUri || initial.avatarUrl, displayName: displayName || username || '?' }} />
+      <Pressable onPress={photo.open} style={{ alignSelf: 'center', marginBottom: space.sm }} accessibilityLabel="Change profile photo">
+        <AuraAvatar size={104} user={{ avatarUrl: avatarUri || (removeAvatar ? null : initial.avatarUrl), displayName: displayName || username || '?' }} />
         <View style={{ position: 'absolute', right: 0, bottom: 0, backgroundColor: colors.spark, borderRadius: 14, padding: 6, borderWidth: 2, borderColor: colors.void }}>
           <Ionicons name="camera" size={16} color="#fff" />
         </View>
       </Pressable>
+      <Text onPress={photo.open} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', marginBottom: space.xl }}>Change profile photo</Text>
+      {photo.sheet}
 
       <Input
         label="Username"

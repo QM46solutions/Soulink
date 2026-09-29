@@ -9,9 +9,10 @@ export default function EditProfile() {
     <ProfileForm
       initial={user}
       submitLabel="Save"
-      onSubmit={async ({ fields, avatarUri }) => {
+      onSubmit={async ({ fields, avatarUri, removeAvatar }) => {
         let me = (await api('/users/me', { method: 'PATCH', body: fields })).user;
         if (avatarUri) me = (await uploadImage('/users/me/avatar', avatarUri)).user;
+        else if (removeAvatar) me = (await api('/users/me/avatar', { method: 'DELETE' })).user;
         setUser(me);
         router.back();
       }}

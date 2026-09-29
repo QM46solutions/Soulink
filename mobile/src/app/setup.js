@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Switch, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api, uploadImage } from '../lib/api';
@@ -14,6 +13,7 @@ import FaceScan from '../components/FaceScan';
 import CityField from '../components/CityField';
 import { Button, Chip, ErrorText, Input, s } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
+import { usePhotoPicker } from '../components/PhotoPicker';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -82,12 +82,7 @@ export default function Setup() {
     return () => clearTimeout(debounce.current);
   }, [username]);
 
-  const pickPhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { setError('Allow photo access to choose a profile picture'); return; }
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!r.canceled && r.assets?.[0]) setAvatarUri(r.assets[0].uri);
-  };
+  const photo = usePhotoPicker({ onPicked: setAvatarUri, onRemove: () => setAvatarUri(null), onError: setError, hasPhoto: !!avatarUri });
 
   const age = birthDate ? ageOf(birthDate) : null;
   const dobError = dobText.replace(/\D/g, '').length === 8 && !birthDate ? 'Enter a real date (DD / MM / YYYY)' : age !== null && age < 18 ? 'You must be 18 or older to join Soulink' : null;
@@ -127,12 +122,14 @@ export default function Setup() {
 
       {step === 1 ? (
         <View>
-          <Pressable onPress={pickPhoto} style={{ alignSelf: 'center', marginBottom: space.xl }} accessibilityLabel="Add a profile photo">
+          <Pressable onPress={photo.open} style={{ alignSelf: 'center', alignItems: 'center', marginBottom: space.xl }} accessibilityLabel="Add a profile photo">
             <AuraAvatar size={104} user={{ avatarUrl: avatarUri || user?.avatarUrl, displayName: displayName || '?' }} />
             <View style={{ position: 'absolute', right: 0, bottom: 0, backgroundColor: colors.spark, borderRadius: 16, padding: 7, borderWidth: 2, borderColor: colors.void }}>
               <Ionicons name="camera" size={16} color="#fff" />
             </View>
           </Pressable>
+          <Text onPress={photo.open} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', marginTop: -space.md, marginBottom: space.lg }}>{avatarUri ? 'Change profile photo' : 'Add your profile photo'}</Text>
+          {photo.sheet}
           <Input label="Your name" value={displayName} onChangeText={setDisplayName} maxLength={50} placeholder="e.g. Sai Raghava" autoFocus />
           <Input
             label="Username"
