@@ -119,7 +119,7 @@ export default function UserProfile() {
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
       {data.soulScore ? (
-        <SoulScoreOrb score={data.soulScore} name={(target.displayName || target.username).split(' ')[0]} />
+        <SoulScoreOrb score={data.soulScore} name={(target.displayName || target.username).split(' ')[0]} intent={conn?.connected?.intent || conn?.request?.acceptedIntent || conn?.request?.intent} />
       ) : !rel.isMe && !me.soulReady ? (
         <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}

@@ -70,7 +70,7 @@ function Incoming({ r, onDone }) {
     <GlassCard style={{ marginBottom: space.lg }}>
       <Person r={r} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: space.md, gap: 6 }}>
-        <ScorePill score={r.soulScore} />
+        <ScorePill score={r.soulScore} intent={r.acceptedIntent || r.intent} />
         <View style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}>
           <Text style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 12 }}>{r.knows ? 'Says you know each other' : 'Someone new'}</Text>
         </View>

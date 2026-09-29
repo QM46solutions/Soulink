@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, space } from '../lib/theme';
-import { vibeOf } from './SoulScoreOrb';
+import { themeFor } from './SoulScoreOrb';
 
 export function ChoiceCard({ icon, title, text, selected, onPress, style }) {
   return (
@@ -35,7 +35,7 @@ export function IntentChip({ intent, selected, disabled, onPress }) {
 }
 
 /** Small Soul Score chip (requests, connect screen): number counts up, sparkle turns, vibe word shown. */
-export function ScorePill({ score, style }) {
+export function ScorePill({ score, style, intent }) {
   const [n, setN] = useState(0);
   const v = useRef(new Animated.Value(0)).current;
   const spin = useRef(new Animated.Value(0)).current;
@@ -49,11 +49,12 @@ export function ScorePill({ score, style }) {
     return () => { a.stop(); s.stop(); v.removeListener(id); };
   }, [score, v, spin]);
   if (!score) return null;
-  const vibe = vibeOf(score);
+  const th = themeFor(intent);
+  const vibe = th.vibe(score);
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }, style]}>
+    <View style={[{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: th.edge, backgroundColor: 'rgba(26,24,40,0.72)' }, style]}>
       <Animated.View style={{ marginRight: 6, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
-        <Ionicons name="sparkles" size={14} color={vibe.color} />
+        <Ionicons name={th.icon} size={14} color={vibe.color} />
       </Animated.View>
       <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Soul Score {n}%</Text>
       <Text style={{ fontFamily: fonts.semibold, color: vibe.color, fontSize: 13 }}>{`  ·  ${vibe.label}`}</Text>

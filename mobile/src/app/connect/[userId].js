@@ -69,7 +69,7 @@ export default function Connect() {
       <View style={{ alignItems: 'center', marginTop: space.md }}>
         {target ? <AuraAvatar user={target} size={84} /> : null}
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.md, textAlign: 'center' }}>Connect with {first}</Text>
-        <ScorePill score={status?.soulScore} style={{ marginTop: space.sm }} />
+        <ScorePill score={status?.soulScore} intent={intent} style={{ marginTop: space.sm }} />
       </View>
 
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0, textAlign: 'center' }]}>Who is {first} to you?</Text>
