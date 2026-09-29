@@ -134,7 +134,7 @@ Config switches (server/.env): `SMS_PROVIDER=console|msg91|firebase`, `STORAGE=l
 | Topic | Decision |
 |---|---|
 | Relationship scope | No limits: friendship, dating, situationship, study/work buddy, networking, any trending relation |
-| Connection intent | When someone searches, finds a suggestion, or opens a profile, Soulink asks: "Someone you know, or someone new?" and then "What are you hoping for with them?" Default: the intent is private and revealed to both only when both pick the same one (mutual match) |
+| Connection intent | When someone searches, finds a suggestion, or opens a profile, Soulink asks: "Someone you know, or someone new?" then "What are you hoping for with them?" (Friendship, Dating, Situationship, Study/Work buddy, Networking, Just vibing, Not sure yet). The intent is TRANSPARENT: it travels with the request and the receiver sees it clearly ("Rahul wants to connect for Friendship"). Receiver can Accept, Decline, or Accept as something else (e.g. "Friendship instead") - the sender sees what was agreed. Either person can change the intent later; the other sees the change. Safety: everyone sets "Open to" (which intents they want to receive); requests outside it are not allowed. Declines are silent (sender only sees it stay pending, then expire) |
 | Launch audience | College students + young professionals, Hyderabad first |
 | Money | Premium: full Soul DNA, why-we-matched explanations, editing your Soul data. Main revenue: brand partnerships |
 | Environment | Everything local until the whole app works; cloud and paid services come after |

@@ -7,7 +7,7 @@ Swipe gestures are OUT.
 | # | Build | What's in it | Status |
 |---|---|---|---|
 | 1 | Safety net + polish | Version history + automatic local backups - alignment pass on every screen - "Verified Real Soul" badge + glow ring - sign-up funnel analytics (target under 90 s) - haptics | Next |
-| 2 | First 60 seconds + Intent | 5-question vibe quiz, instant Soul type reveal - fun prompts instead of plain bio - Connection intent ("someone you know or someone new?" then "what are you hoping for?"), private until both match | Planned |
+| 2 | First 60 seconds + Intent | 5-question vibe quiz, instant Soul type reveal - fun prompts instead of plain bio - Connection intent shown openly with every request (accept / decline / accept as something else, "Open to" settings) | Planned |
 | 3 | Posts and feed | Photo posts - reactions - comments - feed - low-data image compression - micro-animations | Planned |
 | 4 | Stories + phone build | 24-hour stories - Android development build on Sai's phone | Planned |
 | 5 | Chat upgrade + Soulmoji | Instagram-like chat: reactions on messages, reply to a message, share posts, notes - Soulmoji v1 (your face, typed feeling, sticker) | Planned |
