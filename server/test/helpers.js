@@ -2,6 +2,7 @@
 process.env.NODE_ENV = 'test';
 process.env.DB_NAME = process.env.TEST_DB_NAME || 'soulink_test';
 process.env.OTP_DEV_ECHO = 'true';
+process.env.ANTHROPIC_API_KEY = ''; // tests always use the free basic referee (never call the paid AI)
 
 const { query, closePool } = await import('../src/db.js');
 const { migrate, dropAll } = await import('../src/migrate.js');

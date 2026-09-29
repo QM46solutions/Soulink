@@ -69,7 +69,35 @@ export function serializeMessage(m) {
     durationMs: m.duration_ms,
     createdAt: m.created_at,
     deleted,
+    replyToId: m.reply_to_id ?? null,
+    // Soulmoji: a sticker of the sender's own face with a mood + caption (drawn by the app)
+    soulmoji: !deleted && m.kind === 'soulmoji' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
   };
+}
+
+const SOULMOJI_MOODS = ['happy', 'laugh', 'love', 'sad', 'cry', 'angry', 'shocked', 'tired', 'cool', 'party', 'thinking', 'shy'];
+
+/** Adds reactions and the replied-to message preview (Instagram-style) to a list of messages. */
+export async function enrich(messages, meId) {
+  if (!messages.length) return messages;
+  const ids = messages.map((m) => m.id);
+  const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+  const reacts = await many(`SELECT message_id, user_id, emoji FROM message_reactions WHERE message_id IN (${ph})`, ids);
+  const replyIds = [...new Set(messages.map((m) => m.replyToId).filter(Boolean))];
+  const replies = replyIds.length
+    ? await many(`SELECT id, sender_id, kind, body, deleted_at FROM messages WHERE id IN (${replyIds.map((_, i) => `$${i + 1}`).join(',')})`, replyIds)
+    : [];
+  return messages.map((m) => {
+    const mine = reacts.filter((x) => x.message_id === m.id);
+    const counts = {};
+    for (const x of mine) counts[x.emoji] = (counts[x.emoji] || 0) + 1;
+    const rp = m.replyToId ? replies.find((x) => x.id === m.replyToId) : null;
+    return {
+      ...m,
+      reactions: Object.entries(counts).map(([emoji, count]) => ({ emoji, count, mine: mine.some((x) => x.emoji === emoji && x.user_id === meId) })),
+      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.body } : null,
+    };
+  });
 }
 
 function preview(m, meId) {
@@ -78,6 +106,7 @@ function preview(m, meId) {
   if (m.deleted) text = 'Message unsent';
   else if (m.kind === 'image') text = '📷 Photo';
   else if (m.kind === 'voice') text = '🎤 Voice message';
+  else if (m.kind === 'soulmoji') text = '✨ Soulmoji';
   else text = m.body;
   return { ...m, text: m.kind !== 'system' && m.senderId === meId ? `You: ${text}` : text };
 }
@@ -113,12 +142,12 @@ async function memberIds(conversationId) {
 }
 
 /** Inserts a message (and bumps the conversation), then pushes it to every member's phone. */
-export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null }) {
+export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null, replyToId = null }) {
   const msg = await tx(async (c) => {
     const m = (await c.query(
-      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms)
-       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6)`,
-      [conv.id, senderId, kind, body, mediaUrl, durationMs],
+      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms, reply_to_id)
+       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [conv.id, senderId, kind, body, mediaUrl, durationMs, replyToId],
     )).rows[0];
     await c.query('UPDATE conversations SET last_message_at = $2 WHERE id=$1', [conv.id, m.created_at]);
     if (senderId) {
@@ -127,8 +156,8 @@ export async function postMessage(conv, senderId, { kind, body = null, mediaUrl 
     }
     return m;
   });
-  const message = serializeMessage(msg);
-  emitToUsers(await memberIds(conv.id), 'message:new', { conversationId: conv.id, message });
+  const [message] = await enrich([serializeMessage(msg)], senderId);
+  emitToUsers(await memberIds(conv.id), 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
   return message;
 }
 
@@ -291,15 +320,43 @@ r.get('/:id/messages', ah(async (req, res) => {
       ORDER BY created_at DESC`,
     [conv.id, before],
   );
-  res.json({ messages: rows.map(serializeMessage), hasMore: rows.length === limit });
+  res.json({ messages: await enrich(rows.map(serializeMessage), req.user.id), hasMore: rows.length === limit });
 }));
 
-// POST /conversations/:id/messages { body }
+// POST /conversations/:id/messages { body, replyToId? } or { soulmoji: { mood, caption }, replyToId? }
 r.post('/:id/messages', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
-  const { body } = z.object({ body: z.string().trim().min(1, 'Write a message').max(2000) }).parse(req.body);
+  const data = z.object({
+    body: z.string().trim().min(1, 'Write a message').max(2000).optional(),
+    soulmoji: z.object({ mood: z.enum(SOULMOJI_MOODS), caption: z.string().trim().max(40).optional() }).optional(),
+    replyToId: uuid.optional(),
+  }).refine((d) => !!d.body !== !!d.soulmoji, 'Send a message or a Soulmoji').parse(req.body);
   await assertCanSend(conv, req.user.id);
-  res.status(201).json({ message: await postMessage(conv, req.user.id, { kind: 'text', body }) });
+  if (data.replyToId && !(await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [data.replyToId, conv.id]))) throw badRequest('That message is not in this chat');
+  if (data.soulmoji && !req.user.avatar_url) throw badRequest('Add a profile photo to make Soulmojis from your face', 'no_face_photo');
+  const payload = data.soulmoji
+    ? { kind: 'soulmoji', body: JSON.stringify({ mood: data.soulmoji.mood, caption: data.soulmoji.caption || null, faceUrl: req.user.avatar_url }) }
+    : { kind: 'text', body: data.body };
+  res.status(201).json({ message: await postMessage(conv, req.user.id, { ...payload, replyToId: data.replyToId || null }) });
+}));
+
+// POST /conversations/:id/messages/:messageId/react { emoji }  (one reaction per person; same emoji again removes it)
+r.post('/:id/messages/:messageId/react', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const { emoji } = z.object({ emoji: z.string().min(1).max(16) }).parse(req.body);
+  const msg = await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2 AND deleted_at IS NULL', [messageId, conv.id]);
+  if (!msg) throw notFound('Message not found');
+  const existing = await one('SELECT emoji FROM message_reactions WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id]);
+  if (existing?.emoji === emoji) await query('DELETE FROM message_reactions WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id]);
+  else if (existing) await query('UPDATE message_reactions SET emoji=$3, created_at=SYSDATETIMEOFFSET() WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id, emoji]);
+  else await query('INSERT INTO message_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)', [messageId, req.user.id, emoji]);
+  const rows = await many('SELECT user_id, emoji FROM message_reactions WHERE message_id=$1', [messageId]);
+  const counts = {};
+  for (const x of rows) counts[x.emoji] = (counts[x.emoji] || 0) + 1;
+  const reactions = Object.entries(counts).map(([e, count]) => ({ emoji: e, count, userIds: rows.filter((x) => x.emoji === e).map((x) => x.user_id) }));
+  emitToUsers(await memberIds(conv.id), 'message:reactions', { conversationId: conv.id, messageId, reactions });
+  res.json({ messageId, reactions: reactions.map((x) => ({ emoji: x.emoji, count: x.count, mine: x.userIds.includes(req.user.id) })) });
 }));
 
 // POST /conversations/:id/media  (multipart: file = photo or voice note, durationMs for voice)

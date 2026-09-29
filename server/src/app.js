@@ -16,6 +16,7 @@ import placesRoutes from './routes/places.js';
 import feedRoutes from './routes/feed.js';
 import devRoutes from './routes/dev.js';
 import connectionRoutes from './routes/connections.js';
+import argueRoutes from './routes/argue.js';
 
 export function createApp() {
   const app = express();
@@ -45,6 +46,7 @@ export function createApp() {
   app.use('/soul', soulRoutes);
   app.use('/feed', feedRoutes);
   app.use('/connections', connectionRoutes);
+  app.use('/argue', argueRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);
