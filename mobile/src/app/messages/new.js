@@ -16,14 +16,14 @@ export default function NewMessage() {
   const [error, setError] = useState(null);
   const t = useRef(null);
 
+  // You can only chat with people you're connected with, so this lists your connections (filtered as you type)
+  const [connections, setConnections] = useState(null);
+  useEffect(() => { api('/connections').then((r) => setConnections(r.connections)).catch((e) => setError(e.message)); }, []);
   useEffect(() => {
-    clearTimeout(t.current);
-    if (!q.trim()) { setResults([]); return undefined; }
-    t.current = setTimeout(async () => {
-      try { setResults((await api(`/search/users?q=${encodeURIComponent(q.trim())}`)).users); } catch (e) { setError(e.message); }
-    }, 250);
-    return () => clearTimeout(t.current);
-  }, [q]);
+    if (!connections) return;
+    const k = q.trim().toLowerCase();
+    setResults(k ? connections.filter((c) => c.username.includes(k) || (c.displayName || '').toLowerCase().includes(k)) : connections);
+  }, [q, connections]);
 
   const toggle = (u) => setSelected((cur) => (cur.some((x) => x.id === u.id) ? cur.filter((x) => x.id !== u.id) : [...cur, u]));
   const isGroup = selected.length >= 2;
@@ -80,7 +80,7 @@ export default function NewMessage() {
             />
           );
         }}
-        ListEmptyComponent={!q ? <Empty icon="people-outline" title="Who do you want to message?" text="Search by name or username. Pick two or more people to start a group." /> : null}
+        ListEmptyComponent={connections && !connections.length ? <Empty icon="people-outline" title="No connections yet" text="You can message people once they accept your Connect request." /> : q ? <Empty icon="search-outline" title="No match" text="Only your connections are listed here." /> : null}
       />
       {selected.length ? (
         <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
