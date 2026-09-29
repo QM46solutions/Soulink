@@ -34,11 +34,12 @@ function ArgueButton({ onPress, accessibilityState }) {
   const on = accessibilityState?.selected;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Argue Referee"
-      style={({ hovered }) => ({ flex: 1, alignItems: 'center', justifyContent: 'flex-start', transform: [{ scale: hovered ? 1.06 : 1 }] })}>
+      style={({ hovered }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: hovered ? 1.06 : 1 }] })}>
+      {/* Sits fully inside the tab bar (no part sticks up over the screen above) */}
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ width: 58, height: 58, borderRadius: 29, marginTop: -22, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: on ? colors.text : colors.void,
-          shadowColor: colors.soul, shadowOpacity: 0.6, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 8 }}>
-        <MaterialCommunityIcons name="scale-balance" size={28} color="#fff" />
+        style={{ width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: on ? colors.text : 'transparent',
+          shadowColor: colors.soul, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 6 }}>
+        <MaterialCommunityIcons name="scale-balance" size={24} color="#fff" />
       </LinearGradient>
     </Pressable>
   );
@@ -54,7 +55,7 @@ export default function TabsLayout() {
         headerTitleAlign: 'center',
         headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
         sceneStyle: { backgroundColor: 'transparent' },
-        tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 64, paddingTop: 8 },
+        tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 66, paddingTop: 8, paddingBottom: 8 },
         tabBarActiveTintColor: colors.aura,
         tabBarInactiveTintColor: colors.dim,
         tabBarShowLabel: false,
