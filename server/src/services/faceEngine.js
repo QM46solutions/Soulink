@@ -23,6 +23,9 @@ export function initFaceEngine() {
       await faceapi.nets.ssdMobilenetv1.loadFromDisk(dir);
       await faceapi.nets.faceLandmark68Net.loadFromDisk(dir);
       await faceapi.nets.faceRecognitionNet.loadFromDisk(dir);
+      // light models for the live coaching loop (about 6x faster)
+      await faceapi.nets.tinyFaceDetector.loadFromDisk(dir);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromDisk(dir);
     })().catch((e) => { ready = null; throw e; });
   }
   return ready;
@@ -59,6 +62,30 @@ function quality({ width, height, rgba }, box) {
  * Every face in the photo: { score, yaw, box, descriptor[128], brightness, sharpness }
  * yaw ≈ 0 looking straight, ≈ ±0.5 head turned. Also returns the whole photo's size and brightness.
  */
+/** Fast version for live coaching: finds faces and head turn only (no fingerprint). ~0.1 s per frame. */
+export async function quickFaces(buf) {
+  await initFaceEngine();
+  const img = decodeImage(buf);
+  const rgb = new Uint8Array(img.width * img.height * 3);
+  for (let i = 0, j = 0; i < img.rgba.length; i += 4, j += 3) { rgb[j] = img.rgba[i]; rgb[j + 1] = img.rgba[i + 1]; rgb[j + 2] = img.rgba[i + 2]; }
+  const t = faceapi.tf.tensor3d(rgb, [img.height, img.width, 3]);
+  try {
+    const found = await faceapi
+      .detectAllFaces(t, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 }))
+      .withFaceLandmarks(true);
+    const faces = found.map((f) => {
+      const p = f.landmarks.positions;
+      const avgX = (pts) => pts.reduce((s, q) => s + q.x, 0) / pts.length;
+      const left = avgX(p.slice(36, 42));
+      const right = avgX(p.slice(42, 48));
+      const { x, y, width, height } = f.detection.box;
+      return { score: f.detection.score, yaw: (p[30].x - (left + right) / 2) / Math.max(1, Math.abs(right - left)), box: { x, y, width, height }, ...quality(img, { x, y, width, height }) };
+    });
+    faces.image = { width: img.width, height: img.height, ...quality(img) };
+    return faces;
+  } finally { t.dispose(); }
+}
+
 export async function analyzeFaces(buf) {
   await initFaceEngine();
   const img = decodeImage(buf);

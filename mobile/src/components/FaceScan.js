@@ -19,9 +19,9 @@ const POSES = [
   { say: 'Slowly turn your head left', icon: 'arrow-left-bold-circle-outline' },
   { say: 'Now turn your head the other way', icon: 'arrow-right-bold-circle-outline' },
 ];
-const STRAIGHT = 0.15;   // |yaw| at most this = looking straight
-const TURNED = 0.25;     // |yaw| at least this = head turned
-const GIVE_UP_MS = 60000;
+const STRAIGHT = 0.18;   // |yaw| at most this = looking straight
+const TURNED = 0.22;     // |yaw| at least this = head turned
+const GIVE_UP_MS = 90000;
 const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
 function Ring({ spin, children, color }) {
@@ -72,7 +72,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
 
   const snap = async () => {
     const pic = await cam.current.takePictureAsync({ quality: 0.6, shutterSound: false });
-    const small = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.8, format: SaveFormat.JPEG, base64: true });
+    const small = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
     return small.base64;
   };
 
@@ -111,7 +111,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           } else if (i === 2 && turned) {
             setCoach({ text: 'Now turn the other way', good: true });
           } else {
-            setCoach({ text: Math.abs(yaw) > 0.1 ? 'A little more…' : POSES[i].say, good: true });
+            setCoach({ text: Math.abs(yaw) > 0.08 ? 'A little more…' : POSES[i].say, good: true });
           }
         }
         setPhase('checking');

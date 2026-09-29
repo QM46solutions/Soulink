@@ -24,7 +24,7 @@ L.push(`ACCOUNTS (${rows.length})`);
 for (const r of rows) {
   L.push(`- @${r.username || '(no username yet)'}  ${r.display_name || ''}  ${r.phone || r.email || ''}  face_verified=${r.face_verified ? 'YES' : 'no'}  profile_done=${r.onboarding_done ? 'yes' : 'no'}`);
 }
-const withFace = rows.filter((r) => r.embedding).map((r) => ({ ...r, v: JSON.parse(r.embedding) }));
+const withFace = rows.filter((r) => r.embedding).map((r) => ({ ...r, v: typeof r.embedding === "string" ? JSON.parse(r.embedding) : r.embedding }));
 for (const r of withFace) {
   L.push('', `FACE FINGERPRINT  @${r.username || r.phone || r.email}  (engine: ${r.provider}, saved ${new Date(r.face_at).toString()})`);
   const n = Math.sqrt(r.v.reduce((s, x) => s + x * x, 0));

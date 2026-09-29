@@ -11,23 +11,30 @@ import { config } from '../config.js';
 import { ah, HttpError } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { saveFile } from '../providers/storage.js';
-import { analyzeFaces, faceDistance } from '../services/faceEngine.js';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { analyzeFaces, faceDistance, quickFaces } from '../services/faceEngine.js';
 import { meView } from '../services/social.js';
 
 const r = Router();
 r.use(requireAuth);
 
+// Tuned for real phone cameras and laptop webcams (2026-09-29, after the first real-camera test)
 export const FACE = {
   sameAccountMax: 0.45, // closer than this to someone else's face = same person → blocked
   samePersonMax: 0.6,   // the 3 photos must be at least this close to each other
-  straightMaxYaw: 0.15,
-  turnMinYaw: 0.25,
-  minScore: 0.8,        // detector confidence: lower = face partly hidden or unclear
-  minBrightness: 55, maxBrightness: 205,
-  minSharpness: 60,
-  minWidth: 0.22, maxWidth: 0.8, // face width as a share of the photo width
-  maxOffCentre: 0.22,
+  straightMaxYaw: 0.18, // live check: looking straight
+  turnMinYaw: 0.22,     // live check: head turned
+  minScore: 0.55,       // detector confidence: lower = face partly hidden or unclear
+  minBrightness: 45, maxBrightness: 215,
+  minSharpness: 35,
+  minWidth: 0.15, maxWidth: 0.85, // face width as a share of the photo width
+  maxOffCentre: 0.25,
 };
+
+// Every check is written to server/face-debug.log so problems on real cameras can be diagnosed
+const LOG = fileURLToPath(new URL('../../face-debug.log', import.meta.url));
+const flog = (line) => { if (config.env !== 'test') fs.appendFile(LOG, `${new Date().toISOString()} ${line}\n`, () => {}); };
 
 const frame = z.string().min(500, 'Photo missing').max(4_000_000, 'Photo too large');
 const toBuffer = (b64) => Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
@@ -37,8 +44,8 @@ const fail = (message, code, status = 400) => new HttpError(status, message, cod
  * Looks at one frame and returns what the person should fix, if anything.
  * { ok, code, hint, yaw, face } — hints are short, friendly instructions shown under the camera.
  */
-export async function assessFrame(buf) {
-  const faces = await analyzeFaces(buf);
+export async function assessFrame(buf, { accurate = false } = {}) {
+  const faces = accurate ? await analyzeFaces(buf) : await quickFaces(buf);
   const img = faces.image;
   if (!faces.length) {
     if (img.brightness < FACE.minBrightness - 10) return { ok: false, code: 'too_dark', hint: "It's too dark. Turn towards a light." };
@@ -66,7 +73,10 @@ r.post('/check',
   rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 5000 : 900, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frame: f } = z.object({ frame }).parse(req.body);
+    const t0 = Date.now();
     const a = await assessFrame(toBuffer(f));
+    const fc = a.face;
+    flog(`check user=${req.user.id.slice(0, 8)} ${Date.now() - t0}ms ${a.code} yaw=${a.yaw?.toFixed(2) ?? '-'}${fc ? ` score=${fc.score.toFixed(2)} bright=${fc.brightness.toFixed(0)} sharp=${fc.sharpness.toFixed(0)}` : ''}`);
     res.json({ ok: a.ok, code: a.code, hint: a.hint, yaw: a.yaw ?? null });
   }),
 );
@@ -78,24 +88,29 @@ r.post('/enroll',
     if (req.user.face_verified) return res.json({ user: meView(req.user), already: true });
 
     const bufs = frames.map(toBuffer);
-    const checks = [];
-    for (const b of bufs) checks.push(await assessFrame(b)); // one at a time: keeps memory low
-    const bad = checks.find((c) => !c.ok);
-    if (bad) throw fail(bad.hint, `face_${bad.code}`);
-    const [front, sideA, sideB] = checks.map((c) => c.face);
-
-    if (Math.abs(front.yaw) > FACE.straightMaxYaw + 0.07) throw fail('For the first photo, look straight at the camera.', 'face_not_straight');
-    const turnedEnough = Math.abs(sideA.yaw) >= FACE.turnMinYaw - 0.05 && Math.abs(sideB.yaw) >= FACE.turnMinYaw - 0.05;
-    if (!turnedEnough || Math.sign(sideA.yaw) === Math.sign(sideB.yaw)) {
+    const t0 = Date.now();
+    const found = [];
+    for (const b of bufs) found.push(await analyzeFaces(b)); // one at a time: keeps memory low
+    const names = ['first', 'second', 'third'];
+    found.forEach((f, i) => flog(`enroll user=${req.user.id.slice(0, 8)} photo${i + 1} faces=${f.length} ${f.map((x) => `yaw=${x.yaw.toFixed(2)} score=${x.score.toFixed(2)}`).join(' ')}`));
+    for (let i = 0; i < 3; i += 1) {
+      if (!found[i].length) throw fail(`We couldn't see your face clearly in the ${names[i]} photo. Please try again with more light.`, 'face_not_found');
+      if (found[i].length > 1) throw fail('More than one face was in view. Make sure only you are in the frame.', 'face_multiple');
+    }
+    const [front, sideA, sideB] = found.map((f) => f[0]);
+    // Lenient here: the live check already coached light, distance and pose
+    if (Math.abs(front.yaw) > 0.3) throw fail('For the first photo, look straight at the camera.', 'face_not_straight');
+    if (Math.abs(sideA.yaw) < 0.12 || Math.abs(sideB.yaw) < 0.12 || Math.sign(sideA.yaw) === Math.sign(sideB.yaw)) {
       throw fail('We need to see you turn your head left and right.', 'face_liveness');
     }
     if (faceDistance(front.descriptor, sideA.descriptor) > FACE.samePersonMax || faceDistance(front.descriptor, sideB.descriptor) > FACE.samePersonMax) {
       throw fail('The photos did not look like the same person. Please try again.', 'face_mismatch');
     }
+    flog(`enroll user=${req.user.id.slice(0, 8)} passed checks in ${Date.now() - t0}ms`);
 
     // One face = one account
     const others = await many('SELECT user_id, embedding FROM face_embeddings WHERE user_id <> $1 AND embedding IS NOT NULL', [req.user.id]);
-    if (others.some((o) => faceDistance(front.descriptor, JSON.parse(o.embedding)) < FACE.sameAccountMax)) {
+    if (others.some((o) => faceDistance(front.descriptor, typeof o.embedding === "string" ? JSON.parse(o.embedding) : o.embedding) < FACE.sameAccountMax)) {
       throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);
     }
 
