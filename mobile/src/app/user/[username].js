@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader from '../../components/ProfileHeader';
 import SoulScoreOrb from '../../components/SoulScoreOrb';
+import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
 import { confirm, notice } from '../../lib/confirm';
@@ -24,10 +25,12 @@ export default function UserProfile() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [conn, setConn] = useState(null);
+  const [posts, setPosts] = useState(null);
   const load = useCallback(async () => {
     try {
       const d = await api(`/users/u/${encodeURIComponent(username)}`);
       setData(d); setError(null);
+      if (d.canViewContent) api(`/posts/user/${d.user.id}`).then((p) => setPosts(p.posts)).catch(() => {});
       if (d.user.id !== me.id) api(`/connections/status/${d.user.id}`).then(setConn).catch(() => {});
     } catch (e) { setError(e); }
   }, [username, me.id]);
@@ -125,7 +128,7 @@ export default function UserProfile() {
       ) : null}
       {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Follows you</Text> : null}
       {data.canViewContent
-        ? <Empty icon="camera-outline" title="No posts yet" />
+        ? (posts?.length ? <PostGrid posts={posts} /> : <Empty icon="camera-outline" title="No posts yet" />)
         : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and Soul Connections." />}
       <ActionSheet
         visible={menu}

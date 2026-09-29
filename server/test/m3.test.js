@@ -67,11 +67,25 @@ describe('Home feed', () => {
     const r = await api().get('/feed').set(u.h).expect(200);
     assert.deepEqual(r.body, { connections: 0, posts: [] });
   });
-  test('connections are counted once someone follows you back or you follow them', async () => {
+  test('follows alone are not Soul Connections', async () => {
     const a = await makeUser(); const b = await makeUser();
     await api().post(`/users/${b.user.id}/follow`).set(a.h).expect(200);
-    assert.equal((await api().get('/feed').set(a.h)).body.connections, 1);
-    assert.equal((await api().get('/feed').set(b.h)).body.connections, 1);
+    assert.equal((await api().get('/feed').set(a.h)).body.connections, 0);
+  });
+  test('my posts show in my feed with likes and comments; strangers do not see them', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const p = (await api().post('/posts').set(a.h).field('caption', 'Hello Hyderabad').expect(201)).body.post;
+    assert.equal(p.mine, true);
+    const feed = (await api().get('/feed').set(a.h)).body.posts;
+    assert.equal(feed[0].caption, 'Hello Hyderabad');
+    assert.equal((await api().get('/feed').set(b.h)).body.posts.length, 0);
+    assert.equal((await api().post(`/posts/${p.id}/like`).set(a.h).expect(200)).body.likeCount, 1);
+    await api().post(`/posts/${p.id}/comments`).set(a.h).send({ body: 'first!' }).expect(201);
+    const one = (await api().get(`/posts/${p.id}`).set(a.h)).body.post;
+    assert.equal(one.commentCount, 1);
+    await api().post('/posts').set(a.h).field('caption', '  ').expect(400);
+    await api().delete(`/posts/${p.id}`).set(a.h).expect(200);
+    assert.equal((await api().get('/feed').set(a.h)).body.posts.length, 0);
   });
 });
 

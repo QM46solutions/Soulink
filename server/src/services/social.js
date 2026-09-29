@@ -17,25 +17,28 @@ export async function isBlockedEither(a, b) {
  * followsYou: boolean                           (target follows viewer, accepted)
  */
 export async function relationship(viewerId, targetId) {
-  if (viewerId === targetId) return { isMe: true, following: 'none', followsYou: false, requestedYou: false };
+  if (String(viewerId).toLowerCase() === String(targetId).toLowerCase()) return { isMe: true, following: 'none', followsYou: false, requestedYou: false, connected: false };
   const rows = await many(
     `SELECT follower_id, status FROM follows
       WHERE (follower_id=$1 AND followee_id=$2) OR (follower_id=$2 AND followee_id=$1)`,
     [viewerId, targetId],
   );
-  const out = rows.find((r) => r.follower_id === viewerId);
-  const inc = rows.find((r) => r.follower_id === targetId);
+  const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+  const out = rows.find((r) => same(r.follower_id, viewerId));
+  const inc = rows.find((r) => same(r.follower_id, targetId));
+  const conn = await one('SELECT 1 AS y FROM connections WHERE (user_a=$1 AND user_b=$2) OR (user_a=$2 AND user_b=$1)', [viewerId, targetId]);
   return {
     isMe: false,
     following: out ? out.status : 'none',
     followsYou: inc?.status === 'accepted',
     requestedYou: inc?.status === 'pending',
+    connected: !!conn,
   };
 }
 
 /** Can the viewer see this user's posts, stories and follower lists? (Instagram rules) */
 export function canViewContent(target, rel) {
-  return rel.isMe || !target.is_private || rel.following === 'accepted';
+  return rel.isMe || !target.is_private || rel.following === 'accepted' || !!rel.connected;
 }
 
 export async function counts(userId) {

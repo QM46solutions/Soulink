@@ -1,13 +1,14 @@
 // Home. Step 1 for every new person: create your Soul DNA (connecting is locked until then).
 // After that: posts from your connections, newest first, or a clear "no connections yet" state.
 import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { Image } from 'expo-image';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api, mediaUrl } from '../../lib/api';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { api } from '../../lib/api';
+import PostCard from '../../components/PostCard';
+import { AuraAvatar } from '../../components/ProfileHeader';
 import { useAuth } from '../../lib/auth';
-import { Avatar, Button, VerifiedBadge } from '../../components/ui';
+import { Button } from '../../components/ui';
 import { GlassCard } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
 
@@ -26,17 +27,30 @@ function CenterCard({ icon, title, text, children }) {
   );
 }
 
-function PostCard({ post }) {
-  const img = post.media?.[0];
+// "Share a moment" bar at the top of Home: tap the text to write, or Photo / Camera to start with pictures
+function Composer({ user }) {
+  const first = user.displayName?.split(' ')[0] || user.username;
+  const btn = (icon, label, color, pick) => (
+    <Pressable key={label} onPress={() => router.push(pick ? `/create-post?pick=${pick}` : '/create-post')} accessibilityLabel={label}
+      style={({ hovered }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 40, borderRadius: 999, marginHorizontal: 3, backgroundColor: hovered ? 'rgba(124,92,252,0.18)' : 'transparent' })}>
+      <Ionicons name={icon} size={18} color={color} style={{ marginRight: 6 }} />
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: colors.text }}>{label}</Text>
+    </Pressable>
+  );
   return (
-    <View style={{ marginBottom: space.xl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xl, marginBottom: space.sm }}>
-        <Avatar uri={post.author.avatarUrl} name={post.author.displayName} size={36} />
-        <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: space.sm }}>{post.author.username}</Text>
-        {post.author.verified ? <VerifiedBadge /> : null}
+    <View style={{ marginHorizontal: space.lg, marginBottom: space.lg, padding: space.md, borderRadius: 24, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.glass }}>
+      <Pressable onPress={() => router.push('/create-post')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <AuraAvatar user={user} size={44} />
+        <View style={{ flex: 1, height: 44, marginLeft: space.md, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.inputBg, justifyContent: 'center', paddingHorizontal: space.lg }}>
+          <Text style={{ fontFamily: fonts.body, fontSize: 14.5, color: colors.muted }}>Share a moment, {first}…</Text>
+        </View>
+      </Pressable>
+      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: space.md }} />
+      <View style={{ flexDirection: 'row' }}>
+        {btn('images', 'Photo', colors.mint, 'gallery')}
+        {btn('camera', 'Camera', colors.spark, 'camera')}
+        {btn('create', 'Write', colors.aura, null)}
       </View>
-      {img ? <Image source={{ uri: mediaUrl(img) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" /> : null}
-      {post.caption ? <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.xl, marginTop: space.sm }}>{post.caption}</Text> : null}
     </View>
   );
 }
@@ -63,15 +77,21 @@ export default function Home() {
   if (!feed) return null;
 
   if (!feed.posts.length) {
-    return feed.connections === 0 ? (
+    return (
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: space.md }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
+        <Composer user={user} />
+        {feed.connections === 0 ? (
       <CenterCard icon="account-heart-outline" title="No connections yet" text={`You're ${user.soulType ? `${user.soulType}. ` : ''}Now find your people: friends you know, or new souls who match your vibe.`}>
         <Button title="Make connections" onPress={() => router.push('/discover')} />
         <Button title="Search people you know" variant="secondary" style={{ marginTop: space.md }} onPress={() => router.push('/search')} />
       </CenterCard>
     ) : (
-      <CenterCard icon="image-multiple-outline" title="No posts yet" text="Your connections haven't posted anything yet. New posts will show up here.">
-        <Button title="Find more people" variant="secondary" onPress={() => router.push('/discover')} />
+      <CenterCard icon="image-multiple-outline" title="No posts yet" text="Be the first! Share a photo or a thought with your Soul Connections.">
+        <Button title="Share a photo" icon="images" onPress={() => router.push('/create-post?pick=gallery')} />
+        <Button title="Find more people" variant="secondary" style={{ marginTop: space.md }} onPress={() => router.push('/discover')} />
       </CenterCard>
+        )}
+      </ScrollView>
     );
   }
 
@@ -79,7 +99,8 @@ export default function Home() {
     <FlatList
       data={feed.posts}
       keyExtractor={(p) => p.id}
-      renderItem={({ item }) => <PostCard post={item} />}
+      renderItem={({ item }) => <PostCard post={item} onDeleted={(pid) => setFeed((f) => ({ ...f, posts: f.posts.filter((x) => x.id !== pid) }))} />}
+      ListHeaderComponent={<Composer user={user} />}
       contentContainerStyle={{ paddingTop: space.md, paddingBottom: space.xxl }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}

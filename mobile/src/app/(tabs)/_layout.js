@@ -73,6 +73,11 @@ export default function TabsLayout() {
           tabBarIcon: icon('home'),
           headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Soulink</GradientText>,
           headerRight: () => <MessagesButton />,
+          headerLeft: () => (
+            <Pressable onPress={() => router.push('/create-post')} hitSlop={10} accessibilityLabel="Create a post" style={{ marginLeft: 16 }}>
+              <Ionicons name="add-circle-outline" size={26} color={colors.text} />
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />

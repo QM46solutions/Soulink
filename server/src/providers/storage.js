@@ -15,10 +15,10 @@ ALLOWED.media = { ...ALLOWED.image, ...ALLOWED.audio };
 export const mediaKind = (mimetype) => (ALLOWED.image[mimetype] ? 'image' : ALLOWED.audio[mimetype] ? 'voice' : null);
 
 /** Multer middleware keeping the file in memory; we decide where it goes afterwards. */
-export const uploadMemory = (kind = 'image', maxMb = 10) =>
+export const uploadMemory = (kind = 'image', maxMb = 10, maxFiles = 1) =>
   multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: maxMb * 1024 * 1024, files: 1 },
+    limits: { fileSize: maxMb * 1024 * 1024, files: maxFiles },
     fileFilter: (req, file, cb) =>
       ALLOWED[kind][file.mimetype] ? cb(null, true) : cb(badRequest(`Unsupported file type ${file.mimetype}`)),
   });

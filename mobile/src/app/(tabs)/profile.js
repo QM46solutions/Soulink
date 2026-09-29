@@ -7,12 +7,14 @@ import { usePhotoPicker } from '../../components/PhotoPicker';
 import { notice } from '../../lib/confirm';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader from '../../components/ProfileHeader';
+import { PostGrid } from '../../components/PostCard';
 import { Button, Empty, s } from '../../components/ui';
 import { colors } from '../../lib/theme';
 
 export default function MyProfile() {
   const { user, setUser } = useAuth();
   const [counts, setCounts] = useState(null);
+  const [posts, setPosts] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const savePhoto = async (fn) => { try { setUser((await fn()).user); } catch (e) { notice('Photo not saved', e.message); } };
@@ -27,6 +29,7 @@ export default function MyProfile() {
     try {
       const r = await api('/users/me');
       setUser(r.user); setCounts(r.counts);
+      api(`/posts/user/${r.user.id}`).then((p) => setPosts(p.posts)).catch(() => {});
     } catch { /* offline: keep last data */ }
   }, [setUser]);
 
@@ -54,7 +57,11 @@ export default function MyProfile() {
         onAvatarPress={photo.open}
         actions={<Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />}
       />
-      <Empty icon="camera-outline" title="No posts yet" text="Your photos will show up here." />
+      {posts?.length ? <PostGrid posts={posts} /> : (
+        <Empty icon="camera-outline" title="No posts yet" text="Share your first photo or thought.">
+          <Button title="Create a post" icon="add-circle" onPress={() => router.push('/create-post')} />
+        </Empty>
+      )}
       {photo.sheet}
     </ScrollView>
   );

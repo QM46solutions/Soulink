@@ -118,3 +118,22 @@ export function uploadImage(path, uri, field = 'photo') {
   const name = last && last.includes('.') ? last : `photo.${ext || 'jpg'}`;
   return uploadFile(path, { uri, name, type }, field);
 }
+
+/** New post: caption + 0-10 photos (uris from the picker/camera). Works on phone and web. */
+export async function createPost({ caption, uris = [] }) {
+  const form = new FormData();
+  form.append('caption', caption || '');
+  for (let i = 0; i < uris.length; i += 1) {
+    const uri = uris[i];
+    const dataType = uri.startsWith('data:') ? uri.slice(5, uri.indexOf(';')) : null;
+    const type = dataType || (/\.png$/i.test(uri) ? 'image/png' : /\.webp$/i.test(uri) ? 'image/webp' : 'image/jpeg');
+    const name = `photo${i + 1}.${type.split('/')[1].replace('jpeg', 'jpg')}`;
+    if (Platform.OS === 'web') {
+      const blob = await (await fetch(uri)).blob();
+      form.append('photos', new File([blob], name, { type: blob.type || type }));
+    } else {
+      form.append('photos', { uri, name, type });
+    }
+  }
+  return api('/posts', { method: 'POST', form, timeoutMs: 120000 });
+}
