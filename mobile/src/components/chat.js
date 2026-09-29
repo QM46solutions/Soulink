@@ -287,6 +287,10 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
           multiline
           maxLength={2000}
           style={st.input}
+          // Laptop keyboard: Enter sends, Shift+Enter makes a new line (phones keep their normal keyboard)
+          onKeyPress={Platform.OS === 'web' ? (e) => {
+            if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault(); if (text.trim()) sendText(); }
+          } : undefined}
         />
       </View>
       {hasText ? (
