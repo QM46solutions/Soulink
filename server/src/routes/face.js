@@ -21,7 +21,7 @@ r.use(requireAuth);
 
 // Tuned for real phone cameras and laptop webcams (2026-09-29, after the first real-camera test)
 export const FACE = {
-  sameAccountMax: 0.55, // any of the 3 new photos closer than this to an existing face = same person → blocked
+  sameAccountMax: 0.6,  // any of the 3 new photos closer than this to an existing face = same person → blocked
   samePersonMax: 0.6,   // the 3 photos must be at least this close to each other
   straightMaxYaw: 0.18, // live check: looking straight
   turnMinYaw: 0.22,     // live check: head turned
@@ -35,7 +35,7 @@ export const FACE = {
 // Every check is written to server/face-debug.log so problems on real cameras can be diagnosed
 const LOG = fileURLToPath(new URL('../../face-debug.log', import.meta.url));
 const flog = (line) => { if (config.env !== 'test') fs.appendFile(LOG, `${new Date().toISOString()} ${line}\n`, () => {}); };
-flog('face rules loaded (v3: fast live check, duplicate check on all 3 photos, limit 0.55)');
+flog('face rules loaded (v3: fast live check, duplicate check on all 3 photos, limit 0.6)');
 
 const frame = z.string().min(500, 'Photo missing').max(4_000_000, 'Photo too large');
 const toBuffer = (b64) => Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
