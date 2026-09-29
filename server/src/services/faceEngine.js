@@ -93,10 +93,24 @@ export async function analyzeFaces(buf) {
   for (let i = 0, j = 0; i < img.rgba.length; i += 4, j += 3) { rgb[j] = img.rgba[i]; rgb[j + 1] = img.rgba[i + 1]; rgb[j + 2] = img.rgba[i + 2]; }
   const t = faceapi.tf.tensor3d(rgb, [img.height, img.width, 3]);
   try {
-    const found = await faceapi
-      .detectAllFaces(t, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
-      .withFaceLandmarks()
-      .withFaceDescriptors();
+    // Accurate detector first. Turned heads are sometimes missed by it even though the live check saw
+    // the face, so fall back to a looser setting and then to the fast detector (same fingerprint model).
+    const tries = [
+      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }),
+      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }),
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 }),
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.25 }),
+    ];
+    let found = [];
+    for (const opt of tries) {
+      found = await faceapi.detectAllFaces(t, opt).withFaceLandmarks().withFaceDescriptors();
+      if (found.length) break;
+    }
+    // Ignore tiny background "faces" (posters, reflections) much smaller than the main one
+    if (found.length > 1) {
+      const big = Math.max(...found.map((f) => f.detection.box.width));
+      found = found.filter((f) => f.detection.box.width >= big * 0.5);
+    }
     const faces = found.map((f) => {
       const p = f.landmarks.positions;
       const avgX = (pts) => pts.reduce((s, q) => s + q.x, 0) / pts.length;
