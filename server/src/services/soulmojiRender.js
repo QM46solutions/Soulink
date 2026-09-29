@@ -8,14 +8,14 @@
 import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
 
-export const SIZE = 512;
+export const SIZE = 1024; // Soulmoji selfie size (kept at the photo's own resolution when smaller)
 
 export function decode(buf) {
   const isPng = buf[0] === 0x89 && buf[1] === 0x50;
   const img = isPng ? PNG.sync.read(buf) : jpeg.decode(buf, { useTArray: true, maxMemoryUsageInMB: 512 });
   return { width: img.width, height: img.height, data: img.data };
 }
-export const encodeJpeg = (img, quality = 88) => jpeg.encode({ width: img.width, height: img.height, data: img.data }, quality).data;
+export const encodeJpeg = (img, quality = 95) => jpeg.encode({ width: img.width, height: img.height, data: img.data }, quality).data;
 
 function sample(img, x, y, out, o) {
   const { width: w, height: h, data } = img;
@@ -24,6 +24,27 @@ function sample(img, x, y, out, o) {
   const i00 = (y0 * w + x0) * 4; const i10 = i00 + 4; const i01 = i00 + w * 4; const i11 = i01 + 4;
   for (let c = 0; c < 3; c += 1) {
     out[o + c] = (data[i00 + c] * (1 - fx) + data[i10 + c] * fx) * (1 - fy) + (data[i01 + c] * (1 - fx) + data[i11 + c] * fx) * fy;
+  }
+  out[o + 3] = 255;
+}
+
+// Catmull-Rom bicubic sample: keeps skin texture, hair and eyes sharp when pixels move
+function cubic(p0, p1, p2, p3, t) {
+  return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)));
+}
+function sampleCubic(img, x, y, out, o) {
+  const { width: w, height: h, data } = img;
+  const xi = Math.floor(x); const yi = Math.floor(y); const fx = x - xi; const fy = y - yi;
+  if (fx === 0 && fy === 0 && xi >= 0 && yi >= 0 && xi < w && yi < h) { const i = (yi * w + xi) * 4; out[o] = data[i]; out[o + 1] = data[i + 1]; out[o + 2] = data[i + 2]; out[o + 3] = 255; return; }
+  for (let c = 0; c < 3; c += 1) {
+    const col = [];
+    for (let m = -1; m <= 2; m += 1) {
+      const yy = Math.min(h - 1, Math.max(0, yi + m));
+      const row = [];
+      for (let n = -1; n <= 2; n += 1) { const xx = Math.min(w - 1, Math.max(0, xi + n)); row.push(data[(yy * w + xx) * 4 + c]); }
+      col.push(cubic(row[0], row[1], row[2], row[3], fx));
+    }
+    out[o + c] = Math.min(255, Math.max(0, cubic(col[0], col[1], col[2], col[3], fy)));
   }
   out[o + 3] = 255;
 }
@@ -85,7 +106,8 @@ function warp(img, src, dst) {
         if (l1 < -1e-4 || l2 < -1e-4 || l3 < -1e-4) continue;
         const sx = l1 * src[a][0] + l2 * src[b][0] + l3 * src[c][0] - 0.5;
         const sy = l1 * src[a][1] + l2 * src[b][1] + l3 * src[c][1] - 0.5;
-        sample(img, sx, sy, out, (y * w + x) * 4);
+        if (Math.abs(sx - x) < 0.01 && Math.abs(sy - y) < 0.01) continue; // untouched pixel: keep the original exactly
+        sampleCubic(img, sx, sy, out, (y * w + x) * 4);
       }
     }
   }
@@ -157,10 +179,10 @@ const scale = (moves, k) => moves.map(([i, a, b]) => [i, a * k, b * k]);
 
 const MOODS = {
   happy: { moves: SMILE, grade: [1.04, 1.01, 0.97] },
-  laugh: { moves: [...scale(SMILE, 1.25), ...OPEN(0.15), [37, 0, 0.035], [38, 0, 0.035], [43, 0, 0.035], [44, 0, 0.035]], mouth: 'teeth', grade: [1.05, 1.02, 0.96] },
+  laugh: { moves: [...scale(SMILE, 1.35), ...OPEN(0.05), [37, 0, 0.035], [38, 0, 0.035], [43, 0, 0.035], [44, 0, 0.035]], grade: [1.05, 1.02, 0.96] },
   love: { moves: scale(SMILE, 0.85), blush: 0.4, hearts: true, grade: [1.06, 0.99, 1.0] },
   sad: { moves: FROWN, grade: [0.94, 0.97, 1.06], sat: 0.8 },
-  cry: { moves: [...scale(FROWN, 1.2), ...OPEN(0.05)], tears: true, mouth: 'dark', grade: [0.9, 0.96, 1.1], sat: 0.75 },
+  cry: { moves: scale(FROWN, 1.2), tears: true, grade: [0.9, 0.96, 1.1], sat: 0.75 },
   angry: { moves: [[20, 0.04, 0.1], [21, 0.04, 0.1], [22, -0.04, 0.1], [23, -0.04, 0.1], [19, 0, 0.05], [24, 0, 0.05], [17, 0, -0.02], [26, 0, -0.02],
     [37, 0, 0.03], [38, 0, 0.03], [43, 0, 0.03], [44, 0, 0.03], [40, 0, -0.02], [41, 0, -0.02], [46, 0, -0.02], [47, 0, -0.02],
     [48, 0.03, 0.05], [54, -0.03, 0.05], [60, 0.03, 0.04], [64, -0.03, 0.04]], grade: [1.12, 0.93, 0.9] },
@@ -207,14 +229,15 @@ export function renderMood(img, lm, mood) {
   const W = img.width; const H = img.height;
   const centre = avg(lm);
   const anchors = [[0, 0], [W / 2, 0], [W - 1, 0], [W - 1, H / 2], [W - 1, H - 1], [W / 2, H - 1], [0, H - 1], [0, H / 2]];
-  for (let k = 0; k < 20; k += 1) {
-    const t = (k / 20) * Math.PI * 2;
-    anchors.push(at(centre, Math.cos(t) * 1.55, Math.sin(t) * 1.85 - 0.1));
+  for (let k = 0; k < 24; k += 1) {
+    const t = (k / 24) * Math.PI * 2;
+    anchors.push(at(centre, Math.cos(t) * 1.5, Math.sin(t) * 1.8 - 0.1));
+    anchors.push(at(centre, Math.cos(t) * 2.1, Math.sin(t) * 2.4 - 0.1));
   }
   const src = [...lm.map((p) => [p[0], p[1]]), ...anchors.map(([x, y]) => [Math.min(W - 1, Math.max(0, x)), Math.min(H - 1, Math.max(0, y))])];
   const dst = src.map((p) => [p[0], p[1]]);
   // recipes are written small; 1.8× reads clearly at chat size without tearing the face
-  const K = 1.8;
+  const K = 1.45;
   for (const [i, a, b] of recipe.moves) dst[i] = at(lm[i], a * K, b * K);
 
   // 2) warp
@@ -233,7 +256,7 @@ export function renderMood(img, lm, mood) {
       if (recipe.mouth === 'teeth' && y < teethLine) return [226, 220, 210];
       const k = Math.min(1, Math.abs(y - mid) / Math.max(1, (bottom - top) / 2));
       return [40 + 40 * k, 10 + 14 * k, 16 + 14 * k];
-    }, 0.93);
+    }, 0.8);
   }
   if (recipe.blush) {
     for (const side of [-1, 1]) {
@@ -277,6 +300,6 @@ export function renderMood(img, lm, mood) {
         [x + c[0] * w2 + n[0] * h2, y + c[1] * w2 + n[1] * h2], [x - c[0] * w2 + n[0] * h2, y - c[1] * w2 + n[1] * h2]], () => cols[k % cols.length], 0.95);
     }
   }
-  if (recipe.grade || recipe.sat || recipe.bright) grade(out, recipe.grade || [1, 1, 1], recipe.sat ?? 1, recipe.bright ?? 1);
+  // (no colour grading: the photo keeps its real colours)
   return out;
 }

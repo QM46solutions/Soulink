@@ -14,8 +14,9 @@ export async function prepareFace(buf) {
   const cy = f.box.y + f.box.height * 0.45;
   const x0 = Math.max(0, Math.min(img.width - side, cx - side / 2));
   const y0 = Math.max(0, Math.min(img.height - side, cy - side / 2));
-  const crop = cropSquare(img, x0, y0, side, SIZE);
-  const k = SIZE / side;
+  const out = Math.round(Math.min(SIZE, side)); // never upscale: keeps the photo's real sharpness
+  const crop = cropSquare(img, x0, y0, side, out);
+  const k = out / side;
   const landmarks = f.landmarks.map(([x, y]) => [Math.round((x - x0) * k * 10) / 10, Math.round((y - y0) * k * 10) / 10]);
-  return { crop, jpeg: Buffer.from(encodeJpeg(crop, 90)), landmarks, descriptor: f.descriptor, yaw: f.yaw, score: f.score };
+  return { crop, jpeg: Buffer.from(encodeJpeg(crop, 95)), landmarks, descriptor: f.descriptor, yaw: f.yaw, score: f.score };
 }

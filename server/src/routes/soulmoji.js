@@ -21,6 +21,7 @@ const r = Router();
 r.use(requireAuth);
 
 const SAME_PERSON = 0.6;
+const ENGINE = 2; // bump when the expression engine changes so old renders are made again
 const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || 'null'); } catch { return null; } })());
 const diskPath = (url) => path.join(config.uploadDir, url.replace(/^\/uploads\//, ''));
 
@@ -50,12 +51,12 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   const faceUrl = req.user.soulmoji_face_url;
   const points = list(req.user.soulmoji_points);
   if (!faceUrl || !points) throw badRequest('Take your Soulmoji selfie first', 'no_soulmoji_face');
-  const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, mood]);
+  const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${ENGINE}`]);
   if (cached) return res.json({ imageUrl: cached.url, mood });
   const img = decode(await fs.readFile(diskPath(faceUrl)));
   const out = renderMood(img, points, mood);
-  const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 88)), mimetype: 'image/jpeg' }, 'soulmoji');
-  await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, mood, url]);
+  const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 95)), mimetype: 'image/jpeg' }, 'soulmoji');
+  await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@${ENGINE}`, url]);
   res.json({ imageUrl: url, mood });
 }));
 

@@ -159,7 +159,7 @@ export function SoulmojiPanel({ onSend, onClose }) {
       const r = fromGallery ? await ImagePicker.launchImageLibraryAsync(opts) : await ImagePicker.launchCameraAsync(opts);
       if (r.canceled || !r.assets?.[0]) return;
       setBusy('upload');
-      const small = await manipulateAsync(r.assets[0].uri, [{ resize: { width: 900 } }], { compress: 0.9, format: SaveFormat.JPEG });
+      const small = await manipulateAsync(r.assets[0].uri, [{ resize: { width: 1600 } }], { compress: 0.95, format: SaveFormat.JPEG });
       const out = await uploadImage('/soulmoji/face', small.uri);
       setRenders({}); setFace(out.faceUrl);
     } catch (e) { setError(e.message); } finally { setBusy(null); }
