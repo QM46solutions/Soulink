@@ -53,7 +53,8 @@ function Pill({ icon, text, color, border, bg }) {
  * Profile top section, Instagram layout: photo on the left with Posts / Soul Connections beside it,
  * then name, badges, city, bio and interests (left-aligned), then compact action buttons.
  */
-export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress }) {
+export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress, isMe }) {
+  // Your own page stays clean: area and interests are shown to visitors, and you edit them in Edit profile
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
   return (
     <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.md }}>
@@ -84,13 +85,13 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         </View>
       ) : null}
       {user.bio ? <Text style={{ color: colors.text, fontSize: 14, lineHeight: 19, fontFamily: fonts.body, marginTop: 4 }}>{user.bio}</Text> : null}
-      {user.city || user.college || user.company ? (
+      {!isMe && (user.city || user.college || user.company) ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
           <Ionicons name="location-outline" size={13} color={colors.muted} style={{ marginRight: 3 }} />
           <Text numberOfLines={1} style={{ color: colors.muted, fontSize: 13, fontFamily: fonts.body, flexShrink: 1 }}>{[user.city, user.college, user.company].filter(Boolean).join('  ·  ')}</Text>
         </View>
       ) : null}
-      {user.interests?.length ? (
+      {!isMe && user.interests?.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginLeft: -3 }}>
           {user.interests.map((i) => <Pill key={i} text={i} color={colors.aura} border="rgba(124,92,252,0.4)" bg="rgba(124,92,252,0.08)" />)}
         </View>

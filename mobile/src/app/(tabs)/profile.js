@@ -64,6 +64,7 @@ export default function MyProfile() {
         counts={counts}
         canViewLists
         onAvatarPress={photo.open}
+        isMe
         actions={<>
           <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />
           <ProfileAction title="Share profile" onPress={shareProfile} />

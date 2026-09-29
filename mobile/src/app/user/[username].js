@@ -113,6 +113,7 @@ export default function UserProfile() {
         user={target}
         counts={data.counts}
         canViewLists={data.canViewContent}
+        isMe={rel.isMe}
         actions={<>
           {followBtn}
           {!rel.isMe ? connectBtn : null}
