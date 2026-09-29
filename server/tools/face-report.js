@@ -17,7 +17,7 @@ const L = [];
 L.push(`SOULINK FACE REPORT  ${new Date().toString()}`, '');
 L.push('Rules in force:');
 L.push(`  same person (3 scan photos must match)   distance <= ${FACE.samePersonMax}`);
-L.push(`  duplicate account blocked                distance <  ${FACE.sameAccountMax}`);
+L.push(`  duplicate account blocked (average)      distance <  ${FACE.sameAccountMax}`);
 L.push(`  looking straight |yaw| <= ${FACE.straightMaxYaw}, head turned |yaw| >= ${FACE.turnMinYaw}, face width ${FACE.minWidth}-${FACE.maxWidth} of photo`);
 L.push(`  brightness ${FACE.minBrightness}-${FACE.maxBrightness}, sharpness >= ${FACE.minSharpness}, detector confidence >= ${FACE.minScore}`, '');
 L.push(`ACCOUNTS (${rows.length})`);

@@ -21,7 +21,8 @@ r.use(requireAuth);
 
 // Tuned for real phone cameras and laptop webcams (2026-09-29, after the first real-camera test)
 export const FACE = {
-  sameAccountMax: 0.6,  // any of the 3 new photos closer than this to an existing face = same person → blocked
+  sameAccountMax: 0.5,  // average of the 3 new photos closer than this to a stored face = same person → blocked
+  sameShotMax: 0.46,    // ...or at least 2 of the 3 single photos closer than this → blocked
   samePersonMax: 0.6,   // the 3 photos must be at least this close to each other
   straightMaxYaw: 0.18, // live check: looking straight
   turnMinYaw: 0.22,     // live check: head turned
@@ -35,7 +36,7 @@ export const FACE = {
 // Every check is written to server/face-debug.log so problems on real cameras can be diagnosed
 const LOG = fileURLToPath(new URL('../../face-debug.log', import.meta.url));
 const flog = (line) => { if (config.env !== 'test') fs.appendFile(LOG, `${new Date().toISOString()} ${line}\n`, () => {}); };
-flog('face rules loaded (v4: enroll retries missed faces, duplicate check on all 3 photos, limit 0.6)');
+flog('face rules loaded (v5: duplicate = average < 0.5 or 2 photos < 0.46)');
 
 const frame = z.string().min(500, 'Photo missing').max(4_000_000, 'Photo too large');
 const toBuffer = (b64) => Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
@@ -109,26 +110,31 @@ r.post('/enroll',
     }
     flog(`enroll user=${req.user.id.slice(0, 8)} passed checks in ${Date.now() - t0}ms`);
 
-    // One face = one account. Compare ALL 3 new photos with every stored face and use the closest match,
-    // so a different angle or light can't slip a returning face through.
+    // One face = one account. Two measures against every stored face (stored = average of that person's 3 photos):
+    //  1) the average of the 3 new photos vs the stored average: steadiest, noise from one bad frame cancels out
+    //  2) how many of the 3 single photos are very close
+    // v3 used only "closest single photo < 0.6", which blocked a different person at 0.557 on a laptop webcam.
     const mine = [front.descriptor, sideA.descriptor, sideB.descriptor];
+    const avg = front.descriptor.map((v, i) => (v + sideA.descriptor[i] + sideB.descriptor[i]) / 3);
     const others = await many('SELECT user_id, embedding FROM face_embeddings WHERE user_id <> $1 AND embedding IS NOT NULL', [req.user.id]);
-    let nearest = { d: Infinity, user: null };
+    let match = null;
+    let nearest = null;
     for (const o of others) {
       const stored = typeof o.embedding === 'string' ? JSON.parse(o.embedding) : o.embedding;
-      for (const m of mine) {
-        const d = faceDistance(m, stored);
-        if (d < nearest.d) nearest = { d, user: o.user_id };
-      }
+      const avgD = faceDistance(avg, stored);
+      const singles = mine.map((m) => faceDistance(m, stored));
+      const closeShots = singles.filter((d) => d < FACE.sameShotMax).length;
+      const hit = avgD < FACE.sameAccountMax || closeShots >= 2;
+      if (!nearest || avgD < nearest.avgD) nearest = { avgD, singles, closeShots, user: o.user_id };
+      if (hit && !match) match = o.user_id;
     }
-    flog(`enroll user=${req.user.id.slice(0, 8)} compared with ${others.length} stored face(s), nearest=${Number.isFinite(nearest.d) ? nearest.d.toFixed(3) : 'none'}${nearest.user ? ` (${nearest.user.slice(0, 8)})` : ''}`);
-    if (nearest.d < FACE.sameAccountMax) {
+    flog(`enroll user=${req.user.id.slice(0, 8)} compared with ${others.length} stored face(s), nearest ${nearest ? `avg=${nearest.avgD.toFixed(3)} photos=${nearest.singles.map((d) => d.toFixed(3)).join('/')} (${nearest.user.slice(0, 8)})` : 'none'}`);
+    if (match) {
       flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face`);
       throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);
     }
 
     const avatarUrl = useAsAvatar ? await saveFile({ buffer: bufs[0], mimetype: bufs[0][0] === 0x89 ? 'image/png' : 'image/jpeg' }, 'avatars') : null;
-    const avg = front.descriptor.map((v, i) => (v + sideA.descriptor[i] + sideB.descriptor[i]) / 3);
     const embedding = JSON.stringify(avg.map((v) => Math.round(v * 1e6) / 1e6));
     flog(`enroll user=${req.user.id.slice(0, 8)} SAVED face`);
     const user = await tx(async (c) => {
