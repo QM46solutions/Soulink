@@ -48,17 +48,23 @@ function ArgueButton({ onPress, accessibilityState }) {
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: 'transparent' },
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
-        headerTitleAlign: 'center',
-        headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
-        sceneStyle: { backgroundColor: 'transparent' },
-        tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 66, paddingTop: 8, paddingBottom: 8 },
-        tabBarActiveTintColor: colors.aura,
-        tabBarInactiveTintColor: colors.dim,
-        tabBarShowLabel: false,
+      // Browsers (laptop preview + iPhone Safari) keep inactive tabs underneath the active one. Our backgrounds
+      // are see-through (starfield), so hide every tab that isn't the one you're on: its screen AND its header.
+      screenOptions={({ navigation }) => {
+        const focused = navigation.isFocused();
+        return {
+          headerStyle: { backgroundColor: 'transparent' },
+          headerShadowVisible: false,
+          headerTintColor: colors.text,
+          headerTitleAlign: 'center',
+          headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
+          tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 66, paddingTop: 8, paddingBottom: 8 },
+          tabBarActiveTintColor: colors.aura,
+          tabBarInactiveTintColor: colors.dim,
+          tabBarShowLabel: false,
+          sceneStyle: { backgroundColor: 'transparent', display: focused ? 'flex' : 'none' },
+          ...(focused ? {} : { headerShown: false }),
+        };
       }}
     >
       <Tabs.Screen
