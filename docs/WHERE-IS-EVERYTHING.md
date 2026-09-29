@@ -11,6 +11,8 @@ Project folder: **C:\Users\Sai raghava\Documents\Soulink**
 | Open on your phone | Double-click `START-SOULINK.bat` → scan the QR code with Expo Go |
 | Run the automated tests only | VS Code terminal: `cd server` then `npm test` |
 | Stop the app | Close the two black windows |
+| Erase all test data and start fresh | Double-click `RESET-SOULINK-DATA.bat`, type YES |
+| See stored face fingerprints | Double-click `SHOW-FACE-DATA.bat` (writes face-report.txt) |
 
 ## Screens (UI) → file
 
