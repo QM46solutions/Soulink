@@ -30,11 +30,9 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
         (disabled || loading) && { opacity: 0.45 }, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }, style,
       ]}
     >
-      {variant === 'primary' ? (
-        <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-          {content}
-        </LinearGradient>
-      ) : content}
+      {/* gradient is only the background; the label stays in normal flow so the button sizes to its text */}
+      {variant === 'primary' ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={StyleSheet.absoluteFill} /> : null}
+      {content}
     </Pressable>
   );
 }

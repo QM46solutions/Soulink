@@ -22,6 +22,7 @@ function HoverTab({ children, style, onPress, onLongPress, accessibilityState, a
   return (
     <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityState={accessibilityState} accessibilityLabel={accessibilityLabel} testID={testID}
       style={({ hovered, pressed }) => [style, { flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.9 : hovered ? 1.18 : 1 }] },
+        Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : null,
         hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 6px rgba(176,143,255,0.8))' } : null]}>
       {children}
     </Pressable>
@@ -44,7 +45,7 @@ function MessagesTabButton({ accessibilityState }) {
   const count = (unread?.chats || 0) + (unread?.requests || 0);
   return (
     <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}
-      style={({ hovered, pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.92 : hovered ? 1.1 : 1 }] })}>
+      style={({ hovered, pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.92 : hovered ? 1.1 : 1 }], ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : {}) })}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: accessibilityState?.selected ? colors.text : 'transparent',
           shadowColor: colors.soul, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 6 }}>
@@ -87,11 +88,6 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: icon('home'),
           headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Soulink</GradientText>,
-          headerLeft: () => (
-            <Pressable onPress={() => router.push('/create-post')} hitSlop={10} accessibilityLabel="Create a post" style={{ marginLeft: 16 }}>
-              <Ionicons name="add-circle-outline" size={26} color={colors.text} />
-            </Pressable>
-          ),
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
