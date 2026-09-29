@@ -14,6 +14,7 @@ import faceRoutes from './routes/face.js';
 import soulRoutes from './routes/soul.js';
 import placesRoutes from './routes/places.js';
 import feedRoutes from './routes/feed.js';
+import devRoutes from './routes/dev.js';
 
 export function createApp() {
   const app = express();
@@ -34,6 +35,7 @@ export function createApp() {
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/search', searchRoutes);
+  app.use('/dev', devRoutes); // laptop-only test helpers (off in production)
   app.use('/places', placesRoutes); // public (no login): must come before safetyRoutes, which requires login for everything under '/'
   app.use('/', safetyRoutes);
   app.use('/notifications', notificationRoutes);

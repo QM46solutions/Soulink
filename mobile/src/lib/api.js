@@ -10,6 +10,10 @@ const TOKEN_KEY = 'soulink.token';
 // Wi-Fi address, so the phone finds the server automatically. You can still override it from the
 // ⚙️ button on the welcome screen.
 function defaultServer() {
+  // Opened through the phone link (START-SOULINK-PHONE): the API is on the same https address under /api
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.port !== '8081' && window.location.hostname !== 'localhost') {
+    return `${window.location.origin}/api`;
+  }
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoClient?.hostUri || '';
   const host = hostUri.split(':')[0];
   if (host) return `http://${host}:4000`;

@@ -22,7 +22,10 @@ export function RealtimeProvider({ children }) {
   useEffect(() => {
     if (!user?.onboardingDone) return undefined;
     refreshUnread(); // don't wait for the live connection to show the badge
-    const socket = io(getServer(), { auth: { token: getToken() }, transports: ['websocket'], reconnectionDelayMax: 5000 });
+    // Through the phone link the server sits under /api, so the socket path moves with it
+    const server = getServer();
+    const viaGateway = server.endsWith('/api');
+    const socket = io(viaGateway ? server.slice(0, -4) : server, { path: viaGateway ? '/api/socket.io' : '/socket.io', auth: { token: getToken() }, transports: ['websocket'], reconnectionDelayMax: 5000 });
     socketRef.current = socket;
     socket.on('connect', () => { setConnected(true); refreshUnread(); });
     socket.on('disconnect', () => setConnected(false));

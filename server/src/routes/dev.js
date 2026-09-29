@@ -1,0 +1,57 @@
+// Laptop-only test helpers. Never available in production, and refused for anything coming through
+// the phone link or the network: only requests made directly on this laptop are accepted.
+import { Router } from 'express';
+import { many, one, query, tx } from '../db.js';
+import { config } from '../config.js';
+import { ah, forbidden } from '../lib/errors.js';
+import { signToken } from '../lib/auth.js';
+import { QUIZ, TRAITS, scoreQuiz } from '../services/soulQuiz.js';
+import { meView } from '../services/social.js';
+
+const r = Router();
+r.use((req, res, next) => {
+  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+  if (!config.isDev || !local || req.headers['x-forwarded-host']) return next(forbidden('Test helpers only work on the laptop'));
+  return next();
+});
+
+const DEMO = [
+  { phone: '+919000000100', username: 'sai.demo', name: 'Sai Demo', city: 'Kondapur, Hyderabad', bio: 'Founder mode. Chai > coffee.', interests: ['Startups', 'Tech', 'Cricket', 'Food'], pick: (i) => i % 4 },
+  { phone: '+919000000101', username: 'ananya.r', name: 'Ananya Reddy', city: 'Gachibowli, Hyderabad', bio: 'Designer. Sunsets and sketchbooks.', interests: ['Art', 'Travel', 'Photography'], pick: (i) => (i + 1) % 4 },
+  { phone: '+919000000102', username: 'rahul.k', name: 'Rahul Kumar', city: 'Madhapur, Hyderabad', bio: 'Code by day, cricket by night.', interests: ['Cricket', 'Tech', 'Gaming'], pick: (i) => i % 4 },
+  { phone: '+919000000103', username: 'priya.s', name: 'Priya Sharma', city: 'Banjara Hills, Hyderabad', bio: 'Books, biryani and bad puns.', interests: ['Books', 'Food', 'Movies'], pick: (i) => (i + 2) % 4 },
+  { phone: '+919000000104', username: 'arjun.v', name: 'Arjun Varma', city: 'Jubilee Hills, Hyderabad', bio: 'Gym, gigs, repeat.', interests: ['Fitness', 'Music', 'Travel'], pick: (i) => (i + 3) % 4 },
+  { phone: '+919000000105', username: 'meera.n', name: 'Meera Nair', city: 'Kukatpally, Hyderabad', bio: 'Dancer. Plant mom. 2 am philosopher.', interests: ['Dance', 'Spirituality', 'Music'], pick: (i) => (i * 3) % 4 },
+];
+
+// Creates (or refreshes) 6 fully set-up demo accounts and logs you in as @sai.demo
+r.post('/demo', ah(async (req, res) => {
+  const ids = {};
+  for (const d of DEMO) {
+    const answers = QUIZ.map((q, i) => ({ questionId: q.id, optionIndex: d.pick(i) }));
+    const { traits, type, tagline } = scoreQuiz(answers);
+    const user = await tx(async (c) => {
+      let u = (await c.query('SELECT * FROM users WHERE phone=$1', [d.phone])).rows[0];
+      if (!u) u = (await c.query('INSERT INTO users (phone) OUTPUT INSERTED.* VALUES ($1)', [d.phone])).rows[0];
+      await c.query(
+        `UPDATE users SET username=$2, display_name=$3, city=$4, bio=$5, interests=$6, birth_date='1999-06-15',
+                face_verified=1, soul_ready=1, soul_type=$7, onboarding_done=1, updated_at=SYSDATETIMEOFFSET() WHERE id=$1`,
+        [u.id, d.username, d.name, d.city, d.bio, JSON.stringify(d.interests), type],
+      );
+      await c.query('DELETE FROM soul_profiles WHERE user_id=$1', [u.id]);
+      await c.query(
+        `INSERT INTO soul_profiles (user_id, ${TRAITS.join(', ')}, summary, confidence, quiz_answers) VALUES ($1, ${TRAITS.map((_, i) => `$${i + 2}`).join(', ')}, $10, 30, $11)`,
+        [u.id, ...TRAITS.map((t) => traits[t]), tagline, JSON.stringify(answers)],
+      );
+      return u;
+    });
+    ids[d.username] = user.id;
+  }
+  // @sai.demo follows two people; one follows back
+  const follow = async (a, b) => query(`IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2) INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'accepted')`, [ids[a], ids[b]]);
+  await follow('sai.demo', 'ananya.r'); await follow('sai.demo', 'rahul.k'); await follow('ananya.r', 'sai.demo');
+  const me = await one('SELECT * FROM users WHERE id=$1', [ids['sai.demo']]);
+  res.json({ token: signToken(me.id), user: meView(me), demoUsers: (await many('SELECT username FROM users WHERE phone LIKE $1', ['+9190000001%'])).map((x) => x.username) });
+}));
+
+export default r;
