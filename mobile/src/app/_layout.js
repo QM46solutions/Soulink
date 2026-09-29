@@ -92,9 +92,11 @@ function PhoneFrame({ children }) {
         transform: [{ scale }], marginVertical: -(fullH * (1 - scale)) / 2,
         boxShadow: '0 20px 70px rgba(124,92,252,0.28)',
       }}>
-        <View style={{ flex: 1, borderRadius: 54, overflow: 'hidden', backgroundColor: colors.void }}>
+        <View style={{ flex: 1, borderRadius: 54, overflow: 'hidden', backgroundColor: colors.void, paddingTop: PHONE.top, paddingBottom: PHONE.bottom }}>
+          {/* the app gets 440 × 863 pt; its starry background runs behind the status bar like on the real phone */}
+          {children}
           {/* status bar + Dynamic Island (59 pt) */}
-          <View style={{ height: PHONE.top, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 34, paddingTop: 6, zIndex: 2 }}>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: PHONE.top, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 34, paddingTop: 6 }}>
             <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 16, width: 60 }}>{time}</Text>
             <View style={{ position: 'absolute', top: 11, left: (PHONE.width - 126) / 2, width: 126, height: 37, borderRadius: 19, backgroundColor: '#000' }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', width: 60, justifyContent: 'flex-end' }}>
@@ -103,10 +105,8 @@ function PhoneFrame({ children }) {
               <Ionicons name="battery-full" size={18} color={colors.text} />
             </View>
           </View>
-          {/* the app: 440 × 863 pt */}
-          <View style={{ flex: 1 }}>{children}</View>
           {/* home indicator (34 pt) */}
-          <View style={{ height: PHONE.bottom, alignItems: 'center', justifyContent: 'center' }}>
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: PHONE.bottom, alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ width: 140, height: 5, borderRadius: 3, backgroundColor: 'rgba(233,231,242,0.85)' }} />
           </View>
         </View>

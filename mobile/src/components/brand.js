@@ -4,7 +4,7 @@ import { Animated, Easing, Platform, StyleSheet, Text, View, useWindowDimensions
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, gradients, radius, space } from '../lib/theme';
-import { APP_AREA } from '../lib/device';
+import { PHONE } from '../lib/device';
 
 /** Deterministic pseudo-random so stars don't jump around between renders. */
 function rng(seed) {
@@ -17,8 +17,8 @@ export const Starfield = memo(function Starfield({ density = 90, glow = true }) 
   const win = useWindowDimensions();
   // In a desktop browser the app sits in a phone-sized frame, so size the sky to that frame.
   const framed = Platform.OS === 'web' && win.width >= 520;
-  const width = framed ? APP_AREA.width : win.width;
-  const height = framed ? APP_AREA.height : win.height;
+  const width = framed ? PHONE.width : win.width;
+  const height = framed ? PHONE.height : win.height;
   const twinkle = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
