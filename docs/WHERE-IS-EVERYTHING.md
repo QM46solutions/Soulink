@@ -99,3 +99,5 @@ To look at the data: SQL Server Management Studio → connect to `localhost\SQLE
 | Setup and daily use | `README.md` |
 | Manual test checklists | `docs\test-plans\M1.md`, `M2.md`, … |
 | This map | `docs\WHERE-IS-EVERYTHING.md` |
+
+- `INSTALL-SOULMOJI-AI.bat` + `tools/soulmoji-ai/` — one-time install of the free local Soulmoji AI (LivePortrait). The server starts it automatically (`server/src/services/soulmojiAi.js`); without it Soulmoji uses the built-in warp engine.

@@ -16,6 +16,10 @@ import { uploadMemory, saveFile } from '../providers/storage.js';
 import { faceDistance } from '../services/faceEngine.js';
 import { prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS } from '../services/soulmojiRender.js';
+import { aiEdit, aiInstalled, warmSoulmojiAi } from '../services/soulmojiAi.js';
+import crypto from 'node:crypto';
+
+warmSoulmojiAi();
 
 const r = Router();
 r.use(requireAuth);
@@ -26,7 +30,7 @@ const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v |
 const diskPath = (url) => path.join(config.uploadDir, url.replace(/^\/uploads\//, ''));
 
 r.get('/face', ah(async (req, res) => {
-  res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS });
+  res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS, ai: aiInstalled() });
 }));
 
 r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : 30 }), uploadMemory('image', 12).single('photo'), ah(async (req, res) => {
@@ -42,7 +46,9 @@ r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' 
     throw badRequest("This doesn't look like the face you verified. Soulmojis can only be made from your own face.", 'not_you');
   }
   const url = await saveFile({ buffer: f.jpeg, mimetype: 'image/jpeg' }, 'soulmoji');
-  await query('UPDATE users SET soulmoji_face_url=$2, soulmoji_points=$3 WHERE id=$1', [req.user.id, url, f.landmarks]);
+  // the whole selfie is kept too: the AI needs the face with some surroundings
+  const srcUrl = await saveFile({ buffer: req.file.buffer, mimetype: req.file.mimetype === 'image/png' ? 'image/png' : 'image/jpeg' }, 'soulmoji');
+  await query('UPDATE users SET soulmoji_face_url=$2, soulmoji_points=$3, soulmoji_src_url=$4 WHERE id=$1', [req.user.id, url, f.landmarks, srcUrl]);
   res.json({ faceUrl: url });
 }));
 
@@ -51,8 +57,22 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   const faceUrl = req.user.soulmoji_face_url;
   const points = list(req.user.soulmoji_points);
   if (!faceUrl || !points) throw badRequest('Take your Soulmoji selfie first', 'no_soulmoji_face');
-  const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${ENGINE}`]);
-  if (cached) return res.json({ imageUrl: cached.url, mood });
+  const useAi = aiInstalled() && req.user.soulmoji_src_url;
+  const engine = useAi ? 'ai1' : ENGINE;
+  const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${engine}`]);
+  if (cached) return res.json({ imageUrl: cached.url, mood, ai: useAi });
+  if (useAi) {
+    try {
+      const name = `${crypto.randomUUID()}.jpg`;
+      await fs.mkdir(path.join(config.uploadDir, 'soulmoji'), { recursive: true });
+      await aiEdit(diskPath(req.user.soulmoji_src_url), path.join(config.uploadDir, 'soulmoji', name), mood);
+      const aiUrl = `/uploads/soulmoji/${name}`;
+      await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@ai1`, aiUrl]);
+      return res.json({ imageUrl: aiUrl, mood, ai: true });
+    } catch (e) {
+      console.warn('Soulmoji AI failed, using the built-in engine:', e.message);
+    }
+  }
   const img = decode(await fs.readFile(diskPath(faceUrl)));
   const out = renderMood(img, points, mood);
   const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 95)), mimetype: 'image/jpeg' }, 'soulmoji');

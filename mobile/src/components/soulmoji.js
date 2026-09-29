@@ -125,6 +125,7 @@ export function SoulmojiPhoto({ imageUrl, mood = 'happy', caption, size = 176 })
  */
 export function SoulmojiPanel({ onSend, onClose }) {
   const [face, setFace] = useState(undefined); // undefined = loading, null = no selfie yet
+  const [ai, setAi] = useState(false);       // true when the laptop's Soulmoji AI is installed
   const [text, setText] = useState('');
   const [picked, setPicked] = useState(null);
   const [renders, setRenders] = useState({}); // mood -> imageUrl
@@ -134,14 +135,14 @@ export function SoulmojiPanel({ onSend, onClose }) {
   const caption = text.trim().slice(0, 40) || MOODS[mood].label;
   const moods = useMemo(() => MOOD_KEYS, []);
 
-  useEffect(() => { api('/soulmoji/face').then((r) => setFace(r.faceUrl)).catch(() => setFace(null)); }, []);
+  useEffect(() => { api('/soulmoji/face').then((r) => { setFace(r.faceUrl); setAi(!!r.ai); }).catch(() => setFace(null)); }, []);
 
   // Render the chosen mood on your photo (the server keeps a copy, so each mood is made once)
   useEffect(() => {
     if (!face || renders[mood]) return undefined;
     let live = true;
     setBusy('render'); setError(null);
-    api('/soulmoji/render', { method: 'POST', body: { mood } })
+    api('/soulmoji/render', { method: 'POST', body: { mood }, timeoutMs: 200000 })
       .then((r) => { if (live) setRenders((c) => ({ ...c, [mood]: r.imageUrl })); })
       .catch((e) => { if (live) setError(e.message); })
       .finally(() => { if (live) setBusy(null); });
@@ -214,7 +215,7 @@ export function SoulmojiPanel({ onSend, onClose }) {
           {img ? <Image source={{ uri: mediaUrl(img) }} style={{ width: 132, height: 132 }} contentFit="cover" transition={120} /> : null}
           {busy === 'render' ? (
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,7,13,0.45)' }}>
-              <ActivityIndicator color="#fff" /><Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 11, marginTop: 4 }}>Changing your expression…</Text>
+              <ActivityIndicator color="#fff" /><Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 11, marginTop: 4, textAlign: 'center', paddingHorizontal: 6 }}>{ai ? 'AI is changing your expression…' : 'Changing your expression…'}</Text>
             </View>
           ) : null}
           <View style={{ position: 'absolute', left: 6, top: 6, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: 'rgba(8,7,13,0.7)' }}>
