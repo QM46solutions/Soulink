@@ -151,7 +151,9 @@ export function RadarIcon({ size = 120, color = GOLD }) {
 }
 
 // ---------- Scales (argue referee) ----------
-export function ScalesIcon({ size = 120, color = GOLD }) {
+export function ScalesIcon({ size = 120, color = GOLD, bold = false }) {
+  // bold: thicker lines and bigger weights so it still reads at tab-bar size
+  const k = bold ? 3.2 : 1;
   const tip = useLoop(1800, { easing: Easing.inOut(Easing.sin), reverse: true });
   const pulse = useLoop(1200, { easing: Easing.inOut(Easing.sin), reverse: true });
   const L = 70; const c = B / 2; const beamY = 62; const deg = 7;
@@ -161,23 +163,23 @@ export function ScalesIcon({ size = 120, color = GOLD }) {
     const dy = tip.interpolate({ inputRange: [0, 1], outputRange: side < 0 ? [lift, -lift] : [-lift, lift] });
     return (
       <Animated.View style={{ position: 'absolute', left: c + side * L - 12, top: beamY, width: 24, alignItems: 'center', transform: [{ translateY: dy }] }}>
-        <View style={{ width: 1, height: 50, backgroundColor: color, opacity: 0.6 }} />
-        <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: dotColor, marginTop: -2, shadowColor: dotColor, shadowOpacity: 0.9, shadowRadius: 8 }} />
-        <View style={{ width: 24, height: 12, marginTop: 2, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderTopWidth: 0, borderColor: colors.muted, opacity: 0.6 }} />
+        <View style={{ width: 1 * k, height: 50, backgroundColor: color, opacity: bold ? 0.9 : 0.6 }} />
+        <View style={{ width: 16 * (bold ? 1.7 : 1), height: 16 * (bold ? 1.7 : 1), borderRadius: 8 * (bold ? 1.7 : 1), backgroundColor: dotColor, marginTop: -2, shadowColor: dotColor, shadowOpacity: 0.9, shadowRadius: 8 }} />
+        {bold ? null : <View style={{ width: 24, height: 12, marginTop: 2, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderTopWidth: 0, borderColor: colors.muted, opacity: 0.6 }} />}
       </Animated.View>
     );
   };
   return (
     <Stage size={size}>
       {/* pole and base */}
-      <View style={{ position: 'absolute', left: c - 1, top: beamY, width: 2, height: 100, backgroundColor: color }} />
-      <View style={{ position: 'absolute', left: c - 34, top: beamY + 112, width: 68, height: 2, backgroundColor: color }} />
+      <View style={{ position: 'absolute', left: c - k, top: beamY, width: 2 * k, height: 100, backgroundColor: color }} />
+      <View style={{ position: 'absolute', left: c - 34 * (bold ? 1.4 : 1), top: beamY + 112, width: 68 * (bold ? 1.4 : 1), height: 2 * k, backgroundColor: color }} />
       {/* beam */}
-      <Animated.View style={{ position: 'absolute', left: c - L, top: beamY - 1, width: 2 * L, height: 2, backgroundColor: color, transform: [{ rotate: rot }] }} />
+      <Animated.View style={{ position: 'absolute', left: c - L, top: beamY - k, width: 2 * L, height: 2 * k, backgroundColor: color, transform: [{ rotate: rot }] }} />
       <View style={{ position: 'absolute', left: c - 4, top: beamY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
       {pan(-1, VIOLET)}{pan(1, PINK)}
       {/* pulsing verdict ring */}
-      <Animated.View style={{ position: 'absolute', left: c - 18, top: beamY + 52, width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: PINK,
+      <Animated.View style={{ position: 'absolute', left: c - 18, top: beamY + 52, width: 36, height: 36, borderRadius: 18, borderWidth: 1.5 * (bold ? 2.5 : 1), borderColor: PINK,
         opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.1] }) }] }} />
       <View style={{ position: 'absolute', left: c - 4, top: beamY + 66, width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />
     </Stage>
