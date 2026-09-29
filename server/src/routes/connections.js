@@ -144,6 +144,10 @@ r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
     )).rows[0];
     if (!upd) throw conflict('This request is no longer open', 'closed');
     await c.query(`IF NOT EXISTS (SELECT 1 FROM connections WHERE user_a=$1 AND user_b=$2) INSERT INTO connections (user_a, user_b, intent, request_id) VALUES ($1, $2, $3, $4)`, [a, b, finalIntent, q.id]);
+    // Accepting a request means the sender now follows the receiver (A sent to B → A follows B)
+    await c.query(`IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)
+                     INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'accepted')
+                   ELSE UPDATE follows SET status=N'accepted' WHERE follower_id=$1 AND followee_id=$2`, [q.from_id, q.to_id]);
     let cv = (await c.query('SELECT * FROM conversations WHERE direct_key=$1', [key])).rows[0];
     if (!cv) {
       cv = (await c.query('INSERT INTO conversations (is_group, created_by, direct_key) OUTPUT INSERTED.* VALUES (0, $1, $2)', [q.to_id, key])).rows[0];
