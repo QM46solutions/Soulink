@@ -34,12 +34,12 @@ export function createApp() {
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/search', searchRoutes);
+  app.use('/places', placesRoutes); // public (no login): must come before safetyRoutes, which requires login for everything under '/'
   app.use('/', safetyRoutes);
   app.use('/notifications', notificationRoutes);
   app.use('/conversations', conversationRoutes);
   app.use('/face', faceRoutes);
   app.use('/soul', soulRoutes);
-  app.use('/places', placesRoutes);
   app.use('/feed', feedRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
