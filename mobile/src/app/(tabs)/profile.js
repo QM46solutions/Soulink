@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, Share } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api, uploadImage } from '../../lib/api';
 import { usePhotoPicker } from '../../components/PhotoPicker';
 import { notice } from '../../lib/confirm';
 import { useAuth } from '../../lib/auth';
-import ProfileHeader from '../../components/ProfileHeader';
+import ProfileHeader, { ProfileAction } from '../../components/ProfileHeader';
 import { PostGrid } from '../../components/PostCard';
 import { Button, Empty, s } from '../../components/ui';
 import { colors } from '../../lib/theme';
@@ -17,6 +17,15 @@ export default function MyProfile() {
   const [posts, setPosts] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+  const shareProfile = async () => {
+    const message = `Find me on Soulink: @${user.username}`;
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) await navigator.share({ title: 'Soulink', text: message });
+        else { await navigator.clipboard.writeText(message); notice('Copied', 'Your Soulink username is copied. Paste it anywhere to share.'); }
+      } else await Share.share({ message });
+    } catch { /* cancelled */ }
+  };
   const savePhoto = async (fn) => { try { setUser((await fn()).user); } catch (e) { notice('Photo not saved', e.message); } };
   const photo = usePhotoPicker({
     onPicked: (uri) => savePhoto(() => uploadImage('/users/me/avatar', uri)),
@@ -55,7 +64,11 @@ export default function MyProfile() {
         counts={counts}
         canViewLists
         onAvatarPress={photo.open}
-        actions={<Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />}
+        actions={<>
+          <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />
+          <ProfileAction title="Share profile" onPress={shareProfile} />
+          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 38 }} />
+        </>}
       />
       {posts?.length ? <PostGrid posts={posts} /> : (
         <Empty icon="camera-outline" title="No posts yet" text="Share your first photo or thought.">

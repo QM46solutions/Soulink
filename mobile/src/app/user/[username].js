@@ -4,7 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'exp
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import ProfileHeader from '../../components/ProfileHeader';
+import ProfileHeader, { ProfileAction } from '../../components/ProfileHeader';
 import SoulScoreOrb from '../../components/SoulScoreOrb';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
@@ -83,20 +83,20 @@ export default function UserProfile() {
   };
 
   let followBtn;
-  if (rel.isMe) followBtn = <Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />;
-  else if (rel.following === 'accepted') followBtn = <Button title="Following" icon="chevron-down" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
-  else if (rel.following === 'pending') followBtn = <Button title="Requested" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
-  else followBtn = <Button title={rel.followsYou ? 'Follow back' : 'Follow'} variant="secondary" style={{ flex: 1, height: 48 }} onPress={follow} loading={busy} />;
+  if (rel.isMe) followBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
+  else if (rel.following === 'accepted') followBtn = <ProfileAction title="Following" icon="chevron-down" onPress={unfollow} loading={busy} />;
+  else if (rel.following === 'pending') followBtn = <ProfileAction title="Requested" onPress={unfollow} loading={busy} />;
+  else followBtn = <ProfileAction title={rel.followsYou ? 'Follow back' : 'Follow'} onPress={follow} loading={busy} />;
 
   // Connect button: Connect → Requested → (they answer) → Message. Follow stays separate (for posts).
   const goConnect = () => { if (!needSoul()) router.push({ pathname: '/connect/[userId]', params: { userId: target.id, username: target.username } }); };
   let connectBtn;
-  if (!conn) connectBtn = <Button title="Connect" style={{ flex: 1, height: 48 }} onPress={goConnect} />;
-  else if (conn.connected) connectBtn = <Button title="Message" icon="chatbubble-ellipses-outline" style={{ flex: 1, height: 48 }} onPress={openChat} />;
-  else if (conn.request?.direction === 'incoming') connectBtn = <Button title="Respond" style={{ flex: 1, height: 48 }} onPress={() => router.push('/connections/requests')} />;
-  else if (conn.request) connectBtn = <Button title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/connections/requests')} />;
-  else if (conn.cooldownUntil) connectBtn = <Button title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} variant="secondary" disabled style={{ flex: 1, height: 48 }} onPress={() => {}} />;
-  else connectBtn = <Button title="Connect" style={{ flex: 1, height: 48 }} onPress={goConnect} />;
+  if (!conn) connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
+  else if (conn.connected) connectBtn = <ProfileAction title="Message" onPress={openChat} />;
+  else if (conn.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/connections/requests')} />;
+  else if (conn.request) connectBtn = <ProfileAction title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} onPress={() => router.push('/connections/requests')} />;
+  else if (conn.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
+  else connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
 
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
@@ -104,8 +104,8 @@ export default function UserProfile() {
         <View style={{ backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)', margin: space.xl, marginBottom: 0, padding: space.md, borderRadius: 20 }}>
           <Text style={{ fontFamily: fonts.body, color: colors.text, marginBottom: space.sm }}>{target.username} wants to follow you</Text>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <Button title="Confirm" style={{ flex: 1, height: 48 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
-            <Button title="Delete" small variant="secondary" style={{ flex: 1 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/decline`, { method: 'POST' }))} />
+            <ProfileAction primary title="Confirm" onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
+            <ProfileAction title="Delete" onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/decline`, { method: 'POST' }))} />
           </View>
         </View>
       ) : null}
