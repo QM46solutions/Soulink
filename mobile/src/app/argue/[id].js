@@ -113,7 +113,8 @@ function SideInput({ name, onSubmit, busy, error, cta }) {
     <View>
       <Input label={`${name}'s side`} value={text} onChangeText={setText} multiline maxLength={2000}
         placeholder="What happened, and why do you think you're right? Be honest, the Referee is fair."
-        hint={`${text.length}/2000 · only the Referee sees this until the verdict`} style={{ marginBottom: space.md }} />
+        hint={`${text.length}/2000 · only the Referee sees this until the verdict`} style={{ marginBottom: space.md }}
+        inputStyle={{ minHeight: 170, textAlignVertical: 'top', paddingTop: 12 }} autoFocus />
       <MicButton onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))} />
       <ErrorText>{error}</ErrorText>
       <Button title={cta} style={{ marginTop: space.lg }} loading={busy} disabled={text.trim().length < 10} onPress={() => onSubmit(text.trim())} />

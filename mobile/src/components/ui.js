@@ -47,14 +47,14 @@ const VARIANTS = {
   danger: { bg: 'transparent', border: colors.danger, fg: colors.danger },
 };
 
-export function Input({ label, error, hint, style, left, right, onFocus, onBlur, ...props }) {
+export function Input({ label, error, hint, style, inputStyle, left, right, onFocus, onBlur, ...props }) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[{ marginBottom: space.lg }, style]}>
       {label ? <Text style={s.label}>{label}</Text> : null}
       <View style={[s.inputWrap, props.multiline && { borderRadius: 20, alignItems: 'flex-start', paddingVertical: 6 }, focused && s.inputFocus, error && { borderColor: colors.danger }]}>
         {left}
-        <TextInput placeholderTextColor={colors.dim} style={s.input} onFocus={(e) => { setFocused(true); onFocus?.(e); }} onBlur={(e) => { setFocused(false); onBlur?.(e); }} {...props} />
+        <TextInput placeholderTextColor={colors.dim} style={[s.input, inputStyle]} onFocus={(e) => { setFocused(true); onFocus?.(e); }} onBlur={(e) => { setFocused(false); onBlur?.(e); }} {...props} />
         {right}
       </View>
       {error ? <Text style={s.error}>{error}</Text> : hint ? <Text style={s.hint}>{hint}</Text> : null}
