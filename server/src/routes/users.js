@@ -181,6 +181,22 @@ async function listFollows(req, res, direction) {
 r.get('/:id/followers', ah((req, res) => listFollows(req, res, 'followers')));
 r.get('/:id/following', ah((req, res) => listFollows(req, res, 'following')));
 
+// Anyone's connections list (same privacy as followers). The connection type is shown only on your own list.
+r.get('/:id/connections', ah(async (req, res) => {
+  const u = await loadTarget(req);
+  const rel = await relationship(req.user.id, u.id);
+  if (!canViewContent(u, rel)) throw forbidden('This account is private', 'private_account');
+  const rows = await many(
+    `SELECT c.intent, c.created_at AS since, x.* FROM connections c
+       JOIN users x ON x.id = CASE WHEN c.user_a=$1 THEN c.user_b ELSE c.user_a END
+      WHERE (c.user_a=$1 OR c.user_b=$1)
+        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2 AND b.blocked_id=x.id) OR (b.blocker_id=x.id AND b.blocked_id=$2))
+      ORDER BY c.created_at DESC`,
+    [u.id, req.user.id],
+  );
+  res.json({ users: rows.map((x) => ({ ...userCard(x), ...(rel.isMe ? { intent: x.intent, since: x.since } : {}) })) });
+}));
+
 r.post('/:id/follow', requireSoul, ah(async (req, res) => {
   const u = await loadTarget(req);
   if (u.id === req.user.id) throw badRequest("You can't follow yourself");

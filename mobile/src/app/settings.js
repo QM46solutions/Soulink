@@ -57,7 +57,7 @@ export default function Settings() {
     <ScrollView style={s.screen}>
       <ErrorText>{error}</ErrorText>
       <Section>Privacy</Section>
-      <Toggle title="Private account" text="Only approved followers see your posts and followers." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
+      <Toggle title="Private account" text="Only approved followers see your posts and Soul Connections." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
       <Toggle title="Show me in Discover" text="Let Soulink suggest you to people with a high Match %." value={user.settings.showInDiscover} onChange={(v) => update({ showInDiscover: v })} />
       <Toggle
         title="Discoverable by face"

@@ -43,7 +43,8 @@ export async function counts(userId) {
     `SELECT
        (SELECT COUNT(*) FROM posts WHERE author_id=$1 AND deleted_at IS NULL) AS posts,
        (SELECT COUNT(*) FROM follows WHERE followee_id=$1 AND status=N'accepted') AS followers,
-       (SELECT COUNT(*) FROM follows WHERE follower_id=$1 AND status=N'accepted') AS following`,
+       (SELECT COUNT(*) FROM follows WHERE follower_id=$1 AND status=N'accepted') AS following,
+       (SELECT COUNT(*) FROM connections WHERE user_a=$1 OR user_b=$1) AS connections`,
     [userId],
   );
 }

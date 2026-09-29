@@ -36,7 +36,7 @@ function Pill({ icon, text, color, border, bg }) {
 
 /**
  * Profile top section, centred like the welcome screen: aura photo, name, badges, city, bio, interests,
- * then a glass row of Posts / Followers / Following, then the action buttons (full width, rounded).
+ * then a glass row of Posts / Soul Connections, then the action buttons (full width, rounded).
  */
 export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress }) {
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
@@ -80,9 +80,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
       <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginTop: space.lg, paddingVertical: space.md, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.glass }}>
         <Stat n={counts?.posts} label="Posts" />
         <View style={{ width: 1, backgroundColor: colors.border }} />
-        <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
-        <View style={{ width: 1, backgroundColor: colors.border }} />
-        <Stat n={counts?.following} label="Following" onPress={openList('following')} />
+        <Stat n={counts?.connections} label="Soul Connections" onPress={openList('connections')} />
       </View>
 
       {actions ? <View style={{ flexDirection: 'row', alignSelf: 'stretch', gap: space.md, marginTop: space.lg }}>{actions}</View> : null}

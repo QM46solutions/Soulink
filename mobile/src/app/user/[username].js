@@ -126,7 +126,7 @@ export default function UserProfile() {
       {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Follows you</Text> : null}
       {data.canViewContent
         ? <Empty icon="camera-outline" title="No posts yet" />
-        : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and followers." />}
+        : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and Soul Connections." />}
       <ActionSheet
         visible={menu}
         onClose={() => setMenu(false)}
