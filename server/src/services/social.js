@@ -73,6 +73,9 @@ export const publicProfile = (u) => ({
   city: u.city,
   interests: u.interests,
   isPremium: u.is_premium,
+  college: u.college ?? null,
+  company: u.company ?? null,
+  languages: Array.isArray(u.languages) ? u.languages : [],
 });
 
 /** The logged-in user's own account, including private settings. */
@@ -91,6 +94,7 @@ export const meView = (u) => ({
   },
   onboardingDone: u.onboarding_done,
   soulReady: !!u.soul_ready,
+  hasLocation: u.lat != null && u.lon != null,
   openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
   createdAt: u.created_at,
 });

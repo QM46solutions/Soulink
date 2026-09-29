@@ -23,6 +23,8 @@ export default function CityField({ value, onChange, autoLocate = true }) {
       if (!perm.granted) { setNote('Location is off. Type your city instead.'); return; }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const r = await api(`/places/near?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+      // area-level location for the distance filter (rounded to ~1 km on the server, never shown)
+      api('/users/me/location', { method: 'PUT', body: { lat: pos.coords.latitude, lon: pos.coords.longitude } }).catch(() => {});
       if (r.place) { onChange(r.place.label); setSuggestions([]); setNote(`Found you: ${r.place.label}. Tap to change.`); }
       else setNote("Couldn't match your location to a city. Type it instead.");
     } catch {

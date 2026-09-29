@@ -37,6 +37,8 @@ export const config = {
   // Chat opens only between connected people (Connect request accepted); off only for automated tests
   connectRequired: bool(process.env.CONNECT_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   faceRequired: bool(process.env.FACE_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
+  // Premium Soul Filters (min Soul Score, Soul type, personality) are free while testing; set PREMIUM_FREE_TRIAL=false at launch
+  premiumFreeTrial: bool(process.env.PREMIUM_FREE_TRIAL, true),
   otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
   minAge: 18,
 };

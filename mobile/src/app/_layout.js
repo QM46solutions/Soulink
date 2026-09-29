@@ -67,6 +67,7 @@ function RootStack() {
         <Stack.Screen name="user/[username]" options={{ title: '' }} />
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
+        <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         <Stack.Screen name="blocked" options={{ title: 'Blocked accounts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />

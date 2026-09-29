@@ -3,7 +3,7 @@ import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
-import { Empty, ErrorText, Input, UserRow, s } from '../../components/ui';
+import { Button, Empty, ErrorText, Input, UserRow, s } from '../../components/ui';
 import { colors, space } from '../../lib/theme';
 
 export default function Search() {
@@ -48,7 +48,11 @@ export default function Search() {
         )}
         ListEmptyComponent={
           searched ? <Empty icon="person-outline" title="No one found" text="Try a different name or username." />
-            : <Empty icon="search-outline" title="Find your people" text="Search friends by their name or @username." />
+            : (
+              <Empty icon="search-outline" title="Find your people" text="Search friends by their name or @username, or discover new souls with Soul Filters.">
+                <Button title="Discover new souls" icon="options" onPress={() => router.push('/discover')} />
+              </Empty>
+            )
         }
       />
     </View>

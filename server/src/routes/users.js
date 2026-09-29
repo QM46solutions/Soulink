@@ -7,6 +7,7 @@ import { ageFrom } from '../lib/auth.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { soulScore, TRAITS } from '../services/soulQuiz.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
+import { placeCoords } from '../services/places.js';
 import {
   canViewContent, counts, isBlockedEither, meView, notify, publicProfile, relationship, userCard,
 } from '../services/social.js';
@@ -29,13 +30,25 @@ const profileSchema = z.object({
   showInDiscover: z.boolean().optional(),
   faceDiscoverable: z.boolean().optional(),
   consentTracking: z.boolean().optional(),
+  college: z.string().trim().max(120).nullable().optional(),
+  company: z.string().trim().max(120).nullable().optional(),
+  languages: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
 }).strict();
 
 const COLS = {
   username: 'username', displayName: 'display_name', bio: 'bio', city: 'city', birthDate: 'birth_date',
   gender: 'gender', interests: 'interests', isPrivate: 'is_private', showInDiscover: 'show_in_discover',
   faceDiscoverable: 'face_discoverable', consentTracking: 'consent_tracking',
+  college: 'college', company: 'company', languages: 'languages',
 };
+
+// The typed city also gives area coordinates for the distance filter (used until the phone shares its location)
+function withCityCoords(data, entries) {
+  if (!('city' in data)) return entries;
+  const c = placeCoords(data.city);
+  return [...entries, ['__lat', c ? Math.round(c.lat * 100) / 100 : null], ['__lon', c ? Math.round(c.lon * 100) / 100 : null]];
+}
+COLS.__lat = 'lat'; COLS.__lon = 'lon';
 
 async function assertUsernameFree(username, myId) {
   if (RESERVED.has(username)) throw badRequest('That username is not available', 'username_taken');
@@ -55,7 +68,7 @@ r.patch('/me', ah(async (req, res) => {
   if (data.birthDate && ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
   if (data.faceDiscoverable && !req.user.face_verified) throw badRequest('Verify your face first to be discoverable by face', 'face_not_verified');
 
-  const entries = Object.entries(data);
+  const entries = withCityCoords(data, Object.entries(data));
   if (!entries.length) return res.json({ user: meView(req.user) });
 
   const user = await tx(async (c) => {
@@ -70,6 +83,13 @@ r.patch('/me', ah(async (req, res) => {
   res.json({ user: meView(user) });
 }));
 
+// Phone location for the distance filter, rounded to about 1 km (area level). Never shown to anyone.
+r.put('/me/location', ah(async (req, res) => {
+  const { lat, lon } = z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).parse(req.body);
+  const user = await one('UPDATE users SET lat=$2, lon=$3 OUTPUT INSERTED.* WHERE id=$1', [req.user.id, Math.round(lat * 100) / 100, Math.round(lon * 100) / 100]);
+  res.json({ user: meView(user) });
+}));
+
 // Finish sign-up: requires username, name and an 18+ birth date
 r.post('/me/complete-onboarding', ah(async (req, res) => {
   const data = profileSchema.extend({
@@ -80,7 +100,7 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
   if (config.faceRequired && !req.user.face_verified) throw badRequest('Complete the face scan first', 'face_required');
   await assertUsernameFree(data.username, req.user.id);
   if (ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
-  const entries = Object.entries(data);
+  const entries = withCityCoords(data, Object.entries(data));
   const sets = entries.map(([k], i) => `${COLS[k]} = $${i + 2}`).join(', ');
   const user = await one(
     `UPDATE users SET ${sets}, onboarding_done = 1, updated_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1`,

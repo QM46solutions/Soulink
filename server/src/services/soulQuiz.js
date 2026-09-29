@@ -77,6 +77,8 @@ const TYPES = {
   nature: ['The Firecracker', 'Loud laughs, big plans, main-character energy.', 'The Midnight Philosopher', 'Quiet, deep and thoughtful. Your best talks happen at 2 am.'],
 };
 
+export const SOUL_TYPES = Object.values(TYPES).flatMap(([hi, , lo]) => [hi, lo]);
+
 /** answers: [{ questionId, optionIndex }] (all 10) → { traits, type, tagline } */
 export function scoreQuiz(answers) {
   const sums = Object.fromEntries(TRAITS.map((t) => [t, 0]));

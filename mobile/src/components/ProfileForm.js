@@ -8,6 +8,7 @@ import { Button, Chip, ErrorText, Input, s } from './ui';
 import { AuraAvatar } from './ProfileHeader';
 import CityField from './CityField';
 import { usePhotoPicker } from './PhotoPicker';
+import { LANGUAGES } from '../lib/filters';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -32,6 +33,9 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
   const [city, setCity] = useState(initial.city || '');
   const [bio, setBio] = useState(initial.bio || '');
   const [interests, setInterests] = useState(initial.interests || []);
+  const [college, setCollege] = useState(initial.college || '');
+  const [company, setCompany] = useState(initial.company || '');
+  const [languages, setLanguages] = useState(initial.languages || []);
   const [isPrivate, setIsPrivate] = useState(!!initial.settings?.isPrivate);
   const [uStatus, setUStatus] = useState(null); // {available, reason}
   const [error, setError] = useState(null);
@@ -72,6 +76,9 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
           city: city.trim() || null,
           bio: bio.trim(),
           interests,
+          college: college.trim() || null,
+          company: company.trim() || null,
+          languages,
           isPrivate,
         },
         avatarUri,
@@ -144,6 +151,13 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
       <Text style={s.label}>Interests</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
         {INTERESTS.map((i) => <Chip key={i} label={i} selected={interests.includes(i)} onPress={() => toggleInterest(i)} />)}
+      </View>
+
+      <Input label="College (optional)" value={college} onChangeText={setCollege} maxLength={120} placeholder="e.g. JNTU Hyderabad" hint="Lets people from your college find you" />
+      <Input label="Company (optional)" value={company} onChangeText={setCompany} maxLength={120} placeholder="e.g. Infosys" hint="Lets colleagues find you" />
+      <Text style={s.label}>Languages you speak</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
+        {LANGUAGES.map((l) => <Chip key={l} label={l} selected={languages.includes(l)} onPress={() => setLanguages((c) => (c.includes(l) ? c.filter((x) => x !== l) : [...c, l]))} />)}
       </View>
 
       <View style={[s.row, { justifyContent: 'space-between', backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.border, padding: space.lg, borderRadius: 16, marginBottom: space.xl }]}>

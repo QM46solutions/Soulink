@@ -79,7 +79,7 @@ export default function TabsLayout() {
       {/* Centre: the Argue Referee, a raised gradient button */}
       <Tabs.Screen name="argue" options={{ headerShown: false, tabBarButton: (props) => <ArgueButton {...props} /> }} />
       {/* Discover stays reachable from Home ("Make connections") and Search, not in the tab bar */}
-      <Tabs.Screen name="discover" options={{ title: 'Discover', href: null }} />
+      <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
       <Tabs.Screen name="activity" options={{ title: 'Activity', tabBarIcon: icon('heart') }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon('person-circle') }} />
     </Tabs>

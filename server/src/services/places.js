@@ -47,4 +47,19 @@ export function nearestPlace(lat, lon) {
   return { ...label(best.p), km: Math.round(best.d * 10) / 10 };
 }
 
+/** A typed or picked city label ("Kondapur, Hyderabad") → area coordinates, or null. */
+export function placeCoords(labelText) {
+  if (!labelText) return null;
+  const parts = String(labelText).split(',').map((x) => norm(x).trim()).filter(Boolean);
+  for (const k of parts) {
+    const loc = data.localities.find((p) => norm(p.n) === k);
+    if (loc) return { lat: loc.lat, lon: loc.lon };
+    let best = null;
+    for (const p of data.places) if ((norm(p.n) === k || (p.a && norm(p.a) === k)) && (!best || p.p > best.p)) best = p;
+    if (best) return { lat: best.lat, lon: best.lon };
+  }
+  return null;
+}
+export const distanceKm = km;
+
 export const placesCredit = data.source;

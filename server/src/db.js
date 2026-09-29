@@ -6,7 +6,7 @@ import sql from 'mssql';
 import { config } from './config.js';
 
 // Columns stored as JSON text in SQL Server, returned to the app as arrays/objects.
-const JSON_COLUMNS = new Set(['interests', 'media_urls', 'options', 'verdict', 'meta', 'embedding']);
+const JSON_COLUMNS = new Set(['interests', 'languages', 'discover_filters', 'media_urls', 'options', 'verdict', 'meta', 'embedding']);
 
 let poolPromise = null;
 
