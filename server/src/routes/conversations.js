@@ -10,6 +10,7 @@ import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
 import { connectionBetween } from '../services/connections.js';
+import { ownsSoulmoji } from './soulmoji.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -328,14 +329,15 @@ r.post('/:id/messages', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
   const data = z.object({
     body: z.string().trim().min(1, 'Write a message').max(2000).optional(),
-    soulmoji: z.object({ mood: z.enum(SOULMOJI_MOODS), caption: z.string().trim().max(40).optional() }).optional(),
+    soulmoji: z.object({ mood: z.enum(SOULMOJI_MOODS), caption: z.string().trim().max(40).optional(), imageUrl: z.string().max(300).optional() }).optional(),
     replyToId: uuid.optional(),
   }).refine((d) => !!d.body !== !!d.soulmoji, 'Send a message or a Soulmoji').parse(req.body);
   await assertCanSend(conv, req.user.id);
   if (data.replyToId && !(await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [data.replyToId, conv.id]))) throw badRequest('That message is not in this chat');
-  if (data.soulmoji && !req.user.avatar_url) throw badRequest('Add a profile photo to make Soulmojis from your face', 'no_face_photo');
+  if (data.soulmoji?.imageUrl && !(await ownsSoulmoji(req.user.id, data.soulmoji.imageUrl))) throw badRequest('That Soulmoji is not yours', 'not_your_soulmoji');
+  if (data.soulmoji && !data.soulmoji.imageUrl && !req.user.avatar_url) throw badRequest('Take your Soulmoji selfie first', 'no_face_photo');
   const payload = data.soulmoji
-    ? { kind: 'soulmoji', body: JSON.stringify({ mood: data.soulmoji.mood, caption: data.soulmoji.caption || null, faceUrl: req.user.avatar_url }) }
+    ? { kind: 'soulmoji', body: JSON.stringify({ mood: data.soulmoji.mood, caption: data.soulmoji.caption || null, faceUrl: req.user.avatar_url, imageUrl: data.soulmoji.imageUrl || null }) }
     : { kind: 'text', body: data.body };
   res.status(201).json({ message: await postMessage(conv, req.user.id, { ...payload, replyToId: data.replyToId || null }) });
 }));

@@ -147,13 +147,13 @@ export default function Chat() {
     }
   };
 
-  const sendSoulmoji = async ({ mood, caption }) => {
+  const sendSoulmoji = async ({ mood, caption, imageUrl }) => {
     setSoulmojiOpen(false);
     const reply = replyTo; setReplyTo(null);
     const tmpId = `tmp-${++tmpSeq}`;
-    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'soulmoji', soulmoji: { mood, caption, faceUrl: me.avatarUrl }, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
+    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'soulmoji', soulmoji: { mood, caption, imageUrl, faceUrl: me.avatarUrl }, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
     try {
-      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { soulmoji: { mood, caption }, ...(reply ? { replyToId: reply.id } : {}) } });
+      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { soulmoji: { mood, caption, imageUrl }, ...(reply ? { replyToId: reply.id } : {}) } });
       replaceTmp(tmpId, r.message);
     } catch (e) {
       setMessages((cur) => cur.map((m) => (m.id === tmpId ? { ...m, status: 'failed' } : m)));
@@ -307,7 +307,7 @@ export default function Chat() {
         </View>
       ) : (
         <>
-        {soulmojiOpen ? <SoulmojiPanel faceUrl={me.avatarUrl} onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}
+        {soulmojiOpen ? <SoulmojiPanel onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}
         <Composer
           replyTo={replyTo ? { name: nameOfSender(replyTo.senderId), text: previewOf(replyTo) } : null}
           onCancelReply={() => setReplyTo(null)}

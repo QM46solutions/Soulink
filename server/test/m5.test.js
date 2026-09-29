@@ -102,3 +102,18 @@ describe('Chat extras', () => {
     await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ soulmoji: { mood: 'banana' } }).expect(400);
   });
 });
+
+describe('Soulmoji v2 (your photo, changed expression)', () => {
+  test('no selfie yet: face is empty and rendering asks for the selfie first', async () => {
+    const u = await makeUser();
+    assert.equal((await api().get('/soulmoji/face').set(u.h).expect(200)).body.faceUrl, null);
+    const r = await api().post('/soulmoji/render').set(u.h).send({ mood: 'happy' }).expect(400);
+    assert.equal(r.body.error.code, 'no_soulmoji_face');
+  });
+  test('cannot send someone else\'s Soulmoji image in chat', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const conv = (await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(200)).body.conversation;
+    const r = await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ soulmoji: { mood: 'happy', imageUrl: '/uploads/soulmoji/not-mine.jpg' } }).expect(400);
+    assert.equal(r.body.error.code, 'not_your_soulmoji');
+  });
+});

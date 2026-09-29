@@ -11,7 +11,7 @@ import { mediaUrl } from '../lib/api';
 import { colors, fonts, gradients, radius, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
-import { SoulmojiSticker } from './soulmoji';
+import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
 
 // ---------- avatars ----------
 
@@ -132,7 +132,9 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else if (message.kind === 'soulmoji' && message.soulmoji) {
     content = (
       <Pressable onPress={tap} onLongPress={onMenu} style={{ paddingVertical: 4 }}>
-        <SoulmojiSticker faceUrl={message.soulmoji.faceUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={120} />
+        {message.soulmoji.imageUrl
+          ? <SoulmojiPhoto imageUrl={message.soulmoji.imageUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={176} />
+          : <SoulmojiSticker faceUrl={message.soulmoji.faceUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={120} />}
       </Pressable>
     );
   } else if (message.kind === 'image') {

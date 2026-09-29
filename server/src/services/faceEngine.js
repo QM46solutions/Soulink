@@ -122,6 +122,7 @@ export async function analyzeFaces(buf) {
         yaw: (p[30].x - (left + right) / 2) / Math.max(1, Math.abs(right - left)),
         box: { x, y, width, height },
         descriptor: Array.from(f.descriptor),
+        landmarks: p.map((q) => [q.x, q.y]), // 68 points (jaw, brows, nose, eyes, lips) for Soulmoji
         ...quality(img, { x, y, width, height }),
       };
     });

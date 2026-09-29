@@ -19,6 +19,7 @@ import connectionRoutes from './routes/connections.js';
 import argueRoutes from './routes/argue.js';
 import discoverRoutes from './routes/discover.js';
 import postRoutes from './routes/posts.js';
+import soulmojiRoutes from './routes/soulmoji.js';
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/search', searchRoutes);
   app.use('/discover', discoverRoutes);
   app.use('/posts', postRoutes);
+  app.use('/soulmoji', soulmojiRoutes);
   app.use('/dev', devRoutes); // laptop-only test helpers (off in production)
   app.use('/places', placesRoutes); // public (no login): must come before safetyRoutes, which requires login for everything under '/'
   app.use('/', safetyRoutes);
