@@ -7,7 +7,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GradientText } from './brand';
+import { GradientText, Divider } from './brand';
 import { colors, fonts, space } from '../lib/theme';
 
 export function BrandScreen({ children, back, onBack, right, center = true }) {
@@ -43,6 +43,7 @@ export function BrandHeader({ title, subtitle, size = 48, children }) {
       {title ? <Text style={{ fontFamily: fonts.displayBold, fontSize: size ? 20 : 24, lineHeight: size ? 26 : 30, color: colors.text, textAlign: 'center', marginTop: space.md }}>{title}</Text> : null}
       {subtitle ? <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginTop: 6 }}>{subtitle}</Text> : null}
       {children}
+      {title || subtitle ? <Divider style={{ marginTop: space.lg, width: '80%', alignSelf: 'center' }} /> : null}
     </View>
   );
 }

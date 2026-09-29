@@ -11,7 +11,7 @@ import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, I
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { RealtimeProvider } from '../lib/realtime';
-import { Starfield } from '../components/brand';
+import { HeaderBackground, Starfield } from '../components/brand';
 import { colors, fonts } from '../lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -26,6 +26,7 @@ const navTheme = {
 export const headerStyle = {
   headerStyle: { backgroundColor: 'transparent' },
   headerShadowVisible: false,
+  headerBackground: () => <HeaderBackground />,
   headerTintColor: colors.text,
   headerTitleAlign: 'center',
   headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },

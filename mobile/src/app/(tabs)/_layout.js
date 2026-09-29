@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GradientText } from '../../components/brand';
+import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import { ScalesIcon } from '../../components/LiveIcons';
 
@@ -91,6 +91,7 @@ export default function TabsLayout() {
         return {
           headerStyle: { backgroundColor: 'transparent' },
           headerShadowVisible: false,
+          headerBackground: () => <HeaderBackground />,
           headerTintColor: colors.text,
           headerTitleAlign: 'center',
           headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },

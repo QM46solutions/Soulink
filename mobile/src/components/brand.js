@@ -157,3 +157,23 @@ export function Headline({ children, size = 30, gradient = false, style }) {
   const st = [{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.1, letterSpacing: -size * 0.02, color: colors.text }, style];
   return gradient ? <GradientText style={st}>{children}</GradientText> : <Text style={st}>{children}</Text>;
 }
+
+/** Thin Soulink divider: a violet line that fades out at both ends. Used under every screen's header. */
+export function Divider({ style }) {
+  return (
+    <LinearGradient
+      colors={['rgba(176,143,255,0)', 'rgba(176,143,255,0.55)', 'rgba(255,107,157,0.45)', 'rgba(255,107,157,0)']}
+      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+      style={[{ height: 1, alignSelf: 'stretch' }, style]}
+    />
+  );
+}
+
+/** Header background for navigation headers: transparent with the divider along the bottom edge. */
+export function HeaderBackground() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'flex-end' }} pointerEvents="none">
+      <Divider />
+    </View>
+  );
+}
