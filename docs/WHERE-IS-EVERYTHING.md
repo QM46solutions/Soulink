@@ -8,7 +8,9 @@ Project folder: **C:\Users\Sai raghava\Documents\Soulink**
 |---|---|
 | After Claude delivers new code | Double-click `UPDATE-SOULINK.bat` (installs packages, updates database, runs tests) |
 | Open in a browser on the laptop | Double-click `START-SOULINK-WEB.bat` → open http://localhost:8081 (VS Code: Ctrl+Shift+P → "Simple Browser: Show") |
-| Open on your phone | Double-click `START-SOULINK.bat` → scan the QR code with Expo Go |
+| Open on your phone (browser, secure link, Wi-Fi or mobile data) | Double-click `START-SOULINK-PHONE.bat` → scan the QR code with the phone camera |
+| Open on your phone (Expo Go app, same Wi-Fi) | Double-click `START-SOULINK.bat` → scan the QR code with Expo Go |
+| Demo accounts for testing | Log in with 90000 00100 (@sai.demo), 00101-00105 for the others; tap the test-mode code |
 | Run the automated tests only | VS Code terminal: `cd server` then `npm test` |
 | Stop the app | Close the two black windows |
 | Erase all test data and start fresh | Double-click `RESET-SOULINK-DATA.bat`, type YES |
