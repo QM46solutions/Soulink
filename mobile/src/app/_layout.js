@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Platform, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PHONE } from '../lib/device';
 import { Stack, ThemeProvider, DarkTheme } from 'expo-router';
@@ -83,16 +83,25 @@ function RootStack() {
 }
 
 // In a desktop browser, show the app inside an exact iPhone 17 Pro Max (440 × 956 pt) with its status bar,
-// Dynamic Island and home indicator, so what you see here is what the phone shows. Shrinks to fit small windows.
+// Dynamic Island and home indicator, so what you see here is what the phone shows.
+// Size: "Actual" = true 17 Pro Max size (440 px wide; scroll the page to see the bottom on short laptop screens),
+// "Fit" = shrink the whole phone so it fits the window height. The choice is remembered in this browser.
+const ZOOM_KEY = 'soulink.previewZoom';
 function PhoneFrame({ children }) {
   const { width, height } = useWindowDimensions();
+  const [mode, setMode] = useState(() => { try { return window.localStorage.getItem(ZOOM_KEY) || 'actual'; } catch { return 'actual'; } });
   if (Platform.OS !== 'web' || width < 520) return <View style={{ flex: 1, backgroundColor: colors.void }}>{children}</View>;
   const BEZEL = 10;
   const fullH = PHONE.height + BEZEL * 2;
-  const scale = Math.min(1, (height - 24) / fullH);
+  const fit = Math.min(1, (height - 16) / fullH);
+  const scale = mode === 'fit' ? fit : 1;
+  const pick = (m) => { setMode(m); try { window.localStorage.setItem(ZOOM_KEY, m); } catch { /* private window */ } };
+  const Outer = scale * fullH > height ? ScrollView : View;
   const time = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: false });
   return (
-    <View style={{ flex: 1, backgroundColor: '#030207', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+    <View style={{ flex: 1, backgroundColor: '#030207' }}>
+    <Outer style={{ flex: 1 }} contentContainerStyle={Outer === ScrollView ? { alignItems: 'center', paddingVertical: 8 } : undefined}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{
         width: PHONE.width + BEZEL * 2, height: fullH, borderRadius: 64, padding: BEZEL, backgroundColor: '#1c1a26',
         transform: [{ scale }], marginVertical: -(fullH * (1 - scale)) / 2,
@@ -116,6 +125,16 @@ function PhoneFrame({ children }) {
             <View style={{ width: 140, height: 5, borderRadius: 3, backgroundColor: 'rgba(233,231,242,0.85)' }} />
           </View>
         </View>
+      </View>
+    </View>
+    </Outer>
+      {/* preview size switch (browser only, outside the phone) */}
+      <View style={{ position: 'absolute', left: 16, bottom: 16, flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(14,12,22,0.9)', padding: 3 }}>
+        {[['actual', 'Actual size'], ['fit', 'Fit screen']].map(([m, label]) => (
+          <Pressable key={m} onPress={() => pick(m)} style={({ hovered }) => ({ paddingHorizontal: 12, height: 30, borderRadius: 999, justifyContent: 'center', backgroundColor: mode === m ? colors.soul : hovered ? 'rgba(124,92,252,0.18)' : 'transparent' })}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: mode === m ? '#fff' : colors.muted }}>{label}</Text>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
