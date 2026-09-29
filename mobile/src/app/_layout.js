@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { Platform, Text, View, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { PHONE } from '../lib/device';
 import { Stack, ThemeProvider, DarkTheme } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -74,16 +76,40 @@ function RootStack() {
   );
 }
 
-// In a desktop browser, show the app inside a phone-sized frame (like a real Android screen).
-const PHONE = { width: 412, height: 892 };
+// In a desktop browser, show the app inside an exact iPhone 17 Pro Max (440 × 956 pt) with its status bar,
+// Dynamic Island and home indicator, so what you see here is what the phone shows. Shrinks to fit small windows.
 function PhoneFrame({ children }) {
   const { width, height } = useWindowDimensions();
   if (Platform.OS !== 'web' || width < 520) return <View style={{ flex: 1, backgroundColor: colors.void }}>{children}</View>;
-  const h = Math.min(PHONE.height, height - 32);
+  const BEZEL = 10;
+  const fullH = PHONE.height + BEZEL * 2;
+  const scale = Math.min(1, (height - 24) / fullH);
+  const time = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: false });
   return (
-    <View style={{ flex: 1, backgroundColor: '#030207', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: PHONE.width, height: h, borderRadius: 36, borderWidth: 8, borderColor: '#1c1a26', overflow: 'hidden', backgroundColor: colors.void, boxShadow: '0 20px 60px rgba(124,92,252,0.25)' }}>
-        {children}
+    <View style={{ flex: 1, backgroundColor: '#030207', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <View style={{
+        width: PHONE.width + BEZEL * 2, height: fullH, borderRadius: 64, padding: BEZEL, backgroundColor: '#1c1a26',
+        transform: [{ scale }], marginVertical: -(fullH * (1 - scale)) / 2,
+        boxShadow: '0 20px 70px rgba(124,92,252,0.28)',
+      }}>
+        <View style={{ flex: 1, borderRadius: 54, overflow: 'hidden', backgroundColor: colors.void }}>
+          {/* status bar + Dynamic Island (59 pt) */}
+          <View style={{ height: PHONE.top, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 34, paddingTop: 6, zIndex: 2 }}>
+            <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 16, width: 60 }}>{time}</Text>
+            <View style={{ position: 'absolute', top: 11, left: (PHONE.width - 126) / 2, width: 126, height: 37, borderRadius: 19, backgroundColor: '#000' }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: 60, justifyContent: 'flex-end' }}>
+              <Ionicons name="cellular" size={14} color={colors.text} style={{ marginRight: 4 }} />
+              <Ionicons name="wifi" size={14} color={colors.text} style={{ marginRight: 4 }} />
+              <Ionicons name="battery-full" size={18} color={colors.text} />
+            </View>
+          </View>
+          {/* the app: 440 × 863 pt */}
+          <View style={{ flex: 1 }}>{children}</View>
+          {/* home indicator (34 pt) */}
+          <View style={{ height: PHONE.bottom, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 140, height: 5, borderRadius: 3, backgroundColor: 'rgba(233,231,242,0.85)' }} />
+          </View>
+        </View>
       </View>
     </View>
   );
