@@ -18,3 +18,11 @@ Swipe gestures are OUT.
 | 10 | Argue / Referee v1 (DONE 2026-09-29: together + invite, Claude or basic judge, verdict screen; share card still to do) | Two-sided case - AI verdict (free local AI first) - shareable verdict card | Planned |
 | 11 | Speed and data | Low-data mode - budget-Android tuning - weak-network loading | Planned |
 | 12 | Launch kit | Invite-only codes + waitlist - Hyderabad college / company tags - brand-partner spots - Hinglish wording - privacy policy, face-data consent and delete (DPDP Act) | Planned |
+
+## Frontend enhancements (added by Sai, 2026-09-29)
+
+| # | Enhancement | What's in it | Status |
+|---|---|---|---|
+| 13 | Soulink refine filters (random / Discover search) | Filter bar when finding new people at random: age range, city / area (Hyderabad areas), distance, "Open to" intent (friendship, dating, networking...), Soul type, shared interests, college / company, Face-verified only. Filters shown as tap chips (no swipe), remembered per user. Premium later: advanced filters (Soul Score above X, specific traits). | Planned |
+| 14 | Request alerts under the heart | A new connection request pops up as a notification the moment it arrives (in-app banner + sound/haptic, phone push in the phone build). Red count badge on the heart icon. Heart screen gets a "Requests" section pinned on top, showing intent + Soul Score + intro note, with Accept / Hold / Reject right there (no extra screen). | Planned |
+| 15 | Soulmoji v2: your real photo, your expression | Instead of a sticker with a feeling, Soulmoji edits the sender's own face photo into the expression (happy, sad, angry, shocked, love, laughing...) and sends that. Free local version first: face landmarks + warping the mouth, eyes and eyebrows of the verified profile photo, plus mood colour/effects. Later (cloud, paid): an AI image model for realistic expressions. Only your own verified face can be used, never someone else's. | Planned |
