@@ -74,10 +74,10 @@ export default function UserProfile() {
   };
 
   let followBtn;
-  if (rel.isMe) followBtn = <Button title="Edit profile" variant="secondary" small style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />;
-  else if (rel.following === 'accepted') followBtn = <Button title="Following" icon="chevron-down" variant="secondary" small style={{ flex: 1 }} onPress={unfollow} loading={busy} />;
-  else if (rel.following === 'pending') followBtn = <Button title="Requested" variant="secondary" small style={{ flex: 1 }} onPress={unfollow} loading={busy} />;
-  else followBtn = <Button title={rel.followsYou ? 'Follow back' : 'Follow'} small style={{ flex: 1 }} onPress={follow} loading={busy} />;
+  if (rel.isMe) followBtn = <Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />;
+  else if (rel.following === 'accepted') followBtn = <Button title="Following" icon="chevron-down" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
+  else if (rel.following === 'pending') followBtn = <Button title="Requested" variant="secondary" style={{ flex: 1, height: 48 }} onPress={unfollow} loading={busy} />;
+  else followBtn = <Button title={rel.followsYou ? 'Follow back' : 'Follow'} style={{ flex: 1, height: 48 }} onPress={follow} loading={busy} />;
 
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
@@ -85,7 +85,7 @@ export default function UserProfile() {
         <View style={{ backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)', margin: space.xl, marginBottom: 0, padding: space.md, borderRadius: 20 }}>
           <Text style={{ fontFamily: fonts.body, color: colors.text, marginBottom: space.sm }}>{target.username} wants to follow you</Text>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <Button title="Confirm" small style={{ flex: 1 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
+            <Button title="Confirm" style={{ flex: 1, height: 48 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
             <Button title="Delete" small variant="secondary" style={{ flex: 1 }} onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/decline`, { method: 'POST' }))} />
           </View>
         </View>
@@ -96,18 +96,18 @@ export default function UserProfile() {
         canViewLists={data.canViewContent}
         actions={<>
           {followBtn}
-          {!rel.isMe ? <Button title="Message" variant="secondary" small style={{ flex: 1 }} onPress={openChat} /> : null}
+          {!rel.isMe ? <Button title="Message" variant="secondary" style={{ flex: 1, height: 48 }} onPress={openChat} /> : null}
         </>}
       />
       {data.soulScore ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginHorizontal: space.xl, marginBottom: space.md, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginBottom: space.md, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
           <Ionicons name="sparkles" size={14} color={colors.aura} style={{ marginRight: 6 }} />
           <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Soul Score {data.soulScore}%</Text>
         </View>
       ) : !rel.isMe && !me.soulReady ? (
-        <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
+        <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}
-      {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, paddingHorizontal: space.xl }}>Follows you</Text> : null}
+      {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Follows you</Text> : null}
       {data.canViewContent
         ? <Empty icon="camera-outline" title="No posts yet" />
         : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and followers." />}

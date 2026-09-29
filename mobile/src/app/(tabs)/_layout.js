@@ -39,7 +39,7 @@ export default function TabsLayout() {
         headerTitleAlign: 'center',
         headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
         sceneStyle: { backgroundColor: 'transparent' },
-        tabBarStyle: { backgroundColor: 'rgba(8,7,13,0.96)', borderTopColor: colors.border, height: 64, paddingTop: 8 },
+        tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 64, paddingTop: 8 },
         tabBarActiveTintColor: colors.aura,
         tabBarInactiveTintColor: colors.dim,
         tabBarShowLabel: false,

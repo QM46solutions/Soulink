@@ -42,9 +42,9 @@ export default function MyProfile() {
         user={user}
         counts={counts}
         canViewLists
-        actions={<Button title="Edit profile" variant="secondary" small style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />}
+        actions={<Button title="Edit profile" variant="secondary" style={{ flex: 1, height: 48 }} onPress={() => router.push('/edit-profile')} />}
       />
-      <Empty icon="camera-outline" title="No posts yet" text="Photo posts arrive in Milestone 3." />
+      <Empty icon="camera-outline" title="No posts yet" text="Your photos will show up here." />
     </ScrollView>
   );
 }
