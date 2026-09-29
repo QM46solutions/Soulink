@@ -108,12 +108,13 @@ export async function uploadFile(path, { uri, name, type }, field = 'file', fiel
   return api(path, { method: 'POST', form, timeoutMs: 90000 });
 }
 
-/** Upload a local image (uri from image picker) as multipart form data. */
+/** Upload a local image (uri from the image picker or camera) as multipart form data. Works on phone and web. */
 export function uploadImage(path, uri, field = 'photo') {
-  const name = uri.split('/').pop() || 'photo.jpg';
-  const ext = (name.split('.').pop() || 'jpg').toLowerCase();
-  const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'heic' ? 'image/heic' : 'image/jpeg';
-  const form = new FormData();
-  form.append(field, { uri, name, type });
-  return api(path, { method: 'POST', form, timeoutMs: 60000 });
+  // Web gives a data: or blob: URL (no file name), phone gives a file path
+  const dataType = uri.startsWith('data:') ? uri.slice(5, uri.indexOf(';')) : null;
+  const last = uri.startsWith('data:') || uri.startsWith('blob:') ? '' : uri.split('/').pop().split('?')[0];
+  const ext = (dataType ? dataType.split('/')[1] : (last.split('.').pop() || 'jpg')).toLowerCase().replace('jpeg', 'jpg');
+  const type = dataType || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'heic' ? 'image/heic' : 'image/jpeg');
+  const name = last && last.includes('.') ? last : `photo.${ext || 'jpg'}`;
+  return uploadFile(path, { uri, name, type }, field);
 }
