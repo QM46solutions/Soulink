@@ -23,7 +23,7 @@ export default function FollowList() {
     try { setUsers((await api(`/users/${id}/${type}`)).users); } catch (e) { setError(e.message); }
   }, [id, type]);
 
-  useEffect(() => { navigation.setOptions({ title: `${username} · ${TITLES[type] || 'Followers'}` }); load(); }, [navigation, username, type, load]);
+  useEffect(() => { navigation.setOptions({ title: TITLES[type] || 'Followers' }); load(); }, [navigation, username, type, load]);
 
   const removeFollower = async (u) => {
     if (await confirm(`Remove ${u.username}?`, "We won't tell them they were removed from your followers.", { confirmText: 'Remove', destructive: true })) {
