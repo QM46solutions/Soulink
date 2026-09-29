@@ -39,8 +39,8 @@ export function BrandScreen({ children, back, onBack, right, center = true }) {
 export function BrandHeader({ title, subtitle, size = 48, children }) {
   return (
     <View style={{ alignItems: 'center', marginBottom: space.xl }}>
-      <GradientText numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.17, letterSpacing: -size * 0.03, textAlign: 'center' }}>Soulink</GradientText>
-      {title ? <Text style={{ fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 26, color: colors.text, textAlign: 'center', marginTop: space.md }}>{title}</Text> : null}
+      {size ? <GradientText numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.17, letterSpacing: -size * 0.03, textAlign: 'center' }}>Soulink</GradientText> : null}
+      {title ? <Text style={{ fontFamily: fonts.displayBold, fontSize: size ? 20 : 24, lineHeight: size ? 26 : 30, color: colors.text, textAlign: 'center', marginTop: space.md }}>{title}</Text> : null}
       {subtitle ? <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginTop: 6 }}>{subtitle}</Text> : null}
       {children}
     </View>

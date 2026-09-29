@@ -2,9 +2,10 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useRealtime } from '../../lib/realtime';
 import { Tabs } from 'expo-router/js-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText } from '../../components/brand';
-import { colors, fonts } from '../../lib/theme';
+import { colors, fonts, gradients } from '../../lib/theme';
 
 const icon = (name) => ({ color, focused, size }) => (
   <View style={{ alignItems: 'center' }}>
@@ -25,6 +26,20 @@ function MessagesButton() {
           <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10 }}>{count > 9 ? '9+' : count}</Text>
         </View>
       ) : null}
+    </Pressable>
+  );
+}
+
+function ArgueButton({ onPress, accessibilityState }) {
+  const on = accessibilityState?.selected;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Argue Referee"
+      style={({ hovered }) => ({ flex: 1, alignItems: 'center', justifyContent: 'flex-start', transform: [{ scale: hovered ? 1.06 : 1 }] })}>
+      <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ width: 58, height: 58, borderRadius: 29, marginTop: -22, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: on ? colors.text : colors.void,
+          shadowColor: colors.soul, shadowOpacity: 0.6, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 8 }}>
+        <MaterialCommunityIcons name="scale-balance" size={28} color="#fff" />
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -54,7 +69,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
-      <Tabs.Screen name="discover" options={{ title: 'Discover', tabBarIcon: icon('sparkles') }} />
+      {/* Centre: the Argue Referee, a raised gradient button */}
+      <Tabs.Screen name="argue" options={{ headerShown: false, tabBarButton: (props) => <ArgueButton {...props} /> }} />
+      {/* Discover stays reachable from Home ("Make connections") and Search, not in the tab bar */}
+      <Tabs.Screen name="discover" options={{ title: 'Discover', href: null }} />
       <Tabs.Screen name="activity" options={{ title: 'Activity', tabBarIcon: icon('heart') }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon('person-circle') }} />
     </Tabs>

@@ -62,6 +62,7 @@ function RootStack() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="soul" options={{ headerShown: false }} />
         <Stack.Screen name="connect/[userId]" options={{ headerShown: false }} />
+        <Stack.Screen name="argue/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="connections/requests" options={{ title: '' }} />
         <Stack.Screen name="user/[username]" options={{ title: '' }} />
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
