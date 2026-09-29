@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { Empty, ErrorText, Input, UserRow, s } from '../../components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, gradients, space } from '../../lib/theme';
+import { RadarIcon } from '../../components/LiveIcons';
 
 // Big, self-explaining entry to Discover: what it does + what you can filter by + a clear action
 function DiscoverCard() {
@@ -16,9 +17,9 @@ function DiscoverCard() {
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, padding: 1.5 }}>
         <View style={{ borderRadius: 23, padding: space.lg, backgroundColor: 'rgba(14,12,22,0.94)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: space.md }}>
-              <Ionicons name="planet" size={24} color="#fff" />
-            </LinearGradient>
+            <View style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(245,200,66,0.4)', backgroundColor: 'rgba(245,200,66,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: space.md }}>
+              <RadarIcon size={52} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.displayBold, fontSize: 18, color: colors.text }}>Discover new people</Text>
               <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 2 }}>Don't know their name? Find new souls who match your vibe.</Text>

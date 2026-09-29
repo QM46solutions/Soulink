@@ -11,14 +11,17 @@ import { useAuth } from '../../lib/auth';
 import { Button } from '../../components/ui';
 import { GlassCard } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
+import { LiveFrame, RadarIcon, SoulDnaIcon } from '../../components/LiveIcons';
 
-function CenterCard({ icon, title, text, children }) {
+function CenterCard({ icon, live, title, text, children }) {
   return (
     <View style={{ flex: 1, justifyContent: 'center', padding: space.xl }}>
       <GlassCard style={{ alignItems: 'center', padding: space.xl }}>
-        <View style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 1.5, borderColor: 'rgba(176,143,255,0.5)', backgroundColor: 'rgba(124,92,252,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-          <MaterialCommunityIcons name={icon} size={44} color={colors.aura} />
-        </View>
+        {live ? <LiveFrame size={170}>{live}</LiveFrame> : (
+          <View style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 1.5, borderColor: 'rgba(176,143,255,0.5)', backgroundColor: 'rgba(124,92,252,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <MaterialCommunityIcons name={icon} size={44} color={colors.aura} />
+          </View>
+        )}
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 28, color: colors.text, textAlign: 'center', marginTop: space.lg }}>{title}</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.muted, textAlign: 'center', marginTop: space.sm }}>{text}</Text>
         <View style={{ alignSelf: 'stretch', marginTop: space.xl }}>{children}</View>
@@ -68,7 +71,7 @@ export default function Home() {
 
   if (!user.soulReady) {
     return (
-      <CenterCard icon="dna" title={`Welcome, ${first}! One last step`} text="Create your Soul DNA to unlock connections. 10 quick, fun questions and about 2 minutes. It's how Soulink finds people who match your vibe.">
+      <CenterCard icon="dna" live={<SoulDnaIcon size={140} />} title={`Welcome, ${first}! One last step`} text="Create your Soul DNA to unlock connections. 10 quick, fun questions and about 2 minutes. It's how Soulink finds people who match your vibe.">
         <Button title="Create my Soul DNA" onPress={() => router.push('/soul')} />
       </CenterCard>
     );
@@ -81,7 +84,7 @@ export default function Home() {
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: space.md }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
         <Composer user={user} />
         {feed.connections === 0 ? (
-      <CenterCard icon="account-heart-outline" title="No connections yet" text={`You're ${user.soulType ? `${user.soulType}. ` : ''}Now find your people: friends you know, or new souls who match your vibe.`}>
+      <CenterCard icon="account-heart-outline" live={<RadarIcon size={140} />} title="No connections yet" text={`You're ${user.soulType ? `${user.soulType}. ` : ''}Now find your people: friends you know, or new souls who match your vibe.`}>
         <Button title="Make connections" onPress={() => router.push('/discover')} />
         <Button title="Search people you know" variant="secondary" style={{ marginTop: space.md }} onPress={() => router.push('/search')} />
       </CenterCard>

@@ -12,6 +12,7 @@ import { GlassCard } from '../../components/brand';
 import { ChoiceCard } from '../../components/Choice';
 import { Avatar, Button, ErrorText, Input, s } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
+import { LiveFrame, ScalesIcon } from '../../components/LiveIcons';
 
 function Stepper({ value, onChange, min = 2, max = 6 }) {
   const Btn = ({ icon, disabled, onPress }) => (
@@ -94,9 +95,7 @@ export default function Argue() {
     return (
       <BrandScreen center={false}>
         <View style={{ alignItems: 'center', marginTop: space.lg }}>
-          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' }}>
-            <MaterialCommunityIcons name="scale-balance" size={42} color="#fff" />
-          </LinearGradient>
+          <LiveFrame size={150}><ScalesIcon size={124} /></LiveFrame>
         </View>
         <BrandHeader size={0} title="Argue Referee" subtitle="Everyone tells their side. The AI referee listens to all of it and gives a fair verdict." />
         <GlassCard style={{ padding: space.xl }}>

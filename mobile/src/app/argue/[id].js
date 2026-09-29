@@ -11,6 +11,7 @@ import { GlassCard, GradientText, PillTag } from '../../components/brand';
 import MicButton from '../../components/MicButton';
 import { Avatar, Button, ErrorText, Input, Loading, s } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
+import { LiveFrame, ScalesIcon } from '../../components/LiveIcons';
 
 const initial = (n) => (n || '?').trim().charAt(0).toUpperCase();
 
@@ -24,20 +25,10 @@ function Bubble({ name, size = 72, user, highlight }) {
 }
 
 function Thinking() {
-  const spin = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }));
-    loop.start(); return () => loop.stop();
-  }, [spin]);
-  const rotate = spin.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-12deg', '12deg', '-12deg'] });
   return (
     <BrandScreen>
       <View style={{ alignItems: 'center' }}>
-        <Animated.View style={{ transform: [{ rotate }] }}>
-          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center' }}>
-            <MaterialCommunityIcons name="scale-balance" size={60} color="#fff" />
-          </LinearGradient>
-        </Animated.View>
+        <LiveFrame size={220} label="VERDICT.BALANCING"><ScalesIcon size={180} /></LiveFrame>
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.xl }}>The Referee is thinking…</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, textAlign: 'center' }}>Reading every side carefully. This can take up to a minute.</Text>
       </View>
@@ -204,7 +195,7 @@ export default function ArgueCase() {
         <SideInput name={me.name} busy={busy} error={error} cta={done + 1 === total ? 'Send: get the verdict' : 'Send my side'} onSubmit={(t) => submit(t)} />
       ) : (
         <GlassCard style={{ alignItems: 'center', padding: space.xl }}>
-          <MaterialCommunityIcons name="timer-sand" size={40} color={colors.aura} />
+          <ScalesIcon size={72} />
           <Text style={{ fontFamily: fonts.displayBold, fontSize: 18, color: colors.text, marginTop: space.md, textAlign: 'center' }}>Your side is in</Text>
           <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, textAlign: 'center' }}>
             Waiting for {c.people.filter((p) => !p.submitted).map((p) => p.name).join(', ')}. You'll get a notification when the verdict is ready.

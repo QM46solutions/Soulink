@@ -13,6 +13,7 @@ import { Button, Empty, Loading, VerifiedBadge, s } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 import { intentOf } from '../../lib/intents';
 import { SORTS, clean, summary, without } from '../../lib/filters';
+import { LiveFrame, RadarIcon } from '../../components/LiveIcons';
 
 function Pill({ label, active, icon, onPress, premium }) {
   return (
@@ -143,10 +144,15 @@ export default function Discover() {
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await search(filters); setRefreshing(false); }} />}
       ListEmptyComponent={data ? (
-        <Empty icon="planet-outline" title={data.note ? 'One more step' : 'No souls match yet'} text={data.note || 'Try removing a filter or two. New people join every day.'}>
-          {chips.length ? <Button title="Clear filters" variant="secondary" onPress={() => change({ sort: filters.sort })} /> : null}
-        </Empty>
-      ) : <Loading />}
+        <View>
+          <View style={{ marginTop: space.lg }}><LiveFrame size={170} label="VISUAL_SEARCH.LOCK"><RadarIcon size={140} /></LiveFrame></View>
+          <Empty icon="planet-outline" title={data.note ? 'One more step' : 'No souls match yet'} text={data.note || 'Try removing a filter or two. New people join every day.'}>
+            {chips.length ? <Button title="Clear filters" variant="secondary" onPress={() => change({ sort: filters.sort })} /> : null}
+          </Empty>
+        </View>
+      ) : (
+        <View style={{ marginTop: space.xl }}><LiveFrame size={170} label="SCANNING…"><RadarIcon size={140} /></LiveFrame></View>
+      )}
     />
   );
 }

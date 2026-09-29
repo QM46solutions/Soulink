@@ -7,13 +7,14 @@ import ContactEntry from '../../components/ContactEntry';
 import { LinkLine } from '../../components/BrandScreen';
 import { GlassCard, GradientText, MonoTag, PillTag } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
+import { FaceScanIcon, RadarIcon, ScalesIcon, SoulDnaIcon } from '../../components/LiveIcons';
 
 // The four pillars, same wording and colours as the pitch site
 const PILLARS = [
-  { n: '01', icon: 'face-recognition', color: colors.mint, title: 'Real Identity', text: 'Every face is a real human. One person, one profile, for life.' },
-  { n: '02', icon: 'hand-heart', color: colors.aura, title: 'Soul Matching', text: 'Your personality, decoded across 8 dimensions. Matches that feel eerily right.' },
-  { n: '03', icon: 'account-search', color: colors.spark, title: 'Visual Discovery', text: 'Met someone at a café? Find them, if they chose to be found.' },
-  { n: '04', icon: 'scale-balance', color: colors.gold, title: 'Argument Referee', text: 'Both sides heard. A fair, neutral verdict in 60 seconds.' },
+  { n: '01', Live: FaceScanIcon, icon: 'face-recognition', color: colors.mint, title: 'Real Identity', text: 'Every face is a real human. One person, one profile, for life.' },
+  { n: '02', Live: SoulDnaIcon, icon: 'hand-heart', color: colors.aura, title: 'Soul Matching', text: 'Your personality, decoded across 8 dimensions. Matches that feel eerily right.' },
+  { n: '03', Live: RadarIcon, icon: 'account-search', color: colors.spark, title: 'Visual Discovery', text: 'Met someone at a café? Find them, if they chose to be found.' },
+  { n: '04', Live: ScalesIcon, icon: 'scale-balance', color: colors.gold, title: 'Argument Referee', text: 'Both sides heard. A fair, neutral verdict in 60 seconds.' },
 ];
 
 const SLIDE_EVERY_MS = 3000;
@@ -64,8 +65,8 @@ function FeatureCarousel() {
         {PILLARS.map((p) => (
           <View key={p.n} style={{ width: width || 1 }}>
             <GlassCard style={{ alignItems: 'center', paddingVertical: space.xl, paddingHorizontal: space.xl, minHeight: 175 }}>
-              <View style={{ width: 56, height: 56, borderRadius: 16, borderWidth: 1, borderColor: `${p.color}55`, backgroundColor: `${p.color}14`, alignItems: 'center', justifyContent: 'center' }}>
-                <MaterialCommunityIcons name={p.icon} size={28} color={p.color} />
+              <View style={{ width: 64, height: 64, borderRadius: 18, borderWidth: 1, borderColor: `${p.color}55`, backgroundColor: `${p.color}10`, alignItems: 'center', justifyContent: 'center' }}>
+                <p.Live size={58} />
               </View>
               <MonoTag style={{ marginTop: space.md }}>{p.n} / 04</MonoTag>
               <Text style={{ fontFamily: fonts.displayBold, fontSize: 20, color: colors.text, marginTop: space.xs, textAlign: 'center' }}>{p.title}</Text>

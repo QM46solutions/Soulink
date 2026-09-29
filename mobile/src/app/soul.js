@@ -11,6 +11,7 @@ import { BrandHeader, BrandScreen } from '../components/BrandScreen';
 import { GradientText, PillTag } from '../components/brand';
 import { Button, ErrorText } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
+import { SoulDnaIcon } from '../components/LiveIcons';
 
 function Bar({ value }) {
   return (
@@ -83,7 +84,7 @@ export default function SoulQuiz() {
         <Animated.View style={{ alignItems: 'center', opacity: glow, transform: [{ scale }] }}>
           <View style={{ width: 150, height: 150, borderRadius: 75, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
             <LinearGradient colors={[...gradients.button]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.35 }} />
-            <MaterialCommunityIcons name="dna" size={80} color={colors.text} />
+            <SoulDnaIcon size={130} />
           </View>
           <PillTag style={{ alignSelf: 'center', marginTop: space.xl }}>You are</PillTag>
           <GradientText style={{ fontFamily: fonts.display, fontSize: 32, lineHeight: 40, textAlign: 'center', marginTop: space.md }}>{result.type}</GradientText>

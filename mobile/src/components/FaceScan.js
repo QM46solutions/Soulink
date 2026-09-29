@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { Button } from './ui';
+import { FaceScanIcon } from './LiveIcons';
 
 const SIZE = 250;
 const POSES = [
@@ -139,7 +140,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
       <View>
         <Ring spin={spin} color={failed ? colors.danger : null}>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <MaterialCommunityIcons name="face-recognition" size={110} color={failed ? colors.danger : colors.aura} />
+            <FaceScanIcon size={190} color={failed ? colors.danger : colors.mint} />
           </View>
         </Ring>
         {failed ? (
