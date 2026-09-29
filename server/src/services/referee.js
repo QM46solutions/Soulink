@@ -1,6 +1,6 @@
 // The Argue referee. Reads every side and returns a fair, neutral verdict.
-// Uses Claude when ANTHROPIC_API_KEY is set (best quality); otherwise a simple free judge so the
-// feature still works for testing. Output shape is the same either way.
+// Order: free local AI (Ollama on this laptop) → basic rules judge if the AI isn't running.
+// Claude (paid) is used only when AI_PROVIDER=claude and a key is set. Output shape is the same for all.
 import { config } from '../config.js';
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -50,6 +50,41 @@ async function claudeVerdict(topic, people) {
   return tidy(JSON.parse(json), people);
 }
 
+// ---- Free local AI via Ollama (runs on this laptop, no account or cost) ----
+async function ollamaVerdict(topic, people) {
+  const res = await fetch(`${config.ollamaUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: config.ollamaModel,
+      stream: false,
+      format: 'json',
+      options: { temperature: 0.3, num_ctx: 4096 },
+      messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userPrompt(topic, people) }],
+    }),
+    signal: AbortSignal.timeout(150000),
+  });
+  if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text = data.message?.content || '';
+  const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
+  const v = tidy(JSON.parse(json), people);
+  if (!v.winnerSeats.length && !v.summary) throw new Error('Ollama gave an empty verdict');
+  return v;
+}
+
+/** Is the free local AI installed and running? (shown in the server window at start) */
+export async function localAiStatus() {
+  try {
+    const r = await fetch(`${config.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const tags = (await r.json()).models || [];
+    const has = tags.some((m) => m.name === config.ollamaModel || m.name.startsWith(`${config.ollamaModel}:`) || m.model === config.ollamaModel);
+    return has ? { ok: true, model: config.ollamaModel } : { ok: false, reason: `model ${config.ollamaModel} not downloaded yet (run INSTALL-FREE-AI.bat)` };
+  } catch {
+    return { ok: false, reason: 'Ollama is not running (run INSTALL-FREE-AI.bat once, then it starts with Windows)' };
+  }
+}
+
 // ---- Free basic judge (no AI): rewards calm, fair, specific statements ----
 const FAIR = /\b(i understand|i get (it|that)|you'?re right|fair point|my (bad|mistake)|sorry|i should have|both of us|we both|to be fair|i agree|i admit)\b/gi;
 const HARSH = /\b(always|never|stupid|idiot|shut up|useless|pathetic|hate you|dumb|nonsense|whatever)\b/gi;
@@ -72,7 +107,7 @@ function basicVerdict(topic, people) {
   return {
     winnerSeats: winners,
     headline: winners.length > 1 ? `Too close to call: ${names(winners)}` : `${names(winners)} made the fairer case`,
-    summary: 'Quick verdict from the basic judge: it rewards calm, specific and fair points and marks down harsh words. Add a Claude API key for a real AI verdict that understands the whole story.',
+    summary: 'Quick verdict from the basic judge: it rewards calm, specific and fair points and marks down harsh words. Turn on the free Soulink AI (INSTALL-FREE-AI) for a verdict that understands the whole story.',
     people: scored.map((s) => ({
       seat: s.seat, name: s.name, fairness: s.score,
       strength: s.fair ? 'Showed they could see the other side.' : s.specific ? 'Gave specific details.' : 'Shared their side.',
@@ -83,10 +118,13 @@ function basicVerdict(topic, people) {
   };
 }
 
-/** Returns { verdict, judge: 'claude' | 'basic' }. Falls back to the basic judge if Claude fails. */
+/** Returns { verdict, judge: 'claude' | 'ollama' | 'basic' }. Always falls back to the basic judge. */
 export async function judge(topic, people) {
-  if (config.anthropicKey) {
-    try { return { verdict: await claudeVerdict(topic, people), judge: 'claude' }; } catch (e) { console.error('Referee: Claude failed, using basic judge:', e.message); }
+  if (config.aiProvider === 'claude' && config.anthropicKey) {
+    try { return { verdict: await claudeVerdict(topic, people), judge: 'claude' }; } catch (e) { console.error('Referee: Claude failed:', e.message); }
+  }
+  if (config.aiProvider !== 'basic') {
+    try { return { verdict: await ollamaVerdict(topic, people), judge: 'ollama' }; } catch (e) { console.error('Referee: free local AI not available, using the basic judge:', e.message); }
   }
   return { verdict: basicVerdict(topic, people), judge: 'basic' };
 }

@@ -24,7 +24,10 @@ export const config = {
   otpDevEcho: bool(process.env.OTP_DEV_ECHO, true),
   storage: process.env.STORAGE || 'local',
   uploadDir: process.env.UPLOAD_DIR || fileURLToPath(new URL('../uploads/', import.meta.url)),
+  // Argue referee AI: local = free Ollama on this laptop (falls back to the basic judge), claude = Claude API (paid), basic = rules only
   aiProvider: process.env.AI_PROVIDER || 'local',
+  ollamaUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
+  ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
   anthropicKey: process.env.ANTHROPIC_API_KEY || '',
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
   faceProvider: process.env.FACE_PROVIDER || 'local',

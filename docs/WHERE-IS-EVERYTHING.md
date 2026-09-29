@@ -13,6 +13,7 @@ Project folder: **C:\Users\Sai raghava\Documents\Soulink**
 | Demo accounts for testing | Log in with 90000 00100 (@sai.demo), 00101-00105 for the others; tap the test-mode code |
 | Run the automated tests only | VS Code terminal: `cd server` then `npm test` |
 | Stop the app | Close the two black windows |
+| Turn on the free AI referee (one time) | Double-click `INSTALL-FREE-AI.bat` (Ollama + Llama 3.2 3B, ~2 GB) |
 | Erase all test data and start fresh | Double-click `RESET-SOULINK-DATA.bat`, type YES |
 | See stored face fingerprints | Double-click `SHOW-FACE-DATA.bat` (writes face-report.txt) |
 

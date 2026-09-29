@@ -6,6 +6,7 @@ import { migrate } from './migrate.js';
 import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
+import { localAiStatus } from './services/referee.js';
 
 try {
   await migrate({ log: false });
@@ -34,4 +35,7 @@ server.listen(config.port, '0.0.0.0', () => {
   initFaceEngine()
     .then(() => console.log(`   Face ID engine ready (${((Date.now() - t0) / 1000).toFixed(1)}s)`))
     .catch((e) => console.error(`   ⚠ Face ID engine failed to load: ${e.message}. Run UPDATE-SOULINK.bat.`));
+  if (config.aiProvider === 'local') {
+    localAiStatus().then((a) => console.log(a.ok ? `   Free AI referee ready (${a.model})` : `   Free AI referee off: ${a.reason}. Argue uses the basic judge.`));
+  }
 });

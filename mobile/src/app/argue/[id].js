@@ -39,7 +39,7 @@ function Thinking() {
           </LinearGradient>
         </Animated.View>
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.xl }}>The Referee is thinking…</Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, textAlign: 'center' }}>Reading every side carefully. This takes a few seconds.</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, textAlign: 'center' }}>Reading every side carefully. This can take up to a minute.</Text>
       </View>
     </BrandScreen>
   );
@@ -100,7 +100,7 @@ function Verdict({ c }) {
         </GlassCard>
       ) : null}
       <Text style={{ color: colors.dim, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', marginTop: space.lg }}>
-        {c.judge === 'claude' ? 'Judged by Claude AI' : 'Quick verdict by the basic judge. Add a Claude API key for full AI verdicts.'}
+        {c.judge === 'claude' ? 'Judged by Claude AI' : c.judge === 'ollama' ? 'Judged by the free Soulink AI, running privately on this laptop' : 'Quick verdict by the basic judge. Turn on the free Soulink AI for full verdicts.'}
       </Text>
       <Button title="New argument" style={{ marginTop: space.lg }} onPress={() => router.replace('/argue')} />
     </BrandScreen>
@@ -146,7 +146,7 @@ export default function ArgueCase() {
     const last = c.mode === 'phone' ? c.people.filter((p) => !p.submitted).length === 1 : c.people.filter((p) => !p.submitted).length === 1;
     if (last) setJudging(true);
     try {
-      const r = await api(`/argue/${id}/statement`, { method: 'POST', body: { text, ...(seat ? { seat } : {}) }, timeoutMs: 60000 });
+      const r = await api(`/argue/${id}/statement`, { method: 'POST', body: { text, ...(seat ? { seat } : {}) }, timeoutMs: 180000 });
       setC(r.case); setRevealed(false);
     } catch (e) { setError(e.message); } finally { setBusy(false); setJudging(false); }
   };
