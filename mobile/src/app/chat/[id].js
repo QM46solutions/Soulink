@@ -8,8 +8,8 @@ import { useAuth } from '../../lib/auth';
 import { useLiveEvent, useRealtime } from '../../lib/realtime';
 import { confirm, notice } from '../../lib/confirm';
 import { dayLabel, sameDay } from '../../lib/time';
-import { Composer, ConversationAvatar, DaySeparator, MessageBubble, TypingBubble } from '../../components/chat';
-import ActionSheet from '../../components/ActionSheet';
+import { Composer, ConversationAvatar, DaySeparator, MessageBubble, MessageMenu, TypingBubble } from '../../components/chat';
+import { SoulmojiPanel } from '../../components/soulmoji';
 import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
@@ -85,6 +85,10 @@ export default function Chat() {
     setMessages((cur) => (cur.some((m) => m.id === message.id) ? cur : [message, ...cur]));
     if (message.senderId !== me.id) { setTypingUntil(0); markRead(); }
   });
+  useLiveEvent('message:reactions', ({ conversationId, messageId, reactions }) => {
+    if (conversationId !== id) return;
+    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, reactions: reactions.map((r) => ({ emoji: r.emoji, count: r.count, mine: r.userIds.includes(me.id) })) } : m)));
+  });
   useLiveEvent('message:deleted', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === message.id ? message : m)));
@@ -109,12 +113,19 @@ export default function Chat() {
     return withoutDupe.map((m) => (m.id === tmpId ? real : m));
   });
 
+  const [replyTo, setReplyTo] = useState(null);
+  const [soulmojiOpen, setSoulmojiOpen] = useState(false);
+  const nameOfSender = (senderId) => (senderId === me.id ? 'yourself' : (conv?.members.find((x) => x.id === senderId)?.displayName || 'them').split(' ')[0]);
+  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.body);
+
   const sendText = async (body, retryId) => {
     const tmpId = retryId || `tmp-${++tmpSeq}`;
-    const tmp = { id: tmpId, conversationId: id, senderId: me.id, kind: 'text', body, createdAt: new Date().toISOString(), status: 'sending' };
+    const reply = retryId ? null : replyTo;
+    setReplyTo(null);
+    const tmp = { id: tmpId, conversationId: id, senderId: me.id, kind: 'text', body, createdAt: new Date().toISOString(), status: 'sending', replyTo: reply ? { id: reply.id, senderId: reply.senderId, text: previewOf(reply) } : null };
     setMessages((cur) => (retryId ? cur.map((m) => (m.id === retryId ? tmp : m)) : [tmp, ...cur]));
     try {
-      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { body } });
+      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { body, ...(reply ? { replyToId: reply.id } : {}) } });
       replaceTmp(tmpId, r.message);
       if (conv?.isRequest) setConv((c) => ({ ...c, isRequest: false }));
     } catch (e) {
@@ -134,6 +145,38 @@ export default function Chat() {
       if (e.code === 'blocked') setBlocked(true);
       setMessages((cur) => cur.map((m) => (m.id === tmpId ? { ...m, status: 'failed' } : m)));
     }
+  };
+
+  const sendSoulmoji = async ({ mood, caption }) => {
+    setSoulmojiOpen(false);
+    const reply = replyTo; setReplyTo(null);
+    const tmpId = `tmp-${++tmpSeq}`;
+    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'soulmoji', soulmoji: { mood, caption, faceUrl: me.avatarUrl }, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
+    try {
+      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { soulmoji: { mood, caption }, ...(reply ? { replyToId: reply.id } : {}) } });
+      replaceTmp(tmpId, r.message);
+    } catch (e) {
+      setMessages((cur) => cur.map((m) => (m.id === tmpId ? { ...m, status: 'failed' } : m)));
+      notice('Soulmoji not sent', e.message);
+    }
+  };
+
+  // Reactions: tap one to add, tap the same again to remove (one per person, like Instagram)
+  const react = async (m, emoji) => {
+    setMessages((cur) => cur.map((x) => {
+      if (x.id !== m.id) return x;
+      const had = (x.reactions || []).find((r) => r.mine);
+      let list = (x.reactions || []).map((r) => (r.mine ? { ...r, count: r.count - 1, mine: false } : r)).filter((r) => r.count > 0);
+      if (!had || had.emoji !== emoji) {
+        const ex = list.find((r) => r.emoji === emoji);
+        list = ex ? list.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r)) : [...list, { emoji, count: 1, mine: true }];
+      }
+      return { ...x, reactions: list };
+    }));
+    try {
+      const r = await api(`/conversations/${id}/messages/${m.id}/react`, { method: 'POST', body: { emoji } });
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, reactions: r.reactions } : x)));
+    } catch { /* keep optimistic state; live event will correct it */ }
   };
 
   const loadOlder = async () => {
@@ -173,17 +216,6 @@ export default function Chat() {
       setMessages((cur) => cur.map((x) => (x.id === m.id ? r.message : x)));
     } catch (e) { notice('Could not unsend', e.message); }
   };
-  const menuOptions = useMemo(() => {
-    if (!menuFor) return [];
-    if (menuFor.status === 'failed') {
-      return [
-        { label: 'Try again', onPress: () => (menuFor.kind === 'text' ? sendText(menuFor.body, menuFor.id) : (setMessages((c) => c.filter((x) => x.id !== menuFor.id)), sendMedia(menuFor.file))) },
-        { label: 'Delete', destructive: true, onPress: () => setMessages((c) => c.filter((x) => x.id !== menuFor.id)) },
-      ];
-    }
-    if (menuFor.senderId === me.id) return [{ label: 'Unsend', destructive: true, onPress: () => unsend(menuFor) }];
-    return [{ label: 'Report message', destructive: true, onPress: () => setReporting(menuFor) }];
-  }, [menuFor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ----- "Seen" under my latest message -----
   const seenLabel = useMemo(() => {
@@ -222,7 +254,10 @@ export default function Chat() {
           sender={membersById[item.senderId]}
           showSender={conv.isGroup && !mine ? lastOfRun : undefined}
           showName={conv.isGroup && !mine && firstOfRun}
-          onLongPress={item.deleted ? undefined : () => setMenuFor(item)}
+          onMenu={item.deleted ? undefined : () => setMenuFor(item)}
+          onReact={(e) => react(item, e)}
+          onReply={() => setReplyTo(item)}
+          replyToName={item.replyTo ? nameOfSender(item.replyTo.senderId) : null}
           onOpenImage={(m) => setViewer(mediaUrl(m.mediaUrl) || m.localUri)}
         />
         {seenLabel?.id === item.id ? <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 11, textAlign: 'right', marginRight: space.lg, marginTop: 2 }}>{seenLabel.text}</Text> : null}
@@ -271,15 +306,32 @@ export default function Chat() {
           </View>
         </View>
       ) : (
+        <>
+        {soulmojiOpen ? <SoulmojiPanel faceUrl={me.avatarUrl} onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}
         <Composer
+          replyTo={replyTo ? { name: nameOfSender(replyTo.senderId), text: previewOf(replyTo) } : null}
+          onCancelReply={() => setReplyTo(null)}
+          onSoulmoji={() => setSoulmojiOpen((o) => !o)}
+          soulmojiOpen={soulmojiOpen}
           disabled={blocked}
           disabledText="You can't message this account."
           onSendText={(b) => sendText(b)}
           onSendMedia={sendMedia}
           onTyping={() => emit('typing', { conversationId: id })}
         />
+        </>
       )}
-      <ActionSheet visible={!!menuFor} onClose={() => setMenuFor(null)} options={menuOptions} />
+      <MessageMenu
+        message={menuFor}
+        mine={menuFor?.senderId === me.id}
+        onClose={() => setMenuFor(null)}
+        onReact={(e) => menuFor && react(menuFor, e)}
+        onReply={() => setReplyTo(menuFor)}
+        onUnsend={() => unsend(menuFor)}
+        onReport={() => setReporting(menuFor)}
+        onRetry={() => (menuFor.kind === 'text' ? sendText(menuFor.body, menuFor.id) : (setMessages((c) => c.filter((x) => x.id !== menuFor.id)), sendMedia(menuFor.file)))}
+        onDiscard={() => setMessages((c) => c.filter((x) => x.id !== menuFor.id))}
+      />
       <ReportModal visible={!!reporting} onClose={() => setReporting(null)} targetType="message" targetId={reporting?.id} />
       <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)}>
         <Pressable onPress={() => setViewer(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>

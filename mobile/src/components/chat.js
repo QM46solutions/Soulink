@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
@@ -11,6 +11,7 @@ import { mediaUrl } from '../lib/api';
 import { colors, fonts, gradients, radius, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
+import { SoulmojiSticker } from './soulmoji';
 
 // ---------- avatars ----------
 
@@ -84,8 +85,43 @@ function BubbleShell({ mine, children, style, flat }) {
   return <View style={[st.bubble, mine ? st.bubbleMine : st.bubbleTheirs, flat && { padding: 0, backgroundColor: 'transparent', borderWidth: 0 }, style]}>{children}</View>;
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onLongPress, onOpenImage }) {
+export const REACTIONS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+
+/** The quoted message shown above a reply (Instagram style). */
+function ReplyQuote({ replyTo, mine, senderName }) {
+  return (
+    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '100%', marginBottom: -6, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, borderRadius: 16, backgroundColor: 'rgba(42,39,64,0.7)', borderLeftWidth: 3, borderLeftColor: colors.aura }}>
+      <Text style={{ color: colors.muted, fontFamily: fonts.semibold, fontSize: 11 }}>{senderName ? `Replying to ${senderName}` : 'Reply'}</Text>
+      <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, opacity: 0.8 }} numberOfLines={2}>{replyTo.text}</Text>
+    </View>
+  );
+}
+
+function Reactions({ reactions, mine, onReact }) {
+  if (!reactions?.length) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignSelf: mine ? 'flex-end' : 'flex-start', marginTop: -8, marginHorizontal: 8, zIndex: 2 }}>
+      {reactions.map((r) => (
+        <Pressable key={r.emoji} onPress={() => onReact?.(r.emoji)} accessibilityLabel={`${r.emoji} ${r.count}`}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, paddingVertical: 2, marginLeft: 2, borderRadius: 999, borderWidth: 2, borderColor: colors.void, backgroundColor: r.mine ? 'rgba(124,92,252,0.45)' : colors.card }}>
+          <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
+          {r.count > 1 ? <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 11, marginLeft: 2 }}>{r.count}</Text> : null}
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName }) {
+  const lastTap = useRef(0);
+  const [hover, setHover] = useState(false);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
+  const live = !message.deleted && !String(message.id).startsWith('tmp-');
+  // Double-tap a message to ❤️ it, like Instagram. Long-press (or the ⋯ on laptop) for more.
+  const tap = () => {
+    const now = Date.now();
+    if (live && now - lastTap.current < 300) { onReact?.('❤️'); lastTap.current = 0; } else lastTap.current = now;
+  };
   let content;
   if (message.deleted) {
     content = (
@@ -93,40 +129,102 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
         <Text style={st.deletedText}>{mine ? 'You unsent a message' : 'Message unsent'}</Text>
       </View>
     );
+  } else if (message.kind === 'soulmoji' && message.soulmoji) {
+    content = (
+      <Pressable onPress={tap} onLongPress={onMenu} style={{ paddingVertical: 4 }}>
+        <SoulmojiSticker faceUrl={message.soulmoji.faceUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={120} />
+      </Pressable>
+    );
   } else if (message.kind === 'image') {
     content = (
-      <Pressable onPress={() => onOpenImage?.(message)} onLongPress={onLongPress}>
+      <Pressable onPress={() => { tap(); onOpenImage?.(message); }} onLongPress={onMenu}>
         <Image source={{ uri: mediaUrl(message.mediaUrl) || message.localUri }} style={st.photo} contentFit="cover" transition={150} />
         {message.body ? <BubbleShell mine={mine} style={{ marginTop: 4 }}><Text style={[st.text, mine && st.textMine]}>{message.body}</Text></BubbleShell> : null}
       </Pressable>
     );
   } else if (message.kind === 'voice') {
     content = (
-      <Pressable onLongPress={onLongPress}>
+      <Pressable onPress={tap} onLongPress={onMenu}>
         <BubbleShell mine={mine}><VoiceNote message={message} mine={mine} /></BubbleShell>
       </Pressable>
     );
   } else {
     content = (
-      <Pressable onLongPress={onLongPress}>
+      <Pressable onPress={tap} onLongPress={onMenu}>
         <BubbleShell mine={mine}><Text style={[st.text, mine && st.textMine]}>{message.body}</Text></BubbleShell>
       </Pressable>
     );
   }
+  // Laptop: hovering a message shows quick React / Reply / More buttons beside it
+  const hoverBar = Platform.OS === 'web' && hover && live ? (
+    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginHorizontal: 6 }}>
+      {[['heart-outline', () => onReact?.('❤️'), 'React'], ['arrow-undo-outline', onReply, 'Reply'], ['ellipsis-horizontal', onMenu, 'More']].map(([icon, fn, label]) => (
+        <Pressable key={label} onPress={fn} accessibilityLabel={label} style={({ hovered }) => ({ padding: 5, borderRadius: 14, backgroundColor: hovered ? colors.card : 'transparent' })}>
+          <Ionicons name={icon} size={16} color={colors.muted} />
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
   return (
-    <View style={[st.msgRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
+    <View onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
+      style={[st.msgRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
       {!mine && showSender !== undefined ? (
         <View style={{ width: 30, marginRight: 6, alignSelf: 'flex-end' }}>{showSender ? <Avatar uri={sender?.avatarUrl} size={28} name={sender?.displayName || sender?.username} /> : null}</View>
       ) : null}
-      <View style={{ maxWidth: '78%', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+      {mine ? hoverBar : null}
+      <View style={{ maxWidth: '75%', alignItems: mine ? 'flex-end' : 'flex-start' }}>
         {!mine && showName && sender ? <Text style={st.senderName}>{sender.displayName || sender.username}</Text> : null}
+        {message.replyTo && !message.deleted ? <ReplyQuote replyTo={message.replyTo} mine={mine} senderName={replyToName} /> : null}
         {content}
+        <Reactions reactions={message.reactions} mine={mine} onReact={onReact} />
         {status === 'sending' ? <Text style={st.meta}>Sending…</Text> : null}
         {status === 'failed' ? <Text style={[st.meta, { color: colors.danger }]}>Not sent. Tap and hold to retry.</Text> : null}
       </View>
+      {!mine ? hoverBar : null}
     </View>
   );
 });
+
+/**
+ * Long-press menu, drawn inside the phone screen (Instagram style): a reaction bar on top,
+ * then Reply / Copy / Unsend or Report.
+ */
+export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend, onReport, onRetry, onDiscard }) {
+  if (!message) return null;
+  const failed = message.status === 'failed';
+  const items = failed
+    ? [['refresh', 'Try again', onRetry], ['trash-outline', 'Delete', onDiscard, true]]
+    : [['arrow-undo-outline', 'Reply', onReply], ...(mine ? [['trash-outline', 'Unsend', onUnsend, true]] : [['flag-outline', 'Report', onReport, true]])];
+  return (
+    <Pressable onPress={onClose} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,7,13,0.72)', justifyContent: 'center', padding: space.xl, zIndex: 50 }}>
+      <Pressable onPress={() => {}} style={{ alignSelf: 'stretch' }}>
+        {!failed ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignSelf: mine ? 'flex-end' : 'flex-start', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, marginBottom: space.md }}>
+            {REACTIONS.map((e) => (
+              <Pressable key={e} onPress={() => { onReact(e); onClose(); }} style={({ hovered, pressed }) => ({ paddingHorizontal: 6, transform: [{ scale: hovered || pressed ? 1.35 : 1 }] })}>
+                <Text style={{ fontSize: 28 }}>{e}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: 12, borderRadius: 18, backgroundColor: mine ? 'rgba(124,92,252,0.35)' : colors.card, marginBottom: space.md }}>
+          <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>
+            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : '🎤 Voice message'}
+          </Text>
+        </View>
+        <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', minWidth: 200, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+          {items.map(([icon, label, fn, danger], i) => (
+            <Pressable key={label} onPress={() => { onClose(); setTimeout(() => fn?.(), 50); }}
+              style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border, backgroundColor: hovered ? 'rgba(124,92,252,0.12)' : 'transparent' })}>
+              <Text style={{ color: danger ? colors.danger : colors.text, fontFamily: fonts.semibold, fontSize: 15 }}>{label}</Text>
+              <Ionicons name={icon} size={18} color={danger ? colors.danger : colors.text} />
+            </Pressable>
+          ))}
+        </View>
+      </Pressable>
+    </Pressable>
+  );
+}
 
 // ---------- voice notes ----------
 
@@ -192,7 +290,7 @@ export function TypingBubble() {
 
 // ---------- composer ----------
 
-export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText }) {
+export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen }) {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -272,6 +370,17 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
 
   const hasText = text.trim().length > 0;
   return (
+    <View>
+    {replyTo ? (
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(14,12,22,0.96)' }}>
+        <View style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: colors.aura, marginRight: 10 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 12 }}>Replying to {replyTo.name}</Text>
+          <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13 }} numberOfLines={1}>{replyTo.text}</Text>
+        </View>
+        <Pressable onPress={onCancelReply} hitSlop={10} accessibilityLabel="Cancel reply"><Ionicons name="close" size={18} color={colors.muted} /></Pressable>
+      </View>
+    ) : null}
     <View style={st.composer}>
       <Pressable onPress={() => pickPhoto(true)} hitSlop={6} accessibilityLabel="Take a photo" style={st.cameraBtn}>
         <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.cameraGrad}>
@@ -303,8 +412,13 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
           <Pressable onPress={() => pickPhoto(false)} hitSlop={6} accessibilityLabel="Send a photo from your gallery" style={st.iconBtn}>
             <Ionicons name="image-outline" size={22} color={colors.text} />
           </Pressable>
+          {/* Soulmoji takes the place of Instagram's sticker button */}
+          <Pressable onPress={onSoulmoji} hitSlop={6} accessibilityLabel="Send a Soulmoji" style={st.iconBtn}>
+            <MaterialCommunityIcons name="emoticon-excited-outline" size={24} color={soulmojiOpen ? colors.spark : colors.aura} />
+          </Pressable>
         </>
       )}
+    </View>
     </View>
   );
 }
