@@ -42,6 +42,7 @@ export default function FollowList() {
       renderItem={({ item }) => (
         <UserRow
           user={item}
+          nameFirst={type === 'connections'}
           onPress={() => router.push(`/user/${item.username}`)}
           right={type === 'connections'
             ? (item.intent ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.aura }}>{intentOf(item.intent).emoji} {intentOf(item.intent).label}</Text> : null)

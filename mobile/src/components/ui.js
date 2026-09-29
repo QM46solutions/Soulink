@@ -75,17 +75,20 @@ export function VerifiedBadge({ size = 14 }) {
   return <Ionicons name="checkmark-circle" size={size} color={colors.mint} style={{ marginLeft: 4 }} />;
 }
 
-export function UserRow({ user, onPress, right, subtitle }) {
+export function UserRow({ user, onPress, right, subtitle, nameFirst }) {
+  // nameFirst: show the person's name in bold with @username underneath (connections lists)
+  const main = nameFirst ? (user.displayName || user.username) : user.username;
+  const sub = subtitle ?? (nameFirst ? `@${user.username}` : user.displayName);
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.userRow, pressed && { backgroundColor: colors.surface }]}>
       <Avatar uri={user.avatarUrl} name={user.displayName || user.username} />
       <View style={{ flex: 1, marginLeft: space.md }}>
         <View style={s.row}>
-          <Text style={s.username} numberOfLines={1}>{user.username}</Text>
+          <Text style={s.username} numberOfLines={1}>{main}</Text>
           {user.verified ? <VerifiedBadge /> : null}
           {user.isPrivate ? <Ionicons name="lock-closed" size={12} color={colors.muted} style={{ marginLeft: 4 }} /> : null}
         </View>
-        <Text style={s.sub} numberOfLines={1}>{subtitle ?? user.displayName}</Text>
+        <Text style={s.sub} numberOfLines={1}>{sub}</Text>
       </View>
       {right}
     </Pressable>
