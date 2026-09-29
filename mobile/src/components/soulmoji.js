@@ -77,7 +77,7 @@ export function SoulmojiSticker({ faceUrl, mood = 'happy', caption, size = 132, 
   const uri = mediaUrl(faceUrl) || faceUrl;
   const inner = size - 10;
   return (
-    <View style={{ alignItems: 'center', width: size + 24 }}>
+    <View style={{ alignItems: 'center', width: size + 56 }}>
       <Animated.View style={{ width: size, height: size, transform }}>
         <LinearGradient colors={m.ring} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size, borderRadius: size / 2, padding: 5 }}>
           <View style={{ width: inner, height: inner, borderRadius: inner / 2, overflow: 'hidden', backgroundColor: colors.card }}>
@@ -90,8 +90,8 @@ export function SoulmojiSticker({ faceUrl, mood = 'happy', caption, size = 132, 
         <Text style={{ position: 'absolute', bottom: -size * 0.06, right: -size * 0.04, fontSize: size * 0.34 }}>{m.emoji}</Text>
       </Animated.View>
       {caption ? (
-        <View style={{ marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: '#fff', maxWidth: size + 24, transform: [{ rotate: '-3deg' }] }}>
-          <Text style={{ color: '#141221', fontFamily: fonts.display, fontSize: Math.max(12, size * 0.11), textAlign: 'center' }} numberOfLines={2}>{caption}</Text>
+        <View style={{ marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, backgroundColor: '#fff', maxWidth: size + 56, transform: [{ rotate: '-3deg' }] }}>
+          <Text style={{ color: '#141221', fontFamily: fonts.displayBold, fontSize: Math.max(11, Math.round(size * 0.095)), lineHeight: Math.max(14, Math.round(size * 0.12)), textAlign: 'center' }} numberOfLines={3}>{caption}</Text>
         </View>
       ) : null}
     </View>

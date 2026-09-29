@@ -151,7 +151,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else {
     content = (
       <Pressable onPress={tap} onLongPress={onMenu}>
-        <BubbleShell mine={mine}><Text style={[st.text, mine && st.textMine]}>{message.body}</Text></BubbleShell>
+        <BubbleShell mine={mine}><Text selectable={false} style={[st.text, mine && st.textMine, Platform.OS === 'web' && { userSelect: 'none' }]}>{message.body}</Text></BubbleShell>
       </Pressable>
     );
   }
