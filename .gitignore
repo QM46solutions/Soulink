@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+dist/
+web-build/
+server/.env
+server/uploads/
+*.log
+update-log.txt
+setup-log-*.txt
+face-report.txt
+backup-2026-09-29/

@@ -1,0 +1,50 @@
+import { useCallback, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView } from 'react-native';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import ProfileHeader from '../../components/ProfileHeader';
+import { Button, Empty, s } from '../../components/ui';
+import { colors } from '../../lib/theme';
+
+export default function MyProfile() {
+  const { user, setUser } = useAuth();
+  const [counts, setCounts] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api('/users/me');
+      setUser(r.user); setCounts(r.counts);
+    } catch { /* offline: keep last data */ }
+  }, [setUser]);
+
+  useFocusEffect(useCallback(() => {
+    navigation.setOptions({
+      title: user.username,
+      headerRight: () => (
+        <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={{ marginRight: 16 }}>
+          <Ionicons name="menu" size={24} color={colors.text} />
+        </Pressable>
+      ),
+    });
+    load();
+  }, [load, navigation, user.username]));
+
+  return (
+    <ScrollView
+      style={s.screen}
+      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+    >
+      <ProfileHeader
+        user={user}
+        counts={counts}
+        canViewLists
+        actions={<Button title="Edit profile" variant="secondary" small style={{ flex: 1 }} onPress={() => router.push('/edit-profile')} />}
+      />
+      <Empty icon="camera-outline" title="No posts yet" text="Photo posts arrive in Milestone 3." />
+    </ScrollView>
+  );
+}

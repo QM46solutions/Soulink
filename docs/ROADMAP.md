@@ -1,0 +1,20 @@
+# Soulink build roadmap (updated 2026-09-29 with Sai's answers)
+
+Rules: every build ships at least one youth / safety item, keeps the frozen design (docs/DESIGN.md),
+and ends with a test checklist in docs/test-plans/. Everything runs locally until the app is complete.
+Swipe gestures are OUT.
+
+| # | Build | What's in it | Status |
+|---|---|---|---|
+| 1 | Safety net + polish | Version history + automatic local backups - alignment pass on every screen - "Verified Real Soul" badge + glow ring - sign-up funnel analytics (target under 90 s) - haptics | Next |
+| 2 | First 60 seconds + Intent | 5-question vibe quiz, instant Soul type reveal - fun prompts instead of plain bio - Connection intent ("someone you know or someone new?" then "what are you hoping for?"), private until both match | Planned |
+| 3 | Posts and feed | Photo posts - reactions - comments - feed - low-data image compression - micro-animations | Planned |
+| 4 | Stories + phone build | 24-hour stories - Android development build on Sai's phone | Planned |
+| 5 | Chat upgrade + Soulmoji | Instagram-like chat: reactions on messages, reply to a message, share posts, notes - Soulmoji v1 (your face, typed feeling, sticker) | Planned |
+| 6 | Safety pack | Stranger messages to Requests - one-tap block/report - hide my city - panic "remove from my life" - face search default Nobody - safety centre | Planned |
+| 7 | Soul DNA v1 | 8 traits - Match % (magical) - Premium lock for "why we matched" and editing Soul data - shareable Soul DNA story card - scan a friend's code | Planned |
+| 8 | Reels (30 s max) | Record/upload up to 30 s - vertical player - compression for local storage | Planned |
+| 9 | Daily habit | Daily Soul question - streak flames - reminder | Planned |
+| 10 | Argue / Referee v1 | Two-sided case - AI verdict (free local AI first) - shareable verdict card | Planned |
+| 11 | Speed and data | Low-data mode - budget-Android tuning - weak-network loading | Planned |
+| 12 | Launch kit | Invite-only codes + waitlist - Hyderabad college / company tags - brand-partner spots - Hinglish wording - privacy policy, face-data consent and delete (DPDP Act) | Planned |
