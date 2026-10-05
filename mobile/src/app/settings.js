@@ -9,6 +9,8 @@ import { useAuth } from '../lib/auth';
 import { ErrorText, s } from '../components/ui';
 import { confirm } from '../lib/confirm';
 import { colors, space, fonts } from '../lib/theme';
+import ActionSheet from '../components/ActionSheet';
+import { CHAT_LANGS } from '../lib/languages';
 
 function Toggle({ title, text, value, onChange, disabled }) {
   return (
@@ -37,6 +39,10 @@ const Section = ({ children }) => <Text style={{ color: colors.dim, fontSize: 12
 export default function Settings() {
   const { user, setUser, signOut } = useAuth();
   const [error, setError] = useState(null);
+  const [langOpen, setLangOpen] = useState(false);
+  const setChatLanguage = async (chatLanguage) => {
+    try { setUser((await api('/users/me', { method: 'PATCH', body: { chatLanguage } })).user); } catch (e) { setError(e.message); }
+  };
 
   const update = async (patch) => {
     setError(null);
@@ -75,7 +81,10 @@ export default function Settings() {
           return <IntentChip key={i.key} intent={i} selected={on} onPress={() => saveOpenTo(on ? user.openTo.filter((k) => k !== i.key) : [...(user.openTo || []), i.key])} />;
         })}
       </View>
-      <Link icon="sparkles-outline" title="Connect requests" onPress={() => router.push('/connections/requests')} />
+      <Link icon="sparkles-outline" title="Soul Requests" onPress={() => router.push('/connections/requests')} />
+      <Link icon="language-outline" title={`Chat translation: ${user.chatLanguage ? CHAT_LANGS.find((l) => l.key === user.chatLanguage)?.native : 'Off'}`} onPress={() => setLangOpen(true)} />
+      <ActionSheet visible={langOpen} onClose={() => setLangOpen(false)} title="Translate chat messages into"
+        options={CHAT_LANGS.map((l) => ({ label: `${l.native}${l.native !== l.label ? `  ·  ${l.label}` : ''}${user.chatLanguage === l.key ? '  ✓' : ''}`, onPress: () => setChatLanguage(l.key) }))} />
       <Link icon="person-add-outline" title="Follow requests" onPress={() => router.push('/requests')} />
       <Link icon="ban-outline" title="Blocked accounts" onPress={() => router.push('/blocked')} />
 

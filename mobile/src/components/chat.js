@@ -112,7 +112,7 @@ function Reactions({ reactions, mine, onReact }) {
   );
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName }) {
+export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
@@ -153,7 +153,22 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else {
     content = (
       <Pressable onPress={tap} onLongPress={onMenu}>
-        <BubbleShell mine={mine}><Text selectable={false} style={[st.text, mine && st.textMine, Platform.OS === 'web' && { userSelect: 'none' }]}>{message.body}</Text></BubbleShell>
+        <BubbleShell mine={mine}>
+          <Text selectable={false} style={[st.text, mine && st.textMine, Platform.OS === 'web' && { userSelect: 'none' }]}>{message.body}</Text>
+          {translation ? (
+            // Chat translator: the message in your language, under the original
+            <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: mine ? 'rgba(255,255,255,0.25)' : colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <Ionicons name="language" size={12} color={mine ? 'rgba(255,255,255,0.8)' : colors.aura} style={{ marginRight: 4 }} />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: mine ? 'rgba(255,255,255,0.8)' : colors.aura }}>
+                  {translation.loading ? 'Translating…' : translation.error ? 'Could not translate' : `${translation.fromName} → ${translation.toName}`}
+                </Text>
+              </View>
+              {translation.text ? <Text selectable={false} style={[st.text, mine && st.textMine, { fontSize: 15 }]}>{translation.text}</Text> : null}
+              {translation.error ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }}>{translation.error}</Text> : null}
+            </View>
+          ) : null}
+        </BubbleShell>
       </Pressable>
     );
   }
@@ -191,12 +206,12 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
  * Long-press menu, drawn inside the phone screen (Instagram style): a reaction bar on top,
  * then Reply / Copy / Unsend or Report.
  */
-export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend, onReport, onRetry, onDiscard }) {
+export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend, onReport, onRetry, onDiscard, onTranslate }) {
   if (!message) return null;
   const failed = message.status === 'failed';
   const items = failed
     ? [['refresh', 'Try again', onRetry], ['trash-outline', 'Delete', onDiscard, true]]
-    : [['arrow-undo-outline', 'Reply', onReply], ...(mine ? [['trash-outline', 'Unsend', onUnsend, true]] : [['flag-outline', 'Report', onReport, true]])];
+    : [['arrow-undo-outline', 'Reply', onReply], ...(message.kind === 'text' && onTranslate ? [['language-outline', 'Translate', onTranslate]] : []), ...(mine ? [['trash-outline', 'Unsend', onUnsend, true]] : [['flag-outline', 'Report', onReport, true]])];
   return (
     <Pressable onPress={onClose} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,7,13,0.72)', justifyContent: 'center', padding: space.xl, zIndex: 50 }}>
       <Pressable onPress={() => {}} style={{ alignSelf: 'stretch' }}>

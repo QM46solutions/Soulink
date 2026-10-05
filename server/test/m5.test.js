@@ -117,3 +117,17 @@ describe('Soulmoji v2 (your photo, changed expression)', () => {
     assert.equal(r.body.error.code, 'not_your_soulmoji');
   });
 });
+
+describe('Chat translator', () => {
+  test('same language comes back as-is; other languages need the translator installed', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const conv = (await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(200)).body.conversation;
+    const en = (await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ body: 'Hello there' }).expect(201)).body.message;
+    const same = await api().post(`/conversations/${conv.id}/messages/${en.id}/translate`).set(b.h).send({ to: 'en' }).expect(200);
+    assert.equal(same.body.same, true);
+    const te = (await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ body: 'ఎలా ఉన్నావు?' }).expect(201)).body.message;
+    const r = await api().post(`/conversations/${conv.id}/messages/${te.id}/translate`).set(b.h).send({ to: 'en' });
+    assert.equal(r.status, 503);
+    assert.equal(r.body.error.code, 'translator_missing');
+  });
+});

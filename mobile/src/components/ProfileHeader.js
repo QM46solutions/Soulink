@@ -68,7 +68,9 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           ) : null}
         </Pressable>
         <View style={{ flex: 1, flexDirection: 'row', marginLeft: space.lg }}>
-          <Stat n={counts?.posts} label="Posts" />
+          {isMe
+            ? <Stat n={counts?.requests} label="Soul Requests" onPress={() => router.push('/connections/requests')} />
+            : <Stat n={counts?.posts} label="Posts" />}
           <Stat n={counts?.connections} label="Soul Connections" onPress={openList('connections')} />
         </View>
       </View>

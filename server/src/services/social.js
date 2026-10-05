@@ -98,6 +98,7 @@ export const meView = (u) => ({
   onboardingDone: u.onboarding_done,
   soulReady: !!u.soul_ready,
   hasLocation: u.lat != null && u.lon != null,
+  chatLanguage: u.chat_language || null,
   openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
   createdAt: u.created_at,
 });

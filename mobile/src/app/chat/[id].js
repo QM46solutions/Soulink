@@ -13,12 +13,14 @@ import { SoulmojiPanel } from '../../components/soulmoji';
 import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
+import ActionSheet from '../../components/ActionSheet';
+import { CHAT_LANGS, detectLanguage, langName } from '../../lib/languages';
 
 let tmpSeq = 0;
 
 export default function Chat() {
   const { id } = useLocalSearchParams();
-  const { user: me } = useAuth();
+  const { user: me, setUser } = useAuth();
   const { emit, refreshUnread } = useRealtime();
   const navigation = useNavigation();
   const [conv, setConv] = useState(null);
@@ -27,6 +29,32 @@ export default function Chat() {
   const [error, setError] = useState(null);
   const [typingUntil, setTypingUntil] = useState(0);
   const [menuFor, setMenuFor] = useState(null);
+  // ----- chat translator -----
+  const [translateOn, setTranslateOn] = useState(false);
+  const [translations, setTranslations] = useState({}); // messageId -> { text, fromName, toName, loading, error }
+  const [pickLang, setPickLang] = useState(false);
+  const myLang = me.chatLanguage || null;
+  const translateOne = useCallback(async (m, lang = myLang) => {
+    if (!m || m.kind !== 'text' || !m.body || !lang) return;
+    const from = detectLanguage(m.body);
+    if (from === lang) { setTranslations((c) => ({ ...c, [m.id]: { text: null, fromName: langName(from), toName: langName(lang), error: `Already in ${langName(lang)}` } })); return; }
+    setTranslations((c) => ({ ...c, [m.id]: { loading: true, fromName: langName(from), toName: langName(lang) } }));
+    try {
+      const r = await api(`/conversations/${id}/messages/${m.id}/translate`, { method: 'POST', body: { to: lang }, timeoutMs: 120000 });
+      setTranslations((c) => ({ ...c, [m.id]: { text: r.text, fromName: langName(r.from), toName: langName(r.to) } }));
+    } catch (e) {
+      setTranslations((c) => ({ ...c, [m.id]: { error: e.message, fromName: langName(from), toName: langName(lang) } }));
+    }
+  }, [id, myLang]);
+  const chooseLang = async (lang) => {
+    setPickLang(false);
+    try { const r = await api('/users/me', { method: 'PATCH', body: { chatLanguage: lang } }); setUser(r.user); } catch (e) { notice('Translator', e.message); return; }
+    setTranslations({}); setTranslateOn(true);
+  };
+  const toggleTranslate = () => {
+    if (!myLang) { setPickLang(true); return; }
+    setTranslateOn((v) => !v);
+  };
   const [reporting, setReporting] = useState(null);
   const [viewer, setViewer] = useState(null);
   const [blocked, setBlocked] = useState(false);
@@ -72,12 +100,27 @@ export default function Chat() {
         </Pressable>
       ),
       headerRight: () => (
-        <Pressable onPress={() => router.push(`/chat/info/${conv.id}`)} hitSlop={10} accessibilityLabel="Chat details">
-          <Ionicons name="information-circle-outline" size={24} color={colors.text} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Translator: messages in other languages appear in your language under the original */}
+          <Pressable onPress={toggleTranslate} onLongPress={() => setPickLang(true)} hitSlop={10} accessibilityLabel={translateOn ? 'Turn translator off' : 'Translate this chat'}
+            style={({ hovered }) => ({ marginRight: 16, paddingHorizontal: 8, height: 30, borderRadius: 15, flexDirection: 'row', alignItems: 'center', backgroundColor: translateOn ? colors.soul : hovered ? 'rgba(124,92,252,0.2)' : 'transparent', borderWidth: 1, borderColor: translateOn ? colors.soul : colors.border })}>
+            <Ionicons name="language" size={16} color={translateOn ? '#fff' : colors.text} />
+            {myLang ? <Text style={{ marginLeft: 4, fontFamily: fonts.semibold, fontSize: 11, color: translateOn ? '#fff' : colors.muted }}>{myLang.toUpperCase()}</Text> : null}
+          </Pressable>
+          <Pressable onPress={() => router.push(`/chat/info/${conv.id}`)} hitSlop={10} accessibilityLabel="Chat details">
+            <Ionicons name="information-circle-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation, conv, me.id, typingUntil]);
+  }, [navigation, conv, me.id, typingUntil, translateOn, myLang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!translateOn || !myLang) return;
+    messages.slice(0, 40).forEach((m) => {
+      if (m.senderId !== me.id && m.kind === 'text' && m.body && !translations[m.id] && detectLanguage(m.body) !== myLang) translateOne(m);
+    });
+  }, [translateOn, myLang, messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ----- live updates -----
   useLiveEvent('message:new', ({ conversationId, message }) => {
@@ -259,6 +302,7 @@ export default function Chat() {
           onReply={() => setReplyTo(item)}
           replyToName={item.replyTo ? nameOfSender(item.replyTo.senderId) : null}
           onOpenImage={(m) => setViewer(mediaUrl(m.mediaUrl) || m.localUri)}
+          translation={translations[item.id]}
         />
         {seenLabel?.id === item.id ? <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 11, textAlign: 'right', marginRight: space.lg, marginTop: 2 }}>{seenLabel.text}</Text> : null}
       </View>
@@ -331,6 +375,13 @@ export default function Chat() {
         onReport={() => setReporting(menuFor)}
         onRetry={() => (menuFor.kind === 'text' ? sendText(menuFor.body, menuFor.id) : (setMessages((c) => c.filter((x) => x.id !== menuFor.id)), sendMedia(menuFor.file)))}
         onDiscard={() => setMessages((c) => c.filter((x) => x.id !== menuFor.id))}
+        onTranslate={() => (myLang ? translateOne(menuFor) : setPickLang(true))}
+      />
+      <ActionSheet
+        visible={pickLang}
+        onClose={() => setPickLang(false)}
+        title="Translate messages into"
+        options={CHAT_LANGS.map((l) => ({ label: `${l.native}${l.native !== l.label ? `  ·  ${l.label}` : ''}${myLang === l.key ? '  ✓' : ''}`, onPress: () => chooseLang(l.key) }))}
       />
       <ReportModal visible={!!reporting} onClose={() => setReporting(null)} targetType="message" targetId={reporting?.id} />
       <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)}>

@@ -33,13 +33,14 @@ const profileSchema = z.object({
   college: z.string().trim().max(120).nullable().optional(),
   company: z.string().trim().max(120).nullable().optional(),
   languages: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
+  chatLanguage: z.enum(['en', 'hi', 'te', 'bn']).nullable().optional(),
 }).strict();
 
 const COLS = {
   username: 'username', displayName: 'display_name', bio: 'bio', city: 'city', birthDate: 'birth_date',
   gender: 'gender', interests: 'interests', isPrivate: 'is_private', showInDiscover: 'show_in_discover',
   faceDiscoverable: 'face_discoverable', consentTracking: 'consent_tracking',
-  college: 'college', company: 'company', languages: 'languages',
+  college: 'college', company: 'company', languages: 'languages', chatLanguage: 'chat_language',
 };
 
 // The typed city also gives area coordinates for the distance filter (used until the phone shares its location)
@@ -59,7 +60,9 @@ async function assertUsernameFree(username, myId) {
 // ---------- my account ----------
 
 r.get('/me', ah(async (req, res) => {
-  res.json({ user: meView(req.user), counts: await counts(req.user.id) });
+  // your own page also shows connection requests waiting for your answer (pending or on hold)
+  const reqs = await one(`SELECT COUNT(*) AS n FROM connection_requests WHERE to_id=$1 AND status IN (N'pending', N'held')`, [req.user.id]);
+  res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) } });
 }));
 
 r.patch('/me', ah(async (req, res) => {

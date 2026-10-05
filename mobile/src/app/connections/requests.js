@@ -164,7 +164,7 @@ export default function ConnectRequests() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      <BrandHeader size={32} title="Connect requests" />
+      <BrandHeader size={32} title="Soul Requests" subtitle="People who want to connect with you, and why" />
       <Tabs value={tab} onChange={setTab} counts={{ incoming: data.incoming?.length, outgoing: data.outgoing?.length }} />
       <ErrorText>{error}</ErrorText>
       {list && !list.length ? (

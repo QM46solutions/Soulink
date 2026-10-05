@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { one, many, query, tx } from '../db.js';
-import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
+import { ah, badRequest, forbidden, notFound, HttpError } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile, mediaKind } from '../providers/storage.js';
 import { isBlockedEither, userCard } from '../services/social.js';
@@ -11,6 +11,7 @@ import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
 import { connectionBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
+import { aiTranslate, detectLanguage, TRANSLATE_LANGS, translatorInstalled } from '../services/soulmojiAi.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -343,6 +344,26 @@ r.post('/:id/messages', ah(async (req, res) => {
 }));
 
 // POST /conversations/:id/messages/:messageId/react { emoji }  (one reaction per person; same emoji again removes it)
+// Chat translator: POST /conversations/:id/messages/:messageId/translate { to? } -> { text, from, to }
+// to defaults to the reader's chat language. Saved per message + language, so each translation is made once.
+r.post('/:id/messages/:messageId/translate', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const { to: asked } = z.object({ to: z.enum(TRANSLATE_LANGS).optional() }).parse(req.body || {});
+  const to = asked || req.user.chat_language || 'en';
+  const msg = await one("SELECT id, body, kind FROM messages WHERE id=$1 AND conversation_id=$2 AND deleted_at IS NULL", [messageId, conv.id]);
+  if (!msg || msg.kind !== 'text' || !msg.body) throw notFound('Message not found');
+  const from = detectLanguage(msg.body);
+  if (from === to) return res.json({ text: msg.body, from, to, same: true });
+  const saved = await one('SELECT text, src_lang FROM message_translations WHERE message_id=$1 AND lang=$2', [messageId, to]);
+  if (saved) return res.json({ text: saved.text, from: saved.src_lang, to });
+  if (!translatorInstalled()) throw new HttpError(503, 'The chat translator is not installed on this laptop yet (run INSTALL-CHAT-TRANSLATOR.bat).', 'translator_missing');
+  const text = await aiTranslate(msg.body, from, to);
+  await query(`IF NOT EXISTS (SELECT 1 FROM message_translations WHERE message_id=$1 AND lang=$2)
+                 INSERT INTO message_translations (message_id, lang, src_lang, text) VALUES ($1, $2, $3, $4)`, [messageId, to, from, text]);
+  res.json({ text, from, to });
+}));
+
 r.post('/:id/messages/:messageId/react', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
   const messageId = uuid.parse(req.params.messageId);

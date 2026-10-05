@@ -15,6 +15,7 @@ const WEIGHTS = path.join(DIR, 'LivePortrait', 'pretrained_weights', 'liveportra
 let child = null;
 let starting = null;
 
+const serviceInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
 export const aiInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(WEIGHTS) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
 
 const scriptVersion = () => String(Math.floor(fs.statSync(path.join(DIR, 'soulmoji_ai.py')).mtimeMs / 1000));
@@ -65,5 +66,34 @@ export async function aiEdit(srcPath, outPath, mood, recipe) {
 }
 
 // Warm it up in the background when the server starts, so the first Soulmoji is quicker
-export function warmSoulmojiAi() { if (aiInstalled()) ensureRunning().catch(() => {}); }
+export function warmSoulmojiAi() { if (aiInstalled() || translatorInstalled()) ensureRunning().catch(() => {}); }
 process.on('exit', () => { try { child?.kill(); } catch { /* already gone */ } });
+
+// ---------- chat translator (NLLB-200 model in the same local service) ----------
+export const TRANSLATE_LANGS = ['en', 'hi', 'te', 'bn'];
+export const translatorInstalled = () => serviceInstalled() && fs.existsSync(path.join(DIR, 'models', 'nllb-200-distilled-600M', 'config.json'));
+
+/** Which of our languages a message is written in, from its script (Devanagari = Hindi, Telugu, Bengali, else English). */
+export function detectLanguage(text) {
+  const counts = { hi: 0, te: 0, bn: 0, en: 0 };
+  for (const ch of text) {
+    const c = ch.codePointAt(0);
+    if (c >= 0x0900 && c <= 0x097f) counts.hi += 1;
+    else if (c >= 0x0c00 && c <= 0x0c7f) counts.te += 1;
+    else if (c >= 0x0980 && c <= 0x09ff) counts.bn += 1;
+    else if (/[a-z]/i.test(ch)) counts.en += 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+export async function aiTranslate(text, from, to) {
+  if (!translatorInstalled()) throw new Error('Chat translator not installed');
+  if (!(await ensureRunning())) throw new Error('Translator did not start');
+  const r = await fetch(`${BASE}/translate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, src: from, tgt: to }), signal: AbortSignal.timeout(120000),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || 'Translation failed');
+  return j.text;
+}

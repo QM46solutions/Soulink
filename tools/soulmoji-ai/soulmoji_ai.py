@@ -99,6 +99,39 @@ crop.flag_force_cpu = not GPU
 wrapper = LivePortraitWrapper(inference_cfg=infer)
 cropper = Cropper(crop_cfg=crop, flag_force_cpu=not GPU, image_type='human_face')
 lock = Lock()
+tr_lock = Lock()
+
+# ---------- chat translator: Meta's NLLB-200 (distilled 600M), loaded on first use ----------
+TR_DIR = os.path.join(HERE, 'models', 'nllb-200-distilled-600M')
+NLLB = {'en': 'eng_Latn', 'hi': 'hin_Deva', 'te': 'tel_Telu', 'bn': 'ben_Beng'}
+_tr = None
+
+def translator():
+    global _tr
+    if _tr is None:
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        tok = AutoTokenizer.from_pretrained(TR_DIR)
+        model = AutoModelForSeq2SeqLM.from_pretrained(TR_DIR).eval()
+        if GPU:
+            model = model.to('cuda')
+        _tr = (tok, model)
+    return _tr
+
+@torch.no_grad()
+def translate(text, src, tgt):
+    tok, model = translator()
+    tok.src_lang = NLLB[src]
+    out_parts = []
+    # translate line by line so long messages and line breaks survive
+    for line in text.split('\n'):
+        if not line.strip():
+            out_parts.append(line); continue
+        enc = tok(line, return_tensors='pt', truncation=True, max_length=256)
+        if GPU:
+            enc = {k: v.to('cuda') for k, v in enc.items()}
+        gen = model.generate(**enc, forced_bos_token_id=tok.convert_tokens_to_ids(NLLB[tgt]), max_new_tokens=256, num_beams=3)
+        out_parts.append(tok.batch_decode(gen, skip_special_tokens=True)[0])
+    return '\n'.join(out_parts)
 cache = {}  # source path + mtime -> prepared source (face features are computed once per selfie)
 
 
@@ -229,12 +262,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(recipes()), 'version': VERSION})
+            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(recipes()), 'version': VERSION, 'translator': os.path.exists(os.path.join(TR_DIR, 'config.json'))})
         self.reply(404, {'ok': False})
 
     def do_POST(self):
         if self.path == '/shutdown':  # the Soulink server restarts us when this file changes
             self.reply(200, {'ok': True}); os._exit(0)
+        if self.path == '/translate':
+            try:
+                req = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))) or b'{}')
+                with tr_lock:
+                    text = translate(req['text'], req['src'], req['tgt'])
+                return self.reply(200, {'ok': True, 'text': text})
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                return self.reply(500, {'ok': False, 'error': str(e)})
         if self.path != '/edit':
             return self.reply(404, {'ok': False})
         try:
