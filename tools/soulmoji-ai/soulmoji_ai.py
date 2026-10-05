@@ -185,8 +185,8 @@ def add_tears(face, lmk, kind):
         poly = cv2.ellipse2Poly(P(c), (int(r * 0.82), int(r)), 0, 0, 360, 10)
         shape = np.vstack([poly[poly[:, 1] >= c[1] - r * 0.2], [P(c + [r * 0.6, -r * 0.6]), P(tip), P(c + [-r * 0.6, -r * 0.6])]])
         hull = cv2.convexHull(shape.astype(np.int32))
-        cv2.fillConvexPoly(body, hull, 0.62, cv2.LINE_AA)
-        cv2.polylines(edge, [hull], True, 0.35, max(1, int(r * 0.16)), cv2.LINE_AA)
+        cv2.fillConvexPoly(body, hull, 0.85, cv2.LINE_AA)
+        cv2.polylines(edge, [hull], True, 0.6, max(1, int(r * 0.14)), cv2.LINE_AA)
         cv2.ellipse(shine, P(c + [-r * 0.32, -r * 0.18]), (max(1, int(r * 0.2)), max(1, int(r * 0.34))), -20, 0, 360, 0.95, -1, cv2.LINE_AA)
         cv2.circle(shine, P(c + [r * 0.3, r * 0.4]), max(1, int(r * 0.09)), 0.6, -1, cv2.LINE_AA)
 
@@ -197,7 +197,7 @@ def add_tears(face, lmk, kind):
         if kind == 'happy':
             c1 = outer + out_dir * eye_w * 0.1 + np.array([0, eye_w * 0.34])
             trail = np.array([P(outer + [0, eye_w * 0.06]), P(c1 + [0, -eye_w * 0.2])], np.int32)
-            cv2.polylines(body, [trail], False, 0.5, max(2, int(eye_w * 0.08)), cv2.LINE_AA)
+            cv2.polylines(body, [trail], False, 0.7, max(2, int(eye_w * 0.08)), cv2.LINE_AA)
             drop(c1, eye_w * 0.17)
             drop(c1 + out_dir * eye_w * 0.08 + np.array([0, eye_w * 0.5]), eye_w * 0.11)
         else:
@@ -205,14 +205,16 @@ def add_tears(face, lmk, kind):
             start = low * 0.45 + outer * 0.55 + np.array([0, eye_w * 0.1])
             end = start + np.array([out_dir[0] * eye_w * 0.08, eye_w * 1.1])
             track = np.array([P(start), P(start + np.array([out_dir[0] * eye_w * 0.03, eye_w * 0.55])), P(end)], np.int32)
-            cv2.polylines(body, [track], False, 0.32, max(3, int(eye_w * 0.13)), cv2.LINE_AA)
+            cv2.polylines(body, [track], False, 0.55, max(3, int(eye_w * 0.12)), cv2.LINE_AA)
             cv2.polylines(shine, [track], False, 0.22, max(1, int(eye_w * 0.03)), cv2.LINE_AA)
             drop(end + np.array([0, eye_w * 0.12]), eye_w * 0.13)
     s1 = max(0.8, eye_w * 0.02)
     body = cv2.GaussianBlur(body, (0, 0), s1); edge = cv2.GaussianBlur(edge, (0, 0), s1); shine = cv2.GaussianBlur(shine, (0, 0), s1 * 0.7)
-    tint = np.array([214, 236, 255], np.float32)
-    img = img * (1 - body[..., None]) + (img * 0.5 + tint * 0.5) * body[..., None]
-    img = img * (1 - edge[..., None] * 0.6)
+    # clearly blue tears (cartoon-style tear blue), with a deeper blue rim and a small white glint
+    blue = np.array([64, 156, 255], np.float32)
+    rim = np.array([24, 92, 214], np.float32)
+    img = img * (1 - body[..., None]) + (img * 0.25 + blue * 0.75) * body[..., None]
+    img = img * (1 - edge[..., None] * 0.8) + rim * (edge[..., None] * 0.8)
     img = img * (1 - shine[..., None]) + 255 * shine[..., None]
     return np.clip(img, 0, 255).astype(np.uint8)
 
