@@ -47,6 +47,7 @@ for code in ['hin_Deva', 'tel_Telu', 'ben_Beng']:
     print(code, tok.batch_decode(out, skip_special_tokens=True)[0])
 "@
   $env:PYTHONIOENCODING = 'utf-8'
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
   $test | & $py - | Out-File -Encoding utf8 "$here\translator-test.txt"
   if ($LASTEXITCODE) { Fail "the test translation failed" }
   Get-Content "$here\translator-test.txt" -Encoding utf8

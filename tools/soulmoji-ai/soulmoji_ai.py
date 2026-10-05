@@ -123,14 +123,17 @@ def translate(text, src, tgt):
     tok.src_lang = NLLB[src]
     out_parts = []
     # translate line by line so long messages and line breaks survive
+    import re
     for line in text.split('\n'):
         if not line.strip():
             out_parts.append(line); continue
-        enc = tok(line, return_tensors='pt', truncation=True, max_length=256)
+        # NLLB tends to drop a sentence when given several at once, so translate each sentence on its own
+        sentences = [x for x in re.split(r'(?<=[.!?\u0964])\s+', line.strip()) if x]
+        enc = tok(sentences, return_tensors='pt', padding=True, truncation=True, max_length=256)
         if GPU:
             enc = {k: v.to('cuda') for k, v in enc.items()}
         gen = model.generate(**enc, forced_bos_token_id=tok.convert_tokens_to_ids(NLLB[tgt]), max_new_tokens=256, num_beams=3)
-        out_parts.append(tok.batch_decode(gen, skip_special_tokens=True)[0])
+        out_parts.append(' '.join(tok.batch_decode(gen, skip_special_tokens=True)))
     return '\n'.join(out_parts)
 cache = {}  # source path + mtime -> prepared source (face features are computed once per selfie)
 
