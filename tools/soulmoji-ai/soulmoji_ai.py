@@ -3,7 +3,7 @@
 # The face is re-rendered by the model and pasted back into the ORIGINAL photo, so hair, background and
 # resolution stay untouched; only the expression changes.
 #
-# Started automatically by the Soulink server (server/src/services/soulmojiAi.js). Local only: 127.0.0.1:8210
+# Started automatically by the Soulink server (server/src/services/soulmojiAi.js). Local only: 127.0.0.1:8211
 #   GET  /health                                  -> {"ok": true, "device": "cpu"}
 #   POST /edit {"src": path, "out": path, "mood": "happy"}  -> {"ok": true, "ms": 4200}
 #
@@ -32,7 +32,7 @@ from src.utils.crop import prepare_paste_back, paste_back  # noqa: E402
 from src.utils.camera import get_rotation_matrix  # noqa: E402
 from src.utils.retargeting_utils import calc_eye_close_ratio, calc_lip_close_ratio  # noqa: E402
 
-PORT = int(os.environ.get('SOULMOJI_AI_PORT', '8210'))
+PORT = int(os.environ.get('SOULMOJI_AI_PORT', '8211'))
 GPU = torch.cuda.is_available()
 torch.set_num_threads(max(1, (os.cpu_count() or 2)))
 
@@ -66,19 +66,30 @@ def d_open(v, d):
 # Mood recipes (slider values within LivePortrait's own ranges). eyes: target eyes-open ratio relative
 # to the photo (1 = unchanged, <1 closes, >1 opens).
 MOODS = {
-    'happy':    {'smile': 0.85, 'eyebrow': 4},
-    'laugh':    {'smile': 1.25, 'grin': 6, 'open': 35, 'eyes': 0.75},
-    'love':     {'smile': 0.7, 'eyebrow': 6, 'eyes': 0.9},
-    'sad':      {'smile': -0.3, 'eyebrow': 12, 'purse': 6, 'gaze': (0, -10)},
-    'cry':      {'smile': -0.3, 'eyebrow': 16, 'purse': 8, 'eyes': 0.7, 'gaze': (0, -8)},
-    'angry':    {'smile': -0.25, 'eyebrow': -26, 'purse': -6, 'eyes': 0.85},
-    'shocked':  {'eyebrow': 26, 'open': 95, 'eyes': 1.35},
-    'tired':    {'smile': -0.1, 'eyes': 0.35, 'gaze': (0, -12)},
-    'cool':     {'smile': 0.45, 'wink': 22},
-    'party':    {'smile': 1.1, 'grin': 5, 'open': 25, 'eyebrow': 6},
-    'thinking': {'eyebrow': 14, 'pout': 0.04, 'gaze': (14, 16)},
-    'shy':      {'smile': 0.4, 'gaze': (0, -14), 'eyes': 0.85},
+    # Smiling moods keep the lips closed ('lips': 0 and 'open' < 0): showing teeth looks messy.
+    'happy':    {'smile': 0.9, 'eyebrow': 3, 'eyes': 0.85, 'lips': 0.0, 'open': -25},
+    'laugh':    {'smile': 1.2, 'eyebrow': 10, 'eyes': 0.3, 'lips': 0.0, 'open': -30, 'tears': 'happy'},  # laughing so hard you cry
+    'love':     {'smile': 0.7, 'eyebrow': 5, 'eyes': 0.75, 'lips': 0.0, 'open': -20, 'roll': 3},
+    'sad':      {'smile': -0.3, 'eyebrow': 14, 'purse': 6, 'gaze': (0, -10), 'lips': 0.0},
+    'cry':      {'smile': -0.3, 'eyebrow': 18, 'purse': 8, 'eyes': 0.55, 'gaze': (0, -8), 'lips': 0.0, 'tears': 'sad'},
+    'angry':    {'smile': -0.25, 'eyebrow': -26, 'purse': -6, 'eyes': 0.75, 'lips': 0.0},
+    'shocked':  {'eyebrow': 28, 'eyes': 1.35, 'open': 40, 'purse': 16},  # small round "O", lips over the teeth
+    'tired':    {'smile': -0.1, 'eyes': 0.3, 'gaze': (0, -12), 'lips': 0.0, 'roll': -4},
+    'cool':     {'smile': 0.5, 'wink': 22, 'lips': 0.0, 'open': -20},
+    'party':    {'smile': 1.0, 'eyebrow': 8, 'eyes': 0.55, 'lips': 0.0, 'open': -25, 'roll': -4},
+    'thinking': {'eyebrow': 14, 'pout': 0.04, 'gaze': (14, 16), 'lips': 0.0, 'roll': 5},
+    'shy':      {'smile': 0.45, 'gaze': (0, -14), 'eyes': 0.8, 'lips': 0.0, 'open': -15, 'pitch': 5},
 }
+
+# Recipes can be tuned without restarting: moods.json (same keys) overrides the built-in table.
+MOODS_FILE = os.path.join(HERE, 'moods.json')
+def recipes():
+    try:
+        with open(MOODS_FILE, 'r', encoding='utf-8') as f:
+            return {**MOODS, **json.load(f)}
+    except Exception:  # noqa: BLE001
+        return MOODS
+VERSION = str(int(os.path.getmtime(__file__)))
 
 infer = InferenceConfig()
 infer.flag_force_cpu = not GPU
@@ -119,15 +130,19 @@ def prepare(src):
 
 
 @torch.no_grad()
-def edit(src, out, mood):
+def edit(src, out, mood, recipe=None):
     p = prepare(src)
-    r = MOODS.get(mood, MOODS['happy'])
+    r = recipe or recipes().get(mood, MOODS['happy'])
     dev = wrapper.device
     x_c_s = p['kp']['kp'].to(dev)
     delta = p['kp']['exp'].to(dev).clone()
     scale = p['kp']['scale'].to(dev)
     t = p['kp']['t'].to(dev)
     R = p['R_s'].to(dev)
+    if any(k in r for k in ('pitch', 'yaw', 'roll')):  # small head tilt (laughing throws the head back a little)
+        kp = p['kp']
+        R_d = get_rotation_matrix(kp['pitch'] + r.get('pitch', 0), kp['yaw'] + r.get('yaw', 0), kp['roll'] + r.get('roll', 0)).to(dev)
+        R = (R_d @ R.permute(0, 2, 1)) @ R
     if 'smile' in r: d_smile(r['smile'], delta)
     if 'wink' in r: d_wink(r['wink'], delta)
     if 'eyebrow' in r: d_eyebrow(r['eyebrow'], delta)
@@ -141,10 +156,65 @@ def edit(src, out, mood):
     if 'eyes' in r and abs(r['eyes'] - 1) > 1e-3:
         ratio = min(0.8, max(0.0, p['eye'] * r['eyes']))
         x_d = x_d + wrapper.retarget_eye(x_s, wrapper.calc_combined_eye_ratio([[ratio]], p['lmk']))
+    if 'lips' in r:  # target lip-open ratio: 0 keeps the mouth closed, so no teeth show
+        x_d = x_d + wrapper.retarget_lip(x_s, wrapper.calc_combined_lip_ratio([[float(r['lips'])]], p['lmk']))
     x_d = wrapper.stitching(x_s, x_d)
     face = wrapper.parse_output(wrapper.warp_decode(p['f_s'].to(dev), x_s, x_d)['out'])[0]
     full = paste_back(face, p['M'], p['img'], p['mask'])
+    if r.get('tears'):  # LivePortrait's landmarks are in the original photo's coordinates
+        full = add_tears(full, p['lmk'], r['tears'])
     cv2.imwrite(out, full[:, :, ::-1], [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+
+def add_tears(face, lmk, kind):
+    """Glossy tears painted on the photo (LivePortrait landmarks are in photo coordinates).
+    'happy' = laughing-so-hard tears: a plump drop squeezing out of each outer eye corner with a short wet trail
+    and a smaller drop below. 'sad' = a tear track running down each cheek ending in a drop.
+    203-point landmarks: left eye 0-23 (corners 0 / 12, bottom 18), right eye 24-47 (corners 24 / 36, bottom 42)."""
+    img = face.astype(np.float32)
+    h, w = img.shape[:2]
+    centre = lmk[0:48].mean(axis=0)
+    eye_w = float((np.linalg.norm(lmk[0] - lmk[12]) + np.linalg.norm(lmk[24] - lmk[36])) / 2)
+    body = np.zeros((h, w), np.float32)   # the water itself
+    edge = np.zeros((h, w), np.float32)   # darker rim (light bending at the drop's edge)
+    shine = np.zeros((h, w), np.float32)  # bright highlight
+    P = lambda v: (int(round(v[0])), int(round(v[1])))  # noqa: E731
+
+    def drop(c, r):
+        tip = c + np.array([0, -r * 1.55])
+        poly = cv2.ellipse2Poly(P(c), (int(r * 0.82), int(r)), 0, 0, 360, 10)
+        shape = np.vstack([poly[poly[:, 1] >= c[1] - r * 0.2], [P(c + [r * 0.6, -r * 0.6]), P(tip), P(c + [-r * 0.6, -r * 0.6])]])
+        hull = cv2.convexHull(shape.astype(np.int32))
+        cv2.fillConvexPoly(body, hull, 0.62, cv2.LINE_AA)
+        cv2.polylines(edge, [hull], True, 0.35, max(1, int(r * 0.16)), cv2.LINE_AA)
+        cv2.ellipse(shine, P(c + [-r * 0.32, -r * 0.18]), (max(1, int(r * 0.2)), max(1, int(r * 0.34))), -20, 0, 360, 0.95, -1, cv2.LINE_AA)
+        cv2.circle(shine, P(c + [r * 0.3, r * 0.4]), max(1, int(r * 0.09)), 0.6, -1, cv2.LINE_AA)
+
+    for a, b, bottom in ((0, 12, 18), (24, 36, 42)):
+        ia, ib = (a, b) if np.linalg.norm(lmk[a] - centre) > np.linalg.norm(lmk[b] - centre) else (b, a)
+        outer, inner = lmk[ia].astype(np.float32), lmk[ib].astype(np.float32)
+        out_dir = (outer - inner) / (np.linalg.norm(outer - inner) + 1e-6)
+        if kind == 'happy':
+            c1 = outer + out_dir * eye_w * 0.1 + np.array([0, eye_w * 0.34])
+            trail = np.array([P(outer + [0, eye_w * 0.06]), P(c1 + [0, -eye_w * 0.2])], np.int32)
+            cv2.polylines(body, [trail], False, 0.5, max(2, int(eye_w * 0.08)), cv2.LINE_AA)
+            drop(c1, eye_w * 0.17)
+            drop(c1 + out_dir * eye_w * 0.08 + np.array([0, eye_w * 0.5]), eye_w * 0.11)
+        else:
+            low = lmk[bottom].astype(np.float32)
+            start = low * 0.45 + outer * 0.55 + np.array([0, eye_w * 0.1])
+            end = start + np.array([out_dir[0] * eye_w * 0.08, eye_w * 1.1])
+            track = np.array([P(start), P(start + np.array([out_dir[0] * eye_w * 0.03, eye_w * 0.55])), P(end)], np.int32)
+            cv2.polylines(body, [track], False, 0.32, max(3, int(eye_w * 0.13)), cv2.LINE_AA)
+            cv2.polylines(shine, [track], False, 0.22, max(1, int(eye_w * 0.03)), cv2.LINE_AA)
+            drop(end + np.array([0, eye_w * 0.12]), eye_w * 0.13)
+    s1 = max(0.8, eye_w * 0.02)
+    body = cv2.GaussianBlur(body, (0, 0), s1); edge = cv2.GaussianBlur(edge, (0, 0), s1); shine = cv2.GaussianBlur(shine, (0, 0), s1 * 0.7)
+    tint = np.array([214, 236, 255], np.float32)
+    img = img * (1 - body[..., None]) + (img * 0.5 + tint * 0.5) * body[..., None]
+    img = img * (1 - edge[..., None] * 0.6)
+    img = img * (1 - shine[..., None]) + 255 * shine[..., None]
+    return np.clip(img, 0, 255).astype(np.uint8)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -157,17 +227,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(MOODS)})
+            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(recipes()), 'version': VERSION})
         self.reply(404, {'ok': False})
 
     def do_POST(self):
+        if self.path == '/shutdown':  # the Soulink server restarts us when this file changes
+            self.reply(200, {'ok': True}); os._exit(0)
         if self.path != '/edit':
             return self.reply(404, {'ok': False})
         try:
             req = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))) or b'{}')
             t0 = time.time()
             with lock:  # one at a time: keeps laptop memory low
-                edit(req['src'], req['out'], req.get('mood', 'happy'))
+                edit(req['src'], req['out'], req.get('mood', 'happy'), req.get('recipe'))
             self.reply(200, {'ok': True, 'ms': int((time.time() - t0) * 1000)})
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
@@ -183,4 +255,5 @@ if __name__ == '__main__':
         print('SELFTEST OK')
         sys.exit(0)
     print(f'Soulmoji AI ready on 127.0.0.1:{PORT} ({"GPU" if GPU else "CPU"})', flush=True)
+    ThreadingHTTPServer.allow_reuse_address = False  # Windows: never share the port with an older copy
     ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()

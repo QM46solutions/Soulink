@@ -58,7 +58,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   const points = list(req.user.soulmoji_points);
   if (!faceUrl || !points) throw badRequest('Take your Soulmoji selfie first', 'no_soulmoji_face');
   const useAi = aiInstalled() && req.user.soulmoji_src_url;
-  const engine = useAi ? 'ai1' : ENGINE;
+  const engine = useAi ? 'ai2' : ENGINE;
   const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${engine}`]);
   if (cached) return res.json({ imageUrl: cached.url, mood, ai: useAi });
   if (useAi) {
@@ -67,7 +67,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
       await fs.mkdir(path.join(config.uploadDir, 'soulmoji'), { recursive: true });
       await aiEdit(diskPath(req.user.soulmoji_src_url), path.join(config.uploadDir, 'soulmoji', name), mood);
       const aiUrl = `/uploads/soulmoji/${name}`;
-      await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@ai1`, aiUrl]);
+      await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@ai2`, aiUrl]);
       return res.json({ imageUrl: aiUrl, mood, ai: true });
     } catch (e) {
       console.warn('Soulmoji AI failed, using the built-in engine:', e.message);

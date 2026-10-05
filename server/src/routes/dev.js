@@ -9,6 +9,9 @@ import { QUIZ, TRAITS, scoreQuiz } from '../services/soulQuiz.js';
 import { meView } from '../services/social.js';
 import { saveFile } from '../providers/storage.js';
 import { cartoonFacePng } from '../services/cartoonFace.js';
+import path from 'node:path';
+import fsp from 'node:fs/promises';
+import { requireAuth } from '../middleware/auth.js';
 
 const r = Router();
 r.use((req, res, next) => {
@@ -58,6 +61,22 @@ r.post('/demo', ah(async (req, res) => {
   await follow('sai.demo', 'ananya.r'); await follow('sai.demo', 'rahul.k'); await follow('ananya.r', 'sai.demo');
   const me = await one('SELECT * FROM users WHERE id=$1', [ids['sai.demo']]);
   res.json({ token: signToken(me.id), user: meView(me), demoUsers: DEMO.map((d) => ({ username: d.username, name: d.name, phone: d.phone.slice(3) })) });
+}));
+
+// Soulmoji tuning (laptop only): render moods for the signed-in user's own Soulmoji selfie with test recipes.
+// POST /dev/soulmoji-preview { recipes: { name: { smile: 1, ... } } } -> { files: { name: "/uploads/soulmoji-preview/name.jpg" } }
+r.post('/soulmoji-preview', requireAuth, ah(async (req, res) => {
+  const { aiEdit } = await import('../services/soulmojiAi.js');
+  const src = req.user.soulmoji_src_url;
+  if (!src) return res.status(400).json({ error: { message: 'Take a Soulmoji selfie first' } });
+  const dir = path.join(config.uploadDir, 'soulmoji-preview');
+  await fsp.mkdir(dir, { recursive: true });
+  const files = {}; const errors = {};
+  for (const [name, recipe] of Object.entries(req.body?.recipes || {})) {
+    const safe = name.replace(/[^a-z0-9_-]/gi, '');
+    try { await aiEdit(path.join(config.uploadDir, src.replace(/^\/uploads\//, '')), path.join(dir, `${safe}.jpg`), safe, recipe); files[safe] = `/uploads/soulmoji-preview/${safe}.jpg`; } catch (e) { errors[safe] = e.message; }
+  }
+  res.json({ files, errors, src });
 }));
 
 export default r;
