@@ -5,7 +5,7 @@ process.env.OTP_DEV_ECHO = 'true';
 process.env.ANTHROPIC_API_KEY = ''; // tests always use the basic referee (no AI calls)
 process.env.AI_PROVIDER = 'basic';
 
-const { query, closePool } = await import('../src/db.js');
+const { query, closePool, waitForDatabase } = await import('../src/db.js');
 const { migrate, dropAll } = await import('../src/migrate.js');
 const { createApp } = await import('../src/app.js');
 const request = (await import('supertest')).default;
@@ -15,6 +15,7 @@ export const app = createApp();
 export const api = () => request(app);
 
 export async function resetDb() {
+  await waitForDatabase(); // SQL Server may still be starting
   await dropAll();
   await migrate({ log: false });
 }

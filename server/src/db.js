@@ -33,6 +33,22 @@ export function getPool() {
   return poolPromise;
 }
 
+/**
+ * Waits for SQL Server to accept connections (it can take a minute or two after the laptop starts or wakes up).
+ * Tries again every few seconds; throws the last error if it still can't connect after maxMs.
+ */
+export async function waitForDatabase({ maxMs = 150000, log = true } = {}) {
+  const start = Date.now();
+  let told = false;
+  for (;;) {
+    try { return await getPool(); } catch (e) {
+      if (Date.now() - start > maxMs) throw e;
+      if (log && !told) { console.log('   Waiting for SQL Server to start (this can take a minute after the laptop wakes up)...'); told = true; }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+}
+
 export async function closePool() {
   if (poolPromise) {
     const p = await poolPromise.catch(() => null);

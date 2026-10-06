@@ -3,6 +3,7 @@ import os from 'node:os';
 import { config } from './config.js';
 import { createApp } from './app.js';
 import { migrate } from './migrate.js';
+import { waitForDatabase } from './db.js';
 import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
@@ -10,6 +11,7 @@ import { startAnonTimer } from './services/anon.js';
 import { localAiStatus } from './services/referee.js';
 
 try {
+  await waitForDatabase(); // after a restart SQL Server can take a minute to accept connections
   await migrate({ log: false });
 } catch (e) {
   console.error('\n❌ Soulink could not start: there is a problem with the database.');
