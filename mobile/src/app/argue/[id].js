@@ -26,7 +26,7 @@ function Bubble({ name, size = 72, user, highlight }) {
 
 function Thinking() {
   return (
-    <BrandScreen>
+    <BrandScreen back>
       <View style={{ alignItems: 'center' }}>
         <LiveFrame size={220} label="VERDICT.BALANCING"><ScalesIcon size={180} /></LiveFrame>
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.xl }}>The Referee is thinking…</Text>

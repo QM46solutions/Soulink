@@ -30,7 +30,7 @@ export default function PostScreen() {
   const send = async () => {
     const body = text.trim(); if (!body) return;
     setText(''); setInputH(44);
-    try { const r = await api(`/posts/${id}/comments`, { method: 'POST', body: { body } }); setComments((c) => [...c, r.comment]); } catch (e) { setText(body); setError(e.message); }
+    try { const r = await api(`/posts/${id}/comments`, { method: 'POST', body: { body } }); setComments((c) => [...c, r.comment]); setPost((p) => ({ ...p, commented: true })); } catch (e) { setText(body); setError(e.message); }
   };
   const remove = async (cid) => { await api(`/posts/${id}/comments/${cid}`, { method: 'DELETE' }); setComments((c) => c.filter((x) => x.id !== cid)); };
 

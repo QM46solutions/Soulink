@@ -12,11 +12,15 @@ export function RealtimeProvider({ children }) {
   const { user } = useAuth();
   const socketRef = useRef(null);
   const listeners = useRef(new Map()); // event -> Set(handler)
-  const [unread, setUnread] = useState({ chats: 0, requests: 0 });
+  const [unread, setUnread] = useState({ chats: 0, requests: 0, notifications: 0 });
   const [connected, setConnected] = useState(false);
 
   const refreshUnread = useCallback(async () => {
-    try { setUnread(await api('/conversations/unread')); } catch { /* offline */ }
+    // chats/requests/anon for the Messages badge, notifications for the bell
+    try {
+      const [c, n] = await Promise.all([api('/conversations/unread'), api('/notifications/unread').catch(() => ({ count: 0 }))]);
+      setUnread({ ...c, notifications: n.count || 0 });
+    } catch { /* offline */ }
   }, []);
 
   useEffect(() => {
@@ -29,10 +33,10 @@ export function RealtimeProvider({ children }) {
     socketRef.current = socket;
     socket.on('connect', () => { setConnected(true); refreshUnread(); });
     socket.on('disconnect', () => setConnected(false));
-    for (const event of ['message:new', 'message:deleted', 'typing', 'read', 'anon:update']) {
+    for (const event of ['message:new', 'message:deleted', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));
-        if (event === 'message:new' || event === 'read' || event === 'anon:update') refreshUnread();
+        if (event === 'message:new' || event === 'read' || event === 'anon:update' || event === 'notification:new') refreshUnread();
       });
     }
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshUnread(); });

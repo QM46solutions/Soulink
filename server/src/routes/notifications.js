@@ -32,6 +32,15 @@ r.get('/', ah(async (req, res) => {
   });
 }));
 
+// Unread count for the bell badge
+r.get('/unread', ah(async (req, res) => {
+  const row = await one(
+    `SELECT COUNT(*) AS n FROM notifications n WHERE n.user_id=$1 AND n.read_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=n.actor_id) OR (b.blocker_id=n.actor_id AND b.blocked_id=$1))`, [req.user.id],
+  );
+  res.json({ count: Number(row?.n || 0) });
+}));
+
 r.post('/read', ah(async (req, res) => {
   await query('UPDATE notifications SET read_at=SYSDATETIMEOFFSET() WHERE user_id=$1 AND read_at IS NULL', [req.user.id]);
   res.json({ ok: true });

@@ -16,6 +16,8 @@ export const LIKE_EMOJI = '👌🏻';
 // long words / links wrap instead of running off the screen (web needs this explicitly)
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 const ND = Platform.OS !== 'web';
+// icon colours once used: like = the 👌🏻 itself, comment = Soulink lilac, share = Soulink mint, offense = red
+const ACTIVE = { comment: colors.aura, share: colors.mint, offense: colors.danger };
 
 export function timeAgo(iso) {
   const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -67,7 +69,7 @@ function Photos({ media, onDoubleTap, burst }) {
 function Action({ onPress, label, children, count, color, disabled }) {
   return (
     <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
-      style={({ hovered, pressed }) => ({ alignItems: 'center', minWidth: 34, marginRight: space.md, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
+      style={({ hovered, pressed }) => ({ alignItems: 'center', minWidth: 40, marginRight: space.xl, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
       <View style={{ height: 26, justifyContent: 'center' }}>{children}</View>
       <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count || 0}</Text>
     </Pressable>
@@ -82,6 +84,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [myReason, setMyReason] = useState(post.offenseReason || null);
   const [reportOpen, setReportOpen] = useState(false);
   const [shares, setShares] = useState(post.shareCount || 0);
+  const [shared, setShared] = useState(!!post.shared);
   const [shareMenu, setShareMenu] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [caption, setCaption] = useState(post.caption);
@@ -121,7 +124,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
       } else await Share.share({ message });
       const r = await api(`/posts/${post.id}/share`, { method: 'POST', body: {} });
-      setShares(r.shareCount);
+      setShares(r.shareCount); setShared(true);
     } catch { /* cancelled */ }
   };
   const del = async () => {
@@ -191,19 +194,20 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
       ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
-        <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes}>
+        <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}>
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
-        <Action onPress={openPost} label="Comments" count={post.commentCount}>
-          <Ionicons name="chatbubble" size={22} color={colors.text} />
+        {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
+        <Action onPress={openPost} label="Comments" count={post.commentCount} color={post.commented ? ACTIVE.comment : undefined}>
+          <Ionicons name="chatbubble" size={22} color={post.commented ? ACTIVE.comment : colors.text} />
         </Action>
-        <Action onPress={() => setShareMenu(true)} label="Share" count={shares}>
-          <Ionicons name="paper-plane" size={22} color={colors.text} />
+        <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
+          <Ionicons name="paper-plane" size={22} color={shared ? ACTIVE.share : colors.text} />
         </Action>
         {/* Offense ❗: sits with the other actions. Others mark it; on your own post it explains the count */}
-        <Action onPress={post.mine ? offenseInfo : offense} count={offenses} color={offended ? colors.danger : undefined}
+        <Action onPress={post.mine ? offenseInfo : offense} count={offenses} color={offended ? ACTIVE.offense : undefined}
           label={post.mine ? `${offenses} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
-          <Ionicons name="alert-circle" size={24} color={offended ? colors.danger : colors.text} />
+          <Ionicons name="alert-circle" size={24} color={offended ? ACTIVE.offense : colors.text} />
         </Action>
       </View>
       <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} onClose={() => setReportOpen(false)}

@@ -79,7 +79,7 @@ export default function SoulQuiz() {
   if (result) {
     const scale = glow.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
     return (
-      <BrandScreen>
+      <BrandScreen back>
         <BrandHeader size={36} title="Your Soul DNA is live" />
         <Animated.View style={{ alignItems: 'center', opacity: glow, transform: [{ scale }] }}>
           <View style={{ width: 150, height: 150, borderRadius: 75, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>

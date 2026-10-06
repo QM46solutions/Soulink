@@ -7,9 +7,11 @@ import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import { ScalesIcon } from '../../components/LiveIcons';
+import BackButton from '../../components/BackButton';
 
 const icon = (name) => ({ color, focused, size }) => (
   <View style={{ alignItems: 'center' }}>
@@ -60,6 +62,33 @@ function ArgueIcon({ focused }) {
   );
 }
 
+// Notifications: a bell in the Soulink wordmark colours (white -> lilac -> pink) with an unread count on top
+function BellTabIcon({ focused, size }) {
+  const { unread } = useRealtime();
+  const count = unread?.notifications || 0;
+  const name = focused ? 'notifications' : 'notifications-outline';
+  const s = size || 24;
+  const glyph = Platform.OS === 'web'
+    ? <Ionicons name={name} size={s} style={{ backgroundImage: `linear-gradient(135deg, ${gradients.wordmark.join(', ')})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', WebkitTextFillColor: 'transparent' }} />
+    : (
+      <MaskedView style={{ width: s, height: s }} maskElement={<Ionicons name={name} size={s} color="#000" />}>
+        <LinearGradient colors={gradients.wordmark} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: s, height: s }} />
+      </MaskedView>
+    );
+  return (
+    <View style={{ alignItems: 'center' }} accessibilityLabel={count ? `Notifications, ${count} new` : 'Notifications'}>
+      <View style={{ opacity: focused ? 1 : 0.8 }}>{glyph}</View>
+      {count ? (
+        <View style={{ position: 'absolute', top: -7, right: -11, minWidth: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.void }}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10, paddingHorizontal: 4 }}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      ) : null}
+      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: focused ? colors.spark : 'transparent' }} />
+    </View>
+  );
+}
+
 // Messages: the raised gradient button (where Argue used to be). Opens the inbox; shows unread count.
 function MessagesTabButton({ accessibilityState }) {
   const { unread } = useRealtime();
@@ -86,9 +115,11 @@ export default function TabsLayout() {
     <Tabs
       // Browsers (laptop preview + iPhone Safari) keep inactive tabs underneath the active one. Our backgrounds
       // are see-through (starfield), so hide every tab that isn't the one you're on: its screen AND its header.
-      screenOptions={({ navigation }) => {
+      screenOptions={({ navigation, route }) => {
         const focused = navigation.isFocused();
         return {
+          // tabs other than Home get a back arrow that returns Home
+          ...(route.name !== 'index' ? { headerLeft: () => <BackButton toHome /> } : {}),
           headerStyle: { backgroundColor: 'transparent' },
           headerShadowVisible: false,
           headerBackground: () => <HeaderBackground />,
@@ -119,7 +150,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
       {/* Discover stays reachable from Home ("Make connections") and Search, not in the tab bar */}
       <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
-      <Tabs.Screen name="activity" options={{ title: 'Activity', tabBarIcon: icon('heart') }} />
+      <Tabs.Screen name="activity" options={{ title: 'Notifications', tabBarIcon: ({ focused, size }) => <BellTabIcon focused={focused} size={size} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} /> }} />
     </Tabs>
   );

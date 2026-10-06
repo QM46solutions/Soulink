@@ -48,7 +48,7 @@ export default function Connect() {
   if (sent) {
     const it = intentOf(intent);
     return (
-      <BrandScreen>
+      <BrandScreen back>
         <View style={{ alignItems: 'center' }}>
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(66,232,192,0.1)', borderWidth: 1.5, borderColor: 'rgba(66,232,192,0.5)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="paper-plane" size={42} color={colors.mint} />

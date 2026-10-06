@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
+import { useRealtime } from '../../lib/realtime';
 import { Avatar, Empty, ErrorText, s } from '../../components/ui';
 import { MaskAvatar } from '../../components/anon';
 import { colors, space, fonts } from '../../lib/theme';
@@ -50,6 +51,7 @@ const ago = (iso) => {
 };
 
 export default function Activity() {
+  const { refreshUnread } = useRealtime();
   const [items, setItems] = useState([]);
   const [requests, setRequests] = useState([]);
   const [connectReqs, setConnectReqs] = useState([]);
@@ -60,9 +62,9 @@ export default function Activity() {
     try {
       const [n, r, c] = await Promise.all([api('/notifications'), api('/users/me/follow-requests'), api('/connections/requests?box=incoming')]);
       setItems(n.notifications); setRequests(r.requests); setConnectReqs(c.requests); setError(null);
-      if (n.unread) api('/notifications/read', { method: 'POST' }).catch(() => {});
+      if (n.unread) api('/notifications/read', { method: 'POST' }).then(() => refreshUnread()).catch(() => {});
     } catch (e) { setError(e.message); }
-  }, []);
+  }, [refreshUnread]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -125,7 +127,7 @@ export default function Activity() {
           </Text>
         </Pressable>
       )}
-      ListEmptyComponent={!requests.length && !connectReqs.length ? <Empty icon="heart-outline" title="No activity yet" text="Connect requests, follows and likes will show up here." /> : null}
+      ListEmptyComponent={!requests.length && !connectReqs.length ? <Empty icon="notifications-outline" title="No notifications yet" text="Connect requests, follows and likes will show up here." /> : null}
     />
   );
 }

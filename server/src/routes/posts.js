@@ -36,6 +36,8 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     CASE WHEN EXISTS (SELECT 1 FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) THEN 1 ELSE 0 END AS offended,
     (SELECT TOP 1 o.reason FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) AS offense_reason,
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
+    CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
+    CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -48,6 +50,8 @@ export const postView = (x, meId) => ({
   commentCount: Number(x.comment_count || 0),
   liked: !!x.liked,
   shareCount: Number(x.share_count || 0),
+  commented: !!x.commented, // I commented: the comment icon turns its colour
+  shared: !!x.shared,       // I shared it: the share icon turns its colour
   offended: !!x.offended,
   offenseReason: x.offense_reason || null, // my own reason, if I marked it
   mine: String(x.author_id).toLowerCase() === String(meId).toLowerCase(),

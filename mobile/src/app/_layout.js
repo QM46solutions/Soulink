@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from '../lib/auth';
 import { RealtimeProvider } from '../lib/realtime';
 import { HeaderBackground, Starfield } from '../components/brand';
 import DialogHost from '../components/DialogHost';
+import BackButton from '../components/BackButton';
 import { colors, fonts } from '../lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -32,6 +33,8 @@ export const headerStyle = {
   headerTitleAlign: 'center',
   headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
   headerBackButtonDisplayMode: 'minimal',
+  // every screen gets a back arrow (also after a refresh or when opened from a link, where it goes Home)
+  headerLeft: () => <BackButton />,
   contentStyle: { backgroundColor: 'transparent' },
 };
 
