@@ -15,6 +15,7 @@ import { Avatar, VerifiedBadge } from './ui';
 import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
 import { CHAT_LANGS, langName } from '../lib/languages';
 import { Overlay } from '../lib/portal';
+import { useSafeClose } from '../lib/safeClose';
 
 // ---------- avatars ----------
 
@@ -360,9 +361,10 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
   const [to, setTo] = useState(value?.to || 'en');
   const [output, setOutput] = useState(value?.output || 'text');
   useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); } }, [visible, value]);
+  const backdropClose = useSafeClose(visible, onClose);
   if (!visible) return null;
   const sheet = (
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }}>
+      <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: '#13111f', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: space.xl, paddingBottom: space.xl + 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <Ionicons name="language" size={20} color={colors.aura} style={{ marginRight: 8 }} />

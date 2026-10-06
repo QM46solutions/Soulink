@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Overlay } from '../lib/portal';
+import { useOpenGuard, useSafeClose } from '../lib/safeClose';
 import { colors, fonts, space } from '../lib/theme';
 
 export const OFFENSE_REASONS = [
@@ -24,6 +25,8 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
   const [step, setStep] = useState('pick'); // pick | busy | done | error
   const [error, setError] = useState(null);
   useEffect(() => { if (visible) { setStep('pick'); setError(null); } }, [visible]);
+  const backdropClose = useSafeClose(visible, onClose);
+  const ready = useOpenGuard(visible);
   if (!visible) return null;
 
   const run = async (fn, after) => {
@@ -62,7 +65,7 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
         <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center' }}>
           You marked this post as offensive{reason ? ` for: ${reasonLabel(reason)}` : ''}.
         </Text>
-        <Pressable onPress={() => run(onUnmark)} style={({ hovered }) => ({ marginTop: space.lg, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)' })}>
+        <Pressable onPress={() => { if (ready()) run(onUnmark); }} style={({ hovered }) => ({ marginTop: space.lg, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)' })}>
           <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>Remove my mark</Text>
         </Pressable>
         <Pressable onPress={onClose} style={{ marginTop: space.sm, height: 42, alignItems: 'center', justifyContent: 'center' }}>
@@ -77,7 +80,7 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, paddingHorizontal: space.lg, paddingTop: 4, paddingBottom: space.sm }}>Your mark is anonymous.</Text>
         {step === 'error' ? <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.danger, paddingHorizontal: space.lg, paddingBottom: space.sm }}>{error}</Text> : null}
         {OFFENSE_REASONS.map((r) => (
-          <Pressable key={r.key} onPress={() => run(() => onMark(r.key), 'done')}
+          <Pressable key={r.key} onPress={() => { if (ready()) run(() => onMark(r.key), 'done'); }}
             style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: 15, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
             <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 15, color: colors.text }}>{r.label}</Text>
             <Ionicons name="chevron-forward" size={17} color={colors.dim} />
@@ -89,7 +92,7 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
 
   return (
     <Overlay onClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', cursor: 'default' }} />
+      <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', cursor: 'default' }} />
       <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: space.sm, paddingBottom: space.lg }}>
         <Header title={offended && step !== 'done' ? 'Offense mark' : 'Mark as offensive'} />
         {body}
