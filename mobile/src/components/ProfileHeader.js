@@ -52,7 +52,7 @@ function Pill({ icon, text, color, border, bg }) {
 }
 
 /**
- * Profile top section, Instagram layout: photo on the left with Posts / Soul Connections beside it,
+ * Profile top section, Instagram layout: photo on the left with Posts (Requests on your own) / Connections / Followers beside it,
  * then name, badges, city, bio and interests (left-aligned), then compact action buttons.
  */
 export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress, isMe, pulse }) {
@@ -72,9 +72,11 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         </Pressable>
         <View style={{ flex: 1, flexDirection: 'row', marginLeft: space.lg }}>
           {isMe
-            ? <Stat n={counts?.requests} label="Soul Requests" onPress={() => router.push('/connections/requests')} />
+            ? <Stat n={counts?.requests} label="Requests" onPress={() => router.push('/activity')} />
             : <Stat n={counts?.posts} label="Posts" />}
-          <Stat n={counts?.connections} label="Soul Connections" onPress={openList('connections')} />
+          {/* Connections: both connected to each other. Followers: connected to them, not connected back */}
+          <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
+          <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
           {pulse ? <PulseMeter pulse={pulse} onPress={() => setPulseOpen((o) => !o)} /> : null}
         </View>
       </View>

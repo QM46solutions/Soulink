@@ -61,7 +61,7 @@ describe('Anonymous messages', () => {
     const [a, b] = await pair();
     const t = (await api().post('/anon').set(a.h).send({ toUserId: b.user.id, body: 'hey' }).expect(201)).body.threadId;
     const q = (await api().post('/connections/requests').set(b.h).send({ toUserId: a.user.id, intent: 'friendship' }).expect(201)).body.request;
-    await api().post(`/connections/requests/${q.id}/accept`).set(a.h).send({}).expect(200);
+    await api().post(`/connections/requests/${q.id}/accept`).set(a.h).send({ connectBack: true }).expect(200);
     const v = (await api().get(`/anon/${t}`).set(b.h).expect(200)).body.thread;
     assert.equal(v.revealed, true);
     assert.equal(v.revealReason, 'connected');

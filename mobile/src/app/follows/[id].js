@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, View } from 'react-native';
-import { confirm } from '../../lib/confirm';
+import { confirm, notice } from '../../lib/confirm';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -9,7 +9,7 @@ import { Text } from 'react-native';
 import { intentOf } from '../../lib/intents';
 import { colors, fonts } from '../../lib/theme';
 
-const TITLES = { followers: 'Followers', following: 'Following', connections: 'Soul Connections' };
+const TITLES = { followers: 'Followers', following: 'Following', connections: 'Connections' };
 
 export default function FollowList() {
   const { id, type = 'followers', username } = useLocalSearchParams();
@@ -25,6 +25,12 @@ export default function FollowList() {
 
   useEffect(() => { navigation.setOptions({ title: TITLES[type] || 'Followers' }); load(); }, [navigation, username, type, load]);
 
+  // Followers: connect back → you become Connections
+  const [backed, setBacked] = useState({});
+  const connectBack = async (u) => {
+    try { await api(`/connections/back/${u.id}`, { method: 'POST' }); setBacked((b) => ({ ...b, [u.id]: true })); }
+    catch (e) { notice('Oops', e.message); }
+  };
   const removeFollower = async (u) => {
     if (await confirm(`Remove ${u.username}?`, "We won't tell them they were removed from your followers.", { confirmText: 'Remove', destructive: true })) {
       await api(`/users/${u.id}/follower`, { method: 'DELETE' });
@@ -42,14 +48,14 @@ export default function FollowList() {
       renderItem={({ item }) => (
         <UserRow
           user={item}
-          nameFirst={type === 'connections'}
+          nameFirst
           onPress={() => router.push(`/user/${item.username}`)}
           right={type === 'connections'
             ? (item.intent ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.aura }}>{intentOf(item.intent).emoji} {intentOf(item.intent).label}</Text> : null)
-            : mine && type === 'followers' ? <Button title="Remove" variant="secondary" small onPress={() => removeFollower(item)} /> : null}
+            : mine && type === 'followers' ? <Button title={backed[item.id] ? 'Connected' : 'Connect back'} small disabled={!!backed[item.id]} onPress={() => connectBack(item)} /> : null}
         />
       )}
-      ListEmptyComponent={<Empty icon="people-outline" title={type === 'connections' ? 'No Soul Connections yet' : type === 'followers' ? 'No followers yet' : 'Not following anyone yet'} />}
+      ListEmptyComponent={<Empty icon="people-outline" title={type === 'connections' ? 'No Connections yet' : type === 'followers' ? 'No followers yet' : 'Not following anyone yet'} text={type === 'connections' ? 'People who connected with you and you connected back show up here.' : type === 'followers' ? "People who are connected to you, but you haven't connected back." : undefined} />}
     />
   );
 }

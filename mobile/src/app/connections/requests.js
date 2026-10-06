@@ -57,7 +57,16 @@ function Incoming({ r, onDone }) {
 
   const accept = (asIntent) => run(async () => {
     const res = await api(`/connections/requests/${r.id}/accept`, { method: 'POST', body: asIntent ? { asIntent } : {} });
-    router.push(`/chat/${res.conversationId}`);
+    if (res.mutual && res.conversationId) { onDone(); router.push(`/chat/${res.conversationId}`); return; }
+    // they're now connected to you: ask to connect back (both ways = Connections, and a chat opens)
+    const back = await confirm(`Connect back with ${first}?`,
+      `${first} is now connected to you. Connect back to become Connections and start chatting.`, { confirmText: 'Connect back', cancelText: 'Not now' });
+    if (back) {
+      const b = await api(`/connections/back/${r.user.id}`, { method: 'POST' });
+      onDone();
+      if (b.conversationId) router.push(`/chat/${b.conversationId}`);
+      return;
+    }
     onDone();
   });
   const hold = (days) => run(async () => { await api(`/connections/requests/${r.id}/hold`, { method: 'POST', body: { days } }); setMode(null); setBusy(false); onDone(); });
@@ -182,7 +191,7 @@ export default function ConnectRequests() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={() => { setRefreshing(true); setKey((k) => k + 1); setTimeout(() => setRefreshing(false), 600); }} />}>
-      <BrandHeader size={32} title="Soul Requests" subtitle="People who want to connect with you, and why" />
+      <BrandHeader size={32} title="Requests" subtitle="People who want to connect with you, and why" />
       <SoulRequestsList key={key} />
     </ScrollView>
   );

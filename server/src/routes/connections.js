@@ -78,7 +78,8 @@ r.get('/status/:userId', ah(async (req, res) => {
     request: open ? view(open, me, other) : null,
     cooldownUntil,
     lastOutcome: last && cooldownUntil ? last.status : null,
-    openTo: list(other.open_to),
+    iConnect: await connectsTo(me, other.id),      // I'm connected to them
+    theyConnect: await connectsTo(other.id, me),   // they're connected to me (can connect back)
     soulScore: await scoreBetween(req.user, other),
   });
 }));
@@ -91,6 +92,8 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
   if (to.id === me.id) throw badRequest("You can't connect with yourself");
   if (await connectionBetween(me.id, to.id)) throw conflict('You are already connected', 'already_connected');
+  if (await connectsTo(to.id, me.id)) throw conflict(`${to.display_name || to.username} is already connected to you. Tap Connect back.`, 'can_connect_back');
+  if (await connectsTo(me.id, to.id)) throw conflict(`You're already connected to ${to.display_name || to.username}.`, 'already_connecting');
   const incoming = await one(`SELECT TOP 1 id FROM connection_requests WHERE from_id=$1 AND to_id=$2 AND status IN (N'pending', N'held')`, [to.id, me.id]);
   if (incoming) throw conflict(`${to.display_name || to.username} already sent you a request. Answer it from your requests.`, 'incoming_pending');
   const outgoing = await one(`SELECT TOP 1 id FROM connection_requests WHERE from_id=$1 AND to_id=$2 AND status IN (N'pending', N'held')`, [me.id, to.id]);
@@ -127,46 +130,87 @@ r.get('/requests', ah(async (req, res) => {
   res.json({ requests: rows.map((x) => view(x, me, { ...x, id: x.u_id })) });
 }));
 
-// Accept (optionally as a different intent) → connection + chat
-r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
-  const q = await loadRequest(req, 'to');
-  if (!['pending', 'held'].includes(q.status)) throw conflict('This request is no longer open', 'closed');
-  const { asIntent } = z.object({ asIntent: intent.optional() }).parse(req.body || {});
-  const finalIntent = asIntent || q.intent;
-  const from = await one('SELECT * FROM users WHERE id=$1', [q.from_id]);
-  if (await isBlockedEither(q.from_id, q.to_id)) throw notFound('User not found');
-  const [a, b] = pairOf(q.from_id, q.to_id);
-  const key = directKey(q.from_id, q.to_id);
-
-  const conv = await tx(async (c) => {
-    const upd = (await c.query(
-      `UPDATE connection_requests SET status=N'accepted', accepted_intent=$2, responded_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1 AND status IN (N'pending', N'held')`,
-      [q.id, finalIntent !== q.intent ? finalIntent : null],
-    )).rows[0];
-    if (!upd) throw conflict('This request is no longer open', 'closed');
-    await c.query(`IF NOT EXISTS (SELECT 1 FROM connections WHERE user_a=$1 AND user_b=$2) INSERT INTO connections (user_a, user_b, intent, request_id) VALUES ($1, $2, $3, $4)`, [a, b, finalIntent, q.id]);
-    // Accepting a request means the sender now follows the receiver (A sent to B → A follows B)
-    await c.query(`IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)
+// ---------- the Connect model ----------
+// A connects to B  = follow A -> B (accepted)  → A is one of B's Followers
+// both directions  = a connections row           → "Connections" (+ a chat opens)
+const followSql = `IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)
                      INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'accepted')
-                   ELSE UPDATE follows SET status=N'accepted' WHERE follower_id=$1 AND followee_id=$2`, [q.from_id, q.to_id]);
+                   ELSE UPDATE follows SET status=N'accepted' WHERE follower_id=$1 AND followee_id=$2`;
+const connectsTo = async (a, b) => !!(await one(`SELECT 1 AS y FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted'`, [a, b]));
+
+/** Both people are connected to each other: Connections row, chat, welcome message. Returns the conversation. */
+async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null, note = null, noteFrom = null } = {}) {
+  const [a, b] = pairOf(x, y);
+  const key = directKey(x, y);
+  const conv = await tx(async (c) => {
+    await c.query(followSql, [x, y]);
+    await c.query(followSql, [y, x]);
+    await c.query(`IF NOT EXISTS (SELECT 1 FROM connections WHERE user_a=$1 AND user_b=$2) INSERT INTO connections (user_a, user_b, intent, request_id) VALUES ($1, $2, $3, $4)`, [a, b, theIntent, requestId]);
     let cv = (await c.query('SELECT * FROM conversations WHERE direct_key=$1', [key])).rows[0];
-    if (!cv) {
-      cv = (await c.query('INSERT INTO conversations (is_group, created_by, direct_key) OUTPUT INSERTED.* VALUES (0, $1, $2)', [q.to_id, key])).rows[0];
-    }
-    for (const uid of [q.from_id, q.to_id]) {
+    if (!cv) cv = (await c.query('INSERT INTO conversations (is_group, created_by, direct_key) OUTPUT INSERTED.* VALUES (0, $1, $2)', [y, key])).rows[0];
+    for (const uid of [x, y]) {
       await c.query(`IF NOT EXISTS (SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2)
                        INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, 0)
                      ELSE UPDATE conversation_members SET is_request=0 WHERE conversation_id=$1 AND user_id=$2`, [cv.id, uid]);
     }
     return cv;
   });
+  await revealBetween(x, y); // an anonymous chat between them is revealed once they're Connections
+  const label = INTENTS[theIntent] || INTENTS.friendship;
+  await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${soulScore ? ` · Soul Score ${soulScore}%` : ''}`);
+  if (note && noteFrom) await postMessage(conv, noteFrom, { kind: 'text', body: note });
+  return conv;
+}
 
-  await revealBetween(q.from_id, q.to_id); // an anonymous chat between them is revealed once they connect
-  const label = INTENTS[finalIntent];
-  await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${q.soul_score ? ` · Soul Score ${q.soul_score}%` : ''}`);
-  if (q.note) await postMessage(conv, q.from_id, { kind: 'text', body: q.note });
-  await notify(q.from_id, q.to_id, 'connect_accepted', q.id, { intent: q.intent, acceptedIntent: finalIntent !== q.intent ? finalIntent : null, conversationId: conv.id });
-  res.json({ ok: true, conversationId: conv.id, intent: finalIntent, user: userCard(from) });
+// Accept (optionally as a different intent): the sender is now connected to you (one of your Followers).
+// You're then asked to connect back; send { connectBack: true } to do both at once. If you were already
+// connected to them, you become Connections straight away.
+r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
+  const q = await loadRequest(req, 'to');
+  if (!['pending', 'held'].includes(q.status)) throw conflict('This request is no longer open', 'closed');
+  const { asIntent, connectBack } = z.object({ asIntent: intent.optional(), connectBack: z.boolean().optional() }).parse(req.body || {});
+  const finalIntent = asIntent || q.intent;
+  const from = await one('SELECT * FROM users WHERE id=$1', [q.from_id]);
+  if (await isBlockedEither(q.from_id, q.to_id)) throw notFound('User not found');
+  await tx(async (c) => {
+    const upd = (await c.query(
+      `UPDATE connection_requests SET status=N'accepted', accepted_intent=$2, responded_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1 AND status IN (N'pending', N'held')`,
+      [q.id, finalIntent !== q.intent ? finalIntent : null],
+    )).rows[0];
+    if (!upd) throw conflict('This request is no longer open', 'closed');
+    await c.query(followSql, [q.from_id, q.to_id]);
+  });
+  let conv = null;
+  if (connectBack || (await connectsTo(q.to_id, q.from_id))) {
+    conv = await makeMutual(q.from_id, q.to_id, finalIntent, { requestId: q.id, soulScore: q.soul_score, note: q.note, noteFrom: q.from_id });
+  }
+  await notify(q.from_id, q.to_id, 'connect_accepted', q.id, { intent: q.intent, acceptedIntent: finalIntent !== q.intent ? finalIntent : null, conversationId: conv?.id || null, mutual: !!conv });
+  res.json({ ok: true, mutual: !!conv, canConnectBack: !conv, conversationId: conv?.id || null, intent: finalIntent, user: userCard(from) });
+}));
+
+// Connect back with someone who is connected to you → you're Connections (chat opens)
+r.post('/back/:userId', requireSoul, ah(async (req, res) => {
+  const other = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [uuid.parse(req.params.userId)]);
+  if (!other || (await isBlockedEither(req.user.id, other.id))) throw notFound('User not found');
+  if (!(await connectsTo(other.id, req.user.id))) throw forbidden(`${other.display_name || other.username} isn't connected to you. Send a Connect request instead.`, 'not_connected_to_you');
+  const existing = await connectionBetween(req.user.id, other.id);
+  if (existing) {
+    const cv = await one('SELECT id FROM conversations WHERE direct_key=$1', [directKey(req.user.id, other.id)]);
+    return res.json({ ok: true, conversationId: cv?.id || null, already: true });
+  }
+  const q = await one(`SELECT TOP 1 * FROM connection_requests WHERE from_id=$1 AND to_id=$2 AND status=N'accepted' ORDER BY responded_at DESC`, [other.id, req.user.id]);
+  const conv = await makeMutual(other.id, req.user.id, q?.accepted_intent || q?.intent || 'friendship', { requestId: q?.id || null, soulScore: q?.soul_score || null });
+  await notify(other.id, req.user.id, 'connect_back', conv.id, { conversationId: conv.id });
+  res.json({ ok: true, conversationId: conv.id });
+}));
+
+// Disconnect: stop being connected to them (if you were Connections, they stay connected to you as a Follower)
+r.delete('/with/:userId', ah(async (req, res) => {
+  const otherId = uuid.parse(req.params.userId);
+  const [a, b] = pairOf(req.user.id, otherId);
+  await query('DELETE FROM follows WHERE follower_id=$1 AND followee_id=$2', [req.user.id, otherId]);
+  await query('DELETE FROM connections WHERE user_a=$1 AND user_b=$2', [a, b]);
+  res.json({ ok: true });
 }));
 
 r.post('/requests/:id/reject', ah(async (req, res) => {

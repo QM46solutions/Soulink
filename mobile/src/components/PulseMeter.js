@@ -233,8 +233,8 @@ export function PulseInfo({ pulse, isMe, name, onClose }) {
       </View>
       <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 6 }}>
         {isMe
-          ? 'Your Pulse rises when people view your profile, like and comment on your posts, follow you, send you Soul Requests or connect with you. When nobody notices you for a while, it slowly falls. It counts the last 30 days, newest the most.'
-          : `How much attention ${name || 'they'} got in the last 30 days: profile views, likes, comments, follows, Soul Requests and connections. Newer activity counts more.`}
+          ? 'Your Pulse rises when people view your profile, like and comment on your posts, send you Requests or connect with you. When nobody notices you for a while, it slowly falls. It counts the last 30 days, newest the most.'
+          : `How much attention ${name || 'they'} got in the last 30 days: profile views, likes, comments, Requests and connections. Newer activity counts more.`}
       </Text>
     </View>
   );

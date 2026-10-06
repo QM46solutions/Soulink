@@ -163,7 +163,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
       <View style={[s.row, { justifyContent: 'space-between', backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.border, padding: space.lg, borderRadius: 16, marginBottom: space.xl }]}>
         <View style={{ flex: 1, marginRight: space.md }}>
           <Text style={{ color: colors.text, fontFamily: fonts.semibold }}>Private account</Text>
-          <Text style={s.hint}>Only people you approve can see your posts and Soul Connections.</Text>
+          <Text style={s.hint}>Only people you approve can see your posts and Connections.</Text>
         </View>
         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.soul, false: colors.border }} thumbColor="#fff" />
       </View>

@@ -204,6 +204,8 @@ async function listFollows(req, res, direction) {
   const rows = await many(
     `SELECT TOP 200 u.* FROM follows f JOIN users u ON u.id = f.${joinCol}
       WHERE f.${whereCol}=$1 AND f.status=N'accepted'
+        -- one-way only: people who are connected both ways are listed under Connections instead
+        AND NOT EXISTS (SELECT 1 FROM follows g WHERE g.follower_id=f.followee_id AND g.followee_id=f.follower_id AND g.status=N'accepted')
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$2))
       ORDER BY f.created_at DESC`,
     [u.id, req.user.id],

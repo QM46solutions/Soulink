@@ -122,7 +122,7 @@ export default function Home() {
         <Button title="Search people you know" variant="secondary" style={{ marginTop: space.md }} onPress={() => router.push('/search')} />
       </CenterCard>
     ) : (
-      <CenterCard icon="image-multiple-outline" title="No posts yet" text="Be the first! Share a photo or a thought with your Soul Connections.">
+      <CenterCard icon="image-multiple-outline" title="No posts yet" text="Be the first! Share a photo or a thought with your Connections.">
         <Button title="Share a photo" icon="images" onPress={() => router.push('/create-post?pick=gallery')} />
         <Button title="Find more people" variant="secondary" style={{ marginTop: space.md }} onPress={() => router.push('/discover')} />
       </CenterCard>

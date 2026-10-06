@@ -36,7 +36,7 @@ describe('Connect requests', () => {
   test('accept (as something else) creates the connection and a chat with the note; sender is told', async () => {
     const [a, b] = await pair();
     const q = (await send(a, b, { intent: 'dating', note: 'Hi from the gym!' }).expect(201)).body.request;
-    const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ asIntent: 'friendship' }).expect(200);
+    const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ asIntent: 'friendship', connectBack: true }).expect(200);
     assert.equal(acc.body.intent, 'friendship');
     const status = (await api().get(`/connections/status/${b.user.id}`).set(a.h).expect(200)).body;
     assert.equal(status.connected.intent, 'friendship');
@@ -97,6 +97,33 @@ describe('Connect requests', () => {
     await api().post(`/connections/requests/${q2.id}/accept`).set(d.h).send({}).expect(409);
   });
 
+  test('Connect model: accept = they connect to you (Follower); connect back = Connections', async () => {
+    const [a, b] = await pair();
+    const me = async (u) => (await api().get('/users/me').set(u.h).expect(200)).body.counts;
+    const q = (await send(a, b).expect(201)).body.request;
+    assert.equal((await me(b)).requests, 1);
+    const acc = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({}).expect(200)).body;
+    assert.equal(acc.mutual, false);
+    assert.equal(acc.canConnectBack, true);
+    let cb = await me(b);
+    assert.equal(cb.requests, 0);
+    assert.equal(cb.followers, 1);
+    assert.equal(cb.connections, 0);
+    assert.equal((await send(b, a).expect(409)).body.error.code, 'can_connect_back');
+    const back = (await api().post(`/connections/back/${a.user.id}`).set(b.h).expect(200)).body;
+    assert.ok(back.conversationId);
+    cb = await me(b);
+    assert.equal(cb.followers, 0);
+    assert.equal(cb.connections, 1);
+    assert.equal((await me(a)).connections, 1);
+    assert.ok((await notes(a)).some((n) => n.type === 'connect_back'));
+    // disconnect: b leaves; a stays connected to b, so a shows as b's Follower again
+    await api().delete(`/connections/with/${a.user.id}`).set(b.h).expect(200);
+    cb = await me(b);
+    assert.equal(cb.connections, 0);
+    assert.equal(cb.followers, 1);
+  });
+
   test('any intent can be sent (Open to was removed from settings)', async () => {
     const [a, b] = await pair();
     await send(a, b, { intent: 'dating' }).expect(201);
@@ -109,7 +136,7 @@ describe('Connect requests', () => {
       const [a, b] = await pair();
       assert.equal((await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(403)).body.error.code, 'not_connected');
       const q = (await send(a, b).expect(201)).body.request;
-      await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({}).expect(200);
+      await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
       await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(200);
     } finally { config.connectRequired = was; }
   });

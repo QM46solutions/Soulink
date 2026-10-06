@@ -14,7 +14,10 @@ const holdText = (d) => (d === 1 ? '1 day' : d === 7 ? '1 week' : d === 14 ? '2 
 // Connect notifications need details (intent, hold length) from meta
 const CONNECT_TEXT = {
   connect_request: (m) => `wants to connect for ${intentLabel(m?.intent)}${m?.soulScore ? ` · Soul Score ${m.soulScore}%` : ''}.`,
-  connect_accepted: (m) => (m?.acceptedIntent ? `accepted your request as ${intentLabel(m.acceptedIntent)}. Say hi!` : 'accepted your connect request. Say hi!'),
+  connect_accepted: (m) => (m?.mutual
+    ? (m?.acceptedIntent ? `accepted your request as ${intentLabel(m.acceptedIntent)}. You're Connections now, say hi!` : "accepted your request. You're Connections now, say hi!")
+    : `accepted your request${m?.acceptedIntent ? ` as ${intentLabel(m.acceptedIntent)}` : ''}. You're connected to them.`),
+  connect_back: () => "connected back with you. You're Connections now, say hi!",
   connect_rejected: () => 'rejected your connect request.',
   connect_held: (m) => `put your connect request on hold for ${holdText(m?.days)}.`,
   connect_hold_extended: (m) => `extended the hold on your request by ${holdText(m?.days)}.`,
@@ -29,9 +32,9 @@ const CONNECT_TEXT = {
 };
 
 const TEXT = {
-  follow: 'started following you.',
-  follow_request: 'requested to follow you.',
-  follow_accept: 'accepted your follow request.',
+  follow: 'connected to you.',
+  follow_request: 'wants to connect with you.',
+  follow_accept: 'accepted your request.',
   like: 'liked your post.',
   post_like: 'gave your post a 👌🏻.',
   post_comment: 'commented on your post.',
@@ -54,16 +57,15 @@ const ago = (iso) => {
 export default function Activity() {
   const { refreshUnread } = useRealtime();
   const [items, setItems] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [reqCount, setReqCount] = useState(0); // pending Soul Requests (same number as on your profile)
+  const [reqCount, setReqCount] = useState(0); // pending Requests (same number as on your profile)
   const [tab, setTab] = useState('activity'); // activity | requests
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [n, r, c] = await Promise.all([api('/notifications'), api('/users/me/follow-requests'), api('/connections/requests?box=incoming')]);
-      setItems(n.notifications); setRequests(r.requests); setReqCount(c.requests.length); setError(null);
+      const [n, c] = await Promise.all([api('/notifications'), api('/connections/requests?box=incoming')]);
+      setItems(n.notifications); setReqCount(c.requests.length); setError(null);
       if (n.unread) api('/notifications/read', { method: 'POST' }).then(() => refreshUnread()).catch(() => {});
     } catch (e) { setError(e.message); }
   }, [refreshUnread]);
@@ -90,7 +92,7 @@ export default function Activity() {
       <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: space.xxl }}>
         {switcher}
         <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
-          {/* answering here updates the Soul Requests count on your profile */}
+          {/* answering here updates the Requests count on your profile */}
           <SoulRequestsList onChanged={(n) => { setReqCount(n); refreshUnread(); }} />
         </View>
       </ScrollView>
@@ -107,27 +109,13 @@ export default function Activity() {
         <View>
           {switcher}
           <ErrorText>{error}</ErrorText>
-          {requests.length ? (
-            <Pressable onPress={() => router.push('/requests')} style={{ flexDirection: 'row', alignItems: 'center', padding: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="person-add" size={20} color={colors.aura} />
-              </View>
-              <View style={{ flex: 1, marginLeft: space.md }}>
-                <Text style={{ color: colors.text, fontFamily: fonts.semibold }}>Follow requests</Text>
-                <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13 }}>{requests[0].user.username}{requests.length > 1 ? ` + ${requests.length - 1} others` : ''}</Text>
-              </View>
-              <View style={{ backgroundColor: colors.spark, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
-                <Text style={{ color: '#fff', fontSize: 12, fontFamily: fonts.bold }}>{requests.length}</Text>
-              </View>
-            </Pressable>
-          ) : null}
         </View>
       }
       renderItem={({ item }) => (
         <Pressable
           onPress={() => {
             if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') setTab('requests');
-            else if (item.type === 'connect_accepted' && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
+            else if ((item.type === 'connect_accepted' || item.type === 'connect_back') && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
             else if (['post_like', 'post_comment', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
             else if ((item.type === 'argue_invite' || item.type === 'argue_verdict') && item.meta?.caseId) router.push(`/argue/${item.meta.caseId}`);
@@ -143,7 +131,7 @@ export default function Activity() {
           </Text>
         </Pressable>
       )}
-      ListEmptyComponent={!requests.length ? <Empty icon="notifications-outline" title="No notifications yet" text="Connect requests, follows and likes will show up here." /> : null}
+      ListEmptyComponent={<Empty icon="notifications-outline" title="No notifications yet" text="Requests, connections and likes will show up here." />}
     />
   );
 }

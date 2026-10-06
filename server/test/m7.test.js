@@ -11,7 +11,7 @@ const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Arr
 async function chat() {
   const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
   const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
-  const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({}).expect(200);
+  const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
   return { a, b, conv: acc.body.conversationId };
 }
 

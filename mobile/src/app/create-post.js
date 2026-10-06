@@ -98,7 +98,7 @@ export default function CreatePost() {
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
           {photos.length ? `${photos.length}/${MAX} photos · first photo is the cover` : `Add up to ${MAX} photos, or just write something`}
         </Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Soul Connections{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Connections and Followers{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
         {/* community rule, told to the person posting (not to people who mark posts) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: space.lg, padding: space.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(26,24,40,0.7)' }}>
           <Ionicons name="alert-circle" size={17} color={colors.aura} style={{ marginRight: 8, marginTop: 1 }} />

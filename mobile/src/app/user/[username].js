@@ -66,14 +66,19 @@ export default function UserProfile() {
   const act = async (fn) => { setBusy(true); try { await fn(); await load(); } catch (e) { notice('Oops', e.message); } finally { setBusy(false); } };
   // Connecting unlocks after Soul DNA is created
   const needSoul = () => { if (me.soulReady) return false; router.push('/soul'); return true; };
-  const follow = () => { if (!needSoul()) act(() => api(`/users/${target.id}/follow`, { method: 'POST' })); };
-  const unfollow = async () => {
-    const ok = await confirm(
-      rel.following === 'pending' ? 'Cancel follow request?' : `Unfollow ${target.username}?`,
-      target.isPrivate && rel.following === 'accepted' ? "You'll need to request again to see their posts." : undefined,
-      { confirmText: rel.following === 'pending' ? 'Cancel request' : 'Unfollow', cancelText: 'Keep', destructive: true },
-    );
-    if (ok) act(() => api(`/users/${target.id}/follow`, { method: 'DELETE' }));
+  // Connect back with someone who is connected to you → you're Connections, chat opens
+  const connectBack = async () => {
+    if (needSoul()) return;
+    setBusy(true);
+    try { const r = await api(`/connections/back/${target.id}`, { method: 'POST' }); await load(); if (r.conversationId) router.push(`/chat/${r.conversationId}`); }
+    catch (e) { notice('Oops', e.message); } finally { setBusy(false); }
+  };
+  const disconnect = async () => {
+    const mutual = !!conn?.connected;
+    const ok = await confirm(`Disconnect from ${target.displayName || target.username}?`,
+      mutual ? `You'll no longer be Connections. ${target.displayName?.split(' ')[0] || target.username} stays connected to you as a Follower until they disconnect too.` : undefined,
+      { confirmText: 'Disconnect', cancelText: 'Keep', destructive: true });
+    if (ok) act(() => api(`/connections/with/${target.id}`, { method: 'DELETE' }));
   };
 
   const openChat = async () => {
@@ -84,20 +89,19 @@ export default function UserProfile() {
     } catch (e) { notice('Could not open chat', e.message); }
   };
 
-  let followBtn;
-  if (rel.isMe) followBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
-  else if (rel.following === 'accepted') followBtn = <ProfileAction title="Following" icon="chevron-down" onPress={unfollow} loading={busy} />;
-  else if (rel.following === 'pending') followBtn = <ProfileAction title="Requested" onPress={unfollow} loading={busy} />;
-  else followBtn = <ProfileAction title={rel.followsYou ? 'Follow back' : 'Follow'} onPress={follow} loading={busy} />;
-
-  // Connect button: Connect → Requested → (they answer) → Message. Follow stays separate (for posts).
+  // One button for everything: Connect → Requested → (they accept) Connected → they connect back → Connections
   const goConnect = () => { if (!needSoul()) router.push({ pathname: '/connect/[userId]', params: { userId: target.id, username: target.username } }); };
-  let connectBtn;
-  if (!conn) connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
-  else if (conn.connected) connectBtn = <ProfileAction title="Message" onPress={openChat} />;
-  else if (conn.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/connections/requests')} />;
-  else if (conn.request) connectBtn = <ProfileAction title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} onPress={() => router.push('/connections/requests')} />;
-  else if (conn.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
+  let connectBtn = null;
+  let messageBtn = null;
+  if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
+  else if (conn?.connected) {
+    connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
+    messageBtn = <ProfileAction primary title="Message" onPress={openChat} />;
+  } else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
+  else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" icon="person-add" onPress={connectBack} loading={busy} />;
+  else if (conn?.iConnect) connectBtn = <ProfileAction title="Connected" icon="checkmark" onPress={disconnect} loading={busy} />;
+  else if (conn?.request) connectBtn = <ProfileAction title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} onPress={() => router.push('/activity')} />;
+  else if (conn?.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
   else connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
 
   // Anonymous message: hidden for 7 days or until they Soul Connect (not offered once connected)
@@ -112,15 +116,6 @@ export default function UserProfile() {
 
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      {rel.requestedYou ? (
-        <View style={{ backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)', margin: space.xl, marginBottom: 0, padding: space.md, borderRadius: 20 }}>
-          <Text style={{ fontFamily: fonts.body, color: colors.text, marginBottom: space.sm }}>{target.username} wants to follow you</Text>
-          <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <ProfileAction primary title="Confirm" onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/accept`, { method: 'POST' }))} />
-            <ProfileAction title="Delete" onPress={() => act(() => api(`/users/me/follow-requests/${target.id}/decline`, { method: 'POST' }))} />
-          </View>
-        </View>
-      ) : null}
       <ProfileHeader
         user={target}
         counts={data.counts}
@@ -128,8 +123,8 @@ export default function UserProfile() {
         canViewLists={data.canViewContent}
         isMe={rel.isMe}
         actions={<>
-          {followBtn}
-          {!rel.isMe ? connectBtn : null}
+          {connectBtn}
+          {messageBtn}
           {anonBtn}
         </>}
       />
@@ -141,10 +136,10 @@ export default function UserProfile() {
       ) : !rel.isMe && !me.soulReady ? (
         <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}
-      {rel.followsYou && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Follows you</Text> : null}
+      {conn?.theyConnect && !conn?.connected && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Connected to you · connect back to become Connections</Text> : null}
       {data.canViewContent
         ? (posts?.length ? <PostGrid posts={posts} /> : <Empty icon="camera-outline" title="No posts yet" />)
-        : <Empty icon="lock-closed-outline" title="This account is private" text="Follow this account to see their photos and Soul Connections." />}
+        : <Empty icon="lock-closed-outline" title="This account is private" text="Connect with this account to see their photos and Connections." />}
       <ActionSheet
         visible={menu}
         onClose={() => setMenu(false)}

@@ -54,7 +54,7 @@ export default function Settings() {
     <ScrollView style={s.screen}>
       <ErrorText>{error}</ErrorText>
       <Section>Privacy</Section>
-      <Toggle title="Private account" text="Only approved followers see your posts and Soul Connections." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
+      <Toggle title="Private account" text="Only people you've accepted (your Connections and Followers) see your posts." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
       <Toggle title="Show me in Discover" text="Let Soulink suggest you to people with a high Match %." value={user.settings.showInDiscover} onChange={(v) => update({ showInDiscover: v })} />
       <Toggle
         title="Discoverable by face"
@@ -64,11 +64,10 @@ export default function Settings() {
         onChange={(v) => update({ faceDiscoverable: v })}
       />
       <Toggle title="Use my activity for Soul DNA" text="Searches, likes and time spent on profiles help improve your matches. Never shared with anyone." value={user.settings.consentTracking} onChange={(v) => update({ consentTracking: v })} />
-      <Link icon="sparkles-outline" title="Soul Requests" onPress={() => router.push('/connections/requests')} />
+      <Link icon="sparkles-outline" title="Requests" onPress={() => router.push('/activity')} />
       <Link icon="language-outline" title={`Chat translation: ${user.chatLanguage ? CHAT_LANGS.find((l) => l.key === user.chatLanguage)?.native : 'Off'}`} onPress={() => setLangOpen(true)} />
       <ActionSheet visible={langOpen} onClose={() => setLangOpen(false)} title="Translate chat messages into"
         options={CHAT_LANGS.map((l) => ({ label: `${l.native}${l.native !== l.label ? `  ·  ${l.label}` : ''}${user.chatLanguage === l.key ? '  ✓' : ''}`, onPress: () => setChatLanguage(l.key) }))} />
-      <Link icon="person-add-outline" title="Follow requests" onPress={() => router.push('/requests')} />
       <Link icon="ban-outline" title="Blocked accounts" onPress={() => router.push('/blocked')} />
 
       <Section>Account</Section>

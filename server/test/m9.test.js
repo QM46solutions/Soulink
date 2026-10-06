@@ -53,7 +53,7 @@ describe('Post offense, suspension and share', () => {
   test('share into a chat sends a post message; outside share is counted', async () => {
     const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
     const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
-    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({}).expect(200)).body.conversationId;
+    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200)).body.conversationId;
     const p = await textPost(a, 'share me');
     const r = (await api().post(`/posts/${p.id}/share`).set(b.h).send({ conversationIds: [conv] }).expect(200)).body;
     assert.equal(r.sent, 1);
