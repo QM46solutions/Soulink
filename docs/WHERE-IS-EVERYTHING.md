@@ -101,6 +101,5 @@ To look at the data: SQL Server Management Studio → connect to `localhost\SQLE
 | This map | `docs\WHERE-IS-EVERYTHING.md` |
 
 - Anonymous messages (7-day reveal): server `server/src/routes/anon.js` + `server/src/services/anon.js` (reveal timer, every minute), tables in `server/migrations/011_anonymous_messages.sql`; app `mobile/src/app/anon/[id].js`, `mobile/src/components/anon.js`, Messages > Anonymous tab. Tests: `server/test/m6.test.js`.
-- Anonymous messages (7-day reveal): `server/src/routes/anon.js`, `server/src/services/anon.js` (reveal timer), `server/migrations/011_anonymous_messages.sql`; app `mobile/src/app/anon/[id].js`, `mobile/src/components/anon.js`, Messages > Anonymous tab. Tests: `server/test/m6.test.js`.
 - Translator in the message box: `TranslateSetup` / `TranslatePreview` in `mobile/src/components/chat.js`; server `POST /conversations/:id/translate-draft` and `/voice-translate` in `server/src/routes/conversations.js`; speech-to-text + voices in `tools/soulmoji-ai/soulmoji_ai.py` (`/transcribe`, `/speak`), installed by `INSTALL-VOICE-TRANSLATOR.bat`. Tests: `server/test/m7.test.js`.
 - `INSTALL-SOULMOJI-AI.bat` + `tools/soulmoji-ai/` — one-time install of the free local Soulmoji AI (LivePortrait). The server starts it automatically (`server/src/services/soulmojiAi.js`); without it Soulmoji uses the built-in warp engine.
