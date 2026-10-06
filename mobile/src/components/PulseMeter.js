@@ -63,6 +63,8 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
   const sweep = useRef(new Animated.Value(0)).current;
   const beat = useRef(new Animated.Value(0)).current;
   const twinkle = useRef(new Animated.Value(0)).current;
+  const thump = useRef(new Animated.Value(0)).current; // whole meter: lub-dub every 5 seconds
+  const ripple = useRef(new Animated.Value(0)).current;
   const [shown, setShown] = useState(0);
 
   // loading: ticks + number count up to the score
@@ -93,9 +95,25 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
       Animated.timing(twinkle, { toValue: 1, duration: 1600, useNativeDriver: ND }),
       Animated.timing(twinkle, { toValue: 0, duration: 1600, useNativeDriver: ND }),
     ]));
-    trace.start(); heart.start(); tw.start();
-    return () => { trace.stop(); heart.stop(); tw.stop(); };
-  }, [score, sweep, beat, twinkle, P, penX]);
+    // the whole meter beats like a heart every 5 s: strong "lub", softer "dub", glow ripple, then rest
+    const whole = Animated.loop(Animated.sequence([
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(thump, { toValue: 1, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+          Animated.timing(thump, { toValue: 0.15, duration: 110, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
+          Animated.timing(thump, { toValue: 0.6, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+          Animated.timing(thump, { toValue: 0, duration: 260, easing: Easing.inOut(Easing.quad), useNativeDriver: ND }),
+        ]),
+        Animated.sequence([
+          Animated.timing(ripple, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: ND }),
+          Animated.timing(ripple, { toValue: 0, duration: 0, useNativeDriver: ND }),
+        ]),
+      ]),
+      Animated.delay(4100),
+    ]));
+    trace.start(); heart.start(); tw.start(); whole.start();
+    return () => { trace.stop(); heart.stop(); tw.stop(); whole.stop(); thump.setValue(0); ripple.setValue(0); };
+  }, [score, sweep, beat, twinkle, thump, ripple, P, penX]);
 
   // pen height follows the trace at the pen position (sweep 0..1 = the strip moved one beat to the left)
   const penRange = (() => {
@@ -127,7 +145,12 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole="button" accessibilityLabel={`Pulse ${score}, ${th.text}`}
       style={({ hovered }) => ({ alignItems: 'center', flex: showLabel ? 1 : 0, transform: [{ scale: hovered ? 1.04 : 1 }] })}>
-      <View style={{ width: S, height: S }}>
+      <Animated.View style={{ width: S, height: S, transform: [{ scale: thump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.13] }) }] }}>
+        {/* heartbeat ripple: a glowing ring that bursts out on every 5-second beat */}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: S, height: S, borderRadius: S / 2, borderWidth: Math.max(1.5, S * 0.03), borderColor: th.glow,
+          shadowColor: th.glow, shadowOpacity: 1, shadowRadius: S * 0.1, shadowOffset: { width: 0, height: 0 },
+          opacity: ripple.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 0.8, 0] }),
+          transform: [{ scale: ripple.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }] }} />
         {/* bezel */}
         <LinearGradient colors={['#3a3550', '#17141f', '#0d0b14']} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }}
           style={{ position: 'absolute', left: 0, top: 0, width: S, height: S, borderRadius: S / 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
@@ -180,7 +203,10 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
           <View style={arc('Bottom', S * 0.115, Math.max(1.2, S * 0.022))} />
           <View style={arc('Top', S * 0.115, Math.max(1.2, S * 0.022))} />
         </Animated.View>
-      </View>
+        {/* glow flare over the whole meter on the beat */}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: S, height: S, borderRadius: S / 2, backgroundColor: th.glow,
+          opacity: thump.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] }) }} />
+      </Animated.View>
       {showLabel ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
           <Text style={{ color: colors.text, fontSize: 12.5, fontFamily: fonts.body }}>Pulse</Text>
