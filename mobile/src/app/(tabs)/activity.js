@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { SoulRequestsList } from '../connections/requests';
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
@@ -54,19 +55,47 @@ export default function Activity() {
   const { refreshUnread } = useRealtime();
   const [items, setItems] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [connectReqs, setConnectReqs] = useState([]);
+  const [reqCount, setReqCount] = useState(0); // pending Soul Requests (same number as on your profile)
+  const [tab, setTab] = useState('activity'); // activity | requests
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const [n, r, c] = await Promise.all([api('/notifications'), api('/users/me/follow-requests'), api('/connections/requests?box=incoming')]);
-      setItems(n.notifications); setRequests(r.requests); setConnectReqs(c.requests); setError(null);
+      setItems(n.notifications); setRequests(r.requests); setReqCount(c.requests.length); setError(null);
       if (n.unread) api('/notifications/read', { method: 'POST' }).then(() => refreshUnread()).catch(() => {});
     } catch (e) { setError(e.message); }
   }, [refreshUnread]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // top switch: Notifications | Requests (n)
+  const switcher = (
+    <View style={{ flexDirection: 'row', margin: space.lg, marginBottom: space.sm, backgroundColor: colors.inputBg, borderRadius: 999, borderWidth: 1, borderColor: colors.border, padding: 4 }}>
+      {[['activity', 'Notifications'], ['requests', `Requests${reqCount ? ` (${reqCount})` : ''}`]].map(([k, label]) => {
+        const on = tab === k;
+        return (
+          <Pressable key={k} onPress={() => setTab(k)} style={({ hovered }) => ({ flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center',
+            backgroundColor: on ? 'rgba(124,92,252,0.28)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+            <Text style={{ color: on ? colors.text : colors.muted, fontFamily: on ? fonts.semibold : fonts.medium }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  if (tab === 'requests') {
+    return (
+      <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: space.xxl }}>
+        {switcher}
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
+          {/* answering here updates the Soul Requests count on your profile */}
+          <SoulRequestsList onChanged={(n) => { setReqCount(n); refreshUnread(); }} />
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <FlatList
@@ -76,21 +105,8 @@ export default function Activity() {
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       ListHeaderComponent={
         <View>
+          {switcher}
           <ErrorText>{error}</ErrorText>
-          {connectReqs.length ? (
-            <Pressable onPress={() => router.push('/connections/requests')} style={{ flexDirection: 'row', alignItems: 'center', margin: space.xl, marginBottom: space.sm, padding: space.lg, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(124,92,252,0.5)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(124,92,252,0.25)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="sparkles" size={20} color={colors.aura} />
-              </View>
-              <View style={{ flex: 1, marginLeft: space.md }}>
-                <Text style={{ color: colors.text, fontFamily: fonts.semibold }}>Connect requests</Text>
-                <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13 }}>{connectReqs[0].user.username}{connectReqs.length > 1 ? ` + ${connectReqs.length - 1} more` : ''} · tap to Accept, Hold or Reject</Text>
-              </View>
-              <View style={{ backgroundColor: colors.spark, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
-                <Text style={{ color: '#fff', fontSize: 12, fontFamily: fonts.bold }}>{connectReqs.length}</Text>
-              </View>
-            </Pressable>
-          ) : null}
           {requests.length ? (
             <Pressable onPress={() => router.push('/requests')} style={{ flexDirection: 'row', alignItems: 'center', padding: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border }}>
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
@@ -110,7 +126,7 @@ export default function Activity() {
       renderItem={({ item }) => (
         <Pressable
           onPress={() => {
-            if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') router.push('/connections/requests');
+            if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') setTab('requests');
             else if (item.type === 'connect_accepted' && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
             else if (['post_like', 'post_comment', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
@@ -127,7 +143,7 @@ export default function Activity() {
           </Text>
         </Pressable>
       )}
-      ListEmptyComponent={!requests.length && !connectReqs.length ? <Empty icon="notifications-outline" title="No notifications yet" text="Connect requests, follows and likes will show up here." /> : null}
+      ListEmptyComponent={!requests.length ? <Empty icon="notifications-outline" title="No notifications yet" text="Connect requests, follows and likes will show up here." /> : null}
     />
   );
 }

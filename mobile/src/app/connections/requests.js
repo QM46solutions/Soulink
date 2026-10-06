@@ -1,6 +1,6 @@
 // Connect requests. Incoming: Accept (or accept as something else), Hold for a chosen time, or Reject.
 // Sent: see status, withdraw. Every answer notifies the sender.
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -146,31 +146,44 @@ function Outgoing({ r, onDone }) {
   );
 }
 
-export default function ConnectRequests() {
+/** Received / Sent requests with Accept · Hold · Reject (used here and in the Requests tab of Notifications). */
+export function SoulRequestsList({ onChanged }) {
   const [tab, setTab] = useState('incoming');
   const [data, setData] = useState({ incoming: null, outgoing: null });
   const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
 
   const load = useCallback(async () => {
     try {
       const [i, o] = await Promise.all([api('/connections/requests?box=incoming'), api('/connections/requests?box=outgoing')]);
       setData({ incoming: i.requests, outgoing: o.requests }); setError(null);
+      changed.current?.(i.requests.length);
     } catch (e) { setError(e.message); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const list = data[tab];
   return (
-    <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      <BrandHeader size={32} title="Soul Requests" subtitle="People who want to connect with you, and why" />
+    <View>
       <Tabs value={tab} onChange={setTab} counts={{ incoming: data.incoming?.length, outgoing: data.outgoing?.length }} />
       <ErrorText>{error}</ErrorText>
       {list && !list.length ? (
         <Empty icon="people-outline" title={tab === 'incoming' ? 'No requests right now' : 'No requests sent'} text={tab === 'incoming' ? 'When someone wants to connect, it shows up here.' : 'Open a profile and tap Connect.'} />
       ) : null}
       {list?.map((r) => (tab === 'incoming' ? <Incoming key={r.id} r={r} onDone={load} /> : <Outgoing key={r.id} r={r} onDone={load} />))}
+    </View>
+  );
+}
+
+export default function ConnectRequests() {
+  const [key, setKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  return (
+    <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={() => { setRefreshing(true); setKey((k) => k + 1); setTimeout(() => setRefreshing(false), 600); }} />}>
+      <BrandHeader size={32} title="Soul Requests" subtitle="People who want to connect with you, and why" />
+      <SoulRequestsList key={key} />
     </ScrollView>
   );
 }
