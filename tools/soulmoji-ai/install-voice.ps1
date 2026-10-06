@@ -26,6 +26,8 @@ try {
 from huggingface_hub import list_repo_files, snapshot_download
 import os
 def get(repo, name):
+    if os.path.exists(os.path.join(r'$models', name, 'config.json')) and any(f.endswith(('.safetensors', '.bin')) for f in os.listdir(os.path.join(r'$models', name))):
+        print('already downloaded', repo, flush=True); return
     files = list_repo_files(repo)
     weights = ['model.safetensors'] if 'model.safetensors' in files else ['pytorch_model.bin']
     snapshot_download(repo, local_dir=os.path.join(r'$models', name), allow_patterns=['*.json', '*.txt', 'vocab*', 'merges*', '*.model'] + weights)
@@ -46,11 +48,13 @@ from transformers import AutoTokenizer, VitsModel, pipeline
 import numpy as np, torch, wave
 d = os.path.join(here, 'models', 'mms-tts-tel')
 tok = AutoTokenizer.from_pretrained(d); m = VitsModel.from_pretrained(d).eval()
-text = 'నమస్కారం, మీరు ఎలా ఉన్నారు?'
+text = '\u0c28\u0c2e\u0c38\u0c4d\u0c15\u0c3e\u0c30\u0c02, \u0c2e\u0c40\u0c30\u0c41 \u0c0e\u0c32\u0c3e \u0c09\u0c28\u0c4d\u0c28\u0c3e\u0c30\u0c41?'  # Telugu, written as escapes so Windows PowerShell can't garble it
 if getattr(tok, 'is_uroman', False):
     import uroman; text = uroman.Uroman().romanize_string(text)
+enc = tok(text, return_tensors='pt')
+assert enc['input_ids'].shape[-1] > 0, 'the Telugu voice got no letters to read'
 with torch.no_grad():
-    wav = m(**tok(text, return_tensors='pt')).waveform[0].numpy()
+    wav = m(input_ids=enc['input_ids'].long(), attention_mask=enc['attention_mask'].long()).waveform[0].numpy()
 out = os.path.join(here, 'voice-test.wav')
 with wave.open(out, 'wb') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(m.config.sampling_rate); w.writeframes((np.clip(wav, -1, 1) * 32767).astype(np.int16).tobytes())
@@ -66,6 +70,7 @@ print('heard:', asr({'raw': audio, 'sampling_rate': 16000}, generate_kwargs={'ta
 "@
   $env:PYTHONIOENCODING = 'utf-8'
   [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  $OutputEncoding = [System.Text.Encoding]::UTF8
   $test | & $py - | Out-File -Encoding utf8 "$here\voice-test.txt"
   if ($LASTEXITCODE) { Fail "the voice test failed" }
   Get-Content "$here\voice-test.txt" -Encoding utf8

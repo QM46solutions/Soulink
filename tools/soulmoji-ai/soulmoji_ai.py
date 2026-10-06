@@ -230,10 +230,10 @@ def speak(text, lang, out):
             import uroman
             t = uroman.Uroman().romanize_string(t)
         enc = tok(t, return_tensors='pt')
-        if enc['input_ids'].shape[-1] == 0:
+        if enc['input_ids'].shape[-1] == 0:  # nothing this voice can read (e.g. only emoji)
             continue
         torch.manual_seed(7)  # same voice every time
-        wav = model(**enc).waveform[0].cpu().numpy()
+        wav = model(input_ids=enc['input_ids'].long(), attention_mask=enc['attention_mask'].long()).waveform[0].cpu().numpy()
         pieces += [wav, np.zeros(int(rate * 0.18), np.float32)]
     pcm = np.concatenate(pieces) if pieces else np.zeros(rate // 2, np.float32)
     path = write_audio(pcm, rate, out)
