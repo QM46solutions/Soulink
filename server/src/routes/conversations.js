@@ -175,7 +175,8 @@ export async function systemMessage(conv, text) {
 async function assertCanSend(conv, meId) {
   if (conv.is_group) return;
   const others = (await memberIds(conv.id)).filter((id) => id !== meId);
-  const otherId = others[0] || conv.direct_key.split(':').find((id) => id !== meId);
+  // direct_key is stored in upper case, ids may come back in either case: compare case-insensitively
+  const otherId = others[0] || conv.direct_key.split(':').find((id) => id.toUpperCase() !== String(meId).toUpperCase());
   if (await isBlockedEither(meId, otherId)) throw forbidden("You can't message this account", 'blocked');
   // If the other person had deleted this thread, bring it back to them as a request.
   if (!others.length) {
