@@ -52,10 +52,11 @@ export default function FollowList() {
           onPress={() => router.push(`/user/${item.username}`)}
           right={type === 'connections'
             ? (item.intent ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.aura }}>{intentOf(item.intent).emoji} {intentOf(item.intent).label}</Text> : null)
+            : type === 'followers' && item.mutual ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.mint }}>Connections</Text>
             : mine && type === 'followers' ? <Button title={backed[item.id] ? 'Connected' : 'Connect back'} small disabled={!!backed[item.id]} onPress={() => connectBack(item)} /> : null}
         />
       )}
-      ListEmptyComponent={<Empty icon="people-outline" title={type === 'connections' ? 'No Connections yet' : type === 'followers' ? 'No followers yet' : 'Not following anyone yet'} text={type === 'connections' ? 'People who connected with you and you connected back show up here.' : type === 'followers' ? "People who are connected to you, but you haven't connected back." : undefined} />}
+      ListEmptyComponent={<Empty icon="people-outline" title={type === 'connections' ? 'No Connections yet' : type === 'followers' ? 'No followers yet' : 'Not following anyone yet'} text={type === 'connections' ? 'People who connected with you and you connected back show up here.' : type === 'followers' ? 'Everyone who is connected to you, whether or not you connected back.' : undefined} />}
     />
   );
 }

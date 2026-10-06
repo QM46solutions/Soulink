@@ -45,9 +45,8 @@ export async function counts(userId) {
   return one(
     `SELECT
        (SELECT COUNT(*) FROM posts WHERE author_id=$1 AND deleted_at IS NULL) AS posts,
-       -- Followers: connected to me, but I haven't connected back (mutual ones are Connections)
-       (SELECT COUNT(*) FROM follows f WHERE f.followee_id=$1 AND f.status=N'accepted'
-          AND NOT EXISTS (SELECT 1 FROM follows g WHERE g.follower_id=$1 AND g.followee_id=f.follower_id AND g.status=N'accepted')) AS followers,
+       -- Followers: everyone connected to me, whether or not I connected back
+       (SELECT COUNT(*) FROM follows f WHERE f.followee_id=$1 AND f.status=N'accepted') AS followers,
        (SELECT COUNT(*) FROM follows WHERE follower_id=$1 AND status=N'accepted') AS following,
        (SELECT COUNT(*) FROM connections WHERE user_a=$1 OR user_b=$1) AS connections`,
     [userId],

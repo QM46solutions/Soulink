@@ -113,11 +113,11 @@ describe('Connect requests', () => {
     const back = (await api().post(`/connections/back/${a.user.id}`).set(b.h).expect(200)).body;
     assert.ok(back.conversationId);
     cb = await me(b);
-    assert.equal(cb.followers, 0);
+    assert.equal(cb.followers, 1); // still connected to b, so still counted as a Follower
     assert.equal(cb.connections, 1);
     assert.equal((await me(a)).connections, 1);
     assert.ok((await notes(a)).some((n) => n.type === 'connect_back'));
-    // disconnect: b leaves; a stays connected to b, so a shows as b's Follower again
+    // disconnect: b leaves; a stays connected to b, so a is still b's Follower
     await api().delete(`/connections/with/${a.user.id}`).set(b.h).expect(200);
     cb = await me(b);
     assert.equal(cb.connections, 0);

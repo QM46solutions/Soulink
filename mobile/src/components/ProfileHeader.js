@@ -76,7 +76,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           {isMe
             ? <Stat n={counts?.requests} label="Requests" onPress={() => router.push('/activity')} />
             : <Stat n={counts?.posts} label="Posts" />}
-          {/* Connections: both connected to each other. Followers: connected to them, not connected back */}
+          {/* Connections: both connected to each other. Followers: everyone connected to them, connected back or not */}
           <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
           <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
           </View>
