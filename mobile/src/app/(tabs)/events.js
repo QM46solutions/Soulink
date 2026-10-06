@@ -2,13 +2,12 @@
 // "Notify me" switch (saved to your account), opened from the raised button in the centre of the tab bar.
 import { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { notice } from '../../lib/confirm';
 import { GradientText, Divider } from '../../components/brand';
-import { colors, fonts, gradients, space } from '../../lib/theme';
+import { colors, fonts, space } from '../../lib/theme';
 
 const KINDS = [
   { icon: 'cafe', color: colors.aura, title: 'Soul Socials', text: 'Small coffee meetups with people whose Soul DNA matches yours.' },
@@ -29,13 +28,9 @@ export default function Events() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: 120, alignItems: 'center' }}>
-      <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', marginTop: space.md,
-          shadowColor: colors.soul, shadowOpacity: 0.6, shadowRadius: 22, shadowOffset: { width: 0, height: 0 }, elevation: 8 }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: 52, lineHeight: 60, color: '#fff' }}>S</Text>
-        <Ionicons name="sparkles" size={18} color="#fff" style={{ position: 'absolute', top: 16, right: 16 }} />
-      </LinearGradient>
-      <GradientText style={{ fontFamily: fonts.display, fontSize: 32, lineHeight: 40, marginTop: space.lg, textAlign: 'center' }}>Soulink Events</GradientText>
+      {/* just the wordmark, no badge or background */}
+      <GradientText style={{ fontFamily: fonts.display, fontSize: 48, lineHeight: 56, letterSpacing: -1.4, marginTop: space.lg, textAlign: 'center' }}>Soulink</GradientText>
+      <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: 2, textAlign: 'center' }}>Events</Text>
       <Text style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: colors.muted, textAlign: 'center', marginTop: 6 }}>
         Meet your people in real life. Coming soon to Hyderabad.
       </Text>

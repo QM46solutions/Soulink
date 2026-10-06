@@ -8,6 +8,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText, HeaderBackground } from '../../components/brand';
+import { ScalesIcon } from '../../components/LiveIcons';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
 
@@ -70,19 +71,13 @@ function MessagesTabButton() {
   );
 }
 
-// Soulink Events: the raised gradient highlighter in the centre of the bar, with the Soulink "S" mark
-function EventsTabButton({ accessibilityState }) {
-  const selected = accessibilityState?.selected;
+// Argue Referee tab: the live balancing-scales animation from the pitch site
+function ArgueIcon({ focused }) {
   return (
-    <Pressable onPress={() => router.navigate('/events')} accessibilityRole="button" accessibilityLabel="Soulink Events"
-      style={({ hovered, pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.92 : hovered ? 1.1 : 1 }], ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : {}) })}>
-      <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: selected ? colors.text : 'transparent',
-          shadowColor: colors.soul, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 6 }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: 27, lineHeight: 32, color: '#fff', marginTop: -1 }}>S</Text>
-        <Ionicons name="sparkles" size={11} color="#fff" style={{ position: 'absolute', top: 9, right: 10 }} />
-      </LinearGradient>
-    </Pressable>
+    <View style={{ alignItems: 'center' }}>
+      <ScalesIcon size={38} bold />
+      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: -1, backgroundColor: focused ? colors.spark : 'transparent' }} />
+    </View>
   );
 }
 
@@ -118,16 +113,24 @@ export default function TabsLayout() {
         name="index"
         options={{
           tabBarIcon: icon('home'),
-          headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Soulink</GradientText>,
+          // the "Soulink" title is the button for Soulink Events (no background, just the wordmark)
+          headerTitle: () => (
+            <Pressable onPress={() => router.navigate('/events')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Soulink Events"
+              style={({ hovered, pressed }) => ({ transform: [{ scale: pressed ? 0.95 : hovered ? 1.06 : 1 }],
+                ...(Platform.OS === 'web' ? { cursor: 'pointer', outlineStyle: 'none' } : {}),
+                ...(hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 8px rgba(255,107,157,0.6))' } : {}) })}>
+              <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Soulink</GradientText>
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
-      {/* Soulink Events: raised gradient button in the centre */}
-      <Tabs.Screen name="events" options={{ title: 'Soulink Events', tabBarButton: (props) => <EventsTabButton {...props} /> }} />
+      {/* Argue Referee sits between Search and Messages, with its live scales icon */}
+      <Tabs.Screen name="argue" options={{ headerShown: false, tabBarAccessibilityLabel: 'Argue Referee', tabBarIcon: ({ focused }) => <ArgueIcon focused={focused} /> }} />
       {/* Messages: normal icon with unread badge, opens the inbox */}
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
-      {/* Argue opens from the scales icon at the top of Home; Discover from Home and Search; Notifications from the bell */}
-      <Tabs.Screen name="argue" options={{ headerShown: false, href: null }} />
+      {/* Soulink Events opens from the "Soulink" title at the top of Home; Notifications from the bell */}
+      <Tabs.Screen name="events" options={{ title: 'Soulink Events', href: null }} />
       <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
       <Tabs.Screen name="activity" options={{ title: 'Notifications', href: null }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} /> }} />
