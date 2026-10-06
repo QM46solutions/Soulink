@@ -128,13 +128,117 @@ def translate(text, src, tgt):
         if not line.strip():
             out_parts.append(line); continue
         # NLLB tends to drop a sentence when given several at once, so translate each sentence on its own
-        sentences = [x for x in re.split(r'(?<=[.!?\u0964])\s+', line.strip()) if x]
+        sentences = []
+        for x in [x for x in re.split(r'(?<=[.!?\u0964])\s+', line.strip()) if x]:
+            # very short bits ("Hi!", "Ok.") make NLLB repeat itself, so keep them with the next sentence
+            if sentences and len(sentences[-1].split()) < 3:
+                sentences[-1] = sentences[-1] + ' ' + x
+            else:
+                sentences.append(x)
         enc = tok(sentences, return_tensors='pt', padding=True, truncation=True, max_length=256)
         if GPU:
             enc = {k: v.to('cuda') for k, v in enc.items()}
         gen = model.generate(**enc, forced_bos_token_id=tok.convert_tokens_to_ids(NLLB[tgt]), max_new_tokens=256, num_beams=3)
-        out_parts.append(' '.join(tok.batch_decode(gen, skip_special_tokens=True)))
+        joined = ' '.join(tok.batch_decode(gen, skip_special_tokens=True))
+        out_parts.append(re.sub(r'(\S.{0,40}?[!?.,\u0964])(\s+\1)+', r'\1', joined))  # drop phrases the model repeated
     return '\n'.join(out_parts)
+
+# ---------- voice translator: Whisper small (speech -> text, MIT) + Meta MMS-TTS (text -> speech) ----------
+ASR_DIR = os.path.join(HERE, 'models', 'whisper-small')
+TTS_CODES = {'en': 'eng', 'hi': 'hin', 'te': 'tel', 'bn': 'ben'}
+TTS_DIR = lambda lang: os.path.join(HERE, 'models', f'mms-tts-{TTS_CODES[lang]}')
+WHISPER_LANG = {'en': 'english', 'hi': 'hindi', 'te': 'telugu', 'bn': 'bengali'}
+_asr = None
+_tts = {}
+voice_lock = Lock()
+
+def voice_installed():
+    return os.path.exists(os.path.join(ASR_DIR, 'config.json')) and all(os.path.exists(os.path.join(TTS_DIR(l), 'config.json')) for l in TTS_CODES)
+
+def load_audio(path):
+    """Any voice note (webm/opus from the browser, m4a from phones) -> 16 kHz mono float32."""
+    import av
+    chunks = []
+    with av.open(path) as c:
+        res = av.AudioResampler(format='flt', layout='mono', rate=16000)
+        for frame in c.decode(audio=0):
+            for f in res.resample(frame):
+                chunks.append(f.to_ndarray().reshape(-1))
+        for f in res.resample(None):
+            chunks.append(f.to_ndarray().reshape(-1))
+    return np.concatenate(chunks).astype(np.float32) if chunks else np.zeros(1600, np.float32)
+
+def asr():
+    global _asr
+    if _asr is None:
+        from transformers import pipeline
+        _asr = pipeline('automatic-speech-recognition', model=ASR_DIR, device=0 if GPU else -1, chunk_length_s=30)
+    return _asr
+
+@torch.no_grad()
+def transcribe(path, lang=None):
+    audio = load_audio(path)[: 16000 * 180]  # up to 3 minutes
+    kw = {'task': 'transcribe'}
+    if lang in WHISPER_LANG:
+        kw['language'] = WHISPER_LANG[lang]
+    out = asr()({'raw': audio, 'sampling_rate': 16000}, generate_kwargs=kw)
+    return (out.get('text') or '').strip()
+
+def tts(lang):
+    if lang not in _tts:
+        from transformers import AutoTokenizer, VitsModel
+        d = TTS_DIR(lang)
+        _tts[lang] = (AutoTokenizer.from_pretrained(d), VitsModel.from_pretrained(d).eval())
+    return _tts[lang]
+
+def write_audio(pcm, rate, out):
+    """AAC in .m4a (small, plays everywhere). Falls back to .wav if the encoder is missing. Returns the real path."""
+    pcm16 = (np.clip(pcm, -1, 1) * 32767).astype(np.int16)
+    try:
+        import av
+        with av.open(out, 'w', format='mp4') as c:
+            st = c.add_stream('aac', rate=rate)
+            try:
+                st.layout = 'mono'
+            except Exception:  # noqa: BLE001
+                pass
+            frame = av.AudioFrame.from_ndarray(pcm16.reshape(1, -1), format='s16', layout='mono')
+            frame.sample_rate = rate
+            for pk in st.encode(frame):
+                c.mux(pk)
+            for pk in st.encode(None):
+                c.mux(pk)
+        return out
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        import wave
+        out = os.path.splitext(out)[0] + '.wav'
+        with wave.open(out, 'wb') as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(pcm16.tobytes())
+        return out
+
+@torch.no_grad()
+def speak(text, lang, out):
+    import re
+    tok, model = tts(lang)
+    rate = model.config.sampling_rate
+    parts = [x for x in re.split(r'(?<=[.!?।,])\s+', text.strip()) if x.strip()] or [text]
+    pieces = []
+    for part in parts:
+        t = part
+        if getattr(tok, 'is_uroman', False):  # some MMS voices read romanised text
+            import uroman
+            t = uroman.Uroman().romanize_string(t)
+        enc = tok(t, return_tensors='pt')
+        if enc['input_ids'].shape[-1] == 0:
+            continue
+        torch.manual_seed(7)  # same voice every time
+        wav = model(**enc).waveform[0].cpu().numpy()
+        pieces += [wav, np.zeros(int(rate * 0.18), np.float32)]
+    pcm = np.concatenate(pieces) if pieces else np.zeros(rate // 2, np.float32)
+    path = write_audio(pcm, rate, out)
+    return path, int(len(pcm) * 1000 / rate)
+
 cache = {}  # source path + mtime -> prepared source (face features are computed once per selfie)
 
 
@@ -265,7 +369,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(recipes()), 'version': VERSION, 'translator': os.path.exists(os.path.join(TR_DIR, 'config.json'))})
+            return self.reply(200, {'ok': True, 'device': 'gpu' if GPU else 'cpu', 'moods': list(recipes()), 'version': VERSION, 'translator': os.path.exists(os.path.join(TR_DIR, 'config.json')), 'voice': voice_installed()})
         self.reply(404, {'ok': False})
 
     def do_POST(self):
@@ -277,6 +381,20 @@ class Handler(BaseHTTPRequestHandler):
                 with tr_lock:
                     text = translate(req['text'], req['src'], req['tgt'])
                 return self.reply(200, {'ok': True, 'text': text})
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                return self.reply(500, {'ok': False, 'error': str(e)})
+        if self.path in ('/transcribe', '/speak'):
+            try:
+                req = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))) or b'{}')
+                t0 = time.time()
+                with voice_lock:
+                    if self.path == '/transcribe':
+                        res = {'text': transcribe(req['src'], req.get('lang'))}
+                    else:
+                        path, ms = speak(req['text'], req['lang'], req['out'])
+                        res = {'out': path, 'durationMs': ms}
+                return self.reply(200, {'ok': True, 'ms': int((time.time() - t0) * 1000), **res})
             except Exception as e:  # noqa: BLE001
                 traceback.print_exc()
                 return self.reply(500, {'ok': False, 'error': str(e)})

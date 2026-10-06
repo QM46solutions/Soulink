@@ -173,6 +173,23 @@ export default function Chat() {
     }
   };
 
+  // Translator in the message box: type or speak in your language, send in theirs (text or a voice note)
+  const translateText = (text, to, output) => api(`/conversations/${id}/translate-draft`, { method: 'POST', body: { text, to, output }, timeoutMs: 240000 });
+  const translateVoice = (file, to, output) => uploadFile(`/conversations/${id}/voice-translate`, file, 'file', { to, output }, 300000);
+  const sendTranslated = async (r) => {
+    if (!r.voice) { sendText(r.text); return; }
+    const reply = replyTo; setReplyTo(null);
+    const tmpId = `tmp-${++tmpSeq}`;
+    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'voice', mediaUrl: r.voice.url, durationMs: r.voice.durationMs, body: r.text, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
+    try {
+      const m = await api(`/conversations/${id}/messages`, { method: 'POST', body: { voice: { url: r.voice.url, durationMs: r.voice.durationMs, text: r.text }, ...(reply ? { replyToId: reply.id } : {}) } });
+      replaceTmp(tmpId, m.message);
+    } catch (e) {
+      setMessages((cur) => cur.filter((x) => x.id !== tmpId));
+      throw e;
+    }
+  };
+
   const sendSoulmoji = async ({ mood, caption, imageUrl }) => {
     setSoulmojiOpen(false);
     const reply = replyTo; setReplyTo(null);
@@ -349,6 +366,10 @@ export default function Chat() {
           disabledText="You can't message this account."
           onSendText={(b) => sendText(b)}
           onSendMedia={sendMedia}
+          onTranslateText={translateText}
+          onTranslateVoice={translateVoice}
+          onSendTranslated={sendTranslated}
+          defaultTranslateTo={conv?.other?.chatLanguage || (myLang === 'en' ? 'te' : 'en')}
           onTyping={() => emit('typing', { conversationId: id })}
         />
         </>

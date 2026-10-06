@@ -11,7 +11,11 @@ import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
 import { connectionBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
-import { aiTranslate, detectLanguage, TRANSLATE_LANGS, translatorInstalled } from '../services/soulmojiAi.js';
+import { aiSpeak, aiTranscribe, aiTranslate, detectLanguage, TRANSLATE_LANGS, translatorInstalled, voiceInstalled } from '../services/soulmojiAi.js';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
 const r = Router();
 r.use(requireAuth);
@@ -123,7 +127,7 @@ function serializeConversation(c, members, meId, lastMessage = null, unread = 0)
     isGroup: !!c.is_group,
     title: direct ? (other ? displayName(other) : 'Soulink user') : (c.title || others.map(displayName).slice(0, 3).join(', ') || 'Group'),
     avatarUrl: direct ? other?.avatar_url ?? null : c.avatar_url,
-    other: other ? userCard(other) : null,
+    other: other ? { ...userCard(other), chatLanguage: other.chat_language || null } : null, // chatLanguage: default for the message-box translator
     members: members.map((m) => ({ ...userCard(m), role: m.role, lastReadAt: m.last_read_at })),
     myRole: mine?.role ?? null,
     isRequest: !!mine?.is_request,
@@ -336,13 +340,18 @@ r.post('/:id/messages', ah(async (req, res) => {
   const data = z.object({
     body: z.string().trim().min(1, 'Write a message').max(2000).optional(),
     soulmoji: z.object({ mood: z.enum(SOULMOJI_MOODS), caption: z.string().trim().max(40).optional(), imageUrl: z.string().max(300).optional() }).optional(),
+    voice: z.object({ url: z.string().max(300), durationMs: z.number().int().min(0).max(10 * 60 * 1000), text: z.string().trim().max(2000).optional() }).optional(),
     replyToId: uuid.optional(),
-  }).refine((d) => !!d.body !== !!d.soulmoji, 'Send a message or a Soulmoji').parse(req.body);
+  }).refine((d) => [d.body, d.soulmoji, d.voice].filter(Boolean).length === 1, 'Send a message, a Soulmoji or a voice note').parse(req.body);
   await assertCanSend(conv, req.user.id);
   if (data.replyToId && !(await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [data.replyToId, conv.id]))) throw badRequest('That message is not in this chat');
   if (data.soulmoji?.imageUrl && !(await ownsSoulmoji(req.user.id, data.soulmoji.imageUrl))) throw badRequest('That Soulmoji is not yours', 'not_your_soulmoji');
   if (data.soulmoji && !data.soulmoji.imageUrl && !req.user.avatar_url) throw badRequest('Take your Soulmoji selfie first', 'no_face_photo');
-  const payload = data.soulmoji
+  // A translated voice note made by the voice translator (only your own clips can be sent)
+  if (data.voice && !ownsVoiceClip(req.user.id, data.voice.url)) throw badRequest('That voice clip is not yours', 'not_your_voice');
+  const payload = data.voice
+    ? { kind: 'voice', mediaUrl: data.voice.url, durationMs: data.voice.durationMs, body: data.voice.text || null }
+    : data.soulmoji
     ? { kind: 'soulmoji', body: JSON.stringify({ mood: data.soulmoji.mood, caption: data.soulmoji.caption || null, faceUrl: req.user.avatar_url, imageUrl: data.soulmoji.imageUrl || null }) }
     : { kind: 'text', body: data.body };
   res.status(201).json({ message: await postMessage(conv, req.user.id, { ...payload, replyToId: data.replyToId || null }) });
@@ -367,6 +376,61 @@ r.post('/:id/messages/:messageId/translate', ah(async (req, res) => {
   await query(`IF NOT EXISTS (SELECT 1 FROM message_translations WHERE message_id=$1 AND lang=$2)
                  INSERT INTO message_translations (message_id, lang, src_lang, text) VALUES ($1, $2, $3, $4)`, [messageId, to, from, text]);
   res.json({ text, from, to });
+}));
+
+// ---------- Translator in the message box: write or speak in your language, send in theirs ----------
+const VOICE_DIR = 'voice-tr';
+function ownsVoiceClip(userId, url) {
+  const m = /^\/uploads\/voice-tr\/([0-9a-fA-F-]{36})-[0-9a-fA-F-]{36}\.(m4a|wav)$/.exec(url || '');
+  return !!m && m[1].toUpperCase() === String(userId).toUpperCase() && fsSync.existsSync(path.join(config.uploadDir, VOICE_DIR, path.basename(url)));
+}
+const translatorMissing = () => new HttpError(503, 'The chat translator is not installed on this laptop yet (run INSTALL-CHAT-TRANSLATOR.bat).', 'translator_missing');
+const voiceMissing = () => new HttpError(503, 'The voice translator is not installed on this laptop yet (run INSTALL-VOICE-TRANSLATOR.bat).', 'voice_missing');
+
+async function makeVoiceClip(userId, text, lang) {
+  const dir = path.join(config.uploadDir, VOICE_DIR);
+  await fs.mkdir(dir, { recursive: true });
+  const { file, durationMs } = await aiSpeak(text, lang, path.join(dir, `${String(userId).toUpperCase()}-${crypto.randomUUID()}.m4a`));
+  return { url: `/uploads/${VOICE_DIR}/${path.basename(file)}`, durationMs };
+}
+
+// POST /conversations/:id/translate-draft { text, to, output: 'text' | 'voice' } -> { from, to, text, same, voice? }
+r.post('/:id/translate-draft', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const data = z.object({ text: z.string().trim().min(1).max(2000), to: z.enum(TRANSLATE_LANGS), output: z.enum(['text', 'voice']).default('text') }).parse(req.body);
+  await assertCanSend(conv, req.user.id);
+  const from = detectLanguage(data.text);
+  let text = data.text;
+  if (from !== data.to) {
+    if (!translatorInstalled()) throw translatorMissing();
+    text = await aiTranslate(data.text, from, data.to);
+  }
+  let voice = null;
+  if (data.output === 'voice') {
+    if (!voiceInstalled()) throw voiceMissing();
+    voice = await makeVoiceClip(req.user.id, text, data.to);
+  }
+  res.json({ from, to: data.to, original: data.text, text, same: from === data.to, voice });
+}));
+
+// POST /conversations/:id/voice-translate (multipart: file = voice note, to, output) -> what you said + translation (+ voice clip)
+r.post('/:id/voice-translate', uploadMemory('media', 25).single('file'), ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  if (!req.file || mediaKind(req.file.mimetype) !== 'voice') throw badRequest('Record a voice note first');
+  const { to, output } = z.object({ to: z.enum(TRANSLATE_LANGS), output: z.enum(['text', 'voice']).default('text') }).parse(req.body);
+  await assertCanSend(conv, req.user.id);
+  if (!voiceInstalled()) throw voiceMissing();
+  const dir = path.join(config.uploadDir, VOICE_DIR, 'in');
+  await fs.mkdir(dir, { recursive: true });
+  const tmp = path.join(dir, `${crypto.randomUUID()}${path.extname(req.file.originalname || '') || '.webm'}`);
+  await fs.writeFile(tmp, req.file.buffer);
+  let original;
+  try { original = await aiTranscribe(tmp); } finally { fs.unlink(tmp).catch(() => {}); }
+  if (!original) throw badRequest("Couldn't hear anything. Try again a little closer to the mic.", 'no_speech');
+  const from = detectLanguage(original);
+  const text = from === to ? original : await aiTranslate(original, from, to);
+  const voice = output === 'voice' ? await makeVoiceClip(req.user.id, text, to) : null;
+  res.json({ from, to, original, text, same: from === to, voice });
 }));
 
 r.post('/:id/messages/:messageId/react', ah(async (req, res) => {

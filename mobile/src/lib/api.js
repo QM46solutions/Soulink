@@ -96,7 +96,7 @@ export async function api(path, { method = 'GET', body, form, timeoutMs = 15000 
  * Upload a local file (uri from the image picker or the voice recorder) as multipart form data.
  * On the web the uri is a blob: URL, so it is fetched and sent as a real Blob.
  */
-export async function uploadFile(path, { uri, name, type }, field = 'file', fields = {}) {
+export async function uploadFile(path, { uri, name, type }, field = 'file', fields = {}, timeoutMs = 90000) {
   const form = new FormData();
   Object.entries(fields).forEach(([k, v]) => form.append(k, String(v)));
   if (Platform.OS === 'web') {
@@ -105,7 +105,7 @@ export async function uploadFile(path, { uri, name, type }, field = 'file', fiel
   } else {
     form.append(field, { uri, name, type });
   }
-  return api(path, { method: 'POST', form, timeoutMs: 90000 });
+  return api(path, { method: 'POST', form, timeoutMs });
 }
 
 /** Upload a local image (uri from the image picker or camera) as multipart form data. Works on phone and web. */

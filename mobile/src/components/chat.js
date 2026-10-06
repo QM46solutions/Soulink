@@ -1,7 +1,7 @@
 // Chat building blocks: group avatar, inbox row, message bubbles (text, photo, voice, system),
 // typing dots and the composer (text, photo, voice note).
 import { memo, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,7 @@ import { colors, fonts, gradients, radius, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
 import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
+import { CHAT_LANGS, langName } from '../lib/languages';
 
 // ---------- avatars ----------
 
@@ -147,7 +148,10 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else if (message.kind === 'voice') {
     content = (
       <Pressable onPress={tap} onLongPress={onMenu}>
-        <BubbleShell mine={mine}><VoiceNote message={message} mine={mine} /></BubbleShell>
+        <BubbleShell mine={mine}>
+          <VoiceNote message={message} mine={mine} />
+          {message.body ? <Text style={{ marginTop: 6, maxWidth: 230, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: mine ? 'rgba(255,255,255,0.9)' : colors.muted }}>{message.body}</Text> : null}
+        </BubbleShell>
       </Pressable>
     );
   } else {
@@ -318,8 +322,101 @@ export function TypingBubble() {
 
 // ---------- composer ----------
 
-export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen }) {
+// ---------- translator in the message box ----------
+
+const nativeName = (k) => CHAT_LANGS.find((l) => l.key === k)?.native || langName(k);
+
+function OptionChip({ label, sub, active, onPress, icon, half }) {
+  return (
+    <Pressable onPress={onPress} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: half ? 'center' : 'flex-start', paddingHorizontal: 14, height: 40, borderRadius: 20, marginRight: half ? 0 : 8, marginBottom: 8, width: half ? '48.5%' : undefined,
+      borderWidth: 1, borderColor: active ? colors.aura : hovered ? 'rgba(176,143,255,0.6)' : colors.border, backgroundColor: active ? 'rgba(124,92,252,0.25)' : 'rgba(26,24,40,0.8)' })}>
+      {icon ? <Ionicons name={icon} size={15} color={active ? colors.aura : colors.muted} style={{ marginRight: 6 }} /> : null}
+      <Text style={{ fontFamily: active ? fonts.semibold : fonts.medium, color: colors.text, fontSize: 14 }}>{label}</Text>
+      {sub ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, marginLeft: 6 }}>{sub}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** "Translate my message": which language to send in, and as text or as a voice note. */
+export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
+  const [to, setTo] = useState(value?.to || 'en');
+  const [output, setOutput] = useState(value?.output || 'text');
+  useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); } }, [visible, value]);
+  if (!visible) return null;
+  const sheet = (
+      <Pressable onPress={onClose} style={Platform.OS === 'web'
+        // laptop preview: stay inside the phone frame (a web Modal would cover the whole browser window)
+        ? { position: 'absolute', left: 0, right: 0, bottom: 0, top: -1400, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }
+        : { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={() => {}} style={{ backgroundColor: '#13111f', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: space.xl, paddingBottom: space.xl + 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Ionicons name="language" size={20} color={colors.aura} style={{ marginRight: 8 }} />
+            <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 18 }}>Translate my message</Text>
+          </View>
+          <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: space.lg }}>
+            Type or speak in your own language. Soulink sends it in the language you pick, and you see it before it goes.
+          </Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send in</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: space.md }}>
+            {CHAT_LANGS.map((l) => <OptionChip half key={l.key} label={l.native} sub={l.native !== l.label ? l.label : null} active={to === l.key} onPress={() => setTo(l.key)} />)}
+          </View>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send as</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
+            <OptionChip icon="text-outline" label="Text" active={output === 'text'} onPress={() => setOutput('text')} />
+            <OptionChip icon="mic-outline" label="Voice note" active={output === 'voice'} onPress={() => setOutput('voice')} />
+          </View>
+          <Pressable onPress={() => onStart({ to, output })} style={({ hovered }) => ({ height: 46, borderRadius: 23, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', transform: [{ scale: hovered ? 1.01 : 1 }] })}>
+            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <Text style={{ fontFamily: fonts.semibold, color: '#fff', fontSize: 15 }}>{`Send in ${langName(to)} as ${output === 'voice' ? 'voice' : 'text'}`}</Text>
+          </Pressable>
+          {onStop ? (
+            <Pressable onPress={onStop} style={{ alignItems: 'center', paddingTop: space.md }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 14 }}>Turn translator off</Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Pressable>
+  );
+  if (Platform.OS === 'web') return sheet;
+  return <Modal visible transparent animationType="fade" onRequestClose={onClose}>{sheet}</Modal>;
+}
+
+/** What you wrote / said, and what will be sent. Nothing goes out until you press Send. */
+function TranslatePreview({ result, onSend, onEdit, onCancel, sending }) {
+  return (
+    <View style={{ marginHorizontal: space.md, marginBottom: 6, padding: space.md, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(124,92,252,0.45)', backgroundColor: 'rgba(20,17,34,0.98)' }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.muted }}>{result.fromVoice ? 'You said' : 'You wrote'}</Text>
+      <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 2 }}>{result.original}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.aura, marginTop: 10 }}>
+        {result.same ? `Already in ${langName(result.to)}` : `In ${langName(result.to)}`}{result.voice ? ' · voice note' : ''}
+      </Text>
+      <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15, lineHeight: 22, marginTop: 2 }}>{result.text}</Text>
+      {result.voice ? (
+        <View style={{ marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+          <VoiceNote message={{ id: result.voice.url, mediaUrl: result.voice.url, durationMs: result.voice.durationMs }} mine={false} />
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+        <Pressable onPress={onCancel} hitSlop={6} style={{ paddingHorizontal: 12, height: 34, justifyContent: 'center' }}><Text style={{ fontFamily: fonts.semibold, color: colors.muted }}>Discard</Text></Pressable>
+        {!result.fromVoice ? <Pressable onPress={onEdit} hitSlop={6} style={{ paddingHorizontal: 12, height: 34, justifyContent: 'center' }}><Text style={{ fontFamily: fonts.semibold, color: colors.text }}>Edit</Text></Pressable> : null}
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={onSend} disabled={sending} style={({ hovered }) => ({ paddingHorizontal: 18, height: 36, borderRadius: 18, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', transform: [{ scale: hovered ? 1.03 : 1 }] })}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          {sending ? <ActivityIndicator color="#fff" size="small" /> : <><Ionicons name="arrow-up" size={16} color="#fff" style={{ marginRight: 4 }} /><Text style={{ fontFamily: fonts.semibold, color: '#fff' }}>Send</Text></>}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo }) {
   const [text, setText] = useState('');
+  const [tr, setTr] = useState(null); // { to, output } while the translator is on
+  const [trSetup, setTrSetup] = useState(false);
+  const [trBusy, setTrBusy] = useState(false);
+  const [trResult, setTrResult] = useState(null);
+  const [trSending, setTrSending] = useState(false);
+  const [trError, setTrError] = useState(null);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -336,11 +433,27 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
     if (t && now - lastTyping.current > 2500) { lastTyping.current = now; onTyping?.(); }
   };
 
+  const runTranslate = async (fn) => {
+    setTrBusy(true); setTrError(null); setTrResult(null);
+    try { setTrResult(await fn()); } catch (e) { setTrError(e.message || 'Translation failed'); } finally { setTrBusy(false); }
+  };
+
   const sendText = () => {
     const body = text.trim();
     if (!body) return;
+    if (tr) {
+      setText('');
+      runTranslate(async () => ({ ...(await onTranslateText(body, tr.to, tr.output)), fromVoice: false }));
+      return;
+    }
     setText('');
     onSendText(body);
+  };
+
+  const sendTranslated = async () => {
+    if (!trResult) return;
+    setTrSending(true);
+    try { await onSendTranslated(trResult); setTrResult(null); } catch (e) { setTrError(e.message); } finally { setTrSending(false); }
   };
 
   const pickPhoto = async (camera) => {
@@ -376,7 +489,10 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
       setRecording(false);
       if (send && recorder.uri && ms > 700) {
         const isWeb = Platform.OS === 'web';
-        onSendMedia({ kind: 'voice', uri: recorder.uri, name: `voice-${Date.now()}.${isWeb ? 'webm' : 'm4a'}`, type: isWeb ? 'audio/webm' : 'audio/m4a', durationMs: Math.round(ms) });
+        const file = { kind: 'voice', uri: recorder.uri, name: `voice-${Date.now()}.${isWeb ? 'webm' : 'm4a'}`, type: isWeb ? 'audio/webm' : 'audio/m4a', durationMs: Math.round(ms) };
+        // Translator on: what you said is written down, translated and shown before sending
+        if (tr) runTranslate(async () => ({ ...(await onTranslateVoice(file, tr.to, tr.output)), fromVoice: true }));
+        else onSendMedia(file);
       }
     } finally { setBusy(false); }
   };
@@ -391,10 +507,42 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.spark, marginRight: 8 }} />
           <Text style={{ color: colors.text, fontFamily: fonts.medium, fontVariant: ['tabular-nums'] }}>Recording  {duration(recState.durationMillis)}</Text>
         </View>
-        <SendButton onPress={() => finishRecording(true)} busy={busy} label="Send voice message" />
+        <SendButton onPress={() => finishRecording(true)} busy={busy} label={tr ? 'Translate voice message' : 'Send voice message'} />
       </View>
     );
   }
+
+  const translatorUi = (
+    <>
+      {tr ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingTop: 8 }}>
+          <Pressable onPress={() => setTrSetup(true)} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1, borderColor: hovered ? colors.aura : 'rgba(124,92,252,0.5)', backgroundColor: 'rgba(124,92,252,0.16)' })}>
+            <Ionicons name="language" size={14} color={colors.aura} style={{ marginRight: 6 }} />
+            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 12 }}>{`Sending in ${nativeName(tr.to)} · ${tr.output === 'voice' ? 'voice' : 'text'}`}</Text>
+            <Ionicons name="chevron-down" size={13} color={colors.muted} style={{ marginLeft: 4 }} />
+          </Pressable>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => { setTr(null); setTrResult(null); setTrError(null); }} hitSlop={10} accessibilityLabel="Turn translator off"><Ionicons name="close-circle" size={20} color={colors.muted} /></Pressable>
+        </View>
+      ) : null}
+      {trBusy ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: space.md, marginTop: 6, padding: space.md, borderRadius: 16, backgroundColor: 'rgba(20,17,34,0.98)', borderWidth: 1, borderColor: colors.border }}>
+          <ActivityIndicator color={colors.aura} size="small" />
+          <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginLeft: 10, flex: 1 }}>{`Translating into ${langName(tr?.to)}${tr?.output === 'voice' ? ' and making the voice note' : ''}… this can take up to a minute on the laptop`}</Text>
+        </View>
+      ) : null}
+      {trError ? <Text style={{ fontFamily: fonts.body, color: colors.danger, fontSize: 13, paddingHorizontal: space.lg, paddingTop: 6 }}>{trError}</Text> : null}
+      {trResult ? (
+        <View style={{ marginTop: 6 }}>
+          <TranslatePreview result={trResult} sending={trSending} onSend={sendTranslated}
+            onCancel={() => setTrResult(null)} onEdit={() => { setText(trResult.original); setTrResult(null); }} />
+        </View>
+      ) : null}
+      <TranslateSetup visible={trSetup} value={tr || { to: defaultTranslateTo || 'en', output: 'text' }} onClose={() => setTrSetup(false)}
+        onStart={(v) => { setTr(v); setTrSetup(false); setTrResult(null); setTrError(null); }}
+        onStop={tr ? () => { setTr(null); setTrSetup(false); setTrResult(null); } : null} />
+    </>
+  );
 
   const hasText = text.trim().length > 0;
   return (
@@ -409,6 +557,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
         <Pressable onPress={onCancelReply} hitSlop={10} accessibilityLabel="Cancel reply"><Ionicons name="close" size={18} color={colors.muted} /></Pressable>
       </View>
     ) : null}
+    {translatorUi}
     <View style={st.composer}>
       <Pressable onPress={() => pickPhoto(true)} hitSlop={6} accessibilityLabel="Take a photo" style={st.cameraBtn}>
         <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.cameraGrad}>
@@ -419,7 +568,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
         <TextInput
           value={text}
           onChangeText={change}
-          placeholder="Message…"
+          placeholder={tr ? `Type in your language…` : 'Message…'}
           placeholderTextColor={colors.dim}
           multiline
           maxLength={2000}
@@ -431,7 +580,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
         />
       </View>
       {hasText ? (
-        <SendButton onPress={sendText} label="Send" />
+        <SendButton onPress={sendText} busy={trBusy} label={tr ? 'Translate' : 'Send'} />
       ) : (
         <>
           <Pressable onPress={startRecording} hitSlop={6} accessibilityLabel="Record a voice message" style={st.iconBtn}>
@@ -440,6 +589,11 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
           <Pressable onPress={() => pickPhoto(false)} hitSlop={6} accessibilityLabel="Send a photo from your gallery" style={st.iconBtn}>
             <Ionicons name="image-outline" size={22} color={colors.text} />
           </Pressable>
+          {onTranslateText ? (
+            <Pressable onPress={() => setTrSetup(true)} hitSlop={6} accessibilityLabel="Translate my message" style={st.iconBtn}>
+              <Ionicons name="language" size={22} color={tr ? colors.spark : colors.text} />
+            </Pressable>
+          ) : null}
           {/* Soulmoji takes the place of Instagram's sticker button */}
           <Pressable onPress={onSoulmoji} hitSlop={6} accessibilityLabel="Send a Soulmoji" style={st.iconBtn}>
             <MaterialCommunityIcons name="emoticon-excited-outline" size={24} color={soulmojiOpen ? colors.spark : colors.aura} />

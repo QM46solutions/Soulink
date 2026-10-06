@@ -39,13 +39,20 @@ async function ensureRunning() {
   if (await healthy()) return true;
   if (!starting) {
     starting = (async () => {
-      if (!child || child.exitCode !== null) {
-        const log = fs.openSync(path.join(DIR, 'ai.log'), 'a');
-        child = spawn(PY, [path.join(DIR, 'soulmoji_ai.py')], { cwd: DIR, stdio: ['ignore', log, log], windowsHide: true });
-        child.on('exit', () => { child = null; });
+      // loading the models takes 20-90 s the first time. Checked every second; if our copy has exited
+      // (e.g. an older version was just asked to stop), a fresh one is started.
+      let lastSpawn = 0;
+      for (let i = 0; i < 180; i += 1) {
+        if ((!child || child.exitCode !== null) && Date.now() - lastSpawn > 15000) {
+          lastSpawn = Date.now();
+          const log = fs.openSync(path.join(DIR, 'ai.log'), 'a');
+          const c = spawn(PY, [path.join(DIR, 'soulmoji_ai.py')], { cwd: DIR, stdio: ['ignore', log, log], windowsHide: true });
+          c.on('exit', () => { if (child === c) child = null; });
+          child = c;
+        }
+        if (await healthy()) return true;
+        await new Promise((r) => setTimeout(r, 1000));
       }
-      // loading the models takes 20-90 s the first time
-      for (let i = 0; i < 180; i += 1) { if (await healthy()) return true; await new Promise((r) => setTimeout(r, 1000)); }
       return false;
     })().finally(() => { starting = null; });
   }
@@ -96,4 +103,32 @@ export async function aiTranslate(text, from, to) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.ok) throw new Error(j.error || 'Translation failed');
   return j.text;
+}
+
+// ---------- voice translator (Whisper speech-to-text + MMS-TTS voices, same local service) ----------
+const MODELS = path.join(DIR, 'models');
+export const voiceInstalled = () => translatorInstalled()
+  && fs.existsSync(path.join(MODELS, 'whisper-small', 'config.json'))
+  && ['eng', 'hin', 'tel', 'ben'].every((c) => fs.existsSync(path.join(MODELS, `mms-tts-${c}`, 'config.json')));
+
+async function voiceCall(route, body, timeoutMs) {
+  if (!voiceInstalled()) throw new Error('Voice translator not installed');
+  if (!(await ensureRunning())) throw new Error('Voice translator did not start');
+  const r = await fetch(`${BASE}${route}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || 'Voice translation failed');
+  return j;
+}
+
+/** Voice note file -> what was said (auto-detects English / Hindi / Telugu / Bengali unless `lang` is given). */
+export async function aiTranscribe(srcPath, lang) {
+  return (await voiceCall('/transcribe', { src: srcPath, lang: lang || null }, 240000)).text;
+}
+
+/** Text -> spoken voice clip in that language. Returns { file, durationMs } (file may end .m4a or .wav). */
+export async function aiSpeak(text, lang, outPath) {
+  const j = await voiceCall('/speak', { text, lang, out: outPath }, 240000);
+  return { file: j.out, durationMs: j.durationMs };
 }
