@@ -11,7 +11,7 @@ const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Arr
 const textPost = async (u, caption = 'hello Hyderabad') => (await api().post('/posts').set(u.h).field('caption', caption).expect(201)).body.post;
 
 describe('Post offense, suspension and share', () => {
-  test('offense toggles; you cannot mark your own post; owner sees the count, others do not', async () => {
+  test('offense toggles; you cannot mark your own post; the count is shown to everyone', async () => {
     const a = await makeUser(); const b = await makeUser();
     const p = await textPost(a);
     await api().post(`/posts/${p.id}/offense`).set(a.h).expect(400);
@@ -19,7 +19,7 @@ describe('Post offense, suspension and share', () => {
     assert.equal((await api().get(`/posts/${p.id}`).set(a.h).expect(200)).body.post.offenseCount, 1);
     const seen = (await api().get(`/posts/${p.id}`).set(b.h).expect(200)).body.post;
     assert.equal(seen.offended, true);
-    assert.equal(seen.offenseCount, null);
+    assert.equal(seen.offenseCount, 1);
     assert.equal((await api().post(`/posts/${p.id}/offense`).set(b.h).expect(200)).body.offended, false);
   });
 

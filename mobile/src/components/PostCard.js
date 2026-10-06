@@ -62,12 +62,13 @@ function Photos({ media, onDoubleTap, burst }) {
   );
 }
 
-function Action({ onPress, label, children, count, disabled }) {
+/** One action: icon with its count underneath (Instagram style). */
+function Action({ onPress, label, children, count, color, disabled }) {
   return (
     <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
-      style={({ hovered, pressed }) => ({ flexDirection: 'row', alignItems: 'center', marginRight: space.lg, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.1 : 1 }] })}>
-      {children}
-      {count ? <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: 5 }}>{count}</Text> : null}
+      style={({ hovered, pressed }) => ({ alignItems: 'center', minWidth: 34, marginRight: space.md, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
+      <View style={{ height: 26, justifyContent: 'center' }}>{children}</View>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count || 0}</Text>
     </Pressable>
   );
 }
@@ -76,6 +77,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [liked, setLiked] = useState(post.liked);
   const [likes, setLikes] = useState(post.likeCount);
   const [offended, setOffended] = useState(post.offended);
+  const [offenses, setOffenses] = useState(post.offenseCount || 0);
   const [shares, setShares] = useState(post.shareCount || 0);
   const [shareMenu, setShareMenu] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -105,12 +107,12 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
     if (!offended && !(await confirm('Mark this post as offensive?',
       "If more than 75 people mark it, it's hidden from everyone except the person who posted it. They won't see who marked it. You can undo this.",
       { confirmText: 'Mark offensive', destructive: true }))) return;
-    setOffended(!offended);
+    setOffended(!offended); setOffenses((n) => n + (offended ? -1 : 1));
     try {
       const r = await api(`/posts/${post.id}/offense`, { method: 'POST' });
-      setOffended(r.offended);
+      setOffended(r.offended); setOffenses(r.offenseCount);
       if (r.suspended) { notice('Post suspended', 'Enough people found this post offensive, so it is now hidden.'); onDeleted?.(post.id); }
-    } catch (e) { setOffended(offended); notice('Oops', e.message); }
+    } catch (e) { setOffended(offended); setOffenses(post.offenseCount || 0); notice('Oops', e.message); }
   };
   const shareOutside = async () => {
     const message = `${post.author.username} on Soulink${post.caption ? `: "${post.caption.slice(0, 120)}"` : ''}`;
@@ -138,14 +140,14 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
     try { if (Platform.OS === 'web') await navigator.clipboard.writeText(caption || ''); else await Share.share({ message: caption || '' }); } catch { /* cancelled */ }
   };
   const offenseInfo = () => notice('Offense marks',
-    `${post.offenseCount || 0} ${post.offenseCount === 1 ? 'person has' : 'people have'} marked this post as offensive. You never see who. If more than 75 people mark it, it's hidden from everyone except you.`);
+    `${offenses} ${offenses === 1 ? 'person has' : 'people have'} marked this post as offensive. You never see who. If more than 75 people mark it, it's hidden from everyone except you.`);
   // Instagram-style ⋯ menu: your own post vs someone else's
   const options = post.mine
     ? [
       ...(!post.suspended ? [{ label: 'Edit caption', onPress: () => { setDraft(caption || ''); setEditing(true); } }] : []),
       { label: 'Share', onPress: () => setShareMenu(true) },
       ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
-      { label: `Offense marks (${post.offenseCount || 0})`, onPress: offenseInfo },
+      { label: `Offense marks (${offenses})`, onPress: offenseInfo },
       { label: 'Delete', destructive: true, onPress: del },
     ]
     : [
@@ -189,23 +191,20 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         </Pressable>
       ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, marginTop: space.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
         <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes}>
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         <Action onPress={openPost} label="Comments" count={post.commentCount}>
-          <Ionicons name="chatbubble" size={21} color={colors.text} />
+          <Ionicons name="chatbubble" size={22} color={colors.text} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares}>
-          <Ionicons name="paper-plane" size={21} color={colors.text} />
+          <Ionicons name="paper-plane" size={22} color={colors.text} />
         </Action>
-        <View style={{ flex: 1 }} />
-        {/* Offense: always shown. Others mark it; on your own post it shows how many marked it */}
-        <Action onPress={post.mine ? offenseInfo : offense} label={post.mine ? `${post.offenseCount || 0} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
-          <Ionicons name="flag" size={20} color={offended ? colors.danger : post.mine ? colors.muted : colors.text} />
-          <Text style={{ fontFamily: fonts.semibold, color: offended ? colors.danger : post.mine ? colors.muted : colors.text, fontSize: 13, marginLeft: 5 }}>
-            {post.mine ? (post.offenseCount || 0) : offended ? 'Offensive' : 'Offense'}
-          </Text>
+        {/* Offense ❗: sits with the other actions. Others mark it; on your own post it explains the count */}
+        <Action onPress={post.mine ? offenseInfo : offense} count={offenses} color={offended ? colors.danger : undefined}
+          label={post.mine ? `${offenses} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
+          <Ionicons name="alert-circle" size={24} color={offended ? colors.danger : colors.text} />
         </Action>
       </View>
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />

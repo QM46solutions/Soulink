@@ -48,8 +48,7 @@ export const postView = (x, meId) => ({
   shareCount: Number(x.share_count || 0),
   offended: !!x.offended,
   mine: String(x.author_id).toLowerCase() === String(meId).toLowerCase(),
-  // how many people marked it offensive: only its owner is told
-  offenseCount: String(x.author_id).toLowerCase() === String(meId).toLowerCase() ? Number(x.offense_count || 0) : null,
+  offenseCount: Number(x.offense_count || 0), // shown under the ❗ icon (never who marked it)
   suspended: !!x.suspended_at,
   author: userCard(x),
 });
@@ -136,7 +135,7 @@ r.post('/:id/offense', ah(async (req, res) => {
     const upd = await one('UPDATE posts SET suspended_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND suspended_at IS NULL', [x.post_id]);
     if (upd) { suspended = true; await notify(x.author_id, null, 'post_suspended', x.post_id, { offenses: n }).catch(() => {}); }
   }
-  res.json({ offended: !had, suspended });
+  res.json({ offended: !had, suspended, offenseCount: n });
 }));
 
 r.post('/:id/share', ah(async (req, res) => {
