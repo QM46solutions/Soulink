@@ -124,6 +124,7 @@ export default function UserProfile() {
       <ProfileHeader
         user={target}
         counts={data.counts}
+        pulse={data.pulse}
         canViewLists={data.canViewContent}
         isMe={rel.isMe}
         actions={<>

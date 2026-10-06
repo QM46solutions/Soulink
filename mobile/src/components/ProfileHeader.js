@@ -1,16 +1,18 @@
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { Avatar } from './ui';
+import PulseMeter, { PulseInfo } from './PulseMeter';
 
 // Instagram-style stat: bold number over a small label, sitting to the right of the photo
 function Stat({ n, label, onPress }) {
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ alignItems: 'center', flex: 1, opacity: hovered ? 0.8 : 1 })}>
       <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold }}>{n ?? 0}</Text>
-      <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontFamily: fonts.body, marginTop: 1 }}>{label}</Text>
+      <Text numberOfLines={2} style={{ color: colors.text, fontSize: 12.5, lineHeight: 16, fontFamily: fonts.body, marginTop: 1, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -53,7 +55,8 @@ function Pill({ icon, text, color, border, bg }) {
  * Profile top section, Instagram layout: photo on the left with Posts / Soul Connections beside it,
  * then name, badges, city, bio and interests (left-aligned), then compact action buttons.
  */
-export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress, isMe }) {
+export default function ProfileHeader({ user, counts, canViewLists, actions, onAvatarPress, isMe, pulse }) {
+  const [pulseOpen, setPulseOpen] = useState(false);
   // Your own page stays clean: area and interests are shown to visitors, and you edit them in Edit profile
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
   return (
@@ -72,8 +75,10 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
             ? <Stat n={counts?.requests} label="Soul Requests" onPress={() => router.push('/connections/requests')} />
             : <Stat n={counts?.posts} label="Posts" />}
           <Stat n={counts?.connections} label="Soul Connections" onPress={openList('connections')} />
+          {pulse ? <PulseMeter pulse={pulse} onPress={() => setPulseOpen((o) => !o)} /> : null}
         </View>
       </View>
+      {pulse && pulseOpen ? <PulseInfo pulse={pulse} isMe={isMe} name={(user.displayName || user.username || '').split(' ')[0]} onClose={() => setPulseOpen(false)} /> : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}>
         <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 15 }}>{user.displayName || user.username}</Text>

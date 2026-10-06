@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pulseFor, recordProfileView } from '../services/pulse.js';
 import { z } from 'zod';
 import { one, many, query, tx } from '../db.js';
 import { config } from '../config.js';
@@ -62,7 +63,7 @@ async function assertUsernameFree(username, myId) {
 r.get('/me', ah(async (req, res) => {
   // your own page also shows connection requests waiting for your answer (pending or on hold)
   const reqs = await one(`SELECT COUNT(*) AS n FROM connection_requests WHERE to_id=$1 AND status IN (N'pending', N'held')`, [req.user.id]);
-  res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) } });
+  res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) }, pulse: await pulseFor(req.user.id) });
 }));
 
 r.patch('/me', ah(async (req, res) => {
@@ -184,7 +185,8 @@ r.get('/u/:username', ah(async (req, res) => {
     const list = (v) => { try { return Array.isArray(v) ? v : JSON.parse(v || '[]'); } catch { return []; } };
     if (mine && theirs) score = soulScore(mine, theirs, list(req.user.interests), list(u.interests));
   }
-  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score });
+  await recordProfileView(req.user.id, u.id); // feeds their Pulse meter
+  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, pulse: await pulseFor(u.id) });
 }));
 
 async function listFollows(req, res, direction) {

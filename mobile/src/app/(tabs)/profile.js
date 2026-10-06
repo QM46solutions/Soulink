@@ -14,6 +14,7 @@ import { colors, fonts, space } from '../../lib/theme';
 export default function MyProfile() {
   const { user, setUser } = useAuth();
   const [counts, setCounts] = useState(null);
+  const [pulse, setPulse] = useState(null);
   const [posts, setPosts] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
@@ -37,7 +38,7 @@ export default function MyProfile() {
   const load = useCallback(async () => {
     try {
       const r = await api('/users/me');
-      setUser(r.user); setCounts(r.counts);
+      setUser(r.user); setCounts(r.counts); setPulse(r.pulse || null);
       api(`/posts/user/${r.user.id}`).then((p) => setPosts(p.posts)).catch(() => {});
     } catch { /* offline: keep last data */ }
   }, [setUser]);
@@ -62,6 +63,7 @@ export default function MyProfile() {
       <ProfileHeader
         user={user}
         counts={counts}
+        pulse={pulse}
         canViewLists
         onAvatarPress={photo.open}
         isMe
