@@ -10,9 +10,9 @@ import PulseMeter, { PulseInfo } from './PulseMeter';
 // Instagram-style stat: bold number over a small label, sitting to the right of the photo
 function Stat({ n, label, onPress }) {
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ alignItems: 'center', flex: 1, opacity: hovered ? 0.8 : 1 })}>
+    <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ alignItems: 'center', flexGrow: 1, flexShrink: 0, paddingHorizontal: 3, opacity: hovered ? 0.8 : 1 })}>
       <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold }}>{n ?? 0}</Text>
-      <Text numberOfLines={2} style={{ color: colors.text, fontSize: 12.5, lineHeight: 16, fontFamily: fonts.body, marginTop: 1, textAlign: 'center' }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: colors.text, fontSize: 12, lineHeight: 16, fontFamily: fonts.body, marginTop: 2, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -70,13 +70,16 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
             </View>
           ) : null}
         </Pressable>
-        <View style={{ flex: 1, flexDirection: 'row', marginLeft: space.lg }}>
+        {/* counts sit a little lower, level with the Pulse meter's dial, with room between them */}
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', marginLeft: space.sm }}>
+          <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingTop: 34, marginRight: 4 }}>
           {isMe
             ? <Stat n={counts?.requests} label="Requests" onPress={() => router.push('/activity')} />
             : <Stat n={counts?.posts} label="Posts" />}
           {/* Connections: both connected to each other. Followers: connected to them, not connected back */}
           <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
           <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
+          </View>
           {pulse ? <PulseMeter pulse={pulse} onPress={() => setPulseOpen((o) => !o)} /> : null}
         </View>
       </View>

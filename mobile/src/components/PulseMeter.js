@@ -144,7 +144,9 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
 
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole="button" accessibilityLabel={`Pulse ${score}, ${th.text}`}
-      style={({ hovered }) => ({ alignItems: 'center', flex: showLabel ? 1 : 0, transform: [{ scale: hovered ? 1.04 : 1 }] })}>
+      style={({ hovered }) => ({ alignItems: 'center', flexGrow: 0, flexShrink: 0, transform: [{ scale: hovered ? 1.04 : 1 }] })}>
+      {/* caption above the meter, plain text (no trend symbol) */}
+      {showLabel ? <Text style={{ color: colors.text, fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 4 }}>Pulse</Text> : null}
       <Animated.View style={{ width: S, height: S, transform: [{ scale: thump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.13] }) }] }}>
         {/* heartbeat ripple: a glowing ring that bursts out on every 5-second beat */}
         <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: S, height: S, borderRadius: S / 2, borderWidth: Math.max(1.5, S * 0.03), borderColor: th.glow,
@@ -207,14 +209,6 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
         <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: S, height: S, borderRadius: S / 2, backgroundColor: th.glow,
           opacity: thump.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] }) }} />
       </Animated.View>
-      {showLabel ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ color: colors.text, fontSize: 12.5, fontFamily: fonts.body }}>Pulse</Text>
-          {pulse?.trend === 'up' || pulse?.trend === 'down'
-            ? <Ionicons name={pulse.trend === 'up' ? 'trending-up' : 'trending-down'} size={13} color={pulse.trend === 'up' ? colors.mint : colors.spark} style={{ marginLeft: 3 }} />
-            : null}
-        </View>
-      ) : null}
     </Pressable>
   );
 }
