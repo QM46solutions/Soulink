@@ -49,6 +49,11 @@ function PersonCard({ p }) {
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: space.md }}>
         {p.soulScore ? <ScorePill score={p.soulScore} style={{ alignSelf: 'flex-start', marginRight: 6, marginBottom: 6 }} /> : null}
+        {p.matchAs ? (
+          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.4)', marginRight: 6, marginBottom: 6 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: colors.aura }}>{p.matchAs.emoji} Best as {p.matchAs.label}</Text>
+          </View>
+        ) : null}
         {p.sharedInterests?.slice(0, 3).map((i) => (
           <View key={i} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(66,232,192,0.1)', borderWidth: 1, borderColor: 'rgba(66,232,192,0.35)', marginRight: 6, marginBottom: 6 }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.mint }}>{i}</Text>

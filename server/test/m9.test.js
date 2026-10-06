@@ -1,13 +1,13 @@
 // Posts: 👌🏻 likes, share (chat + outside), offense marks; more than 75 offenses suspends a post for everyone but its owner.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool, query } from './helpers.js';
+import { api, resetDb, makeUser, closePool, query, makeDna } from './helpers.js';
 import { OFFENSE_LIMIT } from '../src/routes/posts.js';
 
 before(resetDb);
 after(() => closePool());
 
-const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Array.from({ length: 10 }, (_, i) => ({ questionId: i + 1, optionIndex: (i + k) % 4 })) }).expect(200);
+const quiz = (u, k = 0) => makeDna(u, k);
 const textPost = async (u, caption = 'hello Hyderabad') => (await api().post('/posts').set(u.h).field('caption', caption).expect(201)).body.post;
 
 describe('Post offense, suspension and share', () => {

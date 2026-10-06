@@ -39,3 +39,11 @@ export async function makeUser(overrides = {}) {
   }
   return { token, user: done.body.user, h: { Authorization: `Bearer ${token}` } };
 }
+
+const { sampleAnswers } = await import('../src/services/soulDna.js');
+export { sampleAnswers };
+/** Answers every Soul DNA question (k picks a different "person") and completes it. */
+export async function makeDna(u, k = 0) {
+  await api().put('/soul/dna/answers').set(u.h).send({ answers: sampleAnswers(k) }).expect(200);
+  return api().post('/soul/dna/complete').set(u.h).expect(200);
+}

@@ -1,14 +1,14 @@
 // Connect requests: intent + Soul Score + note, Accept / Hold / Reject, notifications, cooldowns, chat.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool, query } from './helpers.js';
+import { api, resetDb, makeUser, closePool, query, makeDna } from './helpers.js';
 import { config } from '../src/config.js';
 import { processHolds } from '../src/services/connections.js';
 
 before(resetDb);
 after(() => closePool());
 
-const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Array.from({ length: 10 }, (_, i) => ({ questionId: i + 1, optionIndex: (i + k) % 4 })) }).expect(200);
+const quiz = (u, k = 0) => makeDna(u, k);
 async function pair() { const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1); return [a, b]; }
 const send = (from, to, body = {}) => api().post('/connections/requests').set(from.h).send({ toUserId: to.user.id, intent: 'friendship', ...body });
 const notes = async (u) => (await api().get('/notifications').set(u.h).expect(200)).body.notifications;

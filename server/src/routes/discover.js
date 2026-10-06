@@ -10,7 +10,9 @@ import { ah, HttpError } from '../lib/errors.js';
 import { ageFrom } from '../lib/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { userCard } from '../services/social.js';
-import { soulScore, SOUL_TYPES, TRAITS } from '../services/soulQuiz.js';
+import { SOUL_TYPES, TRAITS } from '../services/soulQuiz.js';
+import { compatAll } from '../services/soulDna.js';
+import { loadDna } from '../services/soulStore.js';
 import { distanceKm, placeCoords } from '../services/places.js';
 import { INTENT_KEYS } from '../services/connections.js';
 
@@ -106,8 +108,9 @@ r.post('/search', ah(async (req, res) => {
   );
 
   // 2) the rest in code: intent, interests, languages, distance, personality, Soul Score
-  let mine = null;
-  if (me.soul_ready) mine = await one(`SELECT ${TRAITS.join(', ')} FROM soul_profiles WHERE user_id=$1`, [me.id]);
+  // Soul DNA v2: each person's best match across Dating / Friendship / Business / Buddy
+  const dnaMap = me.soul_ready ? await loadDna([me.id, ...rows.map((u) => u.id)]) : new Map();
+  const mine = dnaMap.get(String(me.id).toLowerCase()) || null;
   const myInterests = list(me.interests);
   const here = coordsOf(me);
   if (f.distanceKm && !here) return res.json({ people: [], note: 'Turn on location (or pick your area) to use the distance filter.' });
@@ -121,7 +124,13 @@ r.post('/search', ah(async (req, res) => {
     return {
       u, theirs, shared, km,
       openTo: list(u.open_to), languages: list(u.languages),
-      score: mine && theirs ? soulScore(mine, theirs, myInterests, interests) : null,
+      ...(() => {
+        const other = mine ? dnaMap.get(String(u.id).toLowerCase()) : null;
+        if (!other) return { score: null, bestRelation: null };
+        const all = compatAll(mine, other);
+        const [bestRelation, best] = Object.entries(all).sort((x, y) => y[1].overall - x[1].overall)[0];
+        return { score: best.overall, bestRelation, bestLabel: best.label, bestEmoji: best.emoji };
+      })(),
     };
   });
   if (f.interests?.length) people = people.filter((p) => list(p.u.interests).some((i) => f.interests.includes(i)));
@@ -152,6 +161,7 @@ r.post('/search', ah(async (req, res) => {
       city: p.u.city,
       km: p.km,
       soulScore: p.score,
+      matchAs: p.bestRelation ? { relation: p.bestRelation, label: p.bestLabel, emoji: p.bestEmoji } : null,
       sharedInterests: p.shared,
       openTo: p.openTo,
       college: p.u.college, company: p.u.company,

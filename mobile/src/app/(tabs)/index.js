@@ -104,8 +104,8 @@ export default function Home() {
 
   if (!user.soulReady) {
     return (
-      <CenterCard icon="dna" live={<SoulDnaIcon size={140} />} title={`Welcome, ${first}! One last step`} text="Create your Soul DNA to unlock connections. 10 quick, fun questions and about 2 minutes. It's how Soulink finds people who match your vibe.">
-        <Button title="Create my Soul DNA" onPress={() => router.push('/soul')} />
+      <CenterCard icon="dna" live={<SoulDnaIcon size={140} />} title={`Welcome, ${first}! One last step`} text={user.soulType ? "Soul DNA got a big upgrade: it now understands your values, nature, thinking and loyalty. Retake it to see your matches again." : "Create your Soul DNA to unlock connections. One quiz in short sections, about 10 minutes. It's how Soulink finds people who truly match you."}>
+        <Button title={user.soulType ? 'Retake Soul DNA' : 'Create my Soul DNA'} onPress={() => router.push('/soul')} />
       </CenterCard>
     );
   }

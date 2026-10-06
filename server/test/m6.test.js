@@ -1,13 +1,13 @@
 // Anonymous messages: sender hidden for 7 days or until a Soul Connection, then revealed.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool, query } from './helpers.js';
+import { api, resetDb, makeUser, closePool, query, makeDna } from './helpers.js';
 import { processAnonReveals } from '../src/services/anon.js';
 
 before(resetDb);
 after(() => closePool());
 
-const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Array.from({ length: 10 }, (_, i) => ({ questionId: i + 1, optionIndex: (i + k) % 4 })) }).expect(200);
+const quiz = (u, k = 0) => makeDna(u, k);
 async function pair() { const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1); return [a, b]; }
 const notes = async (u) => (await api().get('/notifications').set(u.h).expect(200)).body.notifications;
 const leaks = (obj, u) => JSON.stringify(obj).toUpperCase().includes(String(u.user.id).toUpperCase()) || JSON.stringify(obj).includes(u.user.username);

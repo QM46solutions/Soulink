@@ -7,10 +7,10 @@ import { many, one, query, tx } from '../db.js';
 import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, meView, notify, userCard } from '../services/social.js';
-import { soulScore, TRAITS } from '../services/soulQuiz.js';
 import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, connectionBetween, pairOf } from '../services/connections.js';
 import { directKey, postMessage, systemMessage } from './conversations.js';
 import { revealBetween } from '../services/anon.js';
+import { scoreFor } from '../services/soulStore.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -20,11 +20,10 @@ const intent = z.enum(INTENT_KEYS);
 const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || '[]'); } catch { return []; } })());
 const daysAgo = (d) => new Date(Date.now() - d * 86400000);
 
-async function scoreBetween(a, b) {
+/** Soul Score for a pair, for the kind of connection asked for (Soul DNA v2). */
+async function scoreBetween(a, b, theIntent = 'friendship') {
   if (!a.soul_ready || !b.soul_ready) return null;
-  const sp = await many(`SELECT user_id, ${TRAITS.join(', ')} FROM soul_profiles WHERE user_id IN ($1, $2)`, [a.id, b.id]);
-  const x = sp.find((s) => s.user_id === a.id); const y = sp.find((s) => s.user_id === b.id);
-  return x && y ? soulScore(x, y, list(a.interests), list(b.interests)) : null;
+  return scoreFor(a.id, b.id, theIntent);
 }
 
 function view(q, meId, other) {
@@ -80,7 +79,7 @@ r.get('/status/:userId', ah(async (req, res) => {
     lastOutcome: last && cooldownUntil ? last.status : null,
     iConnect: await connectsTo(me, other.id),      // I'm connected to them
     theyConnect: await connectsTo(other.id, me),   // they're connected to me (can connect back)
-    soulScore: await scoreBetween(req.user, other),
+    soulScore: await scoreBetween(req.user, other, (conn?.intent) || open?.accepted_intent || open?.intent || 'friendship'),
   });
 }));
 
@@ -104,7 +103,7 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   if (suspended) throw forbidden(`Your last request expired without an answer. You can try again after ${COOLDOWN.suspendedDays} days.`, 'cooldown');
   // ("Open to" was removed from settings: every intent can be sent; the receiver chooses when answering)
 
-  const score = await scoreBetween(me, to);
+  const score = await scoreBetween(me, to, data.intent);
   const q = await one(
     `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6)`,
     [me.id, to.id, data.knows ? 1 : 0, data.intent, data.note || null, score],

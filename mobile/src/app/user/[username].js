@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction } from '../../components/ProfileHeader';
-import SoulScoreOrb from '../../components/SoulScoreOrb';
+import MatchPanel from '../../components/MatchPanel';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
@@ -131,8 +131,10 @@ export default function UserProfile() {
       {conn?.connected ? (
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
-      {data.soulScore ? (
-        <SoulScoreOrb score={data.soulScore} name={(target.displayName || target.username).split(' ')[0]} intent={conn?.connected?.intent || conn?.request?.acceptedIntent || conn?.request?.intent} />
+      {data.match ? (
+        <MatchPanel match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
+      ) : !rel.isMe && me.soulReady ? (
+        <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12.5, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Your Soul Score shows once {(target.displayName || target.username).split(' ')[0]} takes the new Soul DNA.</Text>
       ) : !rel.isMe && !me.soulReady ? (
         <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}

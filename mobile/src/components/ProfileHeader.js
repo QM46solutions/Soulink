@@ -92,7 +92,9 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
 
       {user.soulType ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, marginLeft: -3 }}>
-          {user.soulType ? <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.45)" bg="rgba(124,92,252,0.10)" /> : null}
+          <Pressable disabled={!isMe} onPress={() => router.push('/soul')} accessibilityLabel={isMe ? 'Open my Soul DNA' : undefined}>
+            <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.45)" bg="rgba(124,92,252,0.10)" />
+          </Pressable>
         </View>
       ) : null}
       {user.bio ? <Text style={{ color: colors.text, fontSize: 14, lineHeight: 19, fontFamily: fonts.body, marginTop: 4 }}>{user.bio}</Text> : null}

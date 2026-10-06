@@ -37,6 +37,10 @@ All screens are in `mobile\src\app\`. Each file is one screen.
 | My profile | `mobile\src\app\(tabs)\profile.js` |
 | Bottom tab bar + Messages icon | `mobile\src\app\(tabs)\_layout.js` |
 | Someone's profile | `mobile\src\app\user\[username].js` |
+| Soul DNA quiz + my Soul DNA result | `mobile\src\app\soul.js` |
+| Match on a profile (Dating/Friendship/Business/Buddy tabs, Why you match sheet) | `mobile\src\components\MatchPanel.js` |
+| Soul DNA questions, dimensions, relation weights, scoring | `server\src\services\soulDna.js` |
+| Soul DNA saving/loading, pair scores | `server\src\services\soulStore.js` |
 | Followers / Following list | `mobile\src\app\follows\[id].js` |
 | Edit profile | `mobile\src\app\edit-profile.js` |
 | Settings | `mobile\src\app\settings.js` |

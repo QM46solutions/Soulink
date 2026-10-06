@@ -12,7 +12,7 @@ Swipe gestures are OUT.
 | 4 | Stories + phone build | 24-hour stories - Android development build on Sai's phone | Planned |
 | 5 | Chat upgrade + Soulmoji (DONE 2026-09-29: reactions, reply, message menu, Soulmoji v1) | Instagram-like chat: reactions on messages, reply to a message, share posts, notes - Soulmoji v1 (your face, typed feeling, sticker) | Planned |
 | 6 | Safety pack | Stranger messages to Requests - one-tap block/report - hide my city - panic "remove from my life" - face search default Nobody - safety centre | Planned |
-| 7 | Soul DNA v1 | 8 traits - full Soul Score replaces the early score on requests - Match % (magical) - Premium lock for "why we matched" and editing Soul data - shareable Soul DNA story card - scan a friend's code | Planned |
+| 7 | Soul DNA v2 (DONE 2026-10-07) | One quiz for everyone in 11 sections (69 questions: scenarios, this-or-that, agree scale, top-3 ranking), saved as you go - contradiction detection ("worth reflecting on") - 12 compatibility dimensions weighted per relation (Dating, Friendship, Business, Buddy) - similarity + complementarity + adaptability - Natural fit + Relationship fit + compatibility type - strengths, friction, dealbreakers (dating) - scores free, "Why you match" breakdown Premium (free while testing) - everyone retakes - NO feedback from chats/meetups (private) | Done |
 | 8 | Reels (30 s max) | Record/upload up to 30 s - vertical player - compression for local storage | Planned |
 | 9 | Daily habit | Daily Soul question - streak flames - reminder | Planned |
 | 10 | Argue / Referee v1 (DONE 2026-09-29: together + invite, Claude or basic judge, verdict screen; share card still to do) | Two-sided case - AI verdict (free local AI first) - shareable verdict card | Planned |

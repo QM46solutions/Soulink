@@ -79,6 +79,15 @@ const TYPES = {
 
 export const SOUL_TYPES = Object.values(TYPES).flatMap(([hi, , lo]) => [hi, lo]);
 
+/** Soul type + tagline from the 8 traits (the trait that stands out most). */
+export function soulTypeOf(traits) {
+  let best = TRAITS[0];
+  for (const t of TRAITS) if (Math.abs(traits[t] - 50) > Math.abs(traits[best] - 50)) best = t;
+  const [hiName, hiLine, loName, loLine] = TYPES[best];
+  const high = traits[best] >= 50;
+  return { type: high ? hiName : loName, tagline: high ? hiLine : loLine };
+}
+
 /** answers: [{ questionId, optionIndex }] (all 10) → { traits, type, tagline } */
 export function scoreQuiz(answers) {
   const sums = Object.fromEntries(TRAITS.map((t) => [t, 0]));

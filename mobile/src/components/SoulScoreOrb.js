@@ -309,10 +309,6 @@ export default function SoulScoreOrb({ score, name, intent }) {
           <Text style={{ fontFamily: fonts.semibold, color: vibe.color, fontSize: 14 }}>{vibe.label}</Text>
         </View>
         <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, textAlign: 'center', marginTop: space.sm, paddingHorizontal: space.xl }}>{vibe.line}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.sm }}>
-          <Ionicons name="lock-closed" size={12} color={colors.gold} style={{ marginRight: 5 }} />
-          <Text style={{ fontFamily: fonts.medium, color: colors.gold, fontSize: 12 }}>Why you match · Premium</Text>
-        </View>
       </Animated.View>
     </View>
   );

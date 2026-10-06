@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { ah, badRequest, notFound, forbidden } from '../lib/errors.js';
 import { ageFrom } from '../lib/auth.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
-import { soulScore, TRAITS } from '../services/soulQuiz.js';
+import { headline } from '../services/soulStore.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { placeCoords } from '../services/places.js';
 import {
@@ -183,17 +183,12 @@ r.get('/u/:username', ah(async (req, res) => {
   const u = await loadTarget(req, 'username');
   const rel = await relationship(req.user.id, u.id);
   const canView = canViewContent(u, rel);
-  // Soul Score between you and them (both need an active Soul DNA)
-  let score = null;
-  if (req.user.soul_ready && u.soul_ready && u.id !== req.user.id) {
-    const sp = await many(`SELECT user_id, ${TRAITS.join(', ')} FROM soul_profiles WHERE user_id IN ($1, $2)`, [req.user.id, u.id]);
-    const mine = sp.find((x) => x.user_id === req.user.id);
-    const theirs = sp.find((x) => x.user_id === u.id);
-    const list = (v) => { try { return Array.isArray(v) ? v : JSON.parse(v || '[]'); } catch { return []; } };
-    if (mine && theirs) score = soulScore(mine, theirs, list(req.user.interests), list(u.interests));
-  }
+  // Soul Score (Soul DNA v2): headline numbers for every relation type and the one that applies to you two.
+  // Both people need a completed Soul DNA.
+  const match = u.id !== req.user.id ? await headline(req.user.id, u.id) : null;
+  const score = match ? match.all[match.relation].overall : null;
   await recordProfileView(req.user.id, u.id); // feeds their Pulse meter
-  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, pulse: await pulseFor(u.id) });
+  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, match, pulse: await pulseFor(u.id) });
 }));
 
 async function listFollows(req, res, direction) {

@@ -2,12 +2,12 @@
 // so this checks the rules: same-language drafts pass through, 503 when not installed, own clips only.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool } from './helpers.js';
+import { api, resetDb, makeUser, closePool, makeDna } from './helpers.js';
 
 before(resetDb);
 after(() => closePool());
 
-const quiz = (u, k = 0) => api().post('/soul/quiz').set(u.h).send({ answers: Array.from({ length: 10 }, (_, i) => ({ questionId: i + 1, optionIndex: (i + k) % 4 })) }).expect(200);
+const quiz = (u, k = 0) => makeDna(u, k);
 async function chat() {
   const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
   const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
