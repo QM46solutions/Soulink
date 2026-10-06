@@ -21,6 +21,7 @@ import { canViewContent, isBlockedEither, notify, relationship, userCard } from 
 import { sharePostToChat } from './conversations.js';
 
 export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
+export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
 
 const r = Router();
 r.use(requireAuth);
@@ -33,6 +34,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     CASE WHEN EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = $1) THEN 1 ELSE 0 END AS liked,
     (SELECT COUNT(*) FROM post_offenses o WHERE o.post_id = p.id) AS offense_count,
     CASE WHEN EXISTS (SELECT 1 FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) THEN 1 ELSE 0 END AS offended,
+    (SELECT TOP 1 o.reason FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) AS offense_reason,
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
@@ -47,6 +49,7 @@ export const postView = (x, meId) => ({
   liked: !!x.liked,
   shareCount: Number(x.share_count || 0),
   offended: !!x.offended,
+  offenseReason: x.offense_reason || null, // my own reason, if I marked it
   mine: String(x.author_id).toLowerCase() === String(meId).toLowerCase(),
   offenseCount: Number(x.offense_count || 0), // shown under the ❗ icon (never who marked it)
   suspended: !!x.suspended_at,
@@ -126,9 +129,10 @@ r.post('/:id/like', ah(async (req, res) => {
 r.post('/:id/offense', ah(async (req, res) => {
   const x = await loadVisible(req);
   if (String(x.author_id).toLowerCase() === String(req.user.id).toLowerCase()) throw badRequest("You can't mark your own post", 'own_post');
+  const { reason } = z.object({ reason: z.enum(OFFENSE_REASONS).optional() }).parse(req.body || {});
   const had = await one('SELECT 1 AS y FROM post_offenses WHERE post_id=$1 AND user_id=$2', [x.post_id, req.user.id]);
   if (had) await query('DELETE FROM post_offenses WHERE post_id=$1 AND user_id=$2', [x.post_id, req.user.id]);
-  else await query('IF NOT EXISTS (SELECT 1 FROM post_offenses WHERE post_id=$1 AND user_id=$2) INSERT INTO post_offenses (post_id, user_id) VALUES ($1, $2)', [x.post_id, req.user.id]);
+  else await query('IF NOT EXISTS (SELECT 1 FROM post_offenses WHERE post_id=$1 AND user_id=$2) INSERT INTO post_offenses (post_id, user_id, reason) VALUES ($1, $2, $3)', [x.post_id, req.user.id, reason || 'other']);
   const n = Number((await one('SELECT COUNT(*) AS n FROM post_offenses WHERE post_id=$1', [x.post_id])).n);
   let suspended = !!x.suspended_at;
   if (!suspended && n > OFFENSE_LIMIT) {

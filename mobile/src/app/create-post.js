@@ -99,6 +99,14 @@ export default function CreatePost() {
           {photos.length ? `${photos.length}/${MAX} photos · first photo is the cover` : `Add up to ${MAX} photos, or just write something`}
         </Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Soul Connections{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
+        {/* community rule, told to the person posting (not to people who mark posts) */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: space.lg, padding: space.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(26,24,40,0.7)' }}>
+          <Ionicons name="alert-circle" size={17} color={colors.aura} style={{ marginRight: 8, marginTop: 1 }} />
+          <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18, color: colors.muted }}>
+            <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>Keep it kind. </Text>
+            People can mark a post as offensive with ❗. If more than 75 people mark yours, it's hidden from everyone except you.
+          </Text>
+        </View>
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 

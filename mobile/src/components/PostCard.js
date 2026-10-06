@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api, mediaUrl } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import ActionSheet from './ActionSheet';
+import OffenseSheet from './OffenseSheet';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -78,6 +79,8 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [likes, setLikes] = useState(post.likeCount);
   const [offended, setOffended] = useState(post.offended);
   const [offenses, setOffenses] = useState(post.offenseCount || 0);
+  const [myReason, setMyReason] = useState(post.offenseReason || null);
+  const [reportOpen, setReportOpen] = useState(false);
   const [shares, setShares] = useState(post.shareCount || 0);
   const [shareMenu, setShareMenu] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -103,16 +106,12 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
     setLiked(!liked); setLikes((n) => n + (liked ? -1 : 1));
     try { const r = await api(`/posts/${post.id}/like`, { method: 'POST' }); setLiked(r.liked); setLikes(r.likeCount); } catch { setLiked(liked); setLikes(post.likeCount); }
   };
-  const offense = async () => {
-    if (!offended && !(await confirm('Mark this post as offensive?',
-      "If more than 75 people mark it, it's hidden from everyone except the person who posted it. They won't see who marked it. You can undo this.",
-      { confirmText: 'Mark offensive', destructive: true }))) return;
-    setOffended(!offended); setOffenses((n) => n + (offended ? -1 : 1));
-    try {
-      const r = await api(`/posts/${post.id}/offense`, { method: 'POST' });
-      setOffended(r.offended); setOffenses(r.offenseCount);
-      if (r.suspended) { notice('Post suspended', 'Enough people found this post offensive, so it is now hidden.'); onDeleted?.(post.id); }
-    } catch (e) { setOffended(offended); setOffenses(post.offenseCount || 0); notice('Oops', e.message); }
+  // ❗ opens the Instagram-style report sheet (in the app, no browser pop-ups)
+  const offense = () => setReportOpen(true);
+  const toggleOffense = async (reason) => {
+    const r = await api(`/posts/${post.id}/offense`, { method: 'POST', body: reason ? { reason } : {} });
+    setOffended(r.offended); setOffenses(r.offenseCount); setMyReason(r.offended ? reason : null);
+    if (r.suspended) setTimeout(() => onDeleted?.(post.id), 1800); // enough marks: it disappears for everyone else
   };
   const shareOutside = async () => {
     const message = `${post.author.username} on Soulink${post.caption ? `: "${post.caption.slice(0, 120)}"` : ''}`;
@@ -207,6 +206,8 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           <Ionicons name="alert-circle" size={24} color={offended ? colors.danger : colors.text} />
         </Action>
       </View>
+      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} onClose={() => setReportOpen(false)}
+        onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
       <ActionSheet
         visible={shareMenu}

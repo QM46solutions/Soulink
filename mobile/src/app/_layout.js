@@ -12,6 +12,7 @@ import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/spac
 import { AuthProvider, useAuth } from '../lib/auth';
 import { RealtimeProvider } from '../lib/realtime';
 import { HeaderBackground, Starfield } from '../components/brand';
+import DialogHost from '../components/DialogHost';
 import { colors, fonts } from '../lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -160,6 +161,7 @@ export default function RootLayout() {
           <RealtimeProvider>
             <StatusBar style="light" />
             <RootStack />
+            <DialogHost />
           </RealtimeProvider>
         </AuthProvider>
       </ThemeProvider>

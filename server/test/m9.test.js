@@ -23,6 +23,15 @@ describe('Post offense, suspension and share', () => {
     assert.equal((await api().post(`/posts/${p.id}/offense`).set(b.h).expect(200)).body.offended, false);
   });
 
+  test('a mark keeps its reason (Instagram-style report); unknown reasons are refused', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const p = await textPost(a);
+    await api().post(`/posts/${p.id}/offense`).set(b.h).send({ reason: 'not-a-reason' }).expect(400);
+    await api().post(`/posts/${p.id}/offense`).set(b.h).send({ reason: 'bullying' }).expect(200);
+    assert.equal((await api().get(`/posts/${p.id}`).set(b.h).expect(200)).body.post.offenseReason, 'bullying');
+    assert.equal((await api().get(`/posts/${p.id}`).set(a.h).expect(200)).body.post.offenseReason, null);
+  });
+
   test(`more than ${OFFENSE_LIMIT} offenses: hidden from everyone except the owner`, async () => {
     const a = await makeUser(); const b = await makeUser();
     const p = await textPost(a);
