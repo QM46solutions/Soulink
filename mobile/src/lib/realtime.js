@@ -40,7 +40,9 @@ export function RealtimeProvider({ children }) {
       });
     }
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshUnread(); });
-    return () => { sub.remove(); socket.disconnect(); socketRef.current = null; setConnected(false); };
+    // safety net: badges stay right even if a live update is missed (weak network, phone link)
+    const poll = setInterval(refreshUnread, 20000);
+    return () => { clearInterval(poll); sub.remove(); socket.disconnect(); socketRef.current = null; setConnected(false); };
   }, [user?.id, user?.onboardingDone, refreshUnread]);
 
   /** Subscribe to a live event. Returns an unsubscribe function. */

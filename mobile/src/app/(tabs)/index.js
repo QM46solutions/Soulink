@@ -13,7 +13,7 @@ import { useAuth } from '../../lib/auth';
 import { Button } from '../../components/ui';
 import { GlassCard } from '../../components/brand';
 import { colors, fonts, gradients, space } from '../../lib/theme';
-import { LiveFrame, RadarIcon, SoulDnaIcon } from '../../components/LiveIcons';
+import { LiveFrame, RadarIcon, ScalesIcon, SoulDnaIcon } from '../../components/LiveIcons';
 
 function CenterCard({ icon, live, title, text, children }) {
   return (
@@ -91,7 +91,16 @@ export default function Home() {
   const navigation = useNavigation();
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (user.soulReady ? <CreateButton open={composing} onPress={() => setComposing((c) => !c)} /> : null),
+      headerLeft: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {user.soulReady ? <CreateButton open={composing} onPress={() => setComposing((c) => !c)} /> : <View style={{ width: 16 }} />}
+          {/* Argue Referee: the live scales icon, next to + */}
+          <Pressable onPress={() => router.navigate('/argue')} hitSlop={8} accessibilityLabel="Argue Referee"
+            style={({ hovered, pressed }) => ({ marginLeft: 6, transform: [{ scale: pressed ? 0.9 : hovered ? 1.12 : 1 }], ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}) })}>
+            <ScalesIcon size={36} bold />
+          </Pressable>
+        </View>
+      ),
       headerRight: () => <NotificationBell />, // notifications live here, only on Home
     });
   }, [navigation, composing, user.soulReady]);

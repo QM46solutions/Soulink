@@ -9,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
-import { ScalesIcon } from '../../components/LiveIcons';
 import BackButton from '../../components/BackButton';
 
 const icon = (name) => ({ color, focused, size }) => (
@@ -51,40 +50,47 @@ function ProfileTabIcon({ focused }) {
   );
 }
 
-// Argue Referee tab: the live balancing-scales animation from the pitch site
-function ArgueIcon({ focused }) {
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <ScalesIcon size={38} bold />
-      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: -1, backgroundColor: focused ? colors.spark : 'transparent' }} />
-    </View>
-  );
-}
-
-// Messages: the raised gradient button (where Argue used to be). Opens the inbox; shows unread count.
-function MessagesTabButton({ accessibilityState }) {
+// Messages: a normal tab icon now (the raised highlighter belongs to Soulink Events). Opens the inbox; unread badge on top.
+function MessagesTabButton() {
   const { unread } = useRealtime();
   const count = (unread?.chats || 0) + (unread?.requests || 0) + (unread?.anon || 0);
   return (
-    <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}
+    <HoverTab onPress={() => router.push('/messages')} accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}>
+      <View style={{ alignItems: 'center' }}>
+        <Ionicons name="paper-plane-outline" size={24} color={colors.dim} />
+        {count ? (
+          <View style={{ position: 'absolute', top: -7, right: -12, minWidth: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.void }}>
+            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10, paddingHorizontal: 4 }}>{count > 99 ? '99+' : count}</Text>
+          </View>
+        ) : null}
+        <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' }} />
+      </View>
+    </HoverTab>
+  );
+}
+
+// Soulink Events: the raised gradient highlighter in the centre of the bar, with the Soulink "S" mark
+function EventsTabButton({ accessibilityState }) {
+  const selected = accessibilityState?.selected;
+  return (
+    <Pressable onPress={() => router.navigate('/events')} accessibilityRole="button" accessibilityLabel="Soulink Events"
       style={({ hovered, pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.92 : hovered ? 1.1 : 1 }], ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : {}) })}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: accessibilityState?.selected ? colors.text : 'transparent',
+        style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: selected ? colors.text : 'transparent',
           shadowColor: colors.soul, shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 6 }}>
-        <Ionicons name="paper-plane" size={22} color="#fff" style={{ marginLeft: -2, marginTop: 1 }} />
+        <Text style={{ fontFamily: fonts.display, fontSize: 27, lineHeight: 32, color: '#fff', marginTop: -1 }}>S</Text>
+        <Ionicons name="sparkles" size={11} color="#fff" style={{ position: 'absolute', top: 9, right: 10 }} />
       </LinearGradient>
-      {count ? (
-        <View style={{ position: 'absolute', top: 2, right: '22%', minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.spark, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: colors.void }}>
-          <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10 }}>{count > 9 ? '9+' : count}</Text>
-        </View>
-      ) : null}
     </Pressable>
   );
 }
 
 export default function TabsLayout() {
+  const { refreshUnread } = useRealtime();
   return (
     <Tabs
+      screenListeners={{ focus: () => refreshUnread() }}
       // Browsers (laptop preview + iPhone Safari) keep inactive tabs underneath the active one. Our backgrounds
       // are see-through (starfield), so hide every tab that isn't the one you're on: its screen AND its header.
       screenOptions={({ navigation, route }) => {
@@ -116,13 +122,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
-      {/* Argue Referee sits between Search and Messages, with its live scales icon */}
-      <Tabs.Screen name="argue" options={{ headerShown: false, tabBarAccessibilityLabel: 'Argue Referee', tabBarIcon: ({ focused }) => <ArgueIcon focused={focused} /> }} />
-      {/* Messages: raised gradient button, opens the inbox */}
+      {/* Soulink Events: raised gradient button in the centre */}
+      <Tabs.Screen name="events" options={{ title: 'Soulink Events', tabBarButton: (props) => <EventsTabButton {...props} /> }} />
+      {/* Messages: normal icon with unread badge, opens the inbox */}
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
-      {/* Discover stays reachable from Home ("Make connections") and Search, not in the tab bar */}
+      {/* Argue opens from the scales icon at the top of Home; Discover from Home and Search; Notifications from the bell */}
+      <Tabs.Screen name="argue" options={{ headerShown: false, href: null }} />
       <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
-      {/* Notifications open from the bell at the top right of Home (not in the tab bar) */}
       <Tabs.Screen name="activity" options={{ title: 'Notifications', href: null }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} /> }} />
     </Tabs>

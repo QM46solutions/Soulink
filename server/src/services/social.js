@@ -99,6 +99,7 @@ export const meView = (u) => ({
   soulReady: !!u.soul_ready,
   hasLocation: u.lat != null && u.lon != null,
   chatLanguage: u.chat_language || null,
+  eventsNotify: !!u.events_notify,
   openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
   createdAt: u.created_at,
 });

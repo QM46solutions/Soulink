@@ -66,6 +66,13 @@ r.get('/me', ah(async (req, res) => {
   res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) }, pulse: await pulseFor(req.user.id) });
 }));
 
+// Soulink Events (coming soon): "Notify me when events launch"
+r.put('/me/events-notify', ah(async (req, res) => {
+  const { on } = z.object({ on: z.boolean() }).parse(req.body || {});
+  const u = await one('UPDATE users SET events_notify=$2 OUTPUT INSERTED.* WHERE id=$1', [req.user.id, on ? 1 : 0]);
+  res.json({ user: meView(u) });
+}));
+
 r.patch('/me', ah(async (req, res) => {
   const data = profileSchema.parse(req.body);
   if (data.username) await assertUsernameFree(data.username, req.user.id);
