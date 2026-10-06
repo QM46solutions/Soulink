@@ -142,7 +142,7 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState(null);
   const [soulmojiOpen, setSoulmojiOpen] = useState(false);
   const nameOfSender = (senderId) => (senderId === me.id ? 'yourself' : (conv?.members.find((x) => x.id === senderId)?.displayName || 'them').split(' ')[0]);
-  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.body);
+  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.kind === 'post' ? '📮 Post' : m.body);
 
   const sendText = async (body, retryId) => {
     const tmpId = retryId || `tmp-${++tmpSeq}`;

@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -136,6 +137,22 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
         {message.soulmoji.imageUrl
           ? <SoulmojiPhoto imageUrl={message.soulmoji.imageUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={176} />
           : <SoulmojiSticker faceUrl={message.soulmoji.faceUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={120} />}
+      </Pressable>
+    );
+  } else if (message.kind === 'post' && message.post) {
+    // a post someone shared into the chat: tap to open it
+    const p = message.post;
+    content = (
+      <Pressable onPress={() => { tap(); router.push(`/post/${p.postId}`); }} onLongPress={onMenu}
+        style={({ hovered }) => ({ width: 210, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: hovered ? colors.aura : colors.border, backgroundColor: colors.card })}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }}>
+          <Avatar uri={p.author?.avatarUrl} size={24} name={p.author?.username} />
+          <Text numberOfLines={1} style={{ flex: 1, marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{p.author?.username}</Text>
+        </View>
+        {p.thumb ? <Image source={{ uri: mediaUrl(p.thumb) }} style={{ width: 210, height: 210, backgroundColor: colors.void }} contentFit="cover" /> : null}
+        {p.caption ? (
+          <Text numberOfLines={p.thumb ? 2 : 5} style={{ padding: 8, fontFamily: p.thumb ? fonts.body : fonts.semibold, color: colors.text, fontSize: p.thumb ? 13 : 15, lineHeight: p.thumb ? 18 : 21 }}>{p.caption}</Text>
+        ) : null}
       </Pressable>
     );
   } else if (message.kind === 'image') {

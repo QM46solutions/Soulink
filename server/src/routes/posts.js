@@ -7,6 +7,9 @@
 //  POST   /posts/:id/comments        { body }
 //  DELETE /posts/:id/comments/:cid   delete my comment (or any comment on my post)
 //  GET    /posts/user/:userId        someone's posts (profile grid)
+//  POST   /posts/:id/offense         mark / unmark as offensive (toggle). More than 75 marks suspends the post:
+//                                    hidden from everyone except its owner.
+//  POST   /posts/:id/share           { conversationIds?: [...] } send it in chats, or {} = shared outside Soulink
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -14,6 +17,9 @@ import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { canViewContent, isBlockedEither, notify, relationship, userCard } from '../services/social.js';
+import { sharePostToChat } from './conversations.js';
+
+export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
 
 const r = Router();
 r.use(requireAuth);
@@ -24,6 +30,9 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS like_count,
     (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL) AS comment_count,
     CASE WHEN EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = $1) THEN 1 ELSE 0 END AS liked,
+    (SELECT COUNT(*) FROM post_offenses o WHERE o.post_id = p.id) AS offense_count,
+    CASE WHEN EXISTS (SELECT 1 FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) THEN 1 ELSE 0 END AS offended,
+    (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -35,9 +44,16 @@ export const postView = (x, meId) => ({
   likeCount: Number(x.like_count || 0),
   commentCount: Number(x.comment_count || 0),
   liked: !!x.liked,
+  shareCount: Number(x.share_count || 0),
+  offended: !!x.offended,
   mine: String(x.author_id).toLowerCase() === String(meId).toLowerCase(),
+  // how many people marked it offensive: only its owner is told
+  offenseCount: String(x.author_id).toLowerCase() === String(meId).toLowerCase() ? Number(x.offense_count || 0) : null,
+  suspended: !!x.suspended_at,
   author: userCard(x),
 });
+/** SQL filter: suspended posts are visible only to their owner ($1 = viewer). */
+export const NOT_SUSPENDED_FOR_VIEWER = '(p.suspended_at IS NULL OR p.author_id = $1)';
 export const POST_SELECT = SELECT;
 
 async function loadVisible(req) {
@@ -45,6 +61,7 @@ async function loadVisible(req) {
   const x = await one(`${SELECT} WHERE p.id = $2 AND p.deleted_at IS NULL`, [req.user.id, id]);
   if (!x) throw notFound('Post not found');
   if (String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
+    if (x.suspended_at) throw notFound('This post was suspended after many people found it offensive', 'post_suspended');
     if (await isBlockedEither(req.user.id, x.author_id)) throw notFound('Post not found');
     const author = await one('SELECT * FROM users WHERE id=$1', [x.author_id]);
     if (!canViewContent(author, await relationship(req.user.id, author.id))) throw forbidden('This account is private', 'private_account');
@@ -68,7 +85,7 @@ r.get('/user/:userId', ah(async (req, res) => {
   if (!author) throw notFound('User not found');
   if (await isBlockedEither(req.user.id, author.id)) throw notFound('User not found');
   if (!canViewContent(author, await relationship(req.user.id, author.id))) return res.json({ posts: [], private: true });
-  const rows = await many(`${SELECT} WHERE p.author_id = $2 AND p.deleted_at IS NULL AND p.is_anonymous = 0 ORDER BY p.created_at DESC`, [req.user.id, author.id]);
+  const rows = await many(`${SELECT} WHERE p.author_id = $2 AND p.deleted_at IS NULL AND p.is_anonymous = 0 AND (p.suspended_at IS NULL OR p.author_id = $1) ORDER BY p.created_at DESC`, [req.user.id, author.id]);
   res.json({ posts: rows.map((x) => postView(x, req.user.id)) });
 }));
 
@@ -93,6 +110,35 @@ r.post('/:id/like', ah(async (req, res) => {
   }
   const n = await one('SELECT COUNT(*) AS n FROM post_likes WHERE post_id=$1', [x.post_id]);
   res.json({ liked: !had, likeCount: Number(n.n) });
+}));
+
+r.post('/:id/offense', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  if (String(x.author_id).toLowerCase() === String(req.user.id).toLowerCase()) throw badRequest("You can't mark your own post", 'own_post');
+  const had = await one('SELECT 1 AS y FROM post_offenses WHERE post_id=$1 AND user_id=$2', [x.post_id, req.user.id]);
+  if (had) await query('DELETE FROM post_offenses WHERE post_id=$1 AND user_id=$2', [x.post_id, req.user.id]);
+  else await query('IF NOT EXISTS (SELECT 1 FROM post_offenses WHERE post_id=$1 AND user_id=$2) INSERT INTO post_offenses (post_id, user_id) VALUES ($1, $2)', [x.post_id, req.user.id]);
+  const n = Number((await one('SELECT COUNT(*) AS n FROM post_offenses WHERE post_id=$1', [x.post_id])).n);
+  let suspended = !!x.suspended_at;
+  if (!suspended && n > OFFENSE_LIMIT) {
+    const upd = await one('UPDATE posts SET suspended_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND suspended_at IS NULL', [x.post_id]);
+    if (upd) { suspended = true; await notify(x.author_id, null, 'post_suspended', x.post_id, { offenses: n }).catch(() => {}); }
+  }
+  res.json({ offended: !had, suspended });
+}));
+
+r.post('/:id/share', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  const { conversationIds } = z.object({ conversationIds: z.array(uuid).max(20).optional() }).parse(req.body || {});
+  const snapshot = { postId: x.post_id, caption: (x.caption || '').slice(0, 140), thumb: media(x.media_urls)[0] || null, author: { username: x.username, avatarUrl: x.avatar_url } };
+  const sent = [];
+  for (const cid of conversationIds || []) {
+    sent.push((await sharePostToChat(cid, req.user, snapshot)).id);
+    await query(`INSERT INTO post_shares (post_id, user_id, channel) VALUES ($1, $2, N'chat')`, [x.post_id, req.user.id]);
+  }
+  if (!conversationIds?.length) await query(`INSERT INTO post_shares (post_id, user_id, channel) VALUES ($1, $2, N'external')`, [x.post_id, req.user.id]);
+  const n = await one('SELECT COUNT(*) AS n FROM post_shares WHERE post_id=$1', [x.post_id]);
+  res.json({ ok: true, sent: sent.length, shareCount: Number(n.n) });
 }));
 
 r.get('/:id/comments', ah(async (req, res) => {

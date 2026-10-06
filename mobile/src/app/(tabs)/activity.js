@@ -31,6 +31,9 @@ const TEXT = {
   follow_request: 'requested to follow you.',
   follow_accept: 'accepted your follow request.',
   like: 'liked your post.',
+  post_like: 'gave your post a 👌🏻.',
+  post_comment: 'commented on your post.',
+  post_suspended: 'Your post was suspended: more than 75 people found it offensive. Only you can see it now.',
   comment: 'commented on your post.',
   message: 'sent you a message.',
   case_invite: 'invited you to share your side of an argument.',
@@ -107,6 +110,7 @@ export default function Activity() {
           onPress={() => {
             if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') router.push('/connections/requests');
             else if (item.type === 'connect_accepted' && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
+            else if (['post_like', 'post_comment', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
             else if ((item.type === 'argue_invite' || item.type === 'argue_verdict') && item.meta?.caseId) router.push(`/argue/${item.meta.caseId}`);
             else if (item.actor) router.push(`/user/${item.actor.username}`);

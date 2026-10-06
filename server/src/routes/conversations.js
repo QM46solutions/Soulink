@@ -78,6 +78,8 @@ export function serializeMessage(m) {
     replyToId: m.reply_to_id ?? null,
     // Soulmoji: a sticker of the sender's own face with a mood + caption (drawn by the app)
     soulmoji: !deleted && m.kind === 'soulmoji' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
+    // a shared post: small preview (the post itself is checked again when it's opened)
+    post: !deleted && m.kind === 'post' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
   };
 }
 
@@ -101,7 +103,7 @@ export async function enrich(messages, meId) {
     return {
       ...m,
       reactions: Object.entries(counts).map(([emoji, count]) => ({ emoji, count, mine: mine.some((x) => x.emoji === emoji && x.user_id === meId) })),
-      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.body } : null,
+      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.kind === 'post' ? '📮 Post' : rp.body } : null,
     };
   });
 }
@@ -113,6 +115,7 @@ function preview(m, meId) {
   else if (m.kind === 'image') text = '📷 Photo';
   else if (m.kind === 'voice') text = '🎤 Voice message';
   else if (m.kind === 'soulmoji') text = '✨ Soulmoji';
+  else if (m.kind === 'post') text = '📮 Shared a post';
   else text = m.body;
   return { ...m, text: m.kind !== 'system' && m.senderId === meId ? `You: ${text}` : text };
 }
@@ -182,6 +185,16 @@ async function assertCanSend(conv, meId) {
   if (!others.length) {
     await query('INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, $3)', [conv.id, otherId, (await isRequestFor(otherId, meId)) ? 1 : 0]);
   }
+}
+
+/** Send a post into a chat I'm in (used by "Share" on a post). The message keeps a small preview of the post. */
+export async function sharePostToChat(conversationId, user, snapshot) {
+  const conv = await one(
+    'SELECT c.* FROM conversations c JOIN conversation_members m ON m.conversation_id = c.id WHERE c.id=$1 AND m.user_id=$2', [conversationId, user.id],
+  );
+  if (!conv) throw notFound('Chat not found');
+  await assertCanSend(conv, user.id);
+  return postMessage(conv, user.id, { kind: 'post', body: JSON.stringify(snapshot) });
 }
 
 // ---------- inbox ----------

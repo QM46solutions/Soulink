@@ -1,13 +1,18 @@
-// A post in the feed or on the post screen: author, photos (arrows + dots, no swiping), like, comment, caption.
+// A post in the feed or on the post screen: author, photos (arrows + dots, no swiping), caption and
+// the action row: 👌🏻 like, comment, share (in a chat or outside Soulink) and offense.
 import { useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, Share, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { api, mediaUrl } from '../lib/api';
-import { confirm } from '../lib/confirm';
+import { confirm, notice } from '../lib/confirm';
+import ActionSheet from './ActionSheet';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
+
+export const LIKE_EMOJI = '👌🏻';
+const ND = Platform.OS !== 'web';
 
 export function timeAgo(iso) {
   const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -18,7 +23,7 @@ export function timeAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-function Photos({ media, onDoubleTap }) {
+function Photos({ media, onDoubleTap, burst }) {
   const [i, setI] = useState(0);
   const last = useRef(0);
   if (!media?.length) return null;
@@ -33,6 +38,11 @@ function Photos({ media, onDoubleTap }) {
     <View>
       <Pressable onPress={tap}>
         <Image source={{ uri: mediaUrl(media[i]) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" transition={150} />
+        {burst ? (
+          <Animated.Text pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '36%', fontSize: 96,
+            opacity: burst.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [{ scale: burst.interpolate({ inputRange: [0, 0.2, 0.35, 1], outputRange: [0.3, 1.25, 1, 1.05] }) }] }}>{LIKE_EMOJI}</Animated.Text>
+        ) : null}
       </Pressable>
       {media.length > 1 ? (
         <>
@@ -50,14 +60,61 @@ function Photos({ media, onDoubleTap }) {
   );
 }
 
+function Action({ onPress, label, children, count, disabled }) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
+      style={({ hovered, pressed }) => ({ flexDirection: 'row', alignItems: 'center', marginRight: space.lg, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.1 : 1 }] })}>
+      {children}
+      {count ? <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: 5 }}>{count}</Text> : null}
+    </Pressable>
+  );
+}
+
 export default function PostCard({ post, onDeleted, showAllComments }) {
   const [liked, setLiked] = useState(post.liked);
   const [likes, setLikes] = useState(post.likeCount);
+  const [offended, setOffended] = useState(post.offended);
+  const [shares, setShares] = useState(post.shareCount || 0);
+  const [shareMenu, setShareMenu] = useState(false);
+  const pop = useRef(new Animated.Value(1)).current;
+  const burst = useRef(new Animated.Value(0)).current;
   const openPost = () => { if (!showAllComments) router.push(`/post/${post.id}`); };
   const like = async (forceOn) => {
-    if (forceOn && liked) return;
+    if (forceOn) { // double tap: big 👌🏻 over the photo
+      burst.setValue(0);
+      Animated.timing(burst, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: ND }).start();
+      if (liked) return;
+    }
+    if (!liked) {
+      Animated.sequence([
+        Animated.timing(pop, { toValue: 1.45, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+        Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: ND }),
+      ]).start();
+    }
     setLiked(!liked); setLikes((n) => n + (liked ? -1 : 1));
     try { const r = await api(`/posts/${post.id}/like`, { method: 'POST' }); setLiked(r.liked); setLikes(r.likeCount); } catch { setLiked(liked); setLikes(post.likeCount); }
+  };
+  const offense = async () => {
+    if (!offended && !(await confirm('Mark this post as offensive?',
+      "If more than 75 people mark it, it's hidden from everyone except the person who posted it. They won't see who marked it. You can undo this.",
+      { confirmText: 'Mark offensive', destructive: true }))) return;
+    setOffended(!offended);
+    try {
+      const r = await api(`/posts/${post.id}/offense`, { method: 'POST' });
+      setOffended(r.offended);
+      if (r.suspended) { notice('Post suspended', 'Enough people found this post offensive, so it is now hidden.'); onDeleted?.(post.id); }
+    } catch (e) { setOffended(offended); notice('Oops', e.message); }
+  };
+  const shareOutside = async () => {
+    const message = `${post.author.username} on Soulink${post.caption ? `: "${post.caption.slice(0, 120)}"` : ''}`;
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) await navigator.share({ title: 'Soulink', text: message });
+        else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
+      } else await Share.share({ message });
+      const r = await api(`/posts/${post.id}/share`, { method: 'POST', body: {} });
+      setShares(r.shareCount);
+    } catch { /* cancelled */ }
   };
   const del = async () => {
     if (await confirm('Delete this post?', 'It will be removed from your profile and everyone\'s feed.', { confirmText: 'Delete', destructive: true })) {
@@ -85,22 +142,54 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         ) : null}
       </View>
 
+      {post.suspended && post.mine ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginHorizontal: space.lg, marginBottom: space.sm, padding: space.md, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,107,157,0.5)', backgroundColor: 'rgba(255,107,157,0.1)' }}>
+          <Ionicons name="eye-off-outline" size={17} color={colors.spark} style={{ marginRight: 8, marginTop: 1 }} />
+          <Text style={{ flex: 1, fontFamily: fonts.body, color: colors.text, fontSize: 13, lineHeight: 18 }}>
+            <Text style={{ fontFamily: fonts.semibold }}>Suspended. </Text>More than 75 people found this post offensive, so it's hidden from everyone. Only you can see it.
+          </Text>
+        </View>
+      ) : null}
       {textOnly ? (
         <Pressable onPress={openPost} style={{ marginHorizontal: space.lg, padding: space.xl, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(176,143,255,0.35)', backgroundColor: 'rgba(124,92,252,0.1)' }}>
           <Text style={{ fontFamily: fonts.displaySemi, fontSize: 19, lineHeight: 27, color: colors.text }}>{post.caption}</Text>
         </Pressable>
-      ) : <Photos media={post.media} onDoubleTap={() => like(true)} />}
+      ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, marginTop: space.sm }}>
-        <Pressable onPress={() => like(false)} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', marginRight: space.lg }} accessibilityLabel={liked ? 'Unlike' : 'Like'}>
-          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={24} color={liked ? colors.spark : colors.text} />
-          <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: 5 }}>{likes || ''}</Text>
-        </Pressable>
-        <Pressable onPress={openPost} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel="Comments">
+        <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes}>
+          <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
+        </Action>
+        <Action onPress={openPost} label="Comments" count={post.commentCount}>
           <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
-          <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: 5 }}>{post.commentCount || ''}</Text>
-        </Pressable>
+        </Action>
+        <Action onPress={() => setShareMenu(true)} label="Share" count={shares}>
+          <Ionicons name="paper-plane-outline" size={22} color={colors.text} />
+        </Action>
+        <View style={{ flex: 1 }} />
+        {post.mine ? (
+          post.offenseCount ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel={`${post.offenseCount} people marked this offensive`}>
+              <Ionicons name="flag" size={16} color={colors.muted} />
+              <Text style={{ fontFamily: fonts.medium, color: colors.muted, fontSize: 12, marginLeft: 4 }}>{post.offenseCount}</Text>
+            </View>
+          ) : null
+        ) : (
+          <Action onPress={offense} label={offended ? 'Remove offense mark' : 'Mark as offensive'}>
+            <Ionicons name={offended ? 'flag' : 'flag-outline'} size={21} color={offended ? colors.danger : colors.text} />
+            <Text style={{ fontFamily: fonts.medium, color: offended ? colors.danger : colors.muted, fontSize: 12, marginLeft: 4 }}>{offended ? 'Offensive' : 'Offense'}</Text>
+          </Action>
+        )}
       </View>
+      <ActionSheet
+        visible={shareMenu}
+        onClose={() => setShareMenu(false)}
+        title="Share this post"
+        options={[
+          { label: 'Send in a chat', onPress: () => router.push({ pathname: '/share-post', params: { id: post.id } }) },
+          { label: 'Share outside Soulink', onPress: shareOutside },
+        ]}
+      />
       {!textOnly && post.caption ? (
         <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, lineHeight: 20 }}>
           <Text style={{ fontFamily: fonts.semibold }}>{post.author.username} </Text>{post.caption}
@@ -125,6 +214,7 @@ export function PostGrid({ posts }) {
             <View style={{ flex: 1 }}>
               <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: 6, backgroundColor: colors.card }} contentFit="cover" />
               {p.media.length > 1 ? <Ionicons name="copy" size={14} color="#fff" style={{ position: 'absolute', top: 6, right: 6 }} /> : null}
+              {p.suspended ? <View style={{ position: 'absolute', left: 4, bottom: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="eye-off" size={11} color={colors.spark} /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: '#fff', marginLeft: 3 }}>Suspended</Text></View> : null}
             </View>
           ) : (
             <View style={{ flex: 1, borderRadius: 6, padding: 8, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.3)', justifyContent: 'center' }}>
