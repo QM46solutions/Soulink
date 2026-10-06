@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Animated, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
+import NotificationBell from '../../components/NotificationBell';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
@@ -89,7 +90,10 @@ export default function Home() {
   const [composing, setComposing] = useState(false);
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    navigation.setOptions({ headerLeft: () => (user.soulReady ? <CreateButton open={composing} onPress={() => setComposing((c) => !c)} /> : null) });
+    navigation.setOptions({
+      headerLeft: () => (user.soulReady ? <CreateButton open={composing} onPress={() => setComposing((c) => !c)} /> : null),
+      headerRight: () => <NotificationBell />, // notifications live here, only on Home
+    });
   }, [navigation, composing, user.soulReady]);
   const composer = composing ? <Composer user={user} onGo={() => setComposing(false)} /> : null;
 

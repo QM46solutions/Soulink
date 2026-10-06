@@ -1,6 +1,6 @@
 // A post in the feed or on the post screen: author, photos (arrows + dots, no swiping), caption and
 // the action row: 👌🏻 like, comment, share (in a chat or outside Soulink) and offense.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -91,6 +91,11 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(post.caption || '');
   const [saving, setSaving] = useState(false);
+  // when fresh data arrives (feed reloads, someone else liked it), show the new numbers
+  useEffect(() => { setLiked(post.liked); setLikes(post.likeCount); }, [post.id, post.liked, post.likeCount]);
+  useEffect(() => { setOffended(post.offended); setOffenses(post.offenseCount || 0); setMyReason(post.offenseReason || null); }, [post.id, post.offended, post.offenseCount, post.offenseReason]);
+  useEffect(() => { setShares(post.shareCount || 0); setShared(!!post.shared); }, [post.id, post.shareCount, post.shared]);
+  useEffect(() => { setCaption(post.caption); }, [post.id, post.caption]);
   const pop = useRef(new Animated.Value(1)).current;
   const burst = useRef(new Animated.Value(0)).current;
   const openPost = () => { if (!showAllComments) router.push(`/post/${post.id}`); };
@@ -141,15 +146,12 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const copyText = async () => {
     try { if (Platform.OS === 'web') await navigator.clipboard.writeText(caption || ''); else await Share.share({ message: caption || '' }); } catch { /* cancelled */ }
   };
-  const offenseInfo = () => notice('Offense marks',
-    `${offenses} ${offenses === 1 ? 'person has' : 'people have'} marked this post as offensive. You never see who. If more than 75 people mark it, it's hidden from everyone except you.`);
   // Instagram-style ⋯ menu: your own post vs someone else's
   const options = post.mine
     ? [
       ...(!post.suspended ? [{ label: 'Edit caption', onPress: () => { setDraft(caption || ''); setEditing(true); } }] : []),
       { label: 'Share', onPress: () => setShareMenu(true) },
       ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
-      { label: `Offense marks (${offenses})`, onPress: offenseInfo },
       { label: 'Delete', destructive: true, onPress: del },
     ]
     : [
@@ -204,8 +206,8 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
           <Ionicons name="paper-plane" size={22} color={shared ? ACTIVE.share : colors.text} />
         </Action>
-        {/* Offense ❗: sits with the other actions. Others mark it; on your own post it explains the count */}
-        <Action onPress={post.mine ? offenseInfo : offense} count={offenses} color={offended ? ACTIVE.offense : undefined}
+        {/* Offense ❗: others tap it to report (Instagram-style sheet). On your own post it only shows the count, no pop-up */}
+        <Action onPress={offense} disabled={post.mine} count={offenses} color={offended ? ACTIVE.offense : undefined}
           label={post.mine ? `${offenses} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
           <Ionicons name="alert-circle" size={24} color={offended ? ACTIVE.offense : colors.text} />
         </Action>
