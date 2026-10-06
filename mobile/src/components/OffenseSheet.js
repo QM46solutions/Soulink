@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Overlay } from '../lib/portal';
+import { api } from '../lib/api';
 import { useOpenGuard, useSafeClose } from '../lib/safeClose';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -21,10 +22,17 @@ export const OFFENSE_REASONS = [
 ];
 export const reasonLabel = (k) => OFFENSE_REASONS.find((r) => r.key === k)?.label || 'Something else';
 
-export default function OffenseSheet({ visible, offended, reason, onClose, onMark, onUnmark }) {
+export default function OffenseSheet({ visible, offended, reason, onClose, onMark, onUnmark, owner, postId }) {
   const [step, setStep] = useState('pick'); // pick | busy | done | error
   const [error, setError] = useState(null);
   useEffect(() => { if (visible) { setStep('pick'); setError(null); } }, [visible]);
+  // your own post: show how many people marked it and why (never who)
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    if (!visible || !owner) return;
+    setStats(null);
+    api(`/posts/${postId}/offenses`).then(setStats).catch((e) => setStats({ error: e.message }));
+  }, [visible, owner, postId]);
   const backdropClose = useSafeClose(visible, onClose);
   const ready = useOpenGuard(visible);
   if (!visible) return null;
@@ -42,7 +50,37 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
   );
 
   let body;
-  if (step === 'busy') {
+  if (owner) {
+    const total = stats?.total || 0;
+    body = !stats ? <View style={{ padding: space.xxl, alignItems: 'center' }}><ActivityIndicator color={colors.aura} /></View> : (
+      <View style={{ padding: space.lg }}>
+        {stats.error ? <Text style={{ fontFamily: fonts.body, color: colors.danger, textAlign: 'center' }}>{stats.error}</Text> : null}
+        <Text style={{ fontFamily: fonts.display, fontSize: 40, lineHeight: 46, color: total ? colors.danger : colors.text, textAlign: 'center' }}>{total}</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 13.5, color: colors.muted, textAlign: 'center' }}>
+          {total === 1 ? 'person has' : 'people have'} marked your post as offensive{stats.limit ? ` · hidden after ${stats.limit}` : ''}
+        </Text>
+        {stats.limit ? (
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, marginTop: space.md, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.min(100, (total / (stats.limit + 1)) * 100)}%`, height: 6, backgroundColor: colors.danger }} />
+          </View>
+        ) : null}
+        <View style={{ marginTop: space.md }}>
+          {OFFENSE_REASONS.filter((r) => stats.byReason?.[r.key]).map((r) => (
+            <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 14.5, color: colors.text }}>{r.label}</Text>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.danger }}>{stats.byReason[r.key]}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
+          {total ? "You never see who marked it." : 'Nobody has marked this post.'} Only other people can mark your posts.
+        </Text>
+        <Pressable onPress={onClose} style={({ hovered }) => ({ marginTop: space.lg, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)' })}>
+          <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>Close</Text>
+        </Pressable>
+      </View>
+    );
+  } else if (step === 'busy') {
     body = <View style={{ padding: space.xxl, alignItems: 'center' }}><ActivityIndicator color={colors.aura} /></View>;
   } else if (step === 'done') {
     body = (
@@ -94,7 +132,7 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
     <Overlay onClose={onClose}>
       <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', cursor: 'default' }} />
       <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: space.sm, paddingBottom: space.lg }}>
-        <Header title={offended && step !== 'done' ? 'Offense mark' : 'Mark as offensive'} />
+        <Header title={owner ? 'Offense marks' : offended && step !== 'done' ? 'Offense mark' : 'Mark as offensive'} />
         {body}
       </View>
     </Overlay>

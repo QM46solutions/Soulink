@@ -206,13 +206,13 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
           <Ionicons name="paper-plane" size={22} color={shared ? ACTIVE.share : colors.text} />
         </Action>
-        {/* Offense ❗: others tap it to report (Instagram-style sheet). On your own post it only shows the count, no pop-up */}
-        <Action onPress={offense} disabled={post.mine} count={offenses} color={offended ? ACTIVE.offense : undefined}
-          label={post.mine ? `${offenses} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
+        {/* Offense ❗: others tap it to report (Instagram-style sheet); on your own post it shows how many marked it and why */}
+        <Action onPress={offense} count={offenses} color={offended ? ACTIVE.offense : undefined}
+          label={post.mine ? `${offenses} offense marks on your post` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
           <Ionicons name="alert-circle" size={24} color={offended ? ACTIVE.offense : colors.text} />
         </Action>
       </View>
-      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} onClose={() => setReportOpen(false)}
+      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={post.mine} postId={post.id} onClose={() => setReportOpen(false)}
         onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
       <ActionSheet

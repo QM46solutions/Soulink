@@ -146,6 +146,15 @@ r.post('/:id/offense', ah(async (req, res) => {
   res.json({ offended: !had, suspended, offenseCount: n });
 }));
 
+// Owner only: how many people marked my post, by reason (never who)
+r.get('/:id/offenses', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  if (String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) throw forbidden('Only the person who posted this can see this', 'not_owner');
+  const rows = await many('SELECT ISNULL(reason, N\'other\') AS reason, COUNT(*) AS n FROM post_offenses WHERE post_id=$1 GROUP BY ISNULL(reason, N\'other\')', [x.post_id]);
+  const byReason = Object.fromEntries(rows.map((r) => [r.reason, Number(r.n)]));
+  res.json({ total: rows.reduce((a, r) => a + Number(r.n), 0), byReason, limit: OFFENSE_LIMIT, suspended: !!x.suspended_at });
+}));
+
 r.post('/:id/share', ah(async (req, res) => {
   const x = await loadVisible(req);
   const { conversationIds } = z.object({ conversationIds: z.array(uuid).max(20).optional() }).parse(req.body || {});
