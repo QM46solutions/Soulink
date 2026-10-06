@@ -30,10 +30,9 @@ export default function Chat() {
   const [typingUntil, setTypingUntil] = useState(0);
   const [menuFor, setMenuFor] = useState(null);
   // ----- chat translator -----
-  const [translateOn, setTranslateOn] = useState(false);
   const [translations, setTranslations] = useState({}); // messageId -> { text, fromName, toName, loading, error }
   const [pickLang, setPickLang] = useState(false);
-  const myLang = me.chatLanguage || null;
+  const myLang = me.chatLanguage || 'en'; // translate into your chat language (Settings), English by default
   const translateOne = useCallback(async (m, lang = myLang) => {
     if (!m || m.kind !== 'text' || !m.body || !lang) return;
     const from = detectLanguage(m.body);
@@ -49,12 +48,9 @@ export default function Chat() {
   const chooseLang = async (lang) => {
     setPickLang(false);
     try { const r = await api('/users/me', { method: 'PATCH', body: { chatLanguage: lang } }); setUser(r.user); } catch (e) { notice('Translator', e.message); return; }
-    setTranslations({}); setTranslateOn(true);
+    setTranslations({});
   };
-  const toggleTranslate = () => {
-    if (!myLang) { setPickLang(true); return; }
-    setTranslateOn((v) => !v);
-  };
+  const hideTranslation = (mid) => setTranslations((c) => { const n = { ...c }; delete n[mid]; return n; });
   const [reporting, setReporting] = useState(null);
   const [viewer, setViewer] = useState(null);
   const [blocked, setBlocked] = useState(false);
@@ -101,26 +97,13 @@ export default function Chat() {
       ),
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* Translator: messages in other languages appear in your language under the original */}
-          <Pressable onPress={toggleTranslate} onLongPress={() => setPickLang(true)} hitSlop={10} accessibilityLabel={translateOn ? 'Turn translator off' : 'Translate this chat'}
-            style={({ hovered }) => ({ marginRight: 16, paddingHorizontal: 8, height: 30, borderRadius: 15, flexDirection: 'row', alignItems: 'center', backgroundColor: translateOn ? colors.soul : hovered ? 'rgba(124,92,252,0.2)' : 'transparent', borderWidth: 1, borderColor: translateOn ? colors.soul : colors.border })}>
-            <Ionicons name="language" size={16} color={translateOn ? '#fff' : colors.text} />
-            {myLang ? <Text style={{ marginLeft: 4, fontFamily: fonts.semibold, fontSize: 11, color: translateOn ? '#fff' : colors.muted }}>{myLang.toUpperCase()}</Text> : null}
-          </Pressable>
           <Pressable onPress={() => router.push(`/chat/info/${conv.id}`)} hitSlop={10} accessibilityLabel="Chat details">
             <Ionicons name="information-circle-outline" size={24} color={colors.text} />
           </Pressable>
         </View>
       ),
     });
-  }, [navigation, conv, me.id, typingUntil, translateOn, myLang]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!translateOn || !myLang) return;
-    messages.slice(0, 40).forEach((m) => {
-      if (m.senderId !== me.id && m.kind === 'text' && m.body && !translations[m.id] && detectLanguage(m.body) !== myLang) translateOne(m);
-    });
-  }, [translateOn, myLang, messages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [navigation, conv, me.id, typingUntil]);
 
   // ----- live updates -----
   useLiveEvent('message:new', ({ conversationId, message }) => {
@@ -303,6 +286,11 @@ export default function Chat() {
           replyToName={item.replyTo ? nameOfSender(item.replyTo.senderId) : null}
           onOpenImage={(m) => setViewer(mediaUrl(m.mediaUrl) || m.localUri)}
           translation={translations[item.id]}
+          canTranslate={!mine && item.kind === 'text' && !!item.body && detectLanguage(item.body) !== myLang}
+          onTranslate={() => translateOne(item)}
+          onHideTranslation={() => hideTranslation(item.id)}
+          translateTo={langName(myLang)}
+              onChangeLanguage={() => setPickLang(true)}
         />
         {seenLabel?.id === item.id ? <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 11, textAlign: 'right', marginRight: space.lg, marginTop: 2 }}>{seenLabel.text}</Text> : null}
       </View>
@@ -375,7 +363,7 @@ export default function Chat() {
         onReport={() => setReporting(menuFor)}
         onRetry={() => (menuFor.kind === 'text' ? sendText(menuFor.body, menuFor.id) : (setMessages((c) => c.filter((x) => x.id !== menuFor.id)), sendMedia(menuFor.file)))}
         onDiscard={() => setMessages((c) => c.filter((x) => x.id !== menuFor.id))}
-        onTranslate={() => (myLang ? translateOne(menuFor) : setPickLang(true))}
+        onTranslate={() => translateOne(menuFor)}
       />
       <ActionSheet
         visible={pickLang}

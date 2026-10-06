@@ -112,7 +112,7 @@ function Reactions({ reactions, mine, onReact }) {
   );
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation }) {
+export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
@@ -155,7 +155,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
       <Pressable onPress={tap} onLongPress={onMenu}>
         <BubbleShell mine={mine}>
           <Text selectable={false} style={[st.text, mine && st.textMine, Platform.OS === 'web' && { userSelect: 'none' }]}>{message.body}</Text>
-          {translation ? (
+          {translation && !translation.loading ? (
             // Chat translator: the message in your language, under the original
             <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: mine ? 'rgba(255,255,255,0.25)' : colors.border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
@@ -169,6 +169,17 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
             </View>
           ) : null}
         </BubbleShell>
+        {/* Translate pill: only on messages written in a language other than yours */}
+        {canTranslate || translation ? (
+          <Pressable onPress={translation && !translation.loading ? onHideTranslation : onTranslate} onLongPress={onChangeLanguage} delayLongPress={450} disabled={translation?.loading}
+            style={({ hovered }) => ({ alignSelf: mine ? 'flex-end' : 'flex-start', flexDirection: 'row', alignItems: 'center', marginTop: 4, paddingHorizontal: 10, height: 26, borderRadius: 13,
+              borderWidth: 1, borderColor: hovered ? colors.aura : colors.border, backgroundColor: hovered ? 'rgba(124,92,252,0.18)' : 'rgba(26,24,40,0.8)' })}>
+            <Ionicons name="language" size={13} color={colors.aura} style={{ marginRight: 5 }} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.text }}>
+              {translation?.loading ? 'Translating…' : translation ? 'Show original only' : `Translate to ${translateTo || 'English'}`}
+            </Text>
+          </Pressable>
+        ) : null}
       </Pressable>
     );
   }
