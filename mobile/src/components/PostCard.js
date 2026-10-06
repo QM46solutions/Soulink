@@ -9,6 +9,7 @@ import { api, mediaUrl } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import ActionSheet from './ActionSheet';
 import OffenseSheet from './OffenseSheet';
+import { CommentsSheet, LikesSheet } from './PostSheets';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -106,7 +107,13 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   useEffect(() => { setCaption(post.caption); }, [post.id, post.caption]);
   const pop = useRef(new Animated.Value(1)).current;
   const burst = useRef(new Animated.Value(0)).current;
-  const openPost = () => { if (!showAllComments) router.push(`/post/${post.id}`); };
+  // likes and comments open on top of the post, like Instagram (no page change)
+  const [likesOpen, setLikesOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState(post.commentCount || 0);
+  const [commented, setCommented] = useState(!!post.commented);
+  useEffect(() => { setComments(post.commentCount || 0); setCommented(!!post.commented); }, [post.id, post.commentCount, post.commented]);
+  const openPost = () => setCommentsOpen(true);
   const like = async (forceOn) => {
     if (forceOn) { // double tap: big 👌🏻 over the photo
       burst.setValue(0);
@@ -205,12 +212,12 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
         <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}
-          onCountPress={() => router.push(`/post-likes/${post.id}`)} countLabel="See who gave this a 👌🏻">
+          onCountPress={() => setLikesOpen(true)} countLabel="See who gave this a 👌🏻">
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
-        <Action onPress={openPost} label="Comments" count={post.commentCount} color={post.commented ? ACTIVE.comment : undefined}>
-          <Ionicons name="chatbubble" size={22} color={post.commented ? ACTIVE.comment : colors.text} />
+        <Action onPress={openPost} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
+          <Ionicons name="chatbubble" size={22} color={commented ? ACTIVE.comment : colors.text} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
           <Ionicons name="paper-plane" size={22} color={shared ? ACTIVE.share : colors.text} />
@@ -221,6 +228,9 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           <Ionicons name="alert-circle" size={24} color={offended ? ACTIVE.offense : colors.text} />
         </Action>
       </View>
+      <LikesSheet visible={likesOpen} postId={post.id} onClose={() => setLikesOpen(false)} />
+      <CommentsSheet visible={commentsOpen} postId={post.id} onClose={() => setCommentsOpen(false)}
+        onCountChange={(n, mine) => { setComments(n); if (mine) setCommented(true); }} />
       <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={post.mine} postId={post.id} onClose={() => setReportOpen(false)}
         onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
@@ -234,7 +244,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         ]}
       />
       {likes > 0 && !editing ? (
-        <Text onPress={() => router.push(`/post-likes/${post.id}`)} style={{ fontFamily: fonts.body, fontSize: 13, color: colors.text, paddingHorizontal: space.lg, marginTop: 6 }}>
+        <Text onPress={() => setLikesOpen(true)} style={{ fontFamily: fonts.body, fontSize: 13, color: colors.text, paddingHorizontal: space.lg, marginTop: 6 }}>
           {LIKE_EMOJI} {liked && (likes === 1 || !post.likedBy)
             ? (likes === 1 ? <Text style={{ fontFamily: fonts.semibold }}>You</Text> : <>Liked by <Text style={{ fontFamily: fonts.semibold }}>you</Text> and <Text style={{ fontFamily: fonts.semibold }}>{likes - 1} {likes - 1 === 1 ? 'other' : 'others'}</Text></>)
             : <>Liked by <Text style={{ fontFamily: fonts.semibold }}>{post.likedBy || 'someone'}</Text>{likes > 1 ? <> and <Text style={{ fontFamily: fonts.semibold }}>{likes - 1} {likes - 1 === 1 ? 'other' : 'others'}</Text></> : null}</>}
@@ -256,9 +266,9 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           <Text style={{ fontFamily: fonts.semibold }}>{post.author.username} </Text>{caption}
         </Text>
       ) : null}
-      {!showAllComments && post.commentCount ? (
+      {!showAllComments && comments ? (
         <Text onPress={openPost} style={{ fontFamily: fonts.body, color: colors.muted, paddingHorizontal: space.lg, marginTop: 4, fontSize: 13 }}>
-          View {post.commentCount === 1 ? '1 comment' : `all ${post.commentCount} comments`}
+          View {comments === 1 ? '1 comment' : `all ${comments} comments`}
         </Text>
       ) : null}
     </View>
