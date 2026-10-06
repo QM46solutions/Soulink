@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Avatar, Empty, ErrorText, s } from '../../components/ui';
+import { MaskAvatar } from '../../components/anon';
 import { colors, space, fonts } from '../../lib/theme';
 
 const intentLabel = (k) => ({ friendship: 'Friendship 🤝', dating: 'Dating 💘', situationship: 'Situationship 🌗', buddy: 'Study / Work buddy 📚', networking: 'Networking 💼', vibing: 'Just vibing ✨', unsure: 'Not sure yet 🤔' }[k] || k);
@@ -17,6 +18,10 @@ const CONNECT_TEXT = {
   connect_hold_extended: (m) => `extended the hold on your request by ${holdText(m?.days)}.`,
   connect_hold_reminder: () => "'s request: your hold ends soon. Changed your mind?",
   connect_suspended: () => "didn't answer in time. Your connect request was suspended.",
+  anon_message: (m) => `Someone sent you an anonymous message${m?.alias ? ` as "${m.alias}"` : ''}. You'll see who in 7 days.`,
+  anon_reply: () => 'replied to your anonymous message.',
+  anon_revealed: (m) => `was "${m?.alias || 'Anonymous'}". ${m?.reason === 'connected' ? "You Soul Connected, so now you know who wrote to you." : 'The 7 days are up: now you know who wrote to you.'}`,
+  anon_revealed_sender: (m) => `can now see you were "${m?.alias || 'Anonymous'}".`,
   argue_invite: (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}. Give your side!`,
   argue_verdict: (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''}. Tap to see who's right.`,
 };
@@ -102,12 +107,13 @@ export default function Activity() {
           onPress={() => {
             if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') router.push('/connections/requests');
             else if (item.type === 'connect_accepted' && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
+            else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
             else if ((item.type === 'argue_invite' || item.type === 'argue_verdict') && item.meta?.caseId) router.push(`/argue/${item.meta.caseId}`);
             else if (item.actor) router.push(`/user/${item.actor.username}`);
           }}
           style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xl, paddingVertical: space.md, backgroundColor: item.read ? 'transparent' : 'rgba(124,92,252,0.07)' }}
         >
-          <Avatar uri={item.actor?.avatarUrl} name={item.actor?.username} />
+          {item.type === 'anon_message' ? <MaskAvatar size={44} /> : <Avatar uri={item.actor?.avatarUrl} name={item.actor?.username} />}
           <Text style={{ fontFamily: fonts.body, color: colors.text, flex: 1, marginLeft: space.md, lineHeight: 20 }}>
             {item.actor ? <Text style={{ fontFamily: fonts.bold }}>{item.actor.username} </Text> : null}
             {CONNECT_TEXT[item.type] ? CONNECT_TEXT[item.type](item.meta) : TEXT[item.type] || item.type}

@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useLiveEvent, useRealtime } from '../../lib/realtime';
 import { ConversationRow } from '../../components/chat';
+import { AnonRow } from '../../components/anon';
 import ActionSheet from '../../components/ActionSheet';
 import { confirm } from '../../lib/confirm';
 import { Empty, ErrorText, Loading } from '../../components/ui';
@@ -44,8 +45,11 @@ export default function Messages() {
     });
   }, [navigation, user.username]);
 
+  const [anonUnread, setAnonUnread] = useState(0);
   const load = useCallback(async (which = box) => {
     try {
+      api('/anon').then((a) => { setAnonUnread(a.unread); if (which === 'anon') setData(a.threads); }).catch(() => {});
+      if (which === 'anon') { setError(null); return; }
       const r = await api(`/conversations?box=${which}`);
       setData(r.conversations.map((c) => ({ ...c, meId: user.id })));
       if (which === 'inbox') setRequestCount(r.requestCount);
@@ -57,6 +61,7 @@ export default function Messages() {
   useFocusEffect(useCallback(() => { load(); refreshUnread(); }, [load, refreshUnread]));
   useLiveEvent('message:new', () => load());
   useLiveEvent('message:deleted', () => load());
+  useLiveEvent('anon:update', () => load());
 
   const switchBox = (b) => { setBox(b); setData(null); load(b); };
 
@@ -71,7 +76,13 @@ export default function Messages() {
       <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginHorizontal: space.lg }}>
         <Tab label="Chats" active={box === 'inbox'} onPress={() => switchBox('inbox')} />
         <Tab label="Requests" count={requestCount} active={box === 'requests'} onPress={() => switchBox('requests')} />
+        <Tab label="Anonymous" count={anonUnread} active={box === 'anon'} onPress={() => switchBox('anon')} />
       </View>
+      {box === 'anon' && data?.length ? (
+        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', padding: space.md, lineHeight: 17 }}>
+          Names stay hidden for 7 days, or until you two Soul Connect.
+        </Text>
+      ) : null}
       {box === 'requests' && data?.length ? (
         <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', padding: space.md, lineHeight: 17 }}>
           Messages from people you don't follow. They won't know you've seen them until you accept.
@@ -82,13 +93,13 @@ export default function Messages() {
         <FlatList
           data={data}
           keyExtractor={(c) => c.id}
-          renderItem={({ item }) => (
+          renderItem={({ item }) => (box === 'anon' ? <AnonRow thread={item} onPress={() => router.push(`/anon/${item.id}`)} /> : (
             <ConversationRow
               conversation={item}
               onPress={() => router.push(`/chat/${item.id}`)}
               onLongPress={!item.isGroup ? () => setMenuFor(item) : undefined}
             />
-          )}
+          ))}
           refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
           contentContainerStyle={{ paddingVertical: space.sm, flexGrow: 1 }}
           ListEmptyComponent={box === 'inbox' ? (
@@ -97,6 +108,8 @@ export default function Messages() {
                 <Text style={{ color: colors.aura, fontFamily: fonts.semibold }}>Send a message</Text>
               </Pressable>
             </Empty>
+          ) : box === 'anon' ? (
+            <Empty icon="eye-off-outline" title="No anonymous messages" text="Send someone an anonymous message from their profile (the eye button). Your name is shown to them after 7 days, or as soon as you Soul Connect." />
           ) : <Empty icon="mail-unread-outline" title="No message requests" text="When someone you don't follow messages you, it shows up here." />}
         />
       )}

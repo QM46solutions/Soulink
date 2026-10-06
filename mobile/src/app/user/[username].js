@@ -26,12 +26,14 @@ export default function UserProfile() {
 
   const [conn, setConn] = useState(null);
   const [posts, setPosts] = useState(null);
+  const [anon, setAnon] = useState(null);
   const load = useCallback(async () => {
     try {
       const d = await api(`/users/u/${encodeURIComponent(username)}`);
       setData(d); setError(null);
       if (d.canViewContent) api(`/posts/user/${d.user.id}`).then((p) => setPosts(p.posts)).catch(() => {});
       if (d.user.id !== me.id) api(`/connections/status/${d.user.id}`).then(setConn).catch(() => {});
+      if (d.user.id !== me.id) api(`/anon/can/${d.user.id}`).then(setAnon).catch(() => setAnon(null));
     } catch (e) { setError(e); }
   }, [username, me.id]);
 
@@ -98,6 +100,16 @@ export default function UserProfile() {
   else if (conn.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
   else connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
 
+  // Anonymous message: hidden for 7 days or until they Soul Connect (not offered once connected)
+  const goAnon = () => {
+    if (needSoul()) return;
+    if (anon?.threadId) router.push(`/anon/${anon.threadId}`);
+    else router.push({ pathname: '/anon/[id]', params: { id: 'new', userId: target.id, username: target.username, name: target.displayName || target.username } });
+  };
+  const anonBtn = !rel.isMe && anon?.allowed && !conn?.connected ? (
+    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 38 }} />
+  ) : null;
+
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       {rel.requestedYou ? (
@@ -117,6 +129,7 @@ export default function UserProfile() {
         actions={<>
           {followBtn}
           {!rel.isMe ? connectBtn : null}
+          {anonBtn}
         </>}
       />
       {conn?.connected ? (

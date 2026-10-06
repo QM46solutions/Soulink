@@ -63,7 +63,7 @@ function ArgueIcon({ focused }) {
 // Messages: the raised gradient button (where Argue used to be). Opens the inbox; shows unread count.
 function MessagesTabButton({ accessibilityState }) {
   const { unread } = useRealtime();
-  const count = (unread?.chats || 0) + (unread?.requests || 0);
+  const count = (unread?.chats || 0) + (unread?.requests || 0) + (unread?.anon || 0);
   return (
     <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}
       style={({ hovered, pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.92 : hovered ? 1.1 : 1 }], ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : {}) })}>

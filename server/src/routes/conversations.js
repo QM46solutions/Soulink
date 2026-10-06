@@ -235,7 +235,12 @@ r.get('/unread', ah(async (req, res) => {
            AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = cm.conversation_id AND m.kind <> N'system'
                         AND m.sender_id <> $1 AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at))) AS chats,
        (SELECT COUNT(*) FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
-         WHERE cm.user_id = $1 AND cm.is_request = 1 AND c.last_message_at IS NOT NULL) AS requests`,
+         WHERE cm.user_id = $1 AND cm.is_request = 1 AND c.last_message_at IS NOT NULL) AS requests,
+       (SELECT COUNT(*) FROM anon_threads t
+         WHERE ((t.sender_id = $1 AND t.hidden_by_sender = 0) OR (t.recipient_id = $1 AND t.hidden_by_recipient = 0))
+           AND EXISTS (SELECT 1 FROM anon_messages am WHERE am.thread_id = t.id
+                        AND am.from_sender = CASE WHEN t.sender_id = $1 THEN 0 ELSE 1 END
+                        AND am.created_at > ISNULL(CASE WHEN t.sender_id = $1 THEN t.sender_read_at ELSE t.recipient_read_at END, '1900-01-01'))) AS anon`,
     [req.user.id],
   );
   res.json(row);

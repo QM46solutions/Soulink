@@ -20,6 +20,7 @@ import argueRoutes from './routes/argue.js';
 import discoverRoutes from './routes/discover.js';
 import postRoutes from './routes/posts.js';
 import soulmojiRoutes from './routes/soulmoji.js';
+import anonRoutes from './routes/anon.js';
 
 export function createApp() {
   const app = express();
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/feed', feedRoutes);
   app.use('/connections', connectionRoutes);
   app.use('/argue', argueRoutes);
+  app.use('/anon', anonRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

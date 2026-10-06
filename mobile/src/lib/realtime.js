@@ -29,10 +29,10 @@ export function RealtimeProvider({ children }) {
     socketRef.current = socket;
     socket.on('connect', () => { setConnected(true); refreshUnread(); });
     socket.on('disconnect', () => setConnected(false));
-    for (const event of ['message:new', 'message:deleted', 'typing', 'read']) {
+    for (const event of ['message:new', 'message:deleted', 'typing', 'read', 'anon:update']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));
-        if (event === 'message:new' || event === 'read') refreshUnread();
+        if (event === 'message:new' || event === 'read' || event === 'anon:update') refreshUnread();
       });
     }
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshUnread(); });

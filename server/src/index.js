@@ -6,6 +6,7 @@ import { migrate } from './migrate.js';
 import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
+import { startAnonTimer } from './services/anon.js';
 import { localAiStatus } from './services/referee.js';
 
 try {
@@ -20,6 +21,7 @@ try {
 
 const server = http.createServer(createApp());
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
+startAnonTimer(); // Anonymous chats: reveal the sender after 7 days, checked every minute
 initRealtime(server);
 
 server.listen(config.port, '0.0.0.0', () => {

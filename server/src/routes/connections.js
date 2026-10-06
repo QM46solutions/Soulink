@@ -10,6 +10,7 @@ import { isBlockedEither, meView, notify, userCard } from '../services/social.js
 import { soulScore, TRAITS } from '../services/soulQuiz.js';
 import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, connectionBetween, pairOf } from '../services/connections.js';
 import { directKey, postMessage, systemMessage } from './conversations.js';
+import { revealBetween } from '../services/anon.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -160,6 +161,7 @@ r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
     return cv;
   });
 
+  await revealBetween(q.from_id, q.to_id); // an anonymous chat between them is revealed once they connect
   const label = INTENTS[finalIntent];
   await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${q.soul_score ? ` · Soul Score ${q.soul_score}%` : ''}`);
   if (q.note) await postMessage(conv, q.from_id, { kind: 'text', body: q.note });
