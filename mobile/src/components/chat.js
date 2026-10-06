@@ -14,6 +14,7 @@ import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
 import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
 import { CHAT_LANGS, langName } from '../lib/languages';
+import { Overlay } from '../lib/portal';
 
 // ---------- avatars ----------
 
@@ -361,10 +362,7 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
   useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); } }, [visible, value]);
   if (!visible) return null;
   const sheet = (
-      <Pressable onPress={onClose} style={Platform.OS === 'web'
-        // laptop preview: stay inside the phone frame (a web Modal would cover the whole browser window)
-        ? { position: 'absolute', left: 0, right: 0, bottom: 0, top: -1400, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }
-        : { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: '#13111f', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: space.xl, paddingBottom: space.xl + 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <Ionicons name="language" size={20} color={colors.aura} style={{ marginRight: 8 }} />
@@ -394,8 +392,7 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
         </Pressable>
       </Pressable>
   );
-  if (Platform.OS === 'web') return sheet;
-  return <Modal visible transparent animationType="fade" onRequestClose={onClose}>{sheet}</Modal>;
+  return <Overlay onClose={onClose} animationType="fade">{sheet}</Overlay>;
 }
 
 /** What you wrote / said, and what will be sent. Nothing goes out until you press Send. */

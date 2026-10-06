@@ -2,6 +2,7 @@
 //  POST   /posts                     multipart: photos[] (optional), caption  → new post
 //  GET    /posts/:id                 one post (same visibility as the profile)
 //  DELETE /posts/:id                 delete my post
+//  PATCH  /posts/:id                 { caption } edit my caption
 //  POST   /posts/:id/like            like / unlike (toggle)
 //  GET    /posts/:id/comments        comments, oldest first
 //  POST   /posts/:id/comments        { body }
@@ -98,6 +99,17 @@ r.delete('/:id', ah(async (req, res) => {
   const upd = await one('UPDATE posts SET deleted_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL', [id, req.user.id]);
   if (!upd) throw notFound('Post not found');
   res.json({ ok: true });
+}));
+
+r.patch('/:id', ah(async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const { caption } = z.object({ caption: z.string().max(2200) }).parse(req.body || {});
+  const p = await one('SELECT id, media_urls FROM posts WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL', [id, req.user.id]);
+  if (!p) throw notFound('Post not found');
+  if (!caption.trim() && !media(p.media_urls).length) throw badRequest("A text post can't be empty", 'empty_post');
+  await query('UPDATE posts SET caption=$2 WHERE id=$1', [id, caption.trim()]);
+  const x = await one(`${SELECT} WHERE p.id = $2`, [req.user.id, id]);
+  res.json({ post: postView(x, req.user.id) });
 }));
 
 r.post('/:id/like', ah(async (req, res) => {

@@ -1,7 +1,7 @@
 // A post in the feed or on the post screen: author, photos (arrows + dots, no swiping), caption and
 // the action row: 👌🏻 like, comment, share (in a chat or outside Soulink) and offense.
 import { useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, Share, Text, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
 export const LIKE_EMOJI = '👌🏻';
+// long words / links wrap instead of running off the screen (web needs this explicitly)
+const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 const ND = Platform.OS !== 'web';
 
 export function timeAgo(iso) {
@@ -76,6 +78,11 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [offended, setOffended] = useState(post.offended);
   const [shares, setShares] = useState(post.shareCount || 0);
   const [shareMenu, setShareMenu] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [caption, setCaption] = useState(post.caption);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(post.caption || '');
+  const [saving, setSaving] = useState(false);
   const pop = useRef(new Animated.Value(1)).current;
   const burst = useRef(new Animated.Value(0)).current;
   const openPost = () => { if (!showAllComments) router.push(`/post/${post.id}`); };
@@ -122,6 +129,31 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
       onDeleted?.(post.id);
     }
   };
+  const saveCaption = async () => {
+    setSaving(true);
+    try { const r = await api(`/posts/${post.id}`, { method: 'PATCH', body: { caption: draft } }); setCaption(r.post.caption); setEditing(false); }
+    catch (e) { notice('Not saved', e.message); } finally { setSaving(false); }
+  };
+  const copyText = async () => {
+    try { if (Platform.OS === 'web') await navigator.clipboard.writeText(caption || ''); else await Share.share({ message: caption || '' }); } catch { /* cancelled */ }
+  };
+  const offenseInfo = () => notice('Offense marks',
+    `${post.offenseCount || 0} ${post.offenseCount === 1 ? 'person has' : 'people have'} marked this post as offensive. You never see who. If more than 75 people mark it, it's hidden from everyone except you.`);
+  // Instagram-style ⋯ menu: your own post vs someone else's
+  const options = post.mine
+    ? [
+      ...(!post.suspended ? [{ label: 'Edit caption', onPress: () => { setDraft(caption || ''); setEditing(true); } }] : []),
+      { label: 'Share', onPress: () => setShareMenu(true) },
+      ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
+      { label: `Offense marks (${post.offenseCount || 0})`, onPress: offenseInfo },
+      { label: 'Delete', destructive: true, onPress: del },
+    ]
+    : [
+      { label: offended ? 'Remove offense mark' : 'Mark as offensive', destructive: !offended, onPress: offense },
+      { label: 'Share', onPress: () => setShareMenu(true) },
+      ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
+      { label: 'About this account', onPress: () => router.push(`/user/${post.author.username}`) },
+    ];
   const textOnly = !post.media?.length;
 
   return (
@@ -137,9 +169,10 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}{post.author.soulType ? ` · ${post.author.soulType}` : ''}</Text>
           </View>
         </Pressable>
-        {post.mine ? (
-          <Pressable onPress={del} hitSlop={10} accessibilityLabel="Delete post"><Ionicons name="trash-outline" size={19} color={colors.muted} /></Pressable>
-        ) : null}
+        <Pressable onPress={() => setOptionsOpen(true)} hitSlop={10} accessibilityLabel="Post options"
+          style={({ hovered }) => ({ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(255,255,255,0.08)' : 'transparent' })}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+        </Pressable>
       </View>
 
       {post.suspended && post.mine ? (
@@ -152,7 +185,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
       ) : null}
       {textOnly ? (
         <Pressable onPress={openPost} style={{ marginHorizontal: space.lg, padding: space.xl, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(176,143,255,0.35)', backgroundColor: 'rgba(124,92,252,0.1)' }}>
-          <Text style={{ fontFamily: fonts.displaySemi, fontSize: 19, lineHeight: 27, color: colors.text }}>{post.caption}</Text>
+          <Text style={{ fontFamily: fonts.displaySemi, fontSize: 19, lineHeight: 27, color: colors.text, ...WRAP }}>{caption}</Text>
         </Pressable>
       ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
 
@@ -161,26 +194,21 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         <Action onPress={openPost} label="Comments" count={post.commentCount}>
-          <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
+          <Ionicons name="chatbubble" size={21} color={colors.text} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares}>
-          <Ionicons name="paper-plane-outline" size={22} color={colors.text} />
+          <Ionicons name="paper-plane" size={21} color={colors.text} />
         </Action>
         <View style={{ flex: 1 }} />
-        {post.mine ? (
-          post.offenseCount ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel={`${post.offenseCount} people marked this offensive`}>
-              <Ionicons name="flag" size={16} color={colors.muted} />
-              <Text style={{ fontFamily: fonts.medium, color: colors.muted, fontSize: 12, marginLeft: 4 }}>{post.offenseCount}</Text>
-            </View>
-          ) : null
-        ) : (
-          <Action onPress={offense} label={offended ? 'Remove offense mark' : 'Mark as offensive'}>
-            <Ionicons name={offended ? 'flag' : 'flag-outline'} size={21} color={offended ? colors.danger : colors.text} />
-            <Text style={{ fontFamily: fonts.medium, color: offended ? colors.danger : colors.muted, fontSize: 12, marginLeft: 4 }}>{offended ? 'Offensive' : 'Offense'}</Text>
-          </Action>
-        )}
+        {/* Offense: always shown. Others mark it; on your own post it shows how many marked it */}
+        <Action onPress={post.mine ? offenseInfo : offense} label={post.mine ? `${post.offenseCount || 0} offense marks` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
+          <Ionicons name="flag" size={20} color={offended ? colors.danger : post.mine ? colors.muted : colors.text} />
+          <Text style={{ fontFamily: fonts.semibold, color: offended ? colors.danger : post.mine ? colors.muted : colors.text, fontSize: 13, marginLeft: 5 }}>
+            {post.mine ? (post.offenseCount || 0) : offended ? 'Offensive' : 'Offense'}
+          </Text>
+        </Action>
       </View>
+      <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
       <ActionSheet
         visible={shareMenu}
         onClose={() => setShareMenu(false)}
@@ -190,9 +218,20 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]}
       />
-      {!textOnly && post.caption ? (
-        <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, lineHeight: 20 }}>
-          <Text style={{ fontFamily: fonts.semibold }}>{post.author.username} </Text>{post.caption}
+      {editing ? (
+        <View style={{ paddingHorizontal: space.lg, marginTop: 8 }}>
+          <TextInput value={draft} onChangeText={setDraft} multiline autoFocus maxLength={2200} placeholder="Write a caption…" placeholderTextColor={colors.dim}
+            style={{ minHeight: 44, maxHeight: 140, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.aura, backgroundColor: colors.inputBg, color: colors.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 20, outlineStyle: 'none', ...WRAP }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+            <Pressable onPress={() => setEditing(false)} style={{ paddingHorizontal: 14, height: 32, justifyContent: 'center' }}><Text style={{ fontFamily: fonts.semibold, color: colors.muted }}>Cancel</Text></Pressable>
+            <Pressable onPress={saveCaption} disabled={saving} style={{ paddingHorizontal: 16, height: 32, borderRadius: 10, justifyContent: 'center', backgroundColor: colors.soul }}>
+              <Text style={{ fontFamily: fonts.semibold, color: '#fff' }}>{saving ? 'Saving…' : 'Save'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : !textOnly && caption ? (
+        <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, lineHeight: 20, ...WRAP }}>
+          <Text style={{ fontFamily: fonts.semibold }}>{post.author.username} </Text>{caption}
         </Text>
       ) : null}
       {!showAllComments && post.commentCount ? (

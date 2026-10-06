@@ -110,7 +110,8 @@ function PhoneFrame({ children }) {
         transform: [{ scale }], marginVertical: -(fullH * (1 - scale)) / 2,
         boxShadow: '0 20px 70px rgba(124,92,252,0.28)',
       }}>
-        <View style={{ flex: 1, borderRadius: 54, overflow: 'hidden', backgroundColor: colors.void, paddingTop: PHONE.top, paddingBottom: PHONE.bottom }}>
+        {/* nativeID: menus and sheets are drawn into this screen (lib/portal.web.js) so they stay inside the phone */}
+        <View nativeID="phone-screen" style={{ flex: 1, borderRadius: 54, overflow: 'hidden', backgroundColor: colors.void, paddingTop: PHONE.top, paddingBottom: PHONE.bottom }}>
           {/* the app gets 440 × 863 pt; its starry background runs behind the status bar like on the real phone */}
           {children}
           {/* status bar + Dynamic Island (59 pt) */}
