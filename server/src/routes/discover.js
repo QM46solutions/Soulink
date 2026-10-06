@@ -14,6 +14,8 @@ import { soulScore, SOUL_TYPES, TRAITS } from '../services/soulQuiz.js';
 import { distanceKm, placeCoords } from '../services/places.js';
 import { INTENT_KEYS } from '../services/connections.js';
 
+export const MIN_MATCH = 75; // Discover shows people who match above this Soul Score
+
 const r = Router();
 r.use(requireAuth);
 
@@ -122,12 +124,13 @@ r.post('/search', ah(async (req, res) => {
       score: mine && theirs ? soulScore(mine, theirs, myInterests, interests) : null,
     };
   });
-  if (f.intents?.length) people = people.filter((p) => !p.openTo.length || p.openTo.some((i) => f.intents.includes(i)));
   if (f.interests?.length) people = people.filter((p) => list(p.u.interests).some((i) => f.interests.includes(i)));
   if (f.minShared) people = people.filter((p) => p.shared.length >= f.minShared);
   if (f.languages?.length) people = people.filter((p) => p.languages.some((l) => f.languages.map(norm).includes(norm(l))));
   if (f.distanceKm) people = people.filter((p) => p.km != null && p.km <= f.distanceKm);
-  if (f.minScore) people = people.filter((p) => p.score != null && p.score >= f.minScore);
+  // Discover only shows strong matches: Soul Score above 75% (needs both people's Soul DNA)
+  people = people.filter((p) => p.score != null && p.score > MIN_MATCH);
+  if (f.minScore) people = people.filter((p) => p.score >= f.minScore);
   if (f.nature) people = people.filter((p) => p.theirs && (f.nature === 'extrovert' ? p.theirs.nature >= 55 : p.theirs.nature <= 45));
   if (f.mentality) people = people.filter((p) => p.theirs && (f.mentality === 'dreamer' ? p.theirs.mentality >= 55 : p.theirs.mentality <= 45));
 

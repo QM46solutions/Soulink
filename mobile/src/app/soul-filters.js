@@ -7,7 +7,6 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { notice } from '../lib/confirm';
-import { INTENTS } from '../lib/intents';
 import { DISTANCES, GENDERS, INTERESTS, LANGUAGES, SCORES, clean } from '../lib/filters';
 import CityField from '../components/CityField';
 import { Button, Loading, s } from '../components/ui';
@@ -89,10 +88,6 @@ export default function SoulFilters() {
   return (
     <View style={s.screen}>
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
-        <Card icon="heart-circle" title="Looking for" hint="People who are open to any of these">
-          <Row>{INTENTS.filter((i) => i.key !== 'unsure').map((i) => <Opt key={i.key} label={`${i.emoji} ${i.label}`} on={f.intents?.includes(i.key)} onPress={() => toggle('intents', i.key)} />)}</Row>
-        </Card>
-
         <Card icon="people" title="Who">
           <View style={{ flexDirection: 'row', marginBottom: space.md }}>
             <Stepper label="Age from" value={f.ageMin || 18} min={18} max={f.ageMax || 60} onChange={(v) => set('ageMin', v === 18 ? undefined : v)} />

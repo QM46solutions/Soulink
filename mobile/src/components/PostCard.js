@@ -66,13 +66,21 @@ function Photos({ media, onDoubleTap, burst }) {
 }
 
 /** One action: icon with its count underneath (Instagram style). */
-function Action({ onPress, label, children, count, color, disabled }) {
+function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel }) {
+  const num = <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count || 0}</Text>;
   return (
-    <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
-      style={({ hovered, pressed }) => ({ alignItems: 'center', minWidth: 40, marginRight: space.xl, opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
-      <View style={{ height: 26, justifyContent: 'center' }}>{children}</View>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count || 0}</Text>
-    </Pressable>
+    <View style={{ alignItems: 'center', minWidth: 40, marginRight: space.xl }}>
+      <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
+        style={({ hovered, pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
+        <View style={{ height: 26, justifyContent: 'center' }}>{children}</View>
+        {onCountPress ? null : num}
+      </Pressable>
+      {/* the count can open its own list (e.g. who liked) */}
+      {onCountPress ? (
+        <Pressable onPress={onCountPress} hitSlop={6} accessibilityLabel={countLabel}
+          style={({ hovered }) => ({ paddingHorizontal: 4, borderRadius: 6, backgroundColor: hovered ? 'rgba(255,255,255,0.08)' : 'transparent' })}>{num}</Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -196,7 +204,8 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
       ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
-        <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}>
+        <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}
+          onCountPress={() => router.push(`/post-likes/${post.id}`)} countLabel="See who gave this a 👌🏻">
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
@@ -224,6 +233,13 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]}
       />
+      {likes > 0 && !editing ? (
+        <Text onPress={() => router.push(`/post-likes/${post.id}`)} style={{ fontFamily: fonts.body, fontSize: 13, color: colors.text, paddingHorizontal: space.lg, marginTop: 6 }}>
+          {LIKE_EMOJI} {liked && (likes === 1 || !post.likedBy)
+            ? (likes === 1 ? <Text style={{ fontFamily: fonts.semibold }}>You</Text> : <>Liked by <Text style={{ fontFamily: fonts.semibold }}>you</Text> and <Text style={{ fontFamily: fonts.semibold }}>{likes - 1} {likes - 1 === 1 ? 'other' : 'others'}</Text></>)
+            : <>Liked by <Text style={{ fontFamily: fonts.semibold }}>{post.likedBy || 'someone'}</Text>{likes > 1 ? <> and <Text style={{ fontFamily: fonts.semibold }}>{likes - 1} {likes - 1 === 1 ? 'other' : 'others'}</Text></> : null}</>}
+        </Text>
+      ) : null}
       {editing ? (
         <View style={{ paddingHorizontal: space.lg, marginTop: 8 }}>
           <TextInput value={draft} onChangeText={setDraft} multiline autoFocus maxLength={2200} placeholder="Write a caption…" placeholderTextColor={colors.dim}

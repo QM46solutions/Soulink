@@ -63,7 +63,6 @@ export default function Connect() {
     );
   }
 
-  const openTo = status?.openTo || [];
   return (
     <BrandScreen back center={false}>
       <View style={{ alignItems: 'center', marginTop: space.md }}>
@@ -81,12 +80,9 @@ export default function Connect() {
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0, textAlign: 'center' }]}>What are you hoping for?</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
         {INTENTS.map((i) => (
-          <IntentChip key={i.key} intent={i} selected={intent === i.key} disabled={openTo.length > 0 && !openTo.includes(i.key)} onPress={() => setIntent(i.key)} />
+          <IntentChip key={i.key} intent={i} selected={intent === i.key} onPress={() => setIntent(i.key)} />
         ))}
       </View>
-      {openTo.length && openTo.length < INTENTS.length ? (
-        <Text style={[s.hint, { textAlign: 'center', marginLeft: 0 }]}>Faded options: {first} isn't open to those.</Text>
-      ) : null}
 
       <Input label="Add a note (optional)" value={note} onChangeText={setNote} maxLength={150} multiline
         placeholder={`e.g. We met at the Hitex tech meetup!`} hint={`${note.length}/150 · ${first} sees this with your request`} style={{ marginTop: space.xl }} />

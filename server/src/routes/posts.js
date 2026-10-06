@@ -30,6 +30,7 @@ const media = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v 
 
 const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.created_at AS post_at,
     (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS like_count,
+    (SELECT TOP 1 lu.username FROM post_likes l2 JOIN users lu ON lu.id = l2.user_id WHERE l2.post_id = p.id AND l2.user_id <> $1 ORDER BY l2.created_at DESC) AS liked_by,
     (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL) AS comment_count,
     CASE WHEN EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = $1) THEN 1 ELSE 0 END AS liked,
     (SELECT COUNT(*) FROM post_offenses o WHERE o.post_id = p.id) AS offense_count,
@@ -47,6 +48,7 @@ export const postView = (x, meId) => ({
   media: media(x.media_urls),
   createdAt: x.post_at,
   likeCount: Number(x.like_count || 0),
+  likedBy: x.liked_by || null, // latest person (other than me) who gave it a 👌🏻, for "Liked by …"
   commentCount: Number(x.comment_count || 0),
   liked: !!x.liked,
   shareCount: Number(x.share_count || 0),
@@ -167,6 +169,18 @@ r.post('/:id/share', ah(async (req, res) => {
   if (!conversationIds?.length) await query(`INSERT INTO post_shares (post_id, user_id, channel) VALUES ($1, $2, N'external')`, [x.post_id, req.user.id]);
   const n = await one('SELECT COUNT(*) AS n FROM post_shares WHERE post_id=$1', [x.post_id]);
   res.json({ ok: true, sent: sent.length, shareCount: Number(n.n) });
+}));
+
+// Who gave this post a 👌🏻 (newest first)
+r.get('/:id/likes', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  const rows = await many(
+    `SELECT TOP 300 u.* FROM post_likes l JOIN users u ON u.id = l.user_id
+      WHERE l.post_id=$1
+        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$2))
+      ORDER BY l.created_at DESC`, [x.post_id, req.user.id],
+  );
+  res.json({ users: rows.map(userCard) });
 }));
 
 r.get('/:id/comments', ah(async (req, res) => {

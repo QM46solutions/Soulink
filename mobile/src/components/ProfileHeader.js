@@ -85,9 +85,8 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         {user.isPremium ? <Ionicons name="diamond" size={13} color={colors.gold} style={{ marginLeft: 5 }} /> : null}
       </View>
 
-      {user.verified || user.soulType ? (
+      {user.soulType ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, marginLeft: -3 }}>
-          {user.verified ? <Pill icon="shield-checkmark" text="Verified Real Soul" color={colors.mint} border="rgba(66,232,192,0.45)" bg="rgba(66,232,192,0.08)" /> : null}
           {user.soulType ? <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.45)" bg="rgba(124,92,252,0.10)" /> : null}
         </View>
       ) : null}

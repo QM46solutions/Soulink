@@ -97,11 +97,9 @@ describe('Connect requests', () => {
     await api().post(`/connections/requests/${q2.id}/accept`).set(d.h).send({}).expect(409);
   });
 
-  test('"Open to" blocks intents the receiver does not want', async () => {
+  test('any intent can be sent (Open to was removed from settings)', async () => {
     const [a, b] = await pair();
-    await api().put('/connections/open-to').set(b.h).send({ openTo: ['friendship', 'networking'] }).expect(200);
-    assert.equal((await send(a, b, { intent: 'dating' }).expect(403)).body.error.code, 'not_open_to');
-    await send(a, b, { intent: 'networking' }).expect(201);
+    await send(a, b, { intent: 'dating' }).expect(201);
   });
 
   test('chat is only possible after connecting', async () => {

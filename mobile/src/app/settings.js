@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
-import { IntentChip } from '../components/Choice';
-import { INTENTS } from '../lib/intents';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api, getServer } from '../lib/api';
@@ -51,13 +49,6 @@ export default function Settings() {
     try { setUser((await api('/users/me', { method: 'PATCH', body: patch })).user); } catch (e) { setUser(prev); setError(e.message); }
   };
 
-  const saveOpenTo = async (openTo) => {
-    if (!openTo.length) { setError('Keep at least one option on.'); return; }
-    setError(null);
-    const prev = user;
-    setUser({ ...user, openTo });
-    try { setUser((await api('/connections/open-to', { method: 'PUT', body: { openTo } })).user); } catch (e) { setUser(prev); setError(e.message); }
-  };
 
   return (
     <ScrollView style={s.screen}>
@@ -73,14 +64,6 @@ export default function Settings() {
         onChange={(v) => update({ faceDiscoverable: v })}
       />
       <Toggle title="Use my activity for Soul DNA" text="Searches, likes and time spent on profiles help improve your matches. Never shared with anyone." value={user.settings.consentTracking} onChange={(v) => update({ consentTracking: v })} />
-      <Section>Open to</Section>
-      <Text style={[s.hint, { paddingHorizontal: space.lg, marginTop: 0 }]}>Which Connect requests people can send you. Turn off anything you don't want.</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: space.lg - 4, paddingTop: space.sm }}>
-        {INTENTS.map((i) => {
-          const on = (user.openTo || []).includes(i.key);
-          return <IntentChip key={i.key} intent={i} selected={on} onPress={() => saveOpenTo(on ? user.openTo.filter((k) => k !== i.key) : [...(user.openTo || []), i.key])} />;
-        })}
-      </View>
       <Link icon="sparkles-outline" title="Soul Requests" onPress={() => router.push('/connections/requests')} />
       <Link icon="language-outline" title={`Chat translation: ${user.chatLanguage ? CHAT_LANGS.find((l) => l.key === user.chatLanguage)?.native : 'Off'}`} onPress={() => setLangOpen(true)} />
       <ActionSheet visible={langOpen} onClose={() => setLangOpen(false)} title="Translate chat messages into"

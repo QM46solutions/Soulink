@@ -1,5 +1,4 @@
 // Soul Filters: shared lists and helpers for the Discover screen and the filter screen.
-import { intentOf } from './intents';
 
 export const INTERESTS = ['Music', 'Movies', 'Cricket', 'Fitness', 'Travel', 'Food', 'Gaming', 'Books', 'Tech', 'Art', 'Fashion', 'Photography', 'Spirituality', 'Startups', 'Dance'];
 export const LANGUAGES = ['Telugu', 'Hindi', 'English', 'Urdu', 'Tamil', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Punjabi', 'Odia'];
@@ -22,7 +21,6 @@ export const clean = (f) => Object.fromEntries(Object.entries(f || {}).filter(([
 /** Short chips describing the active filters: [{ key, label }] (sort is not a filter). */
 export function summary(f = {}) {
   const out = [];
-  if (f.intents?.length) out.push({ key: 'intents', label: f.intents.map((i) => `${intentOf(i).emoji} ${intentOf(i).label}`).join(', ') });
   if (f.ageMin || f.ageMax) out.push({ key: 'age', label: `Age ${f.ageMin || 18}–${f.ageMax || '60+'}` });
   if (f.genders?.length) out.push({ key: 'genders', label: f.genders.map((g) => GENDERS.find((x) => x.v === g)?.l).join(', ') });
   if (f.area) out.push({ key: 'area', label: f.area.split(',')[0] });

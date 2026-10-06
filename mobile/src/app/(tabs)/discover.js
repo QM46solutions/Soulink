@@ -11,7 +11,6 @@ import { AuraAvatar } from '../../components/ProfileHeader';
 import { ScorePill } from '../../components/Choice';
 import { Button, Empty, Loading, VerifiedBadge, s } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
-import { intentOf } from '../../lib/intents';
 import { SORTS, clean, summary, without } from '../../lib/filters';
 import { LiveFrame, RadarIcon } from '../../components/LiveIcons';
 
@@ -56,11 +55,6 @@ function PersonCard({ p }) {
           </View>
         ))}
       </View>
-      {p.openTo?.length ? (
-        <Text numberOfLines={1} style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 2 }}>
-          Open to {p.openTo.filter((k) => k !== 'unsure').slice(0, 4).map((k) => `${intentOf(k).emoji} ${intentOf(k).label}`).join('   ')}
-        </Text>
-      ) : null}
     </Pressable>
   );
 }
@@ -146,7 +140,7 @@ export default function Discover() {
       ListEmptyComponent={data ? (
         <View>
           <View style={{ marginTop: space.lg }}><LiveFrame size={170} label="VISUAL_SEARCH.LOCK"><RadarIcon size={140} /></LiveFrame></View>
-          <Empty icon="planet-outline" title={data.note ? 'One more step' : 'No souls match yet'} text={data.note || 'Try removing a filter or two. New people join every day.'}>
+          <Empty icon="planet-outline" title={data.note ? 'One more step' : user.soulReady ? 'No 75%+ matches yet' : 'Create your Soul DNA'} text={data.note || (user.soulReady ? 'Discover only shows people who match you above 75%. New souls join every day, check back soon.' : 'Discover shows people who match you above 75%. Take the Soul DNA quiz to see your matches.')}>
             {chips.length ? <Button title="Clear filters" variant="secondary" onPress={() => change({ sort: filters.sort })} /> : null}
           </Empty>
         </View>

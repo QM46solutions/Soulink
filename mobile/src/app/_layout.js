@@ -76,6 +76,7 @@ function RootStack() {
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
         <Stack.Screen name="share-post" options={{ title: 'Send in a chat', presentation: 'modal' }} />
+        <Stack.Screen name="post-likes/[id]" options={{ title: '👌🏻 Likes' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         <Stack.Screen name="blocked" options={{ title: 'Blocked accounts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />

@@ -99,7 +99,7 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   if (rejected) throw forbidden(`Your last request was rejected. You can send a new one after ${COOLDOWN.rejectedDays} days.`, 'cooldown');
   const suspended = await one(`SELECT TOP 1 id FROM connection_requests WHERE from_id=$1 AND to_id=$2 AND status=N'suspended' AND responded_at > $3`, [me.id, to.id, daysAgo(COOLDOWN.suspendedDays)]);
   if (suspended) throw forbidden(`Your last request expired without an answer. You can try again after ${COOLDOWN.suspendedDays} days.`, 'cooldown');
-  if (!list(to.open_to).includes(data.intent)) throw forbidden(`${to.display_name || to.username} isn't open to ${INTENTS[data.intent].label} requests.`, 'not_open_to');
+  // ("Open to" was removed from settings: every intent can be sent; the receiver chooses when answering)
 
   const score = await scoreBetween(me, to);
   const q = await one(
