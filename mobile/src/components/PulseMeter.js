@@ -19,14 +19,28 @@ export const PULSE_THEME = {
 /** Heartbeat speed: about 48 bpm when quiet, up to ~120 bpm when on fire. */
 const beatMs = (score) => Math.round(1250 - Math.min(100, Math.max(0, score)) * 7.5);
 
-// Heartbeat (ECG) trace, as points in a 0..1 box
-const ECG = [[0, 0.55], [0.22, 0.55], [0.29, 0.42], [0.35, 0.66], [0.43, 0.04], [0.5, 0.98], [0.57, 0.26], [0.63, 0.6], [0.69, 0.48], [0.75, 0.55], [1, 0.55]];
+// One heartbeat on an ECG monitor (P wave, QRS spike, T wave, flat line), as points in a 0..1 box
+const BEAT = [[0, 0.6], [0.08, 0.6], [0.12, 0.5], [0.16, 0.6], [0.26, 0.6], [0.29, 0.7], [0.33, 0.02], [0.37, 0.98], [0.4, 0.52], [0.43, 0.6],
+  [0.55, 0.6], [0.61, 0.43], [0.67, 0.6], [1, 0.6]];
+const R_PEAK = 0.33;
 const TICKS = 36;
 
-function EcgLine({ w, h, color, glow, thick }) {
-  return ECG.slice(1).map((p, i) => {
-    const a = ECG[i];
-    const x1 = a[0] * w; const y1 = a[1] * h; const x2 = p[0] * w; const y2 = p[1] * h;
+/** Value of the trace (0..1, top to bottom) at a point of the beat (0..1). */
+function beatY(f) {
+  const x = ((f % 1) + 1) % 1;
+  for (let i = 1; i < BEAT.length; i += 1) {
+    const [x0, y0] = BEAT[i - 1]; const [x1, y1] = BEAT[i];
+    if (x <= x1) return y0 + ((x - x0) / (x1 - x0 || 1)) * (y1 - y0);
+  }
+  return BEAT[BEAT.length - 1][1];
+}
+
+/** Several beats in a row, drawn as short glowing segments. */
+function EcgTrace({ beats, P, h, color, glow, thick }) {
+  const pts = [];
+  for (let k = 0; k < beats; k += 1) BEAT.forEach(([x, y], j) => { if (k === 0 || j > 0) pts.push([(k + x) * P, y * h]); });
+  return pts.slice(1).map((pt, i) => {
+    const [x1, y1] = pts[i]; const [x2, y2] = pt;
     const len = Math.hypot(x2 - x1, y2 - y1) + thick * 0.6;
     const ang = Math.atan2(y2 - y1, x2 - x1);
     return (
@@ -60,32 +74,46 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
     return () => { a.stop(); load.removeListener(id); };
   }, [score, load]);
 
-  // heartbeat: the trace sweeps in, glows, fades; arcs flash on each beat
+  // ECG monitor: the trace scrolls right-to-left at the heart rate, drawn by a bright pen dot;
+  // the arcs flash each time the spike passes the pen
+  const ecgW = D * 0.88; const ecgH = D * 0.47;
+  const P = ecgW * 0.62;          // width of one heartbeat on screen
+  const penX = ecgW * 0.84;       // where the pen draws
   useEffect(() => {
     const period = beatMs(score);
-    const trace = Animated.loop(Animated.sequence([
-      Animated.timing(sweep, { toValue: 1, duration: period * 0.55, easing: Easing.inOut(Easing.quad), useNativeDriver: false }),
-      Animated.delay(period * 0.25),
-      Animated.timing(sweep, { toValue: 2, duration: period * 0.2, useNativeDriver: false }),
-      Animated.timing(sweep, { toValue: 0, duration: 0, useNativeDriver: false }),
-    ]));
-    const heart = Animated.loop(Animated.sequence([
-      Animated.timing(beat, { toValue: 1, duration: period * 0.14, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
-      Animated.timing(beat, { toValue: 0, duration: period * 0.5, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
-      Animated.delay(period * 0.36),
-    ]));
+    sweep.setValue(0);
+    const trace = Animated.loop(Animated.timing(sweep, { toValue: 1, duration: period, easing: Easing.linear, useNativeDriver: ND }));
+    const toPeak = ((((R_PEAK * P - penX) % P) + P) % P) / P * period;
+    const heart = Animated.sequence([Animated.delay(toPeak), Animated.loop(Animated.sequence([
+      Animated.timing(beat, { toValue: 1, duration: period * 0.1, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+      Animated.timing(beat, { toValue: 0, duration: period * 0.45, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
+      Animated.delay(period * 0.45),
+    ]))]);
     const tw = Animated.loop(Animated.sequence([
       Animated.timing(twinkle, { toValue: 1, duration: 1600, useNativeDriver: ND }),
       Animated.timing(twinkle, { toValue: 0, duration: 1600, useNativeDriver: ND }),
     ]));
     trace.start(); heart.start(); tw.start();
     return () => { trace.stop(); heart.stop(); tw.stop(); };
-  }, [score, sweep, beat, twinkle]);
+  }, [score, sweep, beat, twinkle, P, penX]);
+
+  // pen height follows the trace at the pen position (sweep 0..1 = the strip moved one beat to the left)
+  const penRange = (() => {
+    const pairs = [[0, beatY(penX / P)], [1, beatY(penX / P + 1)]];
+    for (let k = 0; k < 3; k += 1) BEAT.forEach(([x]) => {
+      const f = ((k + x) * P - penX) / P; // fraction of a beat after which this point reaches the pen
+      if (f > 0 && f < 1) pairs.push([f, beatY(k + x)]);
+    });
+    pairs.sort((m, n) => m[0] - n[0]);
+    const inputRange = []; const outputRange = [];
+    pairs.forEach(([f, y]) => { if (!inputRange.length || f > inputRange[inputRange.length - 1] + 1e-6) { inputRange.push(f); outputRange.push(y * ecgH); } });
+    return { inputRange, outputRange };
+  })();
+  const stripX = sweep.interpolate({ inputRange: [0, 1], outputRange: [0, -P] });
+  const penY = sweep.interpolate(penRange);
+  const beatsNeeded = Math.ceil((penX + P) / P) + 1;
 
   const lit = Math.round((shown / 100) * TICKS);
-  const ecgW = D * 0.88; const ecgH = D * 0.47;
-  const revealW = sweep.interpolate({ inputRange: [0, 1, 2], outputRange: [0, ecgW, ecgW] });
-  const traceOpacity = sweep.interpolate({ inputRange: [0, 1, 1.6, 2], outputRange: [1, 1, 0.55, 0.15] });
   const arcOpacity = beat.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] });
   const arcScale = beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] });
   const thick = Math.max(1.5, S * 0.026);
@@ -129,12 +157,18 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
           {Array.from({ length: 6 }, (_, i) => (
             <View key={`h${i}`} style={{ position: 'absolute', top: gridStep * (i + 1), left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: `${th.glow}30` }} />
           ))}
-          {/* heartbeat trace, revealed left to right like a monitor */}
-          <Animated.View style={{ position: 'absolute', left: (D - ecgW) / 2, top: D * 0.1, width: revealW, height: ecgH, overflow: 'hidden', opacity: traceOpacity }}>
-            <View style={{ width: ecgW, height: ecgH }}>
-              <EcgLine w={ecgW} h={ecgH} color={th.core} glow={th.glow} thick={thick} />
+          {/* ECG monitor: scrolling trace up to the pen, fading out on the left */}
+          <View style={{ position: 'absolute', left: (D - ecgW) / 2, top: D * 0.1, width: ecgW, height: ecgH }}>
+            <View style={{ position: 'absolute', left: 0, top: 0, width: penX, height: ecgH, overflow: 'hidden' }}>
+              <Animated.View style={{ width: beatsNeeded * P, height: ecgH, transform: [{ translateX: stripX }] }}>
+                <EcgTrace beats={beatsNeeded} P={P} h={ecgH} color={th.core} glow={th.glow} thick={thick} />
+              </Animated.View>
+              <LinearGradient pointerEvents="none" colors={['#130f22', 'rgba(19,15,34,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: penX * 0.45 }} />
             </View>
-          </Animated.View>
+            <Animated.View style={{ position: 'absolute', left: penX - thick * 1.6, top: -thick * 1.6, width: thick * 3.2, height: thick * 3.2, borderRadius: thick * 2,
+              backgroundColor: '#fff', transform: [{ translateY: penY }], shadowColor: th.glow, shadowOpacity: 1, shadowRadius: thick * 4, shadowOffset: { width: 0, height: 0 } }} />
+          </View>
           {/* score */}
           <Text style={{ position: 'absolute', left: 0, right: 0, bottom: D * 0.1, textAlign: 'center', fontFamily: fonts.bold, color: '#fff', fontSize: D * 0.26,
             fontVariant: ['tabular-nums'], textShadowColor: th.glow, textShadowRadius: D * 0.08, textShadowOffset: { width: 0, height: 0 } }}>{shown}</Text>
