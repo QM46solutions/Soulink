@@ -66,7 +66,8 @@ async function assertUsernameFree(username, myId) {
 r.get('/me', ah(async (req, res) => {
   // your own page also shows connection requests waiting for your answer (pending or on hold)
   const reqs = await one(`SELECT COUNT(*) AS n FROM connection_requests WHERE to_id=$1 AND status IN (N'pending', N'held')`, [req.user.id]);
-  res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) }, pulse: await pulseFor(req.user.id) });
+  const pulseOff = req.user.show_pulse === false || req.user.show_pulse === 0;
+  res.json({ user: meView(req.user), counts: { ...(await counts(req.user.id)), requests: Number(reqs?.n || 0) }, pulse: pulseOff ? null : await pulseFor(req.user.id) });
 }));
 
 // Soulink Events (coming soon): "Notify me when events launch"
@@ -192,7 +193,7 @@ r.get('/u/:username', ah(async (req, res) => {
   const match = u.id !== req.user.id ? await headline(req.user.id, u.id) : null;
   const score = match ? match.all[match.relation].overall : null;
   await recordProfileView(req.user.id, u.id); // feeds their Pulse meter
-  const pulseHidden = u.id !== req.user.id && (u.show_pulse === false || u.show_pulse === 0); // they switched their Pulse meter off
+  const pulseHidden = u.show_pulse === false || u.show_pulse === 0; // Pulse meter switched off: hidden on the profile for everyone
   res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, match, pulse: pulseHidden ? null : await pulseFor(u.id) });
 }));
 

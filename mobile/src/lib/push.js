@@ -38,17 +38,27 @@ export async function enablePush() {
   if (support === 'needs_home_screen') throw new Error('On iPhone, open Soulink from its Home Screen icon first (Safari › Share › Add to Home Screen).');
   if (support === 'blocked') throw new Error('Notifications are blocked for Soulink. Allow them in your phone/browser settings, then try again.');
   if (support !== 'ready') throw new Error("This browser can't show notifications.");
+  // the permission question must be the first thing after the tap (iPhone is strict about this)
   const permission = await Notification.requestPermission();
+  if (permission === 'denied') throw new Error('Notifications are blocked. iPhone: Settings › Notifications › Soulink › Allow Notifications. Then try again.');
   if (permission !== 'granted') throw new Error('You chose not to allow notifications.');
-  const { publicKey } = await api('/push/key');
-  if (!publicKey) throw new Error("Notifications aren't set up on the server yet.");
-  const reg = await registration();
-  await navigator.serviceWorker.ready;
-  let sub = await reg.pushManager.getSubscription();
-  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
-  const json = sub.toJSON();
-  await api('/push/subscribe', { method: 'POST', body: { endpoint: json.endpoint, keys: json.keys } });
-  return true;
+  let step = 'server key';
+  try {
+    const { publicKey } = await api('/push/key');
+    if (!publicKey) throw new Error("Notifications aren't set up on the server yet.");
+    step = 'service worker';
+    await registration();
+    const reg = await navigator.serviceWorker.ready;
+    step = 'subscribe';
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+    step = 'save';
+    const json = sub.toJSON();
+    await api('/push/subscribe', { method: 'POST', body: { endpoint: json.endpoint, keys: json.keys } });
+    return true;
+  } catch (e) {
+    throw new Error(`${e.message || e} (step: ${step})`);
+  }
 }
 
 export async function disablePush() {

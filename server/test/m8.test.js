@@ -54,12 +54,13 @@ describe('Pulse meter', () => {
 });
 
 describe('Settings: Pulse meter on/off and notification kinds', () => {
-  test('hiding my Pulse meter hides it from others, not from me', async () => {
+  test('switching my Pulse meter off hides it on my profile for everyone, me included', async () => {
     const a = await makeUser(); const b = await makeUser();
     const me = await api().patch('/users/me').set(a.h).send({ showPulse: false }).expect(200);
     assert.equal(me.body.user.settings.showPulse, false);
     assert.equal((await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200)).body.pulse, null);
-    assert.ok((await api().get(`/users/u/${a.user.username}`).set(a.h).expect(200)).body.pulse);
+    assert.equal((await api().get(`/users/u/${a.user.username}`).set(a.h).expect(200)).body.pulse, null);
+    assert.equal((await api().get('/users/me').set(a.h).expect(200)).body.pulse, null);
     await api().patch('/users/me').set(a.h).send({ showPulse: true }).expect(200);
     assert.ok((await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200)).body.pulse);
   });

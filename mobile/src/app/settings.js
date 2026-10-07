@@ -62,7 +62,7 @@ export default function Settings() {
     try {
       if (on) { await enablePush(); setPhoneOn(true); await sendTestPush().catch(() => {}); }
       else { await disablePush(); setPhoneOn(false); }
-    } catch (e) { notice('Notifications', e.message); setPhoneOn(await pushEnabled()); }
+    } catch (e) { notice("Couldn't turn on notifications", e.message || String(e)); setPhoneOn(await pushEnabled()); }
     finally { setPushBusy(false); }
   };
   const prefs = user.settings.notifyPrefs || {};
@@ -77,7 +77,7 @@ export default function Settings() {
     <ScrollView style={s.screen}>
       <ErrorText>{error}</ErrorText>
       <Section>Notifications</Section>
-      <Toggle title="Notifications on this phone" text={phoneHint} value={phoneOn} disabled={pushBusy || (support !== 'ready' && !phoneOn)} onChange={togglePhone} />
+      <Toggle title="Notifications on this phone" text={phoneHint} value={phoneOn} disabled={pushBusy} onChange={togglePhone} />
       {[
         ['messages', 'Messages', 'New chat messages'],
         ['requests', 'Requests & connections', 'Connect requests, accepts and connect backs'],
@@ -92,7 +92,7 @@ export default function Settings() {
       {phoneOn ? <Link icon="notifications-outline" title="Send me a test notification" onPress={() => sendTestPush().then(() => notice('Sent', 'Lock your phone or switch apps: it should arrive in a few seconds.')).catch((e) => setError(e.message))} /> : null}
 
       <Section>Pulse meter</Section>
-      <Toggle title="Show my Pulse meter" text={user.settings.showPulse === false ? "Hidden: people visiting your profile don't see your Pulse. You still see yours." : 'People visiting your profile see how active and loved your profile is.'} value={user.settings.showPulse !== false} onChange={(v) => update({ showPulse: v })} />
+      <Toggle title="Show my Pulse meter" text={user.settings.showPulse === false ? 'Off: the Pulse meter is hidden on your profile.' : 'Shows how active and loved your profile is, on your profile.'} value={user.settings.showPulse !== false} onChange={(v) => update({ showPulse: v })} />
 
       <Section>Privacy</Section>
       <Toggle title="Private account" text="Only people you've accepted (your Connections and Followers) see your posts." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
