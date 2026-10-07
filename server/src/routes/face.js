@@ -84,7 +84,7 @@ r.post('/check',
 );
 
 r.post('/enroll',
-  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : 20, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : config.testing ? 300 : 20, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frames, useAsAvatar } = z.object({ frames: z.array(frame).length(3), useAsAvatar: z.boolean().optional() }).parse(req.body);
     if (req.user.face_verified) return res.json({ user: meView(req.user), already: true });
@@ -129,7 +129,8 @@ r.post('/enroll',
       if (hit && !match) match = o.user_id;
     }
     flog(`enroll user=${req.user.id.slice(0, 8)} compared with ${others.length} stored face(s), nearest ${nearest ? `avg=${nearest.avgD.toFixed(3)} photos=${nearest.singles.map((d) => d.toFixed(3)).join('/')} (${nearest.user.slice(0, 8)})` : 'none'}`);
-    if (match) {
+    if (match && config.testing) flog(`enroll user=${req.user.id.slice(0, 8)} same face as another account, ALLOWED (testing mode)`);
+    if (match && !config.testing) {
       flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face`);
       throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);
     }

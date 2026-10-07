@@ -51,7 +51,7 @@ export function createApp() {
 
   if (config.env !== 'test') {
     app.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false }));
-    app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }));
+    app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 20, standardHeaders: true, legacyHeaders: false }));
   }
 
   // Private preview gate: every API call needs the access code (photos and the health check don't)
