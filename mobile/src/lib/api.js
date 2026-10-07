@@ -153,9 +153,10 @@ export function uploadImage(path, uri, field = 'photo') {
 }
 
 /** New post: caption + 0-10 photos (uris from the picker/camera). Works on phone and web. */
-export async function createPost({ caption, uris = [] }) {
+export async function createPost({ caption, uris = [], place }) {
   const form = new FormData();
   form.append('caption', caption || '');
+  if (place) form.append('place', place);
   for (let i = 0; i < uris.length; i += 1) {
     const uri = uris[i];
     const dataType = uri.startsWith('data:') ? uri.slice(5, uri.indexOf(';')) : null;

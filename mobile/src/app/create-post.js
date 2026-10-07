@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { createPost } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { AuraAvatar } from '../components/ProfileHeader';
+import CityField from '../components/CityField';
 import { Button, ErrorText, s } from '../components/ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -19,6 +20,7 @@ export default function CreatePost() {
   const { user } = useAuth();
   const [photos, setPhotos] = useState([]);
   const [caption, setCaption] = useState('');
+  const [place, setPlace] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -49,7 +51,7 @@ export default function CreatePost() {
 
   const share = async () => {
     setBusy(true); setError(null);
-    try { await createPost({ caption: caption.trim(), uris: photos }); router.back(); } catch (e) { setError(e.message); setBusy(false); }
+    try { await createPost({ caption: caption.trim(), uris: photos, place: place.trim() || undefined }); router.back(); } catch (e) { setError(e.message); setBusy(false); }
   };
 
   return (
@@ -98,6 +100,7 @@ export default function CreatePost() {
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
           {photos.length ? `${photos.length}/${MAX} photos · first photo is the cover` : `Add up to ${MAX} photos, or just write something`}
         </Text>
+        <View style={{ marginTop: space.lg }}><CityField value={place} onChange={setPlace} autoLocate={false} label="📍 Add location (optional)" /></View>
         <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Connections and Followers{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
         {/* community rule, told to the person posting (not to people who mark posts) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: space.lg, padding: space.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(26,24,40,0.7)' }}>

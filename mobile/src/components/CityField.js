@@ -8,7 +8,7 @@ import { api } from '../lib/api';
 import { colors, fonts, space } from '../lib/theme';
 import { Input, s } from './ui';
 
-export default function CityField({ value, onChange, autoLocate = true }) {
+export default function CityField({ value, onChange, autoLocate = true, label = 'City', placeholder }) {
   const [suggestions, setSuggestions] = useState([]);
   const [locating, setLocating] = useState(false);
   const [note, setNote] = useState(null);
@@ -49,7 +49,7 @@ export default function CityField({ value, onChange, autoLocate = true }) {
   return (
     <View style={{ marginBottom: space.lg }}>
       <Input
-        label="City"
+        label={label}
         value={value}
         onChangeText={type}
         placeholder="Start typing, e.g. Gachibowli"

@@ -1,5 +1,5 @@
 // Posts: photo posts (1-10 photos) or text-only posts, with likes and comments.
-//  POST   /posts                     multipart: photos[] (optional), caption  → new post
+//  POST   /posts                     multipart: photos[] (optional), caption, place?  → new post
 //  GET    /posts/:id                 one post (same visibility as the profile)
 //  DELETE /posts/:id                 delete my post
 //  PATCH  /posts/:id                 { caption?, hideLikes?, commentsOff? } edit my post
@@ -41,7 +41,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
-    p.hide_likes, p.comments_off, p.music_url, p.music_title,
+    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.place,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -57,6 +57,7 @@ export const postView = (x, meId) => {
     hideLikes: on(x.hide_likes),
     commentsOff: on(x.comments_off),
     music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music' } : null,
+    place: x.place || null,
   };
 };
 const basicView = (x, meId) => ({
@@ -96,12 +97,12 @@ async function loadVisible(req) {
 }
 
 r.post('/', uploadMemory('image', 10, 10).array('photos', 10), ah(async (req, res) => {
-  const { caption } = z.object({ caption: z.string().max(2200).optional() }).parse(req.body || {});
+  const { caption, place } = z.object({ caption: z.string().max(2200).optional(), place: z.string().trim().max(150).optional() }).parse(req.body || {});
   const files = req.files || [];
   if (!files.length && !caption?.trim()) throw badRequest('Add a photo or write something', 'empty_post');
   const urls = [];
   for (const f of files) urls.push(await saveFile(f, 'posts'));
-  const p = await one('INSERT INTO posts (author_id, caption, media_urls) OUTPUT INSERTED.id VALUES ($1, $2, $3)', [req.user.id, (caption || '').trim(), urls]);
+  const p = await one('INSERT INTO posts (author_id, caption, media_urls, place) OUTPUT INSERTED.id VALUES ($1, $2, $3, $4)', [req.user.id, (caption || '').trim(), urls, place || null]);
   const x = await one(`${SELECT} WHERE p.id = $2`, [req.user.id, p.id]);
   res.status(201).json({ post: postView(x, req.user.id) });
 }));
@@ -136,7 +137,8 @@ const freshView = async (req, id) => postView(await one(`${SELECT} WHERE p.id = 
 
 r.patch('/:id', ah(async (req, res) => {
   const p = await myPost(req);
-  const d = z.object({ caption: z.string().max(2200).optional(), hideLikes: z.boolean().optional(), commentsOff: z.boolean().optional() }).parse(req.body || {});
+  const d = z.object({ caption: z.string().max(2200).optional(), place: z.string().trim().max(150).nullable().optional(), hideLikes: z.boolean().optional(), commentsOff: z.boolean().optional() }).parse(req.body || {});
+  if (d.place !== undefined) await query('UPDATE posts SET place=$2 WHERE id=$1', [p.id, d.place || null]);
   if (d.caption !== undefined) {
     if (!d.caption.trim() && !media(p.media_urls).length) throw badRequest("A text post can't be empty", 'empty_post');
     await query('UPDATE posts SET caption=$2 WHERE id=$1', [p.id, d.caption.trim()]);

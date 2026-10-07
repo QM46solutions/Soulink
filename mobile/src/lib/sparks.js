@@ -3,17 +3,18 @@ import { Platform } from 'react-native';
 import { api } from './api';
 
 export const CATEGORIES = [
-  { key: 'travel', label: 'Travel', emoji: '✈️', icon: 'airplane', colors: ['#3fa9f5', '#42e8c0'], react: { emoji: '😍', label: 'Wanderlust' },
+  { key: 'travel', label: 'Travel', emoji: '✈️', icon: 'airplane', mci: 'airplane-takeoff', colors: ['#3fa9f5', '#42e8c0'], react: { emoji: '😍', label: 'Wanderlust' },
     line: 'Pin the place, add its music or its real sound' },
-  { key: 'cooking', label: 'Cooking', emoji: '🍳', icon: 'restaurant', colors: ['#ff9a5a', '#f5c842'], react: { emoji: '😋', label: 'Yum' },
+  { key: 'cooking', label: 'Cooking', emoji: '🍳', icon: 'restaurant', mci: 'chef-hat', colors: ['#ff9a5a', '#f5c842'], react: { emoji: '😋', label: 'Yum' },
     line: 'Recipe card, time, veg / non-veg, "I tried it"' },
-  { key: 'acting', label: 'Acting', emoji: '🎭', icon: 'film', colors: ['#7c5cfc', '#ff6b9d'], react: { emoji: '👏', label: 'Bravo' },
+  { key: 'acting', label: 'Acting', emoji: '🎭', icon: 'film', mci: 'drama-masks', colors: ['#7c5cfc', '#ff6b9d'], react: { emoji: '👏', label: 'Bravo' },
     line: 'Improv Dice, Script of the week, scenes and dubs' },
-  { key: 'fitness', label: 'Fitness', emoji: '💪', icon: 'barbell', colors: ['#42e8c0', '#7cf57c'], react: { emoji: '💪', label: 'Strong' },
+  { key: 'fitness', label: 'Fitness', emoji: '💪', icon: 'barbell', mci: 'arm-flex', colors: ['#42e8c0', '#7cf57c'], react: { emoji: '💪', label: 'Strong' },
     line: 'Workouts, yoga, runs, transformations: workout card + "I did it"' },
-  { key: 'news', label: 'News', emoji: '📰', icon: 'newspaper', colors: ['#ff6b6b', '#ff9a5a'], react: { emoji: '💡', label: 'Useful' },
+  { key: 'news', label: 'News', emoji: '📰', icon: 'newspaper', mci: 'newspaper-variant', colors: ['#ff6b6b', '#ff9a5a'], react: { emoji: '💡', label: 'Useful' },
     line: 'What happened, where, with the headline and a source link' },
 ];
+export const ALL_CAT = { key: null, label: 'All', mci: 'movie-open-star', colors: ['#7c5cfc', '#ff6b9d'] };
 export const catOf = (k) => CATEGORIES.find((c) => c.key === k) || CATEGORIES[0];
 
 // ---- Acting: Improv Dice 🎲 (random emotion + situation + character) ----

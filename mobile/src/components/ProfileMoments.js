@@ -72,7 +72,7 @@ export default function ProfileMoments({ userId, isMe, name }) {
       {isMe ? <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', paddingVertical: 8 }}>Only you can see this. Others see your Moments for 24 hours.</Text> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {list.map((m) => (
-          <Pressable key={m.id} onPress={() => (isMe ? setOpen(m) : router.push(`/moment/${userId}`))} style={{ width: '33.333%', aspectRatio: 0.6, padding: 1 }}>
+          <Pressable key={m.id} onPress={() => (isMe ? setOpen(m) : router.push(`/moment/${userId}`))} style={{ width: '33.333%', aspectRatio: 0.54, padding: 1 }}>
             <View style={{ flex: 1, overflow: 'hidden' }}>
               <Face m={m} />
               <View style={{ position: 'absolute', left: 4, bottom: 4, right: 4, flexDirection: 'row', flexWrap: 'wrap' }}>

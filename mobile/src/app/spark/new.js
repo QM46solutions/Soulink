@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { notice } from '../../lib/confirm';
 import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChallengeOfWeek, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
 import SparkVideo from '../../components/SparkVideo';
+import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkRecorder from '../../components/SparkRecorder';
 import { pickAudio } from '../../components/PostMusic';
 import CityField from '../../components/CityField';
@@ -32,14 +33,16 @@ function Pills({ options, value, onPick }) {
     </View>
   );
 }
-function BigOption({ icon, title, text, onPress, colors: c, selected }) {
+function BigOption({ icon, title, text, onPress, colors: c, selected, badge }) {
   return (
     <Pressable onPress={onPress} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', padding: space.md, borderRadius: 20, marginBottom: space.md, borderWidth: 1.5,
       borderColor: selected ? c[0] : hovered ? colors.aura : colors.border, backgroundColor: selected ? `${c[0]}22` : colors.glass })}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-        <LinearGradient colors={c} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        <Ionicons name={icon} size={24} color="#fff" />
-      </View>
+      {badge || (
+        <View style={{ width: 48, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+          <LinearGradient colors={c} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <Ionicons name={icon} size={24} color="#fff" />
+        </View>
+      )}
       <View style={{ flex: 1, marginLeft: space.md }}>
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 16, color: colors.text }}>{title}</Text>
         {text ? <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>{text}</Text> : null}
@@ -114,7 +117,7 @@ export default function NewSpark() {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg }}>
         <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back"><Ionicons name={step === 'category' ? 'close' : 'arrow-back'} size={26} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{cat ? `${cat.emoji} ${cat.label} Spark` : 'New Spark 🎬'}</Text>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{cat ? `${cat.label} Spark` : 'New Spark'}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -123,7 +126,7 @@ export default function NewSpark() {
           {step === 'category' ? (
             <>
               <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, marginBottom: space.lg, textAlign: 'center' }}>What are you sharing today? Each category has its own tools.</Text>
-              {CATEGORIES.map((c) => <BigOption key={c.key} icon={c.icon} title={`${c.emoji} ${c.label}`} text={c.line} colors={c.colors} onPress={() => pickCategory(c.key)} />)}
+              {CATEGORIES.map((c) => <BigOption key={c.key} badge={<SparkCatBadge cat={c} size={50} />} title={c.label} text={c.line} colors={c.colors} onPress={() => pickCategory(c.key)} />)}
             </>
           ) : null}
 

@@ -61,4 +61,12 @@ describe('Sparks', () => {
     assert.equal((await api().get('/sparks').set(x.h).expect(200)).body.sparks.length, 0);
     assert.equal((await api().get('/sparks').set(p.h).expect(200)).body.sparks.length, 1);
   });
+
+  test('a profile post can carry a location (no Soul type tag needed)', async () => {
+    const a = await makeUser();
+    const p = (await api().post('/posts').set(a.h).field('caption', 'Sunset').field('place', 'Tank Bund, Hyderabad').expect(201)).body.post;
+    assert.equal(p.place, 'Tank Bund, Hyderabad');
+    const e = (await api().patch(`/posts/${p.id}`).set(a.h).send({ place: null }).expect(200)).body.post;
+    assert.equal(e?.place ?? null, null);
+  });
 });

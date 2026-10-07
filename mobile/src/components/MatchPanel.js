@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import SoulScoreOrb from './SoulScoreOrb';
+import { IntentBadge } from './Choice';
+import { intentOf } from '../lib/intents';
 import { BottomSheet } from './PostSheets';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
@@ -52,7 +54,7 @@ function WhySheet({ visible, onClose, userId, relation, name }) {
   }, [visible, userId, relation]);
   const rel = RELATIONS.find((r) => r.key === relation);
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={`${rel?.emoji} Why you match · ${rel?.label}`} tall>
+    <BottomSheet visible={visible} onClose={onClose} title={`Why you match · ${rel?.label}`} tall>
       {!d ? (
         <View style={{ padding: space.xl, alignItems: 'center' }}>{err ? <Line>{err}</Line> : <ActivityIndicator color={colors.aura} />}</View>
       ) : (
@@ -105,10 +107,11 @@ export default function MatchPanel({ match, userId, name }) {
           const on = r.key === rel;
           return (
             <Pressable key={r.key} disabled={!match.all[r.key]} onPress={() => setRel(r.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-              style={({ hovered }) => ({ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 14, borderWidth: 1,
-                borderColor: on ? colors.soul : colors.border, backgroundColor: on ? 'rgba(124,92,252,0.22)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
-              <Text style={{ fontSize: 15 }}>{r.emoji}</Text>
-              <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 11, color: on ? colors.text : colors.muted, marginTop: 1 }}>{r.short || r.label}</Text>
+              style={({ hovered }) => ({ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 16, borderWidth: on ? 1.5 : 1,
+                borderColor: on ? intentOf(r.intent).colors?.[0] || colors.soul : hovered ? colors.aura : colors.border,
+                backgroundColor: on ? `${intentOf(r.intent).colors?.[0] || colors.soul}26` : 'rgba(26,24,40,0.55)' })}>
+              <IntentBadge intent={intentOf(r.intent)} size={30} dim={!on} />
+              <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 11, color: on ? colors.text : colors.muted, marginTop: 4 }}>{r.short || r.label}</Text>
               <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: on ? colors.aura : colors.dim }}>{match.all[r.key]?.overall ?? '–'}%</Text>
             </Pressable>
           );

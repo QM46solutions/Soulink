@@ -10,16 +10,32 @@ import { useAuth } from '../lib/auth';
 import { useRealtime } from '../lib/realtime';
 import { mediaUrl } from '../lib/api';
 import ClapperIcon, { clap } from './ClapperIcon';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { colors, fonts, gradients } from '../lib/theme';
 
-export const TAB_ACTIVE = colors.text; // white = bold
-export const TAB_INACTIVE = colors.dim;
+// Soulink palette: the icon you're on is solid and filled with the purple → pink gradient; the others are soft lilac outlines
+export const TAB_ACTIVE = colors.aura;
+export const TAB_INACTIVE = 'rgba(176,143,255,0.62)';
+const ACTIVE_GRADIENT = [colors.aura, colors.soul, colors.spark];
+
+/** An Ionicons glyph filled with the brand gradient */
+export function GradientIcon({ name, size }) {
+  if (Platform.OS === 'web') {
+    const css = { backgroundImage: `linear-gradient(135deg, ${ACTIVE_GRADIENT.join(', ')})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', WebkitTextFillColor: 'transparent' };
+    return <Ionicons name={name} size={size} style={css} />;
+  }
+  return (
+    <MaskedView style={{ width: size, height: size }} maskElement={<Ionicons name={name} size={size} color="#000" />}>
+      <LinearGradient colors={ACTIVE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size }} />
+    </MaskedView>
+  );
+}
 export const TAB_BAR_STYLE = { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', borderTopWidth: 1, height: 66, paddingTop: 8, paddingBottom: 8 };
 
 /** Ionicons tab icon: outline normally, solid + white + a touch bigger when it's where you are */
 export const TabIcon = ({ name, focused }) => (
   <View style={{ alignItems: 'center', justifyContent: 'center', height: 30 }}>
-    <Ionicons name={focused ? name : `${name}-outline`} size={focused ? 26 : 24} color={focused ? TAB_ACTIVE : TAB_INACTIVE} />
+    {focused ? <GradientIcon name={name} size={26} /> : <Ionicons name={`${name}-outline`} size={24} color={TAB_INACTIVE} />}
   </View>
 );
 
@@ -38,7 +54,7 @@ export function HoverTab({ children, style, onPress, onLongPress, accessibilityS
 // Profile: your photo in a small ring (gradient + thicker ring when you're on it)
 export function ProfileTabIcon({ focused }) {
   const { user } = useAuth();
-  const ring = focused ? gradients.button : [colors.border, colors.border];
+  const ring = focused ? gradients.button : ['rgba(176,143,255,0.45)', 'rgba(176,143,255,0.45)'];
   return (
     <View style={{ alignItems: 'center' }}>
       <LinearGradient colors={ring} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 30, height: 30, borderRadius: 15, padding: focused ? 2 : 1.5 }}>
@@ -58,7 +74,7 @@ export function MessagesIcon({ focused }) {
   const count = (unread?.chats || 0) + (unread?.requests || 0) + (unread?.anon || 0);
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', height: 30 }}>
-      <Ionicons name={focused ? 'chatbubble' : 'chatbubble-outline'} size={focused ? 26 : 25} color={focused ? TAB_ACTIVE : TAB_INACTIVE} />
+      {focused ? <GradientIcon name="chatbubble" size={26} /> : <Ionicons name="chatbubble-outline" size={25} color={TAB_INACTIVE} />}
       {count ? (
         <View style={{ position: 'absolute', top: -5, right: -12, minWidth: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.void }}>
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />

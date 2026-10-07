@@ -5,7 +5,8 @@ import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
-import { CATEGORIES } from '../../lib/sparks';
+import { ALL_CAT, CATEGORIES } from '../../lib/sparks';
+import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkCard from '../../components/SparkCard';
 import { GradientText } from '../../components/brand';
 import { Button, Empty, Loading } from '../../components/ui';
@@ -20,7 +21,7 @@ export default function Sparks() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks 🎬</GradientText>,
+      headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks</GradientText>,
       // no back arrow here: the + to post sits where the back arrow was
       headerRight: () => null,
       headerLeft: () => (
@@ -46,12 +47,13 @@ export default function Sparks() {
 
   const chips = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingVertical: space.sm, gap: 8 }}>
-      {[{ key: null, label: 'All', emoji: '🎬', colors: gradients.button }, ...CATEGORIES].map((c) => {
+      {[ALL_CAT, ...CATEGORIES].map((c) => {
         const on = cat === c.key;
         return (
-          <Pressable key={c.label} onPress={() => choose(c.key)} style={{ borderRadius: 999, overflow: 'hidden', borderWidth: 1.5, borderColor: on ? 'transparent' : colors.border }}>
-            {on ? <LinearGradient colors={c.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-            <Text style={{ paddingHorizontal: 14, paddingVertical: 7, fontFamily: fonts.semibold, fontSize: 13, color: on ? '#fff' : colors.muted }}>{c.emoji} {c.label}</Text>
+          <Pressable key={c.label} onPress={() => choose(c.key)} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingLeft: 4, paddingRight: 14, height: 38, borderRadius: 999, borderWidth: 1.5,
+            borderColor: on ? c.colors[0] : hovered ? colors.aura : colors.border, backgroundColor: on ? `${c.colors[0]}2e` : 'rgba(26,24,40,0.6)' })}>
+            <SparkCatBadge cat={c} size={28} glow={on} />
+            <Text style={{ marginLeft: 8, fontFamily: on ? fonts.bold : fonts.semibold, fontSize: 13, color: on ? colors.text : colors.muted }}>{c.label}</Text>
           </Pressable>
         );
       })}

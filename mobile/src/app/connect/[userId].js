@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { BrandScreen } from '../../components/BrandScreen';
 import { AuraAvatar } from '../../components/ProfileHeader';
 import { ChoiceCard, IntentBadge, IntentCard, ScorePill } from '../../components/Choice';
+import MatchPanel from '../../components/MatchPanel';
 import { Button, ErrorText, Input, Loading, s } from '../../components/ui';
 import { INTENTS, intentOf } from '../../lib/intents';
 import { colors, fonts, space } from '../../lib/theme';
@@ -17,6 +18,7 @@ export default function Connect() {
   const { user: me } = useAuth();
   const [target, setTarget] = useState(null);
   const [status, setStatus] = useState(null);
+  const [match, setMatch] = useState(null);
   const [knows, setKnows] = useState(null);
   const [intent, setIntent] = useState(null);
   const [note, setNote] = useState('');
@@ -29,7 +31,7 @@ export default function Connect() {
     (async () => {
       try {
         const [p, st] = await Promise.all([api(`/users/u/${encodeURIComponent(username)}`), api(`/connections/status/${userId}`)]);
-        setTarget(p.user); setStatus(st);
+        setTarget(p.user); setStatus(st); setMatch(p.match || null);
       } catch (e) { setError(e.message); }
     })();
   }, [userId, username, me.soulReady]);
@@ -68,6 +70,8 @@ export default function Connect() {
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.md, textAlign: 'center' }}>Connect with {first}</Text>
         <ScorePill score={status?.soulScore} intent={intent} style={{ marginTop: space.sm }} />
       </View>
+      {/* the full Soul Score, right when you decide to connect */}
+      {match ? <View style={{ marginTop: space.lg, marginHorizontal: -space.xl }}><MatchPanel match={match} userId={userId} name={first} /></View> : null}
 
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0, textAlign: 'center' }]}>Who is {first} to you?</Text>
       <View style={{ flexDirection: 'row', gap: space.md }}>

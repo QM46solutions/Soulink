@@ -10,6 +10,7 @@ import { api } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf } from '../lib/sparks';
 import SparkVideo from './SparkVideo';
+import SparkCatBadge from './SparkCatBadge';
 import { BottomSheet } from './PostSheets';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
@@ -63,9 +64,9 @@ export default function SparkCard({ spark, onDeleted }) {
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{ago(spark.createdAt)} · {spark.views} {spark.views === 1 ? 'view' : 'views'}</Text>
           </View>
         </Pressable>
-        <View style={{ borderRadius: 999, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 4 }}>
-          <LinearGradient colors={cat.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.9 }} />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: '#fff' }}>{cat.emoji} {cat.label}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 3, paddingRight: 10, height: 28, borderRadius: 999, borderWidth: 1, borderColor: `${cat.colors[0]}88`, backgroundColor: `${cat.colors[0]}22` }}>
+          <SparkCatBadge cat={cat} size={22} glow={false} />
+          <Text style={{ marginLeft: 6, fontFamily: fonts.semibold, fontSize: 12, color: colors.text }}>{cat.label}</Text>
         </View>
         {spark.mine ? <Pressable onPress={del} hitSlop={10} style={{ marginLeft: 10 }} accessibilityLabel="Delete Spark"><Ionicons name="trash-outline" size={19} color={colors.muted} /></Pressable> : null}
       </View>

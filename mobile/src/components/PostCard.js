@@ -22,16 +22,43 @@ const ND = Platform.OS !== 'web';
 // like = the 👌🏻 itself, comment = white, share = sky blue, offense = red
 const ACTIVE = { comment: '#ffffff', share: '#38bdf8', offense: '#ff4d4f' };
 
-/** Outline icon that becomes solid + coloured (with a little pop) once you've used it */
-function StateIcon({ name, on, color, size = 22 }) {
-  const pop = useRef(new Animated.Value(1)).current;
+/**
+ * Outline icon that becomes solid + coloured once you've used it, and plays its own move each time you use it:
+ * shake = comment box wobbles, fly = paper plane flies off and comes back, stamp = offense slams down like a stamp.
+ */
+function StateIcon({ name, on, color, size = 22, effect, tick = 0 }) {
+  const v = useRef(new Animated.Value(0)).current;
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    if (on) Animated.sequence([Animated.timing(pop, { toValue: 1.3, duration: 110, useNativeDriver: true }), Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: true })]).start();
-  }, [on, pop]);
+    if (!tick) return;
+    v.setValue(0);
+    const dur = effect === 'fly' ? 900 : effect === 'stamp' ? 520 : 560;
+    Animated.timing(v, { toValue: 1, duration: dur, easing: effect === 'stamp' ? Easing.out(Easing.quad) : Easing.linear, useNativeDriver: ND }).start();
+  }, [tick, effect, v]);
+  let transform = [];
+  let opacity = 1;
+  if (effect === 'shake') {
+    transform = [
+      { translateX: v.interpolate({ inputRange: [0, 0.15, 0.3, 0.45, 0.6, 0.75, 1], outputRange: [0, -5, 5, -4, 4, -2, 0] }) },
+      { rotate: v.interpolate({ inputRange: [0, 0.15, 0.3, 0.45, 0.6, 1], outputRange: ['0deg', '-10deg', '10deg', '-7deg', '5deg', '0deg'] }) },
+    ];
+  } else if (effect === 'fly') {
+    transform = [
+      { translateX: v.interpolate({ inputRange: [0, 0.45, 0.46, 1], outputRange: [0, 30, -16, 0] }) },
+      { translateY: v.interpolate({ inputRange: [0, 0.45, 0.46, 1], outputRange: [0, -30, 14, 0] }) },
+      { rotate: v.interpolate({ inputRange: [0, 0.45, 0.46, 1], outputRange: ['0deg', '-12deg', '8deg', '0deg'] }) },
+    ];
+    opacity = v.interpolate({ inputRange: [0, 0.4, 0.46, 0.7, 1], outputRange: [1, 0, 0, 1, 1] });
+  } else if (effect === 'stamp') {
+    transform = [
+      { scale: v.interpolate({ inputRange: [0, 0.55, 0.75, 1], outputRange: [2.4, 0.82, 1.08, 1] }) },
+      { rotate: v.interpolate({ inputRange: [0, 0.55, 1], outputRange: ['-20deg', '4deg', '0deg'] }) },
+    ];
+    opacity = v.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.2, 1, 1] });
+  }
   return (
-    <Animated.View style={{ transform: [{ scale: pop }] }}>
+    <Animated.View style={{ opacity, transform }}>
       <Ionicons name={on ? name : `${name}-outline`} size={size} color={on ? color : colors.text} />
     </Animated.View>
   );
@@ -133,6 +160,9 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   useEffect(() => { setShares(post.shareCount || 0); setShared(!!post.shared); }, [post.id, post.shareCount, post.shared]);
   useEffect(() => { setCaption(post.caption); }, [post.id, post.caption]);
   const pop = useRef(new Animated.Value(1)).current;
+  const wave = useRef(new Animated.Value(0)).current; // 👌🏻 waves when you give it
+  const [ticks, setTicks] = useState({ comment: 0, share: 0, offense: 0 });
+  const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
   const burst = useRef(new Animated.Value(0)).current;
   // likes and comments open on top of the post, like Instagram (no page change)
   const [likesOpen, setLikesOpen] = useState(false);
@@ -148,9 +178,13 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       if (liked) return;
     }
     if (!liked) {
-      Animated.sequence([
-        Animated.timing(pop, { toValue: 1.45, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
-        Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: ND }),
+      wave.setValue(0);
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pop, { toValue: 1.3, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+          Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: ND }),
+        ]),
+        Animated.timing(wave, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: ND }),
       ]).start();
     }
     setLiked(!liked); setLikes((n) => (n === null ? null : n + (liked ? -1 : 1)));
@@ -161,6 +195,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   const toggleOffense = async (reason) => {
     const r = await api(`/posts/${post.id}/offense`, { method: 'POST', body: reason ? { reason } : {} });
     setOffended(r.offended); setOffenses(r.offenseCount); setMyReason(r.offended ? reason : null);
+    if (r.offended) bump('offense');
     if (r.suspended) setTimeout(() => onDeleted?.(post.id), 1800); // enough marks: it disappears for everyone else
   };
   const shareOutside = async () => {
@@ -171,7 +206,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
       } else await Share.share({ message });
       const r = await api(`/posts/${post.id}/share`, { method: 'POST', body: {} });
-      setShares(r.shareCount); setShared(true);
+      setShares(r.shareCount); setShared(true); bump('share');
     } catch { /* cancelled */ }
   };
   const del = async () => {
@@ -215,7 +250,14 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
               <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{post.author.displayName || post.author.username}</Text>
               {post.author.verified ? <VerifiedBadge /> : null}
             </View>
-            <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}{post.author.soulType ? ` · ${post.author.soulType}` : ''}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+              <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}</Text>
+              {post.place ? (<>
+                <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>  ·  </Text>
+                <Ionicons name="location" size={11} color={colors.aura} style={{ marginRight: 2 }} />
+                <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.text, flexShrink: 1 }}>{post.place}</Text>
+              </>) : null}
+            </View>
             {music ? <MusicChip key={music.url} music={music} /> : null}
           </View>
         </Pressable>
@@ -242,24 +284,24 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
         <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}
           onCountPress={() => setLikesOpen(true)} countLabel="See who gave this a 👌🏻">
-          <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
+          <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
         <Action onPress={openPost} label={commentsOff ? 'Commenting is off' : 'Comments'} count={commentsOff ? null : comments} color={commented ? ACTIVE.comment : undefined}>
-          <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} />
+          <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
-          <StateIcon name="paper-plane" on={shared} color={ACTIVE.share} />
+          <StateIcon name="paper-plane" on={shared} color={ACTIVE.share} effect="fly" tick={ticks.share} />
         </Action>
         {/* Offense ❗: others tap it to report (Instagram-style sheet); on your own post it shows how many marked it and why */}
         <Action onPress={offense} count={offenses} color={offended ? ACTIVE.offense : undefined}
           label={post.mine ? `${offenses} offense marks on your post` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
-          <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} />
+          <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
         </Action>
       </View>
       <LikesSheet visible={likesOpen} postId={post.id} onClose={() => setLikesOpen(false)} />
       <CommentsSheet visible={commentsOpen} postId={post.id} onClose={() => setCommentsOpen(false)} mine={post.mine}
-        onCountChange={(n, mine) => { setComments(n); if (mine) setCommented(true); }} />
+        onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />
       <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={post.mine} postId={post.id} onClose={() => setReportOpen(false)}
         onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       {post.mine ? <MusicSheet visible={musicOpen} onClose={() => setMusicOpen(false)} post={{ id: post.id, music }} onChanged={applyPost} /> : null}
@@ -269,7 +311,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         onClose={() => setShareMenu(false)}
         title="Share this post"
         options={[
-          { label: 'Send in a chat', onPress: () => router.push({ pathname: '/share-post', params: { id: post.id } }) },
+          { label: 'Send in a chat', onPress: () => { bump('share'); router.push({ pathname: '/share-post', params: { id: post.id } }); } },
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]}
       />
@@ -316,7 +358,7 @@ export function PostGrid({ posts, tall }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: tall ? 0 : 2 }}>
       {posts.map((p) => (
-        <Pressable key={p.id} onPress={() => router.push(`/post/${p.id}`)} style={{ width: '33.333%', aspectRatio: tall ? 0.6 : 1, padding: tall ? 1 : 2 }}>
+        <Pressable key={p.id} onPress={() => router.push(`/post/${p.id}`)} style={{ width: '33.333%', aspectRatio: tall ? 0.54 : 1, padding: tall ? 1 : 2 }}>
           {p.media?.length ? (
             <View style={{ flex: 1 }}>
               <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: tall ? 0 : 6, backgroundColor: colors.card }} contentFit="cover" />

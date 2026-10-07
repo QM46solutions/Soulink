@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
 import ProfileMoments from '../../components/ProfileMoments';
-import MatchPanel from '../../components/MatchPanel';
+import ShowScoreButton from '../../components/ShowScoreButton';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
@@ -133,8 +133,9 @@ export default function UserProfile() {
       {conn?.connected ? (
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
-      {data.match ? (
-        <MatchPanel match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
+      {/* Soul Score: only before you're connected, and only when you tap (connected people don't need it) */}
+      {conn?.connected || rel.isMe ? null : data.match ? (
+        <ShowScoreButton match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
       ) : !rel.isMe && me.soulReady ? (
         <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12.5, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Your Soul Score shows once {(target.displayName || target.username).split(' ')[0]} takes the new Soul DNA.</Text>
       ) : !rel.isMe && !me.soulReady ? (

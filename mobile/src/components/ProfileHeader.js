@@ -84,7 +84,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           </View>
           <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
         </View>
-        {pulse ? <PulseMeter pulse={pulse} size={72} onPress={() => setPulseOpen((o) => !o)} /> : null}
+        {pulse ? <PulseMeter pulse={pulse} size={92} onPress={() => setPulseOpen((o) => !o)} /> : null}
       </View>
 
       {pulse && pulseOpen ? <View style={{ paddingHorizontal: space.lg }}><PulseInfo pulse={pulse} isMe={isMe} name={(user.displayName || user.username || '').split(' ')[0]} onClose={() => setPulseOpen(false)} /></View> : null}
