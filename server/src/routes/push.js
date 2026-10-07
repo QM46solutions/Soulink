@@ -24,6 +24,7 @@ r.post('/subscribe', ah(async (req, res) => {
      ELSE INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth) VALUES ($1, $2, $3, $4)`,
     [s.endpoint, req.user.id, s.keys.p256dh, s.keys.auth],
   );
+  console.log(`push: phone subscribed -> ${new URL(s.endpoint).host}`);
   res.status(201).json({ ok: true });
 }));
 

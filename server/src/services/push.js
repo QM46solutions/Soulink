@@ -59,7 +59,9 @@ async function ready() {
       await query("IF NOT EXISTS (SELECT 1 FROM app_secrets WHERE name=N'vapid') INSERT INTO app_secrets (name, value) VALUES (N'vapid', $1)", [JSON.stringify(keys)]);
       keys = JSON.parse((await one("SELECT value FROM app_secrets WHERE name=N'vapid'")).value); // another server may have won the race
     }
-    lib.setVapidDetails('mailto:dev@soulink.local', keys.publicKey, keys.privateKey);
+    // Apple rejects a made-up contact (403 BadJwtToken): use the site's real https address
+    const subject = process.env.PUSH_SUBJECT || process.env.RENDER_EXTERNAL_URL || 'https://soulink-xvbd.onrender.com';
+    lib.setVapidDetails(subject, keys.publicKey, keys.privateKey);
   }
   return lib;
 }
@@ -90,12 +92,15 @@ export async function pushTo(userId, kind, { title = 'Soulink', body, url = '/',
     const u = await one('SELECT notify_prefs FROM users WHERE id=$1', [userId]);
     if (!u || !prefsOf(u)[kind]) return;
     const subs = await many('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1', [userId]);
-    if (!subs.length) return;
+    if (!subs.length) { console.log(`push skipped: no phone has notifications on for this person [${kind}]`); return; }
     const payload = JSON.stringify({ title, body, url, tag, badge: await badgeCount(userId) });
     await Promise.all(subs.map(async (s) => {
+      const where = new URL(s.endpoint).host;
       try {
-        await l.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: kind === 'messages' ? 'high' : 'normal' });
+        const r = await l.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: kind === 'messages' ? 'high' : 'normal' });
+        console.log(`push ok -> ${where} (${r.statusCode}) [${kind}]`);
       } catch (e) {
+        console.warn(`push FAILED -> ${where}: ${e.statusCode || ''} ${String(e.body || e.message).slice(0, 200)}`);
         if (e.statusCode === 404 || e.statusCode === 410) await query('DELETE FROM push_subscriptions WHERE id=$1', [s.id]); // phone unsubscribed
       }
     }));
