@@ -36,6 +36,8 @@ const profileSchema = z.object({
   notifyPrefs: z.record(z.enum(['messages', 'requests', 'likes', 'comments', 'anonymous', 'argue', 'events']), z.boolean()).optional(),
   college: z.string().trim().max(120).nullable().optional(),
   company: z.string().trim().max(120).nullable().optional(),
+  profession: z.string().trim().max(80).nullable().optional(),
+  isCreator: z.boolean().optional(),
   languages: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
   chatLanguage: z.enum(['en', 'hi', 'te', 'bn']).nullable().optional(),
 }).strict();
@@ -44,7 +46,7 @@ const COLS = {
   username: 'username', displayName: 'display_name', bio: 'bio', city: 'city', birthDate: 'birth_date',
   gender: 'gender', interests: 'interests', isPrivate: 'is_private', showInDiscover: 'show_in_discover',
   faceDiscoverable: 'face_discoverable', consentTracking: 'consent_tracking', showPulse: 'show_pulse', notifyPrefs: 'notify_prefs',
-  college: 'college', company: 'company', languages: 'languages', chatLanguage: 'chat_language',
+  college: 'college', company: 'company', profession: 'profession', isCreator: 'is_creator', languages: 'languages', chatLanguage: 'chat_language',
 };
 
 // The typed city also gives area coordinates for the distance filter (used until the phone shares its location)

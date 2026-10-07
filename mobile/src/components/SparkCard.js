@@ -57,7 +57,7 @@ export default function SparkCard({ spark, onDeleted }) {
           <Avatar uri={spark.author.avatarUrl} name={spark.author.username} size={34} />
           <View style={{ marginLeft: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{spark.author.username}</Text>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{spark.author.displayName || spark.author.username}</Text>
               {spark.author.verified ? <VerifiedBadge /> : null}
             </View>
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{ago(spark.createdAt)} · {spark.views} {spark.views === 1 ? 'view' : 'views'}</Text>

@@ -49,10 +49,9 @@ r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (re
   const mediaUrl = req.file ? await saveFile(req.file, 'moments') : null;
   const bg = !req.file ? (d.bg || 'aurora') : null;
 
-  let moment = null;
-  if (d.story === '1') {
-    moment = await one('INSERT INTO moments (author_id, media_url, text, bg, is_story) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, 1)', [req.user.id, mediaUrl, text, bg]);
-  }
+  // every Moment is kept for your own profile's Moments tab; only story ones are shown to others (24 h)
+  const story = d.story === '1';
+  const moment = await one('INSERT INTO moments (author_id, media_url, text, bg, is_story) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5)', [req.user.id, mediaUrl, text, bg, story ? 1 : 0]);
   const sent = []; const failed = [];
   for (const cid of chats) {
     try {
@@ -63,7 +62,8 @@ r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (re
       sent.push(cid);
     } catch (e) { failed.push({ conversationId: cid, reason: e.message }); }
   }
-  res.status(201).json({ moment: moment ? view(moment, true) : null, sent, failed });
+  if (sent.length) await query('UPDATE moments SET sent_chats=$2 WHERE id=$1', [moment.id, sent.length]).catch(() => {});
+  res.status(201).json({ moment: story ? view(moment, true) : null, sent, failed });
 }));
 
 r.get('/feed', ah(async (req, res) => {
@@ -103,9 +103,18 @@ r.get('/user/:userId', ah(async (req, res) => {
   res.json({ user: userCard(author), mine, moments: rows.map((x) => ({ ...view(x, mine || x.seen), ...(mine ? { viewCount: n[String(x.id).toLowerCase()] || 0 } : {}) })) });
 }));
 
+// Your own Moments tab on your profile: everything you made (story or sent to chats), newest first. Only you see this.
+r.get('/archive', ah(async (req, res) => {
+  const rows = await many(
+    `SELECT TOP 120 m.*, (SELECT COUNT(*) FROM moment_views v WHERE v.moment_id = m.id) AS view_count
+       FROM moments m WHERE m.author_id=$1 AND m.deleted_at IS NULL ORDER BY m.created_at DESC`, [req.user.id]);
+  res.json({ moments: rows.map((x) => ({ ...view(x, true), isStory: !!x.is_story, sentChats: Number(x.sent_chats || 0),
+    live: !!x.is_story && new Date(x.expires_at) > new Date(), viewCount: Number(x.view_count || 0) })) });
+}));
+
 async function visibleMoment(req) {
   const id = uuid.parse(req.params.id);
-  const m = await one('SELECT * FROM moments WHERE id=$1 AND deleted_at IS NULL AND expires_at > SYSDATETIMEOFFSET()', [id]);
+  const m = await one('SELECT * FROM moments WHERE id=$1 AND is_story=1 AND deleted_at IS NULL AND expires_at > SYSDATETIMEOFFSET()', [id]);
   if (!m || !(await canSee(req.user.id, m.author_id))) throw notFound('This Moment has ended');
   return m;
 }

@@ -162,4 +162,18 @@ describe('Moments (Home +): story for 24 h, chat Moments open once / replay once
     await api().post('/moments').set(a.h).field('story', '1').expect(400);
     await api().post('/moments').set(a.h).field('text', 'hi').expect(400);
   });
+
+  test('my Moments tab keeps every Moment I made; chat-only ones never show to others', async () => {
+    const { a, b, conv } = await connected();
+    await api().post('/moments').set(a.h).field('text', 'story one').field('story', '1').expect(201);
+    const sent = (await api().post('/moments').set(a.h).field('text', 'just for you').field('conversationIds', JSON.stringify([conv])).expect(201)).body;
+    assert.equal(sent.moment, null);
+    const mine = (await api().get('/moments/archive').set(a.h).expect(200)).body.moments;
+    assert.equal(mine.length, 2);
+    assert.equal(mine[0].isStory, false); assert.equal(mine[0].sentChats, 1);
+    assert.equal(mine[1].isStory, true); assert.equal(mine[1].live, true);
+    assert.equal((await api().get(`/moments/user/${a.user.id}`).set(b.h).expect(200)).body.moments.length, 1);
+    await api().post(`/moments/${mine[0].id}/view`).set(b.h).expect(404);
+    assert.equal((await api().get('/moments/archive').set(b.h).expect(200)).body.moments.length, 0);
+  });
 });

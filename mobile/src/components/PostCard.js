@@ -196,7 +196,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
           <Avatar uri={post.author.avatarUrl} name={post.author.displayName || post.author.username} size={36} />
           <View style={{ marginLeft: space.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{post.author.username}</Text>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{post.author.displayName || post.author.username}</Text>
               {post.author.verified ? <VerifiedBadge /> : null}
             </View>
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}{post.author.soulType ? ` · ${post.author.soulType}` : ''}</Text>
@@ -282,7 +282,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         </View>
       ) : !textOnly && caption ? (
         <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, lineHeight: 20, ...WRAP }}>
-          <Text style={{ fontFamily: fonts.semibold }}>{post.author.username} </Text>{caption}
+          <Text style={{ fontFamily: fonts.semibold }}>{post.author.displayName || post.author.username} </Text>{caption}
         </Text>
       ) : null}
       {!showAllComments && comments ? (
@@ -295,20 +295,21 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
 }
 
 /** 3-column photo grid for profiles. Text posts show as a tile with their first words. */
-export function PostGrid({ posts }) {
+/** 3-column grid. tall = profile style (portrait tiles, edge to edge, like Snapchat) */
+export function PostGrid({ posts, tall }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 2 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: tall ? 0 : 2 }}>
       {posts.map((p) => (
-        <Pressable key={p.id} onPress={() => router.push(`/post/${p.id}`)} style={{ width: '33.333%', aspectRatio: 1, padding: 2 }}>
+        <Pressable key={p.id} onPress={() => router.push(`/post/${p.id}`)} style={{ width: '33.333%', aspectRatio: tall ? 0.6 : 1, padding: tall ? 1 : 2 }}>
           {p.media?.length ? (
             <View style={{ flex: 1 }}>
-              <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: 6, backgroundColor: colors.card }} contentFit="cover" />
+              <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: tall ? 0 : 6, backgroundColor: colors.card }} contentFit="cover" />
               {p.media.length > 1 ? <Ionicons name="copy" size={14} color="#fff" style={{ position: 'absolute', top: 6, right: 6 }} /> : null}
               {p.suspended ? <View style={{ position: 'absolute', left: 4, bottom: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="eye-off" size={11} color={colors.spark} /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: '#fff', marginLeft: 3 }}>Suspended</Text></View> : null}
             </View>
           ) : (
-            <View style={{ flex: 1, borderRadius: 6, padding: 8, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.3)', justifyContent: 'center' }}>
-              <Text numberOfLines={4} style={{ fontFamily: fonts.medium, fontSize: 11.5, lineHeight: 15, color: colors.text }}>{p.caption}</Text>
+            <View style={{ flex: 1, borderRadius: tall ? 0 : 6, padding: 8, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.3)', justifyContent: 'center' }}>
+              <Text numberOfLines={tall ? 8 : 4} style={{ fontFamily: fonts.medium, fontSize: 11.5, lineHeight: 15, color: colors.text }}>{p.caption}</Text>
             </View>
           )}
         </Pressable>

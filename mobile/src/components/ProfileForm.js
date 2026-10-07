@@ -7,6 +7,7 @@ import { colors, space, fonts } from '../lib/theme';
 import { Button, Chip, ErrorText, Input, s } from './ui';
 import { AuraAvatar } from './ProfileHeader';
 import CityField from './CityField';
+import ProfessionField from './ProfessionField';
 import { usePhotoPicker } from './PhotoPicker';
 import { LANGUAGES } from '../lib/filters';
 
@@ -35,6 +36,8 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
   const [interests, setInterests] = useState(initial.interests || []);
   const [college, setCollege] = useState(initial.college || '');
   const [company, setCompany] = useState(initial.company || '');
+  const [profession, setProfession] = useState(initial.profession || '');
+  const [isCreator, setIsCreator] = useState(!!initial.isCreator);
   const [languages, setLanguages] = useState(initial.languages || []);
   const [isPrivate, setIsPrivate] = useState(!!initial.settings?.isPrivate);
   const [uStatus, setUStatus] = useState(null); // {available, reason}
@@ -78,6 +81,8 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
           interests,
           college: college.trim() || null,
           company: company.trim() || null,
+          profession: profession.trim() || null,
+          isCreator,
           languages,
           isPrivate,
         },
@@ -145,6 +150,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
         {GENDERS.map((g) => <Chip key={g.v} label={g.l} selected={gender === g.v} onPress={() => setGender(gender === g.v ? null : g.v)} />)}
       </View>
 
+      <ProfessionField value={profession} onChange={setProfession} creator={isCreator} onCreator={setIsCreator} />
       <CityField value={city} onChange={setCity} autoLocate={false} />
       <Input label="Bio" value={bio} onChangeText={setBio} placeholder="A little about you" multiline maxLength={300} hint={`${bio.length}/300`} />
 

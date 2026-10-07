@@ -38,10 +38,10 @@ export default function MomentsBar({ me, groups }) {
     <View style={{ marginBottom: space.md }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingVertical: space.sm }}>
         {/* your bubble: tap to watch your Moments (or add one); the small + always adds a new one */}
-        <Bubble user={me} label="Your Moment" ring={!!mine} seen={false} plus={() => router.push('/moment/new')}
+        <Bubble user={me} label="Moments" ring={!!mine} seen={false} plus={() => router.push('/moment/new')}
           onPress={() => router.push(mine ? '/moment/me' : '/moment/new')} />
         {others.map((g) => (
-          <Bubble key={g.user.id} user={g.user} label={g.user.username} ring seen={g.allSeen} onPress={() => router.push(`/moment/${g.user.id}`)} />
+          <Bubble key={g.user.id} user={g.user} label={g.user.displayName?.split(' ')[0] || g.user.username} ring seen={g.allSeen} onPress={() => router.push(`/moment/${g.user.id}`)} />
         ))}
       </ScrollView>
       <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: space.lg }} />

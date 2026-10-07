@@ -112,7 +112,7 @@ export default function MomentViewer() {
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
             <Pressable onPress={() => { if (!data.mine) router.replace(`/user/${data.user.username}`); }} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Avatar uri={data.user.avatarUrl} name={data.user.username} size={34} />
-              <Text style={{ marginLeft: 8, color: '#fff', fontFamily: fonts.semibold, fontSize: 14 }}>{data.mine ? 'Your Moments' : data.user.username}</Text>
+              <Text style={{ marginLeft: 8, color: '#fff', fontFamily: fonts.semibold, fontSize: 14 }}>{data.mine ? 'Moments' : data.user.displayName || data.user.username}</Text>
               <Text style={{ marginLeft: 8, color: 'rgba(255,255,255,0.7)', fontFamily: fonts.body, fontSize: 13 }}>{ago(moment.createdAt)}</Text>
             </Pressable>
             {data.mine ? <Pressable onPress={del} hitSlop={10} style={{ marginRight: 14 }} accessibilityLabel="Delete Moment"><Ionicons name="trash-outline" size={22} color="#fff" /></Pressable> : null}

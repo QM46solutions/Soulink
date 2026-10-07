@@ -80,6 +80,8 @@ export const publicProfile = (u) => ({
   isPremium: u.is_premium,
   college: u.college ?? null,
   company: u.company ?? null,
+  profession: u.profession ?? null,
+  isCreator: !!u.is_creator,
   languages: Array.isArray(u.languages) ? u.languages : [],
 });
 

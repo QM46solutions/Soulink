@@ -4,7 +4,8 @@ import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'exp
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import ProfileHeader, { ProfileAction } from '../../components/ProfileHeader';
+import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
+import ProfileMoments from '../../components/ProfileMoments';
 import MatchPanel from '../../components/MatchPanel';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
@@ -27,6 +28,7 @@ export default function UserProfile() {
   const [conn, setConn] = useState(null);
   const [posts, setPosts] = useState(null);
   const [anon, setAnon] = useState(null);
+  const [tab, setTab] = useState('posts'); // posts | moments
   const load = useCallback(async () => {
     try {
       const d = await api(`/users/u/${encodeURIComponent(username)}`);
@@ -96,7 +98,7 @@ export default function UserProfile() {
   if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
   else if (conn?.connected) {
     connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
-    messageBtn = <ProfileAction primary title="Message" onPress={openChat} />;
+    messageBtn = <ProfileAction outline title="Message" onPress={openChat} />;
   } else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
   else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" icon="person-add" onPress={connectBack} loading={busy} />;
   else if (conn?.iConnect) connectBtn = <ProfileAction title="Connected" icon="checkmark" onPress={disconnect} loading={busy} />;
@@ -111,7 +113,7 @@ export default function UserProfile() {
     else router.push({ pathname: '/anon/[id]', params: { id: 'new', userId: target.id, username: target.username, name: target.displayName || target.username } });
   };
   const anonBtn = !rel.isMe && anon?.allowed && !conn?.connected ? (
-    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 38 }} />
+    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
   ) : null;
 
   return (
@@ -139,8 +141,10 @@ export default function UserProfile() {
         <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
       ) : null}
       {conn?.theyConnect && !conn?.connected && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Connected to you · connect back to become Connections</Text> : null}
+      {data.canViewContent ? <ProfileTabs tab={tab} onChange={setTab} /> : null}
       {data.canViewContent
-        ? (posts?.length ? <PostGrid posts={posts} /> : <Empty icon="camera-outline" title="No posts yet" />)
+        ? (tab === 'moments' ? <ProfileMoments userId={target.id} isMe={rel.isMe} name={(target.displayName || target.username).split(' ')[0]} />
+          : posts?.length ? <PostGrid posts={posts} tall /> : <Empty icon="camera-outline" title="No posts yet" />)
         : <Empty icon="lock-closed-outline" title="This account is private" text="Connect with this account to see their photos and Connections." />}
       <ActionSheet
         visible={menu}

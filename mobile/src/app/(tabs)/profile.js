@@ -6,7 +6,8 @@ import { api, uploadImage } from '../../lib/api';
 import { usePhotoPicker } from '../../components/PhotoPicker';
 import { notice } from '../../lib/confirm';
 import { useAuth } from '../../lib/auth';
-import ProfileHeader, { ProfileAction } from '../../components/ProfileHeader';
+import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
+import ProfileMoments from '../../components/ProfileMoments';
 import { PostGrid } from '../../components/PostCard';
 import { s } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
@@ -17,6 +18,8 @@ export default function MyProfile() {
   const [pulse, setPulse] = useState(null);
   const [posts, setPosts] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState('posts'); // posts | moments
+  const [momentsKey, setMomentsKey] = useState(0);
   const navigation = useNavigation();
   const shareProfile = async () => {
     const message = `Find me on Soulink: @${user.username}`;
@@ -64,7 +67,7 @@ export default function MyProfile() {
   return (
     <ScrollView
       style={s.screen}
-      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setMomentsKey((k) => k + 1); setRefreshing(false); }} />}
     >
       <ProfileHeader
         user={user}
@@ -75,11 +78,12 @@ export default function MyProfile() {
         isMe
         actions={<>
           <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />
-          <ProfileAction title="Share profile" onPress={shareProfile} />
-          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 38 }} />
+          <ProfileAction outline title="Share profile" onPress={shareProfile} />
+          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
         </>}
       />
-      {posts?.length ? <PostGrid posts={posts} /> : (
+      <ProfileTabs tab={tab} onChange={setTab} />
+      {tab === 'moments' ? <ProfileMoments key={momentsKey} userId={user.id} isMe name={user.displayName || user.username} /> : posts?.length ? <PostGrid posts={posts} tall /> : (
         // Instagram-style empty state: outlined camera circle + a simple text link (no big button)
         <View style={{ alignItems: 'center', paddingTop: space.xxl, paddingHorizontal: space.xl }}>
           <Pressable onPress={() => router.push('/create-post')} accessibilityLabel="Create your first post"

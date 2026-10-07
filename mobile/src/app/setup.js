@@ -11,6 +11,7 @@ import { BrandHeader, BrandScreen } from '../components/BrandScreen';
 import { AuraAvatar } from '../components/ProfileHeader';
 import FaceScan from '../components/FaceScan';
 import CityField from '../components/CityField';
+import ProfessionField from '../components/ProfessionField';
 import { Button, Chip, ErrorText, Input, s } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { usePhotoPicker } from '../components/PhotoPicker';
@@ -22,7 +23,7 @@ const INTERESTS = ['Music', 'Movies', 'Cricket', 'Fitness', 'Travel', 'Food', 'G
 const STEPS = [
   { title: 'Face ID', sub: "Soulink is only for real people. A quick scan proves you're one." },
   { title: 'Who are you?', sub: 'Your photo and name are how friends find you.' },
-  { title: 'A little about you', sub: 'Only your age is used for matching. Your birthday stays private.' },
+  { title: 'A little about you', sub: 'Your birthday stays private (only your age is used). Tell people what you do.' },
   { title: 'Your vibe', sub: 'Pick what you love. It helps us find your people.' },
 ];
 
@@ -62,6 +63,8 @@ export default function Setup() {
   const [showDate, setShowDate] = useState(false);
   const [gender, setGender] = useState(null);
   const [city, setCity] = useState('');
+  const [profession, setProfession] = useState('');
+  const [isCreator, setIsCreator] = useState(false);
   const [interests, setInterests] = useState([]);
   const [bio, setBio] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -89,7 +92,7 @@ export default function Setup() {
   const canNext = [
     !!user?.verified,
     displayName.trim() && username.length >= 3 && uStatus?.available !== false,
-    birthDate && age >= 18,
+    birthDate && age >= 18 && profession.trim().length >= 2,
     true,
   ][step];
 
@@ -98,7 +101,7 @@ export default function Setup() {
     try {
       await api('/users/me/complete-onboarding', {
         method: 'POST',
-        body: { username, displayName: displayName.trim(), birthDate, gender, city: city.trim() || null, bio: bio.trim(), interests, isPrivate },
+        body: { username, displayName: displayName.trim(), birthDate, gender, city: city.trim() || null, profession: profession.trim(), isCreator, bio: bio.trim(), interests, isPrivate },
       });
       let me = (await api('/users/me')).user;
       if (avatarUri) me = (await uploadImage('/users/me/avatar', avatarUri)).user;
@@ -179,6 +182,7 @@ export default function Setup() {
           </View>
 
           <CityField value={city} onChange={setCity} />
+          <View style={{ marginTop: space.lg }}><ProfessionField required value={profession} onChange={setProfession} creator={isCreator} onCreator={setIsCreator} /></View>
         </View>
       ) : null}
 
