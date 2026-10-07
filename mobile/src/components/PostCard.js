@@ -10,6 +10,7 @@ import { confirm, notice } from '../lib/confirm';
 import ActionSheet from './ActionSheet';
 import OffenseSheet from './OffenseSheet';
 import { CommentsSheet, LikesSheet } from './PostSheets';
+import { MusicChip, MusicSheet } from './PostMusic';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -68,7 +69,8 @@ function Photos({ media, onDoubleTap, burst }) {
 
 /** One action: icon with its count underneath (Instagram style). */
 function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel }) {
-  const num = <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count || 0}</Text>;
+  // count === null: hidden by the post's owner (like count) or commenting is off; keep the space so icons stay aligned
+  const num = <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count === null ? ' ' : count || 0}</Text>;
   return (
     <View style={{ alignItems: 'center', minWidth: 40, marginRight: space.xl }}>
       <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
@@ -85,7 +87,7 @@ function Action({ onPress, label, children, count, color, disabled, onCountPress
   );
 }
 
-export default function PostCard({ post, onDeleted, showAllComments }) {
+export default function PostCard({ post, onDeleted, showAllComments, onChanged }) {
   const [liked, setLiked] = useState(post.liked);
   const [likes, setLikes] = useState(post.likeCount);
   const [offended, setOffended] = useState(post.offended);
@@ -100,6 +102,15 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(post.caption || '');
   const [saving, setSaving] = useState(false);
+  const [hideLikes, setHideLikes] = useState(!!post.hideLikes);
+  const [commentsOff, setCommentsOff] = useState(!!post.commentsOff);
+  const [music, setMusic] = useState(post.music || null);
+  const [musicOpen, setMusicOpen] = useState(false);
+  useEffect(() => { setHideLikes(!!post.hideLikes); setCommentsOff(!!post.commentsOff); setMusic(post.music || null); }, [post.id, post.hideLikes, post.commentsOff, post.music]);
+  const applyPost = (p) => { setHideLikes(!!p.hideLikes); setCommentsOff(!!p.commentsOff); setMusic(p.music || null); setLikes(p.likeCount); setComments(p.commentCount ?? 0); onChanged?.(p); };
+  const setOption = async (body) => {
+    try { applyPost((await api(`/posts/${post.id}`, { method: 'PATCH', body })).post); } catch (e) { notice('Not saved', e.message); }
+  };
   // when fresh data arrives (feed reloads, someone else liked it), show the new numbers
   useEffect(() => { setLiked(post.liked); setLikes(post.likeCount); }, [post.id, post.liked, post.likeCount]);
   useEffect(() => { setOffended(post.offended); setOffenses(post.offenseCount || 0); setMyReason(post.offenseReason || null); }, [post.id, post.offended, post.offenseCount, post.offenseReason]);
@@ -126,7 +137,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: ND }),
       ]).start();
     }
-    setLiked(!liked); setLikes((n) => n + (liked ? -1 : 1));
+    setLiked(!liked); setLikes((n) => (n === null ? null : n + (liked ? -1 : 1)));
     try { const r = await api(`/posts/${post.id}/like`, { method: 'POST' }); setLiked(r.liked); setLikes(r.likeCount); } catch { setLiked(liked); setLikes(post.likeCount); }
   };
   // ❗ opens the Instagram-style report sheet (in the app, no browser pop-ups)
@@ -164,9 +175,10 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
   // Instagram-style ⋯ menu: your own post vs someone else's
   const options = post.mine
     ? [
-      ...(!post.suspended ? [{ label: 'Edit caption', onPress: () => { setDraft(caption || ''); setEditing(true); } }] : []),
-      { label: 'Share', onPress: () => setShareMenu(true) },
-      ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
+      { label: 'Edit', onPress: () => { setDraft(caption || ''); setEditing(true); } },
+      { label: hideLikes ? 'Show like count' : 'Hide like count', onPress: () => setOption({ hideLikes: !hideLikes }) },
+      { label: commentsOff ? 'Turn on commenting' : 'Turn off commenting', onPress: () => setOption({ commentsOff: !commentsOff }) },
+      { label: music ? 'Change music' : 'Add music', onPress: () => setMusicOpen(true) },
       { label: 'Delete', destructive: true, onPress: del },
     ]
     : [
@@ -188,6 +200,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
               {post.author.verified ? <VerifiedBadge /> : null}
             </View>
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}{post.author.soulType ? ` · ${post.author.soulType}` : ''}</Text>
+            {music ? <MusicChip key={music.url} music={music} /> : null}
           </View>
         </Pressable>
         <Pressable onPress={() => setOptionsOpen(true)} hitSlop={10} accessibilityLabel="Post options"
@@ -216,7 +229,7 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           <Animated.Text style={{ fontSize: 22, opacity: liked ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transform: [{ scale: pop }], ...(Platform.OS === 'web' && !liked ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
-        <Action onPress={openPost} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
+        <Action onPress={openPost} label={commentsOff ? 'Commenting is off' : 'Comments'} count={commentsOff ? null : comments} color={commented ? ACTIVE.comment : undefined}>
           <Ionicons name="chatbubble" size={22} color={commented ? ACTIVE.comment : colors.text} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
@@ -229,10 +242,11 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
         </Action>
       </View>
       <LikesSheet visible={likesOpen} postId={post.id} onClose={() => setLikesOpen(false)} />
-      <CommentsSheet visible={commentsOpen} postId={post.id} onClose={() => setCommentsOpen(false)}
+      <CommentsSheet visible={commentsOpen} postId={post.id} onClose={() => setCommentsOpen(false)} mine={post.mine}
         onCountChange={(n, mine) => { setComments(n); if (mine) setCommented(true); }} />
       <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={post.mine} postId={post.id} onClose={() => setReportOpen(false)}
         onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
+      {post.mine ? <MusicSheet visible={musicOpen} onClose={() => setMusicOpen(false)} post={{ id: post.id, music }} onChanged={applyPost} /> : null}
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
       <ActionSheet
         visible={shareMenu}
@@ -243,6 +257,11 @@ export default function PostCard({ post, onDeleted, showAllComments }) {
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]}
       />
+      {likes === null && post.likedBy && !editing ? (
+        <Text onPress={() => setLikesOpen(true)} style={{ fontFamily: fonts.body, fontSize: 13, color: colors.text, paddingHorizontal: space.lg, marginTop: 6 }}>
+          {LIKE_EMOJI} Liked by <Text style={{ fontFamily: fonts.semibold }}>{post.likedBy}</Text> and <Text style={{ fontFamily: fonts.semibold }}>others</Text>
+        </Text>
+      ) : null}
       {likes > 0 && !editing ? (
         <Text onPress={() => setLikesOpen(true)} style={{ fontFamily: fonts.body, fontSize: 13, color: colors.text, paddingHorizontal: space.lg, marginTop: 6 }}>
           {LIKE_EMOJI} {liked && (likes === 1 || !post.likedBy)

@@ -64,3 +64,41 @@ describe('Post offense, suspension and share', () => {
     assert.equal((await api().post(`/posts/${p.id}/share`).set(b.h).send({}).expect(200)).body.shareCount, 2);
   });
 });
+
+describe('Post menu: edit, hide like count, turn off commenting, music, delete', () => {
+  test('hide like count: others see no number, the owner still does', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const p = await textPost(a);
+    await api().post(`/posts/${p.id}/like`).set(b.h).expect(200);
+    const r = await api().patch(`/posts/${p.id}`).set(a.h).send({ hideLikes: true }).expect(200);
+    assert.equal(r.body.post.hideLikes, true);
+    assert.equal(r.body.post.likeCount, 1);
+    const seen = (await api().get(`/posts/${p.id}`).set(b.h).expect(200)).body.post;
+    assert.equal(seen.likeCount, null);
+    assert.equal((await api().post(`/posts/${p.id}/like`).set(b.h).expect(200)).body.likeCount, null);
+    await api().patch(`/posts/${p.id}`).set(b.h).send({ hideLikes: false }).expect(404); // not your post
+  });
+
+  test('turn off commenting hides comments and blocks new ones; turning on brings them back', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const p = await textPost(a);
+    await api().post(`/posts/${p.id}/comments`).set(b.h).send({ body: 'nice' }).expect(201);
+    await api().patch(`/posts/${p.id}`).set(a.h).send({ commentsOff: true }).expect(200);
+    const off = (await api().get(`/posts/${p.id}/comments`).set(b.h).expect(200)).body;
+    assert.equal(off.commentsOff, true); assert.equal(off.comments.length, 0);
+    assert.equal((await api().post(`/posts/${p.id}/comments`).set(b.h).send({ body: 'hey' }).expect(403)).body.error.code, 'comments_off');
+    await api().patch(`/posts/${p.id}`).set(a.h).send({ commentsOff: false }).expect(200);
+    assert.equal((await api().get(`/posts/${p.id}/comments`).set(b.h).expect(200)).body.comments.length, 1);
+  });
+
+  test('add, change and remove music', async () => {
+    const a = await makeUser();
+    const p = await textPost(a);
+    const mp3 = Buffer.from([0xff, 0xfb, 0x90, 0x00, ...new Array(64).fill(0)]);
+    const r = await api().post(`/posts/${p.id}/music`).set(a.h).field('title', 'Samajavaragamana').attach('audio', mp3, { filename: 'song.mp3', contentType: 'audio/mpeg' }).expect(200);
+    assert.equal(r.body.post.music.title, 'Samajavaragamana');
+    assert.ok(r.body.post.music.url.startsWith('/uploads/music/'));
+    const gone = await api().delete(`/posts/${p.id}/music`).set(a.h).expect(200);
+    assert.equal(gone.body.post.music, null);
+  });
+});

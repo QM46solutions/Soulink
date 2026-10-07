@@ -18,11 +18,12 @@ export default function PostScreen() {
   const [text, setText] = useState('');
   const [inputH, setInputH] = useState(44); // comment box grows with the text
   const [error, setError] = useState(null);
+  const [off, setOff] = useState(false); // commenting turned off by the owner
 
   const load = useCallback(async () => {
     try {
       const [p, c] = await Promise.all([api(`/posts/${id}`), api(`/posts/${id}/comments`)]);
-      setPost(p.post); setComments(c.comments);
+      setPost(p.post); setComments(c.comments); setOff(!!c.commentsOff);
     } catch (e) { setError(e.message); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -41,7 +42,7 @@ export default function PostScreen() {
       <FlatList
         data={comments}
         keyExtractor={(c) => c.id}
-        ListHeaderComponent={<View style={{ paddingTop: space.md }}><PostCard post={{ ...post, commentCount: comments.length }} showAllComments onDeleted={() => router.back()} /></View>}
+        ListHeaderComponent={<View style={{ paddingTop: space.md }}><PostCard post={{ ...post, commentCount: off ? null : comments.length }} showAllComments onDeleted={() => router.back()} onChanged={() => load()} /></View>}
         renderItem={({ item }) => (
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, paddingVertical: space.sm }}>
             <Pressable onPress={() => router.push(`/user/${item.author.username}`)}><Avatar uri={item.author.avatarUrl} name={item.author.displayName || item.author.username} size={32} /></Pressable>
@@ -52,9 +53,10 @@ export default function PostScreen() {
             {item.canDelete ? <Pressable onPress={() => remove(item.id)} hitSlop={8}><Ionicons name="trash-outline" size={16} color={colors.dim} /></Pressable> : null}
           </View>
         )}
-        ListEmptyComponent={<Text style={{ fontFamily: fonts.body, color: colors.muted, textAlign: 'center', marginTop: space.md }}>No comments yet. Be the first.</Text>}
+        ListEmptyComponent={<Text style={{ fontFamily: fonts.body, color: colors.muted, textAlign: 'center', marginTop: space.md }}>{off ? 'Commenting is turned off for this post.' : 'No comments yet. Be the first.'}</Text>}
         contentContainerStyle={{ paddingBottom: 100 }}
       />
+      {off ? null : (
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', padding: space.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(8,7,13,0.92)' }}>
         {/* grows onto more lines as you type (up to ~5), so long comments stay inside the screen */}
         <TextInput value={text} onChangeText={setText} placeholder="Add a comment…" placeholderTextColor={colors.dim} maxLength={2200} multiline
@@ -65,6 +67,7 @@ export default function PostScreen() {
           <Ionicons name="send" size={22} color={colors.aura} />
         </Pressable>
       </View>
+      )}
     </KeyboardAvoidingView>
   );
 }

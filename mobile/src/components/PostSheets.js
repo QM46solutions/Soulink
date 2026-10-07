@@ -78,8 +78,9 @@ export function LikesSheet({ visible, postId, onClose }) {
   );
 }
 
-export function CommentsSheet({ visible, postId, onClose, onCountChange }) {
+export function CommentsSheet({ visible, postId, onClose, onCountChange, mine }) {
   const [comments, setComments] = useState(null);
+  const [off, setOff] = useState(false); // the owner turned commenting off
   const [text, setText] = useState('');
   const [inputH, setInputH] = useState(44);
   const [sending, setSending] = useState(false);
@@ -87,7 +88,7 @@ export function CommentsSheet({ visible, postId, onClose, onCountChange }) {
   useEffect(() => {
     if (!visible) return;
     setComments(null); setError(null);
-    api(`/posts/${postId}/comments`).then((r) => setComments(r.comments)).catch((e) => { setError(e.message); setComments([]); });
+    api(`/posts/${postId}/comments`).then((r) => { setOff(!!r.commentsOff); setComments(r.comments); }).catch((e) => { setError(e.message); setComments([]); });
   }, [visible, postId]);
 
   const send = async () => {
@@ -125,12 +126,13 @@ export function CommentsSheet({ visible, postId, onClose, onCountChange }) {
           )}
           ListEmptyComponent={(
             <View style={{ alignItems: 'center', padding: space.xl }}>
-              <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 17 }}>No comments yet</Text>
-              <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: 4 }}>Start the conversation.</Text>
+              <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 17 }}>{off ? 'Commenting is turned off' : 'No comments yet'}</Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: 4, textAlign: 'center' }}>{off ? (mine ? 'Turn it back on from the ⋯ menu to show comments again.' : 'The owner turned off comments on this post.') : 'Start the conversation.'}</Text>
             </View>
           )} />
       )}
       {error ? <Text style={{ fontFamily: fonts.body, color: colors.danger, fontSize: 13, paddingHorizontal: space.lg }}>{error}</Text> : null}
+      {off ? null : (
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', padding: space.md, borderTopWidth: 1, borderTopColor: colors.border }}>
         <TextInput value={text} onChangeText={setText} placeholder="Add a comment…" placeholderTextColor={colors.dim} maxLength={2200} multiline
           onContentSizeChange={(e) => setInputH(e.nativeEvent.contentSize.height + (Platform.OS === 'web' ? 0 : 24))}
@@ -141,6 +143,7 @@ export function CommentsSheet({ visible, postId, onClose, onCountChange }) {
           {sending ? <ActivityIndicator color={colors.aura} size="small" /> : <Ionicons name="send" size={22} color={colors.aura} />}
         </Pressable>
       </View>
+      )}
     </BottomSheet>
   );
 }

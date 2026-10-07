@@ -2,7 +2,9 @@
 //  POST   /posts                     multipart: photos[] (optional), caption  → new post
 //  GET    /posts/:id                 one post (same visibility as the profile)
 //  DELETE /posts/:id                 delete my post
-//  PATCH  /posts/:id                 { caption } edit my caption
+//  PATCH  /posts/:id                 { caption?, hideLikes?, commentsOff? } edit my post
+//  POST   /posts/:id/music           multipart: audio (a song from your phone) + title  → music on my post
+//  DELETE /posts/:id/music           remove the music
 //  POST   /posts/:id/like            like / unlike (toggle)
 //  GET    /posts/:id/comments        comments, oldest first
 //  POST   /posts/:id/comments        { body }
@@ -39,10 +41,25 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
+    p.hide_likes, p.comments_off, p.music_url, p.music_title,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
-export const postView = (x, meId) => ({
+const on = (v) => v === true || v === 1;
+export const postView = (x, meId) => {
+  const mine = String(x.author_id).toLowerCase() === String(meId).toLowerCase();
+  const v = basicView(x, meId);
+  // owner's choices: like count hidden from others; commenting off hides comments for everyone
+  if (on(x.hide_likes) && !mine) v.likeCount = null;
+  if (on(x.comments_off)) v.commentCount = null;
+  return {
+    ...v,
+    hideLikes: on(x.hide_likes),
+    commentsOff: on(x.comments_off),
+    music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music' } : null,
+  };
+};
+const basicView = (x, meId) => ({
   id: x.post_id,
   caption: x.caption,
   media: media(x.media_urls),
@@ -109,15 +126,40 @@ r.delete('/:id', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
-r.patch('/:id', ah(async (req, res) => {
+async function myPost(req) {
   const id = uuid.parse(req.params.id);
-  const { caption } = z.object({ caption: z.string().max(2200) }).parse(req.body || {});
   const p = await one('SELECT id, media_urls FROM posts WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL', [id, req.user.id]);
   if (!p) throw notFound('Post not found');
-  if (!caption.trim() && !media(p.media_urls).length) throw badRequest("A text post can't be empty", 'empty_post');
-  await query('UPDATE posts SET caption=$2 WHERE id=$1', [id, caption.trim()]);
-  const x = await one(`${SELECT} WHERE p.id = $2`, [req.user.id, id]);
-  res.json({ post: postView(x, req.user.id) });
+  return p;
+}
+const freshView = async (req, id) => postView(await one(`${SELECT} WHERE p.id = $2`, [req.user.id, id]), req.user.id);
+
+r.patch('/:id', ah(async (req, res) => {
+  const p = await myPost(req);
+  const d = z.object({ caption: z.string().max(2200).optional(), hideLikes: z.boolean().optional(), commentsOff: z.boolean().optional() }).parse(req.body || {});
+  if (d.caption !== undefined) {
+    if (!d.caption.trim() && !media(p.media_urls).length) throw badRequest("A text post can't be empty", 'empty_post');
+    await query('UPDATE posts SET caption=$2 WHERE id=$1', [p.id, d.caption.trim()]);
+  }
+  if (d.hideLikes !== undefined) await query('UPDATE posts SET hide_likes=$2 WHERE id=$1', [p.id, d.hideLikes]);
+  if (d.commentsOff !== undefined) await query('UPDATE posts SET comments_off=$2 WHERE id=$1', [p.id, d.commentsOff]);
+  res.json({ post: await freshView(req, p.id) });
+}));
+
+// Music: a song/audio from your phone (up to 15 MB); the post plays its first 30 seconds
+r.post('/:id/music', uploadMemory('audio', 15).single('audio'), ah(async (req, res) => {
+  const p = await myPost(req);
+  if (!req.file) throw badRequest('Choose a song first', 'no_audio');
+  const title = z.string().trim().min(1).max(150).parse(String(req.body?.title || req.file.originalname || 'Music').replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music');
+  const url = await saveFile(req.file, 'music', 'audio');
+  await query('UPDATE posts SET music_url=$2, music_title=$3 WHERE id=$1', [p.id, url, title]);
+  res.json({ post: await freshView(req, p.id) });
+}));
+
+r.delete('/:id/music', ah(async (req, res) => {
+  const p = await myPost(req);
+  await query('UPDATE posts SET music_url=NULL, music_title=NULL WHERE id=$1', [p.id]);
+  res.json({ post: await freshView(req, p.id) });
 }));
 
 r.post('/:id/like', ah(async (req, res) => {
@@ -129,7 +171,8 @@ r.post('/:id/like', ah(async (req, res) => {
     await notify(x.author_id, req.user.id, 'post_like', x.post_id).catch(() => {});
   }
   const n = await one('SELECT COUNT(*) AS n FROM post_likes WHERE post_id=$1', [x.post_id]);
-  res.json({ liked: !had, likeCount: Number(n.n) });
+  const hidden = on(x.hide_likes) && String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase();
+  res.json({ liked: !had, likeCount: hidden ? null : Number(n.n) });
 }));
 
 r.post('/:id/offense', ah(async (req, res) => {
@@ -190,7 +233,9 @@ r.get('/:id/comments', ah(async (req, res) => {
       WHERE c.post_id=$1 AND c.deleted_at IS NULL ORDER BY c.created_at`, [x.post_id],
   );
   const postMine = String(x.author_id).toLowerCase() === String(req.user.id).toLowerCase();
+  if (on(x.comments_off)) return res.json({ comments: [], commentsOff: true }); // hidden while commenting is off
   res.json({
+    commentsOff: false,
     comments: rows.map((c) => ({
       id: c.comment_id, body: c.body, createdAt: c.comment_at, author: userCard(c),
       canDelete: postMine || String(c.author_id).toLowerCase() === String(req.user.id).toLowerCase(),
@@ -201,6 +246,7 @@ r.get('/:id/comments', ah(async (req, res) => {
 r.post('/:id/comments', ah(async (req, res) => {
   const x = await loadVisible(req);
   const { body } = z.object({ body: z.string().trim().min(1).max(2200) }).parse(req.body);
+  if (on(x.comments_off)) throw forbidden('Commenting is turned off for this post', 'comments_off');
   const c = await one('INSERT INTO comments (post_id, author_id, body) OUTPUT INSERTED.* VALUES ($1, $2, $3)', [x.post_id, req.user.id, body]);
   await notify(x.author_id, req.user.id, 'post_comment', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
   res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), canDelete: true } });

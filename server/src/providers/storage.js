@@ -7,7 +7,7 @@ import { badRequest } from '../lib/errors.js';
 
 const ALLOWED = {
   image: { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' },
-  audio: { 'audio/m4a': '.m4a', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/mpeg': '.mp3', 'audio/webm': '.webm', 'audio/3gpp': '.3gp' },
+  audio: { 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/ogg': '.ogg', 'audio/flac': '.flac', 'audio/mp3': '.mp3', 'audio/aacp': '.aac', 'audio/m4a': '.m4a', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/mpeg': '.mp3', 'audio/webm': '.webm', 'audio/3gpp': '.3gp' },
 };
 // Chat attachments: a photo or a voice note
 ALLOWED.media = { ...ALLOWED.image, ...ALLOWED.audio };
@@ -39,7 +39,7 @@ export async function saveFile(file, folder, kind = 'image') {
   return url;
 }
 
-const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'audio/webm', '.3gp': 'audio/3gpp', '.wav': 'audio/wav' };
+const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'audio/webm', '.3gp': 'audio/3gpp', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac' };
 const diskOf = (url) => path.join(config.uploadDir, String(url).replace(/^\/uploads\//, ''));
 
 async function storeInDb(url, buffer, mimetype) {
