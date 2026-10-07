@@ -15,8 +15,6 @@ import BackButton from '../../components/BackButton';
 const icon = (name) => ({ color, focused, size }) => (
   <View style={{ alignItems: 'center' }}>
     <Ionicons name={focused ? name : `${name}-outline`} size={size} color={color} />
-    {/* small glowing dot under the active tab */}
-    <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: focused ? colors.spark : 'transparent' }} />
   </View>
 );
 
@@ -46,7 +44,6 @@ function ProfileTabIcon({ focused }) {
             : <View style={{ flex: 1, borderRadius: 13, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="person" size={14} color={colors.muted} /></View>}
         </View>
       </LinearGradient>
-      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 1, backgroundColor: focused ? colors.spark : 'transparent' }} />
     </View>
   );
 }
@@ -76,7 +73,6 @@ function ArgueIcon({ focused }) {
   return (
     <View style={{ alignItems: 'center' }}>
       <ScalesIcon size={38} bold />
-      <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: -1, backgroundColor: focused ? colors.spark : 'transparent' }} />
     </View>
   );
 }
@@ -92,7 +88,7 @@ export default function TabsLayout() {
         const focused = navigation.isFocused();
         return {
           // tabs other than Home get a back arrow that returns Home
-          ...(route.name !== 'index' ? { headerLeft: () => <BackButton toHome /> } : {}),
+          ...(route.name !== 'index' && route.name !== 'profile' ? { headerLeft: () => <BackButton toHome /> } : {}),
           headerStyle: { backgroundColor: 'transparent' },
           headerShadowVisible: false,
           headerBackground: () => <HeaderBackground />,

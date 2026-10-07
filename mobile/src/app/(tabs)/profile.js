@@ -46,16 +46,16 @@ export default function MyProfile() {
   useFocusEffect(useCallback(() => {
     navigation.setOptions({
       title: user.username,
+      // no back arrow on your own profile (Home is in the tab bar): the + adds a new profile post instead
+      headerLeft: () => (
+        <Pressable onPress={() => router.push('/create-post')} hitSlop={10} style={{ marginLeft: 16 }} accessibilityLabel="New post">
+          <Ionicons name="add-circle-outline" size={27} color={colors.text} />
+        </Pressable>
+      ),
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
-          {/* new profile post (Moments are on Home) */}
-          <Pressable onPress={() => router.push('/create-post')} hitSlop={10} style={{ marginRight: 18 }} accessibilityLabel="New post">
-            <Ionicons name="add-circle-outline" size={26} color={colors.text} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/settings')} hitSlop={10} accessibilityLabel="Settings">
-            <Ionicons name="menu" size={24} color={colors.text} />
-          </Pressable>
-        </View>
+        <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={{ marginRight: 16 }} accessibilityLabel="Settings">
+          <Ionicons name="menu" size={24} color={colors.text} />
+        </Pressable>
       ),
     });
     load();
