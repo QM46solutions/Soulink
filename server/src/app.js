@@ -28,6 +28,7 @@ import soulmojiRoutes from './routes/soulmoji.js';
 import anonRoutes from './routes/anon.js';
 import pushRoutes from './routes/push.js';
 import accountRoutes from './routes/account.js';
+import momentRoutes from './routes/moments.js';
 
 export function createApp() {
   const app = express();
@@ -103,6 +104,7 @@ export function createApp() {
   app.use('/anon', anonRoutes);
   app.use('/push', pushRoutes);
   app.use('/account', accountRoutes);
+  app.use('/moments', momentRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

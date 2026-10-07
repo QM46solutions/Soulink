@@ -47,9 +47,15 @@ export default function MyProfile() {
     navigation.setOptions({
       title: user.username,
       headerRight: () => (
-        <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={{ marginRight: 16 }}>
-          <Ionicons name="menu" size={24} color={colors.text} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
+          {/* new profile post (Moments are on Home) */}
+          <Pressable onPress={() => router.push('/create-post')} hitSlop={10} style={{ marginRight: 18 }} accessibilityLabel="New post">
+            <Ionicons name="add-circle-outline" size={26} color={colors.text} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={10} accessibilityLabel="Settings">
+            <Ionicons name="menu" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       ),
     });
     load();

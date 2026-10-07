@@ -8,7 +8,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { mediaUrl } from '../lib/api';
+import { api, mediaUrl } from '../lib/api';
+import { bgOf } from '../lib/moments';
 import { colors, fonts, gradients, radius, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
@@ -116,6 +117,93 @@ function Reactions({ reactions, mine, onReact }) {
   );
 }
 
+// ---------- Moments in chat: open once, replay once, or save to keep ----------
+const MOMENT_STATUS = { delivered: 'Delivered', opened: 'Opened', replayed: 'Replayed', saved: 'Saved', new: 'New', gone: 'Opened' };
+
+function MomentViewerOverlay({ content, onClose, onSave, saved, canReplay, mine, busy }) {
+  return (
+    <Overlay onClose={onClose} animationType="fade">
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        {content.mediaUrl ? (
+          <Image source={{ uri: mediaUrl(content.mediaUrl) }} style={{ flex: 1 }} contentFit="contain" />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', padding: space.xl }}>
+            <LinearGradient colors={bgOf(content.bg)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <Text style={{ color: '#fff', fontFamily: fonts.displayBold, fontSize: 28, lineHeight: 36, textAlign: 'center' }}>{content.text}</Text>
+          </View>
+        )}
+        {content.mediaUrl && content.text ? (
+          <Text style={{ position: 'absolute', left: 16, right: 16, bottom: 120, textAlign: 'center', color: '#fff', fontFamily: fonts.semibold, fontSize: 16, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 14, padding: 8, overflow: 'hidden' }}>{content.text}</Text>
+        ) : null}
+        <Pressable onPress={onClose} hitSlop={12} style={{ position: 'absolute', top: 18, right: 18 }} accessibilityLabel="Close"><Ionicons name="close" size={30} color="#fff" /></Pressable>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 34, alignItems: 'center' }}>
+          {!mine && !saved ? (
+            <Pressable onPress={onSave} disabled={busy} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 }}>
+              <Ionicons name="bookmark" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontFamily: fonts.semibold, marginLeft: 6 }}>Save in chat</Text>
+            </Pressable>
+          ) : saved ? <Text style={{ color: '#fff', fontFamily: fonts.semibold, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, overflow: 'hidden' }}>🔖 Saved in this chat</Text> : null}
+          {!mine && !saved ? <Text style={{ color: 'rgba(255,255,255,0.75)', fontFamily: fonts.body, fontSize: 12, marginTop: 8 }}>{canReplay ? 'You can replay this once.' : 'This was your replay. Save it to keep it.'}</Text> : null}
+        </View>
+      </View>
+    </Overlay>
+  );
+}
+
+function MomentBubble({ message, mine, onMenu }) {
+  const [m, setM] = useState(message.moment || {});
+  const [open, setOpen] = useState(null); // { content, canReplay }
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setM(message.moment || {}); }, [message.moment]);
+  const gone = !mine && m.status === 'gone';
+  const view = async () => {
+    if (gone || busy) return;
+    setBusy(true);
+    try {
+      const r = await api(`/conversations/${message.conversationId}/messages/${message.id}/open`, { method: 'POST' });
+      setOpen({ content: r.content, canReplay: r.canReplay });
+      if (!mine) setM(r.message.moment || m);
+    } catch (e) { if (e.code === 'moment_gone') setM({ ...m, status: 'gone', canReplay: false }); }
+    finally { setBusy(false); }
+  };
+  const save = async () => {
+    setBusy(true);
+    try { const r = await api(`/conversations/${message.conversationId}/messages/${message.id}/save`, { method: 'POST' }); setM(r.message.moment || { ...m, status: 'saved' }); }
+    catch { /* gone */ } finally { setBusy(false); }
+  };
+  const saved = m.status === 'saved';
+  const label = mine ? `Moment · ${MOMENT_STATUS[m.status] || 'Delivered'}`
+    : saved ? 'Saved Moment · tap to view' : m.status === 'new' ? 'Tap to view Moment' : m.canReplay ? 'Opened · tap to replay' : 'Moment opened';
+  return (
+    <>
+      <Pressable onPress={view} onLongPress={onMenu} disabled={gone}
+        style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, overflow: 'hidden', maxWidth: 260,
+          borderWidth: 1.5, borderColor: gone ? colors.border : hovered ? colors.spark : 'rgba(255,107,157,0.6)', opacity: gone ? 0.6 : 1 })}>
+        {!gone && (m.status === 'new' || mine) ? <LinearGradient colors={['rgba(124,92,252,0.35)', 'rgba(255,107,157,0.3)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
+        {mine && message.mediaUrl ? <Image source={{ uri: mediaUrl(message.mediaUrl) }} style={{ width: 34, height: 34, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+          : <Ionicons name={gone ? 'checkmark-done' : saved ? 'bookmark' : m.hasPhoto ? 'camera' : 'sparkles'} size={22} color={gone ? colors.muted : colors.spark} style={{ marginRight: 10 }} />}
+        <View style={{ flexShrink: 1 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: gone ? colors.muted : colors.text }}>{label}</Text>
+          {mine && m.text ? <Text numberOfLines={1} style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }}>{m.text}</Text> : null}
+        </View>
+        {busy ? <ActivityIndicator size="small" color={colors.aura} style={{ marginLeft: 8 }} /> : null}
+      </Pressable>
+      {open ? <MomentViewerOverlay content={open.content} canReplay={open.canReplay} mine={mine} saved={saved} busy={busy} onSave={save} onClose={() => setOpen(null)} /> : null}
+    </>
+  );
+}
+
+// Reply to someone's Moment: small preview above the message
+function MomentRefTag({ momentRef, mine }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: mine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
+      {momentRef.mediaUrl ? <Image source={{ uri: mediaUrl(momentRef.mediaUrl) }} style={{ width: 30, height: 42, borderRadius: 6, marginRight: 6 }} contentFit="cover" />
+        : <View style={{ width: 30, height: 42, borderRadius: 6, overflow: 'hidden', marginRight: 6 }}><LinearGradient colors={bgOf(momentRef.bg)} style={{ flex: 1 }} /></View>}
+      <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{mine ? 'You replied to their Moment' : 'Replied to your Moment'}</Text>
+    </View>
+  );
+}
+
 export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
@@ -141,6 +229,8 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
           : <SoulmojiSticker faceUrl={message.soulmoji.faceUrl} mood={message.soulmoji.mood} caption={message.soulmoji.caption} size={120} />}
       </Pressable>
     );
+  } else if (message.kind === 'moment') {
+    content = <MomentBubble message={message} mine={mine} onMenu={onMenu} />;
   } else if (message.kind === 'post' && message.post) {
     // a post someone shared into the chat: tap to open it
     const p = message.post;
@@ -176,6 +266,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else {
     content = (
       <Pressable onPress={tap} onLongPress={onMenu}>
+        {message.momentRef ? <MomentRefTag momentRef={message.momentRef} mine={mine} /> : null}
         <BubbleShell mine={mine}>
           <Text selectable={false} style={[st.text, mine && st.textMine, Platform.OS === 'web' && { userSelect: 'none' }]}>{message.body}</Text>
           {translation && !translation.loading ? (
@@ -260,7 +351,7 @@ export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend
         ) : null}
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: 12, borderRadius: 18, backgroundColor: mine ? 'rgba(124,92,252,0.35)' : colors.card, marginBottom: space.md }}>
           <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>
-            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : '🎤 Voice message'}
+            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : '🎤 Voice message'}
           </Text>
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', minWidth: 200, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>

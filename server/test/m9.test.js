@@ -102,3 +102,62 @@ describe('Post menu: edit, hide like count, turn off commenting, music, delete',
     assert.equal(gone.body.post.music, null);
   });
 });
+
+describe('Moments (Home +): story for 24 h, chat Moments open once / replay once / save', () => {
+  async function connected() {
+    const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
+    const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
+    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200)).body.conversationId;
+    return { a, b, conv };
+  }
+
+  test('a written Moment as a story: Connections see it, strangers do not; views and replies', async () => {
+    const { a, b, conv } = await connected();
+    const stranger = await makeUser(); await quiz(stranger, 2);
+    const m = (await api().post('/moments').set(a.h).field('text', 'Chai time ☕').field('bg', 'sunset').field('story', '1').expect(201)).body.moment;
+    assert.ok(m.id);
+    const feed = (await api().get('/moments/feed').set(b.h).expect(200)).body.groups;
+    assert.equal(feed.length, 1); assert.equal(feed[0].user.id, a.user.id); assert.equal(feed[0].allSeen, false);
+    assert.equal((await api().get('/moments/feed').set(stranger.h).expect(200)).body.groups.length, 0);
+    await api().get(`/moments/user/${a.user.id}`).set(stranger.h).expect(403);
+    await api().post(`/moments/${m.id}/view`).set(b.h).expect(200);
+    assert.equal((await api().get('/moments/feed').set(b.h).expect(200)).body.groups[0].allSeen, true);
+    const v = (await api().get(`/moments/${m.id}/viewers`).set(a.h).expect(200)).body.viewers;
+    assert.equal(v.length, 1); assert.equal(v[0].id, b.user.id);
+    await api().get(`/moments/${m.id}/viewers`).set(b.h).expect(403);
+    const rep = (await api().post(`/moments/${m.id}/reply`).set(b.h).send({ text: '😍' }).expect(201)).body;
+    assert.equal(rep.conversationId, conv);
+    assert.equal(rep.message.momentRef.momentId, m.id);
+    // nothing about Moments shows up in posts
+    assert.equal((await api().get(`/posts/user/${a.user.id}`).set(b.h).expect(200)).body.posts.length, 0);
+  });
+
+  test('a Moment sent in chat opens once, replays once, then is gone, unless saved', async () => {
+    const { a, b, conv } = await connected();
+    await api().post('/moments').set(a.h).field('text', 'secret plan').field('conversationIds', JSON.stringify([conv])).expect(201);
+    const list = async (u) => (await api().get(`/conversations/${conv}/messages`).set(u.h).expect(200)).body.messages;
+    const msg = (await list(b)).find((x) => x.kind === 'moment');
+    assert.equal(msg.moment.status, 'new'); assert.equal(msg.mediaUrl, null);
+    assert.equal(JSON.stringify(msg).includes('secret plan'), false, 'closed Moment never carries its content');
+    const o1 = (await api().post(`/conversations/${conv}/messages/${msg.id}/open`).set(b.h).expect(200)).body;
+    assert.equal(o1.content.text, 'secret plan'); assert.equal(o1.canReplay, true);
+    assert.equal((await list(a)).find((x) => x.id === msg.id).moment.status, 'opened');
+    await api().post(`/conversations/${conv}/messages/${msg.id}/open`).set(b.h).expect(200); // the replay
+    assert.equal((await api().post(`/conversations/${conv}/messages/${msg.id}/open`).set(b.h).expect(410)).body.error.code, 'moment_gone');
+    assert.equal((await list(a)).find((x) => x.id === msg.id).moment.status, 'replayed');
+
+    await api().post('/moments').set(a.h).field('text', 'keep me').field('conversationIds', JSON.stringify([conv])).expect(201);
+    const m2 = (await list(b)).find((x) => x.kind === 'moment' && x.moment.status === 'new');
+    await api().post(`/conversations/${conv}/messages/${m2.id}/open`).set(b.h).expect(200);
+    await api().post(`/conversations/${conv}/messages/${m2.id}/save`).set(b.h).expect(200);
+    for (let i = 0; i < 3; i += 1) await api().post(`/conversations/${conv}/messages/${m2.id}/open`).set(b.h).expect(200); // saved: open any time
+    const saved = (await list(b)).find((x) => x.id === m2.id);
+    assert.equal(saved.moment.status, 'saved'); assert.equal(saved.moment.text, 'keep me');
+  });
+
+  test('a Moment needs content and somewhere to go', async () => {
+    const a = await makeUser(); await quiz(a);
+    await api().post('/moments').set(a.h).field('story', '1').expect(400);
+    await api().post('/moments').set(a.h).field('text', 'hi').expect(400);
+  });
+});

@@ -81,13 +81,44 @@ export function serializeMessage(m) {
     soulmoji: !deleted && m.kind === 'soulmoji' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
     // a shared post: small preview (the post itself is checked again when it's opened)
     post: !deleted && m.kind === 'post' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
+    savedAt: m.saved_at ?? null,
+    // a reply to someone's Moment: small preview of that Moment
+    momentRef: !deleted && m.moment_ref ? (() => { try { return JSON.parse(m.moment_ref); } catch { return null; } })() : null,
   };
+}
+
+const momentBody = (b) => { try { return JSON.parse(b || '{}'); } catch { return {}; } };
+/** A chat Moment as one person sees it: opens once, one replay, or saved to stay. Hidden content is never sent. */
+function momentFor(m, meId, opensByUser) {
+  const body = momentBody(m.body);
+  const mine = String(m.senderId).toLowerCase() === String(meId).toLowerCase();
+  const saved = !!m.savedAt;
+  const base = { ...m, body: null, mediaUrl: null };
+  if (mine) {
+    const others = Object.entries(opensByUser).filter(([u]) => u !== String(meId).toLowerCase()).map(([, n]) => n);
+    const most = others.length ? Math.max(...others) : 0;
+    return { ...m, body: null, moment: { text: body.text || null, bg: body.bg || null, hasPhoto: !!m.mediaUrl, status: saved ? 'saved' : most >= 2 ? 'replayed' : most === 1 ? 'opened' : 'delivered', mine: true } };
+  }
+  const opens = opensByUser[String(meId).toLowerCase()] || 0;
+  if (saved) return { ...m, body: null, moment: { text: body.text || null, bg: body.bg || null, hasPhoto: !!m.mediaUrl, status: 'saved', mine: false } };
+  return { ...base, moment: { text: null, bg: body.bg || null, hasPhoto: !!m.mediaUrl, status: opens === 0 ? 'new' : opens === 1 ? 'opened' : 'gone', canReplay: opens === 1, mine: false } };
 }
 
 const SOULMOJI_MOODS = ['happy', 'laugh', 'love', 'sad', 'cry', 'angry', 'shocked', 'tired', 'cool', 'party', 'thinking', 'shy'];
 
 /** Adds reactions and the replied-to message preview (Instagram-style) to a list of messages. */
 export async function enrich(messages, meId) {
+  if (!messages.length) return messages;
+  const out = await enrichBase(messages, meId);
+  const momentIds = out.filter((m) => m.kind === 'moment' && !m.deleted).map((m) => m.id);
+  if (!momentIds.length) return out;
+  const rows = await many(`SELECT message_id, user_id, opens FROM chat_moment_opens WHERE message_id IN (${momentIds.map((_, i) => `$${i + 1}`).join(',')})`, momentIds);
+  const by = {};
+  for (const r of rows) ((by[String(r.message_id).toLowerCase()] ||= {})[String(r.user_id).toLowerCase()] = Number(r.opens));
+  return out.map((m) => (m.kind === 'moment' && !m.deleted ? momentFor(m, meId, by[String(m.id).toLowerCase()] || {}) : m));
+}
+
+async function enrichBase(messages, meId) {
   if (!messages.length) return messages;
   const ids = messages.map((m) => m.id);
   const ph = ids.map((_, i) => `$${i + 1}`).join(',');
@@ -117,6 +148,8 @@ function preview(m, meId) {
   else if (m.kind === 'voice') text = '🎤 Voice message';
   else if (m.kind === 'soulmoji') text = '✨ Soulmoji';
   else if (m.kind === 'post') text = '📮 Shared a post';
+  else if (m.kind === 'moment') text = '📸 Moment';
+  else if (m.momentRef) text = `↩︎ Moment: ${m.body}`;
   else text = m.body;
   return { ...m, text: m.kind !== 'system' && m.senderId === meId ? `You: ${text}` : text };
 }
@@ -152,12 +185,12 @@ async function memberIds(conversationId) {
 }
 
 /** Inserts a message (and bumps the conversation), then pushes it to every member's phone. */
-export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null, replyToId = null }) {
+export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null, replyToId = null, momentRef = null }) {
   const msg = await tx(async (c) => {
     const m = (await c.query(
-      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms, reply_to_id)
-       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [conv.id, senderId, kind, body, mediaUrl, durationMs, replyToId],
+      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms, reply_to_id, moment_ref)
+       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [conv.id, senderId, kind, body, mediaUrl, durationMs, replyToId, momentRef ? JSON.stringify(momentRef) : null],
     )).rows[0];
     await c.query('UPDATE conversations SET last_message_at = $2 WHERE id=$1', [conv.id, m.created_at]);
     if (senderId) {
@@ -168,7 +201,12 @@ export async function postMessage(conv, senderId, { kind, body = null, mediaUrl 
   });
   const [message] = await enrich([serializeMessage(msg)], senderId);
   const members = await memberIds(conv.id);
-  emitToUsers(members, 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
+  if (kind === 'moment') {
+    // everyone else gets the closed Moment (tap to open); the content is never pushed to them
+    const closed = momentFor(serializeMessage(msg), null, {});
+    emitToUsers([senderId], 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
+    emitToUsers(members.filter((id) => String(id).toLowerCase() !== String(senderId).toLowerCase()), 'message:new', { conversationId: conv.id, message: { ...closed, reactions: [] } });
+  } else emitToUsers(members, 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
   if (senderId) pushMessage(conv, senderId, members, kind, body).catch(() => {}); // phone notifications, in the background
   return message;
 }
@@ -179,7 +217,7 @@ async function pushMessage(conv, senderId, members, kind, body) {
   if (!others.length) return;
   const s = await one('SELECT username, display_name FROM users WHERE id=$1', [senderId]);
   const who = s?.display_name || s?.username || 'Someone';
-  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : 'New message';
+  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : kind === 'moment' ? '📸 Sent you a Moment' : 'New message';
   const title = conv.is_group && conv.title ? `${who} · ${conv.title}` : who;
   for (const id of others) await pushTo(id, 'messages', { title, body: what, url: `/chat/${conv.id}`, tag: `chat-${conv.id}` });
 }
@@ -189,7 +227,7 @@ export async function systemMessage(conv, text) {
 }
 
 /** In a 1:1 chat, blocked people can't message each other. */
-async function assertCanSend(conv, meId) {
+export async function assertCanSend(conv, meId) {
   if (conv.is_group) return;
   const others = (await memberIds(conv.id)).filter((id) => id !== meId);
   // direct_key is stored in upper case, ids may come back in either case: compare case-insensitively
@@ -291,6 +329,12 @@ r.post('/direct', requireSoul, ah(async (req, res) => {
     throw forbidden('Connect first: the chat opens once they accept your request.', 'not_connected');
   }
 
+  const conv = await getOrCreateDirect(me, userId);
+  res.json({ conversation: await conversationPayload(conv, me) });
+}));
+
+/** The 1:1 chat between two people, created if needed (callers check who may chat first). */
+export async function getOrCreateDirect(me, userId) {
   const key = directKey(me, userId);
   let conv = await one('SELECT * FROM conversations WHERE direct_key=$1', [key]);
   if (!conv) {
@@ -308,8 +352,8 @@ r.post('/direct', requireSoul, ah(async (req, res) => {
   } else if (!(await membership(conv.id, me))) {
     await query('INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, 0)', [conv.id, me]);
   }
-  res.json({ conversation: await conversationPayload(conv, me) });
-}));
+  return conv;
+}
 
 // POST /conversations/group { title?, userIds[] }
 r.post('/group', requireSoul, ah(async (req, res) => {
@@ -461,6 +505,45 @@ r.post('/:id/voice-translate', uploadMemory('media', 25).single('file'), ah(asyn
   const text = from === to ? original : await aiTranslate(original, from, to);
   const voice = output === 'voice' ? await makeVoiceClip(req.user.id, text, to) : null;
   res.json({ from, to, original, text, same: from === to, voice });
+}));
+
+// ---------- Moments in chat: open once, replay once, or save ----------
+// POST /conversations/:id/messages/:messageId/open -> { message } with the content (counts as an open for the receiver)
+r.post('/:id/messages/:messageId/open', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const m = await one("SELECT * FROM messages WHERE id=$1 AND conversation_id=$2 AND kind=N'moment' AND deleted_at IS NULL", [messageId, conv.id]);
+  if (!m) throw notFound('Moment not found');
+  const mine = String(m.sender_id).toLowerCase() === String(req.user.id).toLowerCase();
+  if (!mine && !m.saved_at) {
+    const row = await one('SELECT opens FROM chat_moment_opens WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id]);
+    const opens = Number(row?.opens || 0);
+    if (opens >= 2) throw new HttpError(410, 'This Moment is gone. It could be opened once and replayed once.', 'moment_gone');
+    if (row) await query('UPDATE chat_moment_opens SET opens=opens+1, last_opened_at=SYSDATETIMEOFFSET() WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id]);
+    else await query('INSERT INTO chat_moment_opens (message_id, user_id, opens) VALUES ($1, $2, 1)', [messageId, req.user.id]);
+    emitToUsers([m.sender_id], 'message:moment', { conversationId: conv.id, messageId, status: opens === 0 ? 'opened' : 'replayed' });
+  }
+  const b = momentBody(m.body);
+  const [view] = await enrich([serializeMessage(m)], req.user.id);
+  res.json({ message: view, content: { text: b.text || null, bg: b.bg || null, mediaUrl: m.media_url || null }, canReplay: !mine && !m.saved_at && view.moment?.status === 'opened' });
+}));
+
+// POST /conversations/:id/messages/:messageId/save -> keeps the Moment in the chat for everyone (like Snapchat)
+r.post('/:id/messages/:messageId/save', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const m = await one("SELECT * FROM messages WHERE id=$1 AND conversation_id=$2 AND kind=N'moment' AND deleted_at IS NULL", [messageId, conv.id]);
+  if (!m) throw notFound('Moment not found');
+  const mine = String(m.sender_id).toLowerCase() === String(req.user.id).toLowerCase();
+  if (!mine && !m.saved_at) {
+    const row = await one('SELECT opens FROM chat_moment_opens WHERE message_id=$1 AND user_id=$2', [messageId, req.user.id]);
+    if (Number(row?.opens || 0) >= 2) throw new HttpError(410, 'This Moment is already gone.', 'moment_gone');
+  }
+  if (!m.saved_at) await query('UPDATE messages SET saved_at=SYSDATETIMEOFFSET() WHERE id=$1', [messageId]);
+  const fresh = await one('SELECT * FROM messages WHERE id=$1', [messageId]);
+  emitToUsers(await memberIds(conv.id), 'message:moment', { conversationId: conv.id, messageId, status: 'saved' });
+  const [view] = await enrich([serializeMessage(fresh)], req.user.id);
+  res.json({ message: view });
 }));
 
 r.post('/:id/messages/:messageId/react', ah(async (req, res) => {

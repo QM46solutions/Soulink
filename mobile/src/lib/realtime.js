@@ -33,7 +33,7 @@ export function RealtimeProvider({ children }) {
     socketRef.current = socket;
     socket.on('connect', () => { setConnected(true); refreshUnread(); });
     socket.on('disconnect', () => setConnected(false));
-    for (const event of ['message:new', 'message:deleted', 'typing', 'read', 'anon:update', 'notification:new']) {
+    for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));
         if (event === 'message:new' || event === 'read' || event === 'anon:update' || event === 'notification:new') refreshUnread();

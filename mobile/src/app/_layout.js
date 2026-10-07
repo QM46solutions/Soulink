@@ -77,6 +77,8 @@ function RootStack() {
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />
+        <Stack.Screen name="moment/new" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="moment/[userId]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
         <Stack.Screen name="share-post" options={{ title: 'Send in a chat', presentation: 'modal' }} />
         <Stack.Screen name="post-likes/[id]" options={{ title: '👌🏻 Likes' }} />

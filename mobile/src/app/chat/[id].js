@@ -115,6 +115,11 @@ export default function Chat() {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, reactions: reactions.map((r) => ({ emoji: r.emoji, count: r.count, mine: r.userIds.includes(me.id) })) } : m)));
   });
+  // a Moment was opened, replayed or saved: update its status chip
+  useLiveEvent('message:moment', ({ conversationId, messageId, status }) => {
+    if (conversationId !== id) return;
+    setMessages((cur) => cur.map((m) => (m.id === messageId && m.moment ? { ...m, moment: { ...m.moment, status: status === 'saved' || m.moment.mine ? status : m.moment.status } } : m)));
+  });
   useLiveEvent('message:deleted', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === message.id ? message : m)));
