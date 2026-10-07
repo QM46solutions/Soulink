@@ -15,7 +15,7 @@ r.use(requireAuth);
 
 r.get('/key', ah(async (req, res) => res.json({ publicKey: await publicKey() })));
 
-const sub = z.object({ endpoint: z.string().url().max(900), keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(4).max(100) }) });
+const sub = z.object({ endpoint: z.string().url().max(800), keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(4).max(100) }) });
 r.post('/subscribe', ah(async (req, res) => {
   const s = sub.parse(req.body);
   await query(
@@ -28,7 +28,7 @@ r.post('/subscribe', ah(async (req, res) => {
 }));
 
 r.delete('/subscribe', ah(async (req, res) => {
-  const { endpoint } = z.object({ endpoint: z.string().max(900) }).parse(req.body || {});
+  const { endpoint } = z.object({ endpoint: z.string().max(800) }).parse(req.body || {});
   await query('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
   res.json({ ok: true });
 }));
