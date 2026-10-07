@@ -35,6 +35,9 @@ jobs:
           rm -rf out/node_modules out/uploads out/test out/.env out/cloud.env
           cp -r mobile/dist out/web
           cp render.yaml out/render.yaml
+          # the server's .gitignore skips every node_modules folder, but the web build keeps its fonts and
+          # icons under web/assets/node_modules: ignore only the server's own top-level node_modules
+          printf '/node_modules\n' > out/.gitignore
       - name: Publish to the deploy branch (Render picks it up)
         working-directory: out
         run: |
