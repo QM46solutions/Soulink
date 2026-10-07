@@ -151,7 +151,8 @@ function preview(m, meId) {
   else if (m.kind === 'moment') text = '📸 Moment';
   else if (m.momentRef) text = `↩︎ Moment: ${m.body}`;
   else text = m.body;
-  return { ...m, text: m.kind !== 'system' && m.senderId === meId ? `You: ${text}` : text };
+  const safe = m.kind === 'moment' ? { ...m, body: null, mediaUrl: null } : m; // a Moment's content never travels in the inbox
+  return { ...safe, text: m.kind !== 'system' && m.senderId === meId ? `You: ${text}` : text };
 }
 
 function serializeConversation(c, members, meId, lastMessage = null, unread = 0) {

@@ -137,6 +137,8 @@ describe('Moments (Home +): story for 24 h, chat Moments open once / replay once
     await api().post('/moments').set(a.h).field('text', 'secret plan').field('conversationIds', JSON.stringify([conv])).expect(201);
     const list = async (u) => (await api().get(`/conversations/${conv}/messages`).set(u.h).expect(200)).body.messages;
     const msg = (await list(b)).find((x) => x.kind === 'moment');
+    const inbox = (await api().get('/conversations?box=inbox').set(b.h).expect(200)).body.conversations;
+    assert.equal(JSON.stringify(inbox).includes('secret plan'), false, 'the inbox preview never carries a Moment');
     assert.equal(msg.moment.status, 'new'); assert.equal(msg.mediaUrl, null);
     assert.equal(JSON.stringify(msg).includes('secret plan'), false, 'closed Moment never carries its content');
     const o1 = (await api().post(`/conversations/${conv}/messages/${msg.id}/open`).set(b.h).expect(200)).body;
