@@ -10,24 +10,24 @@ import PulseMeter, { PulseInfo } from './PulseMeter';
 // Count under the name: big number with a small label
 function Stat({ n, label, onPress }) {
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ alignItems: 'flex-start', flexShrink: 0, marginRight: 16, opacity: hovered ? 0.8 : 1 })}>
-      <Text style={{ color: colors.text, fontSize: 20, lineHeight: 24, fontFamily: fonts.bold }}>{n ?? 0}</Text>
-      <Text numberOfLines={1} style={{ color: colors.muted, fontSize: 12.5, lineHeight: 16, fontFamily: fonts.medium }}>{label}</Text>
+    <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ flex: 1, alignItems: 'center', opacity: hovered ? 0.8 : 1 })}>
+      <Text style={{ color: colors.text, fontSize: 19, lineHeight: 23, fontFamily: fonts.bold, textAlign: 'center' }}>{n ?? 0}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: colors.muted, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.medium, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
 
-/** Rounded profile button (42 pt pill). primary = Soulink gradient, outline = white ring. */
-export function ProfileAction({ title, onPress, primary, outline, icon, disabled, loading, style }) {
+/** Profile button: primary = Soulink gradient; otherwise frosted glass with a thin lilac edge and a lilac icon. */
+export function ProfileAction({ title, onPress, primary, icon, disabled, loading, style }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button"
-      style={({ hovered, pressed }) => [{ flex: 1, height: 42, borderRadius: 21, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
-        borderWidth: outline ? 2 : 0, borderColor: hovered ? colors.aura : colors.text,
-        backgroundColor: primary ? colors.soul : outline ? 'rgba(255,255,255,0.04)' : hovered ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.13)', opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
-        transform: [{ scale: hovered && !disabled ? 1.02 : 1 }] }, style]}>
+    <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button" accessibilityLabel={title || undefined}
+      style={({ hovered, pressed }) => [{ flex: 1, height: 40, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+        borderWidth: primary ? 0 : 1, borderColor: hovered ? 'rgba(176,143,255,0.75)' : 'rgba(176,143,255,0.32)',
+        backgroundColor: primary ? colors.soul : hovered ? 'rgba(124,92,252,0.16)' : 'rgba(255,255,255,0.06)', opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
       {primary ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-      {icon ? <Ionicons name={icon} size={17} color={colors.text} style={{ marginRight: title ? 6 : 0 }} /> : null}
-      {title ? <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, color: primary ? '#fff' : colors.text }}>{loading ? '…' : title}</Text> : null}
+      {icon ? <Ionicons name={icon} size={17} color={primary ? '#fff' : colors.aura} style={{ marginRight: title ? 7 : 0 }} /> : null}
+      {title ? <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14.5, letterSpacing: 0.1, color: primary ? '#fff' : colors.text }}>{loading ? '…' : title}</Text> : null}
     </Pressable>
   );
 }
@@ -63,36 +63,34 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
   const openList = (type) => (canViewLists ? () => router.push({ pathname: '/follows/[id]', params: { id: user.id, type, username: user.username } }) : undefined);
   return (
     <View style={{ paddingBottom: space.md }}>
-      {/* the band at the top: dark gradient like a cover, Pulse meter on the right */}
-      <View style={{ height: pulse ? 142 : 64, justifyContent: 'flex-start', alignItems: 'flex-end', paddingRight: space.lg, paddingTop: 8 }}>
-        <LinearGradient colors={['rgba(124,92,252,0.30)', 'rgba(255,107,157,0.10)', 'rgba(8,7,13,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        {pulse ? <PulseMeter pulse={pulse} size={104} onPress={() => setPulseOpen((o) => !o)} /> : null}
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, marginTop: pulse ? -42 : -28 }}>
+      {/* soft cover glow behind the top row */}
+      <LinearGradient pointerEvents="none" colors={['rgba(124,92,252,0.22)', 'rgba(255,107,157,0.07)', 'rgba(8,7,13,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 170 }} />
+      {/* one line: photo · name + counts · Pulse meter */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingTop: space.lg }}>
         <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} accessibilityLabel={onAvatarPress ? 'Change profile photo' : undefined}>
-          <AuraAvatar user={user} size={104} />
+          <AuraAvatar user={user} size={86} />
           {onAvatarPress ? (
-            <View style={{ position: 'absolute', right: 2, bottom: 2, borderRadius: 15, overflow: 'hidden', padding: 5, borderWidth: 2, borderColor: colors.void }}>
+            <View style={{ position: 'absolute', right: 0, bottom: 0, borderRadius: 13, overflow: 'hidden', padding: 4, borderWidth: 2, borderColor: colors.void }}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-              <Ionicons name="add" size={16} color="#fff" />
+              <Ionicons name="add" size={14} color="#fff" />
             </View>
           ) : null}
         </Pressable>
-        <View style={{ flex: 1, marginLeft: space.md, paddingTop: 34 }}>
+        <View style={{ flex: 1, marginHorizontal: space.md, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 23, lineHeight: 28, flexShrink: 1 }}>{user.displayName || user.username}</Text>
-            {user.isPremium ? <Ionicons name="diamond" size={15} color={colors.gold} style={{ marginLeft: 6 }} /> : null}
+            <Text numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19, lineHeight: 24, flexShrink: 1 }}>{user.displayName || user.username}</Text>
+            {user.isPremium ? <Ionicons name="diamond" size={13} color={colors.gold} style={{ marginLeft: 5 }} /> : null}
           </View>
-          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, marginTop: 1 }}>@{user.username}</Text>
-          <View style={{ flexDirection: 'row', marginTop: 8 }}>
-            {/* Connections: both connected. Requests: waiting for their answer (only you open the list). Followers: everyone connected to them */}
+          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12.5, marginTop: 1 }}>@{user.username}</Text>
+          {/* Connections: both connected. Requests: waiting for their answer (only you open the list). Followers: everyone connected to them */}
+          <View style={{ flexDirection: 'row', marginTop: 14 }}>
             <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
             <Stat n={counts?.requests} label="Requests" onPress={isMe ? () => router.push('/activity') : undefined} />
             <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
           </View>
         </View>
+        {pulse ? <PulseMeter pulse={pulse} size={78} onPress={() => setPulseOpen((o) => !o)} /> : null}
       </View>
 
       {pulse && pulseOpen ? <View style={{ paddingHorizontal: space.lg }}><PulseInfo pulse={pulse} isMe={isMe} name={(user.displayName || user.username || '').split(' ')[0]} onClose={() => setPulseOpen(false)} /></View> : null}
@@ -137,7 +135,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           </View>
         ) : null}
 
-        {actions ? <View style={{ flexDirection: 'row', gap: 10, marginTop: space.md }}>{actions}</View> : null}
+        {actions ? <View style={{ flexDirection: 'row', gap: 8, marginTop: space.md }}>{actions}</View> : null}
       </View>
     </View>
   );

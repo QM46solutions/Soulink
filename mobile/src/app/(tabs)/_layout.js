@@ -11,6 +11,7 @@ import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
 import ClapperIcon, { clap } from '../../components/ClapperIcon';
+import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
 const icon = (name) => ({ color, focused, size }) => (
   <View style={{ alignItems: 'center' }}>
@@ -55,7 +56,7 @@ function MessagesTabButton() {
   return (
     <HoverTab onPress={() => router.push('/messages')} accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}>
       <View style={{ alignItems: 'center' }}>
-        <Ionicons name="paper-plane-outline" size={24} color={colors.dim} />
+        <Ionicons name="chatbubble-outline" size={25} color={colors.dim} />
         {count ? (
           <View style={{ position: 'absolute', top: -7, right: -12, minWidth: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.void }}>
             <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -104,14 +105,7 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: icon('home'),
           // the "Soulink" title is the button for Soulink Events (no background, just the wordmark)
-          headerTitle: () => (
-            <Pressable onPress={() => router.navigate('/events')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Soulink Events"
-              style={({ hovered, pressed }) => ({ transform: [{ scale: pressed ? 0.95 : hovered ? 1.06 : 1 }],
-                ...(Platform.OS === 'web' ? { cursor: 'pointer', outlineStyle: 'none' } : {}),
-                ...(hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 8px rgba(255,107,157,0.6))' } : {}) })}>
-              <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Soulink</GradientText>
-            </Pressable>
-          ),
+          headerTitle: () => <SoulinkTitleButton />,
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />

@@ -98,7 +98,7 @@ export default function UserProfile() {
   if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
   else if (conn?.connected) {
     connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
-    messageBtn = <ProfileAction outline title="Message" onPress={openChat} />;
+    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={openChat} />;
   } else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
   else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" icon="person-add" onPress={connectBack} loading={busy} />;
   else if (conn?.iConnect) connectBtn = <ProfileAction title="Connected" icon="checkmark" onPress={disconnect} loading={busy} />;

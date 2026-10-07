@@ -8,6 +8,7 @@ import { notice } from '../../lib/confirm';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
 import ProfileMoments from '../../components/ProfileMoments';
+import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 import { PostGrid } from '../../components/PostCard';
 import { s } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
@@ -48,7 +49,8 @@ export default function MyProfile() {
 
   useFocusEffect(useCallback(() => {
     navigation.setOptions({
-      title: user.username,
+      // the header shows the Soulink wordmark (button for Soulink Events, beats every 5 s), not your username
+      headerTitle: () => <SoulinkTitleButton />,
       // no back arrow on your own profile (Home is in the tab bar): the + adds a new profile post instead
       headerLeft: () => (
         <Pressable onPress={() => router.push('/create-post')} hitSlop={10} style={{ marginLeft: 16 }} accessibilityLabel="New post">
@@ -77,9 +79,9 @@ export default function MyProfile() {
         onAvatarPress={photo.open}
         isMe
         actions={<>
-          <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />
-          <ProfileAction outline title="Share profile" onPress={shareProfile} />
-          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
+          <ProfileAction icon="create-outline" title="Edit profile" onPress={() => router.push('/edit-profile')} />
+          <ProfileAction icon="share-social-outline" title="Share profile" onPress={shareProfile} />
+          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 44 }} />
         </>}
       />
       <ProfileTabs tab={tab} onChange={setTab} />
