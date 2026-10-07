@@ -16,7 +16,7 @@ export default function Settings() {
       <MenuRow icon="pulse" title="Your activity" text="Likes, comments and requests you sent" onPress={go('/settings/activity')} tint={['#7c5cfc', '#b08fff']} />
       <MenuRow icon="hourglass-outline" title="Time management" text="Daily time on Soulink, limits and breaks" onPress={go('/settings/time')} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="notifications" title="Notifications" text="Phone alerts and what you hear about" onPress={go('/settings/notifications')} tint={['#ff6b9d', '#ff9a5a']} />
-      <MenuRow icon="eye" title="Who viewed my profile" text="People who visited in the last 30 days" onPress={go('/settings/viewers')} tint={['#b08fff', '#ff6b9d']} />
+      <MenuRow icon="eye" title="Who viewed my profile" text="Top 3 free · everyone with Premium 💎" onPress={go('/settings/viewers')} tint={['#b08fff', '#ff6b9d']} />
 
       <Section>Privacy & safety</Section>
       <MenuRow icon="lock-closed" title="Account privacy" text="Private account, Discover, Pulse meter" onPress={go('/settings/privacy')} tint={['#5b46d6', '#7c5cfc']} />

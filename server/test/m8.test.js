@@ -91,8 +91,8 @@ describe('Settings pages: activity, profile viewers, account status, location', 
   test('who viewed my profile, my activity and account status', async () => {
     const a = await makeUser(); const b = await makeUser();
     await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200); // b views a
-    const v = (await api().get('/account/viewers').set(a.h).expect(200)).body.viewers;
-    assert.equal(v.length, 1); assert.equal(v[0].username, b.user.username);
+    const v = (await api().get('/account/viewers').set(a.h).expect(200)).body;
+    assert.equal(v.viewers.length, 1); assert.equal(v.viewers[0].username, b.user.username);
     const p = (await api().post('/posts').set(a.h).field('caption', 'hi').expect(201)).body.post;
     await api().post(`/posts/${p.id}/like`).set(b.h).expect(200);
     await api().post(`/posts/${p.id}/comments`).set(b.h).send({ body: 'nice' }).expect(201);
@@ -103,5 +103,20 @@ describe('Settings pages: activity, profile viewers, account status, location', 
     assert.equal(st.level, 'good'); assert.equal(st.checks.posts, 1);
     await api().put('/users/me/location').set(a.h).send({ lat: 17.44, lon: 78.38 }).expect(200);
     assert.equal((await api().delete('/account/location').set(a.h).expect(200)).body.user.hasLocation, false);
+  });
+});
+
+describe('Who viewed my profile is Premium after the top 3', () => {
+  test('free accounts see 3 viewers and a locked count; Premium sees everyone', async () => {
+    const a = await makeUser();
+    const others = [];
+    for (let i = 0; i < 5; i += 1) { const v = await makeUser(); others.push(v); await api().get(`/users/u/${a.user.username}`).set(v.h).expect(200); }
+    const free = (await api().get('/account/viewers').set(a.h).expect(200)).body;
+    assert.equal(free.total, 5); assert.equal(free.viewers.length, 3); assert.equal(free.locked, 2); assert.equal(free.premium, false);
+    const hidden = others.map((o) => o.user.id).filter((id) => !free.viewers.some((v) => v.id === id));
+    for (const id of hidden) assert.equal(JSON.stringify(free).includes(id), false, 'locked viewers are never sent');
+    await query('UPDATE users SET is_premium=1 WHERE id=$1', [a.user.id]);
+    const paid = (await api().get('/account/viewers').set(a.h).expect(200)).body;
+    assert.equal(paid.viewers.length, 5); assert.equal(paid.locked, 0);
   });
 });

@@ -1,6 +1,6 @@
 // Settings pages that read your own account data.
 //  GET    /account/activity?kind=likes|comments|requests   your activity
-//  GET    /account/viewers                                 who viewed your profile (last 30 days)
+//  GET    /account/viewers                                 who viewed your profile (last 30 days): top 3 free, all with Premium
 //  GET    /account/status                                  account status (verification, warnings, suspensions)
 //  DELETE /account/location                                stop using your location
 import { Router } from 'express';
@@ -12,6 +12,7 @@ import { meView, userCard } from '../services/social.js';
 import { POST_SELECT, postView } from './posts.js';
 import { INTENTS } from '../services/connections.js';
 
+export const FREE_VIEWERS = 3; // free accounts see this many profile viewers; the rest is Premium
 const r = Router();
 r.use(requireAuth);
 const NOT_BLOCKED = (col) => `NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=${col}) OR (b.blocker_id=${col} AND b.blocked_id=$1))`;
@@ -51,7 +52,15 @@ r.get('/viewers', ah(async (req, res) => {
         SELECT viewer_id, MAX(created_at) AS last_at, COUNT(*) AS days FROM profile_views
          WHERE target_id = $1 AND day >= CAST(DATEADD(day, -30, SYSDATETIMEOFFSET()) AS DATE) GROUP BY viewer_id) x
       JOIN users u ON u.id = x.viewer_id WHERE ${NOT_BLOCKED('x.viewer_id')} ORDER BY x.last_at DESC`, [req.user.id]);
-  res.json({ viewers: rows.map((x) => ({ ...userCard(x), lastViewedAt: x.last_at, days: Number(x.days || 1) })) });
+  // Free: the 3 most recent viewers. Premium: everyone. Locked ones are sent only as a number (no names, ids or photos).
+  const premium = !!req.user.is_premium;
+  const shown = premium ? rows : rows.slice(0, FREE_VIEWERS);
+  res.json({
+    total: rows.length,
+    premium,
+    locked: rows.length - shown.length,
+    viewers: shown.map((x) => ({ ...userCard(x), lastViewedAt: x.last_at, days: Number(x.days || 1) })),
+  });
 }));
 
 r.get('/status', ah(async (req, res) => {
