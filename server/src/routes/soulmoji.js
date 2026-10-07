@@ -15,7 +15,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { uploadMemory, saveFile, ensureLocal } from '../providers/storage.js';
 import { faceDistance } from '../services/faceEngine.js';
 import { prepareFace } from '../services/soulmojiFace.js';
-import { decode, encodeJpeg, renderMood, RENDER_MOODS } from '../services/soulmojiRender.js';
+import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../services/soulmojiRender.js';
 import { aiEdit, aiInstalled, warmSoulmojiAi } from '../services/soulmojiAi.js';
 import crypto from 'node:crypto';
 
@@ -35,7 +35,9 @@ r.get('/face', ah(async (req, res) => {
 
 r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : 30 }), uploadMemory('image', 12).single('photo'), ah(async (req, res) => {
   if (!req.file) throw badRequest('Take a selfie first', 'no_photo');
-  const f = await prepareFace(req.file.buffer);
+  // phone photos can be 12 MP+: work on a 1280 px copy so a small cloud server doesn't run out of memory
+  const photo = shrinkPhoto(req.file.buffer);
+  const f = await prepareFace(photo);
   if (f.error === 'no_face') throw badRequest("We couldn't see your face. Face the camera in good light and try again.", 'no_face');
   if (f.error === 'multiple') throw badRequest('Only you in the photo, please.', 'multiple_faces');
   if (Math.abs(f.yaw) > 0.3) throw badRequest('Look straight at the camera for your Soulmoji selfie.', 'not_straight');
@@ -47,7 +49,7 @@ r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' 
   }
   const url = await saveFile({ buffer: f.jpeg, mimetype: 'image/jpeg' }, 'soulmoji');
   // the whole selfie is kept too: the AI needs the face with some surroundings
-  const srcUrl = await saveFile({ buffer: req.file.buffer, mimetype: req.file.mimetype === 'image/png' ? 'image/png' : 'image/jpeg' }, 'soulmoji');
+  const srcUrl = await saveFile({ buffer: photo, mimetype: photo === req.file.buffer && req.file.mimetype === 'image/png' ? 'image/png' : 'image/jpeg' }, 'soulmoji');
   await query('UPDATE users SET soulmoji_face_url=$2, soulmoji_points=$3, soulmoji_src_url=$4 WHERE id=$1', [req.user.id, url, f.landmarks, srcUrl]);
   res.json({ faceUrl: url });
 }));

@@ -107,6 +107,23 @@ export async function api(path, { method = 'GET', body, form, timeoutMs = 15000 
   return data;
 }
 
+/** Web: phone photos are huge (12 MP+). Send a copy at most 1600 px on the long side (JPEG) — faster uploads,
+ *  and the server never has to open a giant photo. Other files (voice notes) pass through unchanged. */
+async function webShrink(blob, maxSide = 1600) {
+  if (!blob.type?.startsWith('image/') || blob.type === 'image/gif' || typeof createImageBitmap !== 'function') return blob;
+  try {
+    const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+    if (k === 1 && blob.size < 1.5e6) { bmp.close?.(); return blob; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * k); canvas.height = Math.round(bmp.height * k);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close?.();
+    const out = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.9));
+    return out || blob;
+  } catch { return blob; }
+}
+
 /**
  * Upload a local file (uri from the image picker or the voice recorder) as multipart form data.
  * On the web the uri is a blob: URL, so it is fetched and sent as a real Blob.
@@ -115,8 +132,9 @@ export async function uploadFile(path, { uri, name, type }, field = 'file', fiel
   const form = new FormData();
   Object.entries(fields).forEach(([k, v]) => form.append(k, String(v)));
   if (Platform.OS === 'web') {
-    const blob = await (await fetch(uri)).blob();
-    form.append(field, new File([blob], name, { type: type || blob.type }));
+    const raw = await (await fetch(uri)).blob();
+    const blob = await webShrink(raw);
+    form.append(field, new File([blob], blob === raw ? name : name.replace(/\.[a-z0-9]+$/i, '') + '.jpg', { type: blob === raw ? (type || blob.type) : 'image/jpeg' }));
   } else {
     form.append(field, { uri, name, type });
   }
@@ -144,8 +162,9 @@ export async function createPost({ caption, uris = [] }) {
     const type = dataType || (/\.png$/i.test(uri) ? 'image/png' : /\.webp$/i.test(uri) ? 'image/webp' : 'image/jpeg');
     const name = `photo${i + 1}.${type.split('/')[1].replace('jpeg', 'jpg')}`;
     if (Platform.OS === 'web') {
-      const blob = await (await fetch(uri)).blob();
-      form.append('photos', new File([blob], name, { type: blob.type || type }));
+      const raw = await (await fetch(uri)).blob();
+      const blob = await webShrink(raw);
+      form.append('photos', new File([blob], blob === raw ? name : `photo${i + 1}.jpg`, { type: blob === raw ? (blob.type || type) : 'image/jpeg' }));
     } else {
       form.append('photos', { uri, name, type });
     }

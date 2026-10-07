@@ -1,3 +1,5 @@
+import { badRequest } from '../lib/errors.js';
+import { downscale, MAX_SIDE } from '../lib/shrink.js';
 // Soulmoji expression engine (free, runs on this laptop, no AI service needed).
 // Takes the person's own Soulmoji selfie (512×512, face centred) plus its 68 face landmarks, then:
 //   1. moves the landmarks for the chosen mood (smile, frown, raised brows, open mouth, squint...),
@@ -12,10 +14,23 @@ export const SIZE = 1024; // Soulmoji selfie size (kept at the photo's own resol
 
 export function decode(buf) {
   const isPng = buf[0] === 0x89 && buf[1] === 0x50;
-  const img = isPng ? PNG.sync.read(buf) : jpeg.decode(buf, { useTArray: true, maxMemoryUsageInMB: 512 });
+  let img;
+  // jpeg-js needs ~18 MB per megapixel: refuse giant photos instead of running the server out of memory
+  try { img = isPng ? PNG.sync.read(buf) : jpeg.decode(buf, { useTArray: true, maxMemoryUsageInMB: 140, maxResolutionInMP: 8 }); }
+  catch (e) {
+    if (/maxMemoryUsage|maxResolution/.test(e.message)) throw badRequest('This photo is too big. Please choose a smaller one or take a new selfie.', 'photo_too_big');
+    throw badRequest("We couldn't read this photo. Please use a JPG or PNG.", 'bad_photo');
+  }
   return { width: img.width, height: img.height, data: img.data };
 }
 export const encodeJpeg = (img, quality = 95) => jpeg.encode({ width: img.width, height: img.height, data: img.data }, quality).data;
+
+/** A big photo becomes a JPEG at most 1280 px on the long side (small photos come back unchanged). */
+export function shrinkPhoto(buf, maxSide = MAX_SIDE) {
+  const img = decode(buf);
+  if (Math.max(img.width, img.height) <= maxSide) return buf;
+  return Buffer.from(encodeJpeg(downscale(img, maxSide), 92));
+}
 
 function sample(img, x, y, out, o) {
   const { width: w, height: h, data } = img;

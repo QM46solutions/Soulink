@@ -17,6 +17,9 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
+      # free plan = 512 MB: let Node clean up memory earlier
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=320
       - key: WEB_DIR
         value: web
       - key: STORAGE

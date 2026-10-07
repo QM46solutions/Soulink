@@ -33,7 +33,7 @@ export function initFaceEngine() {
 
 function decodeImage(buf) {
   const isPng = buf[0] === 0x89 && buf[1] === 0x50;
-  const img = isPng ? PNG.sync.read(buf) : jpeg.decode(buf, { useTArray: true, maxMemoryUsageInMB: 256 });
+  const img = isPng ? PNG.sync.read(buf) : jpeg.decode(buf, { useTArray: true, maxMemoryUsageInMB: 140, maxResolutionInMP: 8 });
   return { width: img.width, height: img.height, rgba: img.data };
 }
 
