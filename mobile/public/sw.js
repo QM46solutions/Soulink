@@ -7,6 +7,10 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
   event.waitUntil((async () => {
+    // number on the Home Screen icon (iPhone 16.4+, Android, desktop Chrome)
+    if (typeof data.badge === 'number' && self.navigator.setAppBadge) {
+      try { if (data.badge > 0) await self.navigator.setAppBadge(data.badge); else await self.navigator.clearAppBadge(); } catch { /* not allowed */ }
+    }
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const looking = wins.some((w) => w.visibilityState === 'visible' && w.focused);
     if (looking && data.tag !== 'test') return;

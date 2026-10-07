@@ -69,6 +69,19 @@ export async function publicKey() {
   return l ? keys.publicKey : null;
 }
 
+/** Number on the Home Screen icon: unread chats + unread notifications (same as the app's badges). */
+async function badgeCount(userId) {
+  try {
+    const r = await one(
+      `SELECT
+         (SELECT COUNT(*) FROM conversation_members cm WHERE cm.user_id=$1 AND cm.is_request=0
+            AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=cm.conversation_id AND m.kind <> N'system'
+                         AND m.sender_id <> $1 AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at))) AS chats,
+         (SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND read_at IS NULL) AS notes`, [userId]);
+    return Number(r?.chats || 0) + Number(r?.notes || 0);
+  } catch { return null; }
+}
+
 /** Sends one push to every phone the person switched notifications on for (if they allow this kind). Never throws. */
 export async function pushTo(userId, kind, { title = 'Soulink', body, url = '/', tag } = {}) {
   try {
@@ -77,7 +90,8 @@ export async function pushTo(userId, kind, { title = 'Soulink', body, url = '/',
     const u = await one('SELECT notify_prefs FROM users WHERE id=$1', [userId]);
     if (!u || !prefsOf(u)[kind]) return;
     const subs = await many('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1', [userId]);
-    const payload = JSON.stringify({ title, body, url, tag });
+    if (!subs.length) return;
+    const payload = JSON.stringify({ title, body, url, tag, badge: await badgeCount(userId) });
     await Promise.all(subs.map(async (s) => {
       try {
         await l.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: kind === 'messages' ? 'high' : 'normal' });

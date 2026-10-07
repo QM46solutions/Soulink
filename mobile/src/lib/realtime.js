@@ -54,6 +54,12 @@ export function RealtimeProvider({ children }) {
 
   const emit = useCallback((event, payload) => socketRef.current?.emit(event, payload), []);
 
+  // Home Screen icon badge = unread chats + notifications (web app; needs notifications allowed on iPhone)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.setAppBadge) return;
+    const n = (unread.chats || 0) + (unread.notifications || 0);
+    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }, [unread]);
   const value = useMemo(() => ({ on, emit, unread, refreshUnread, connected }), [on, emit, unread, refreshUnread, connected]);
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }
