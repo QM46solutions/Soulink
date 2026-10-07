@@ -95,7 +95,7 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
       Animated.timing(twinkle, { toValue: 1, duration: 1600, useNativeDriver: ND }),
       Animated.timing(twinkle, { toValue: 0, duration: 1600, useNativeDriver: ND }),
     ]));
-    // the whole meter beats like a heart every 5 s: strong "lub", softer "dub", glow ripple, then rest
+    // the whole meter beats like a heart every 2 s: strong "lub", softer "dub", glow ripple, then rest
     const whole = Animated.loop(Animated.sequence([
       Animated.parallel([
         Animated.sequence([
@@ -109,7 +109,7 @@ export default function PulseMeter({ pulse, size = 76, onPress, showLabel = true
           Animated.timing(ripple, { toValue: 0, duration: 0, useNativeDriver: ND }),
         ]),
       ]),
-      Animated.delay(4100),
+      Animated.delay(1100),
     ]));
     trace.start(); heart.start(); tw.start(); whole.start();
     return () => { trace.stop(); heart.stop(); tw.stop(); whole.stop(); thump.setValue(0); ripple.setValue(0); };

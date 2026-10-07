@@ -51,7 +51,7 @@ export default function ClapperIcon({ focused }) {
   const scale = bump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
 
   return (
-    <Animated.View style={{ width: W, height: 24, justifyContent: 'flex-end', opacity: focused ? 1 : 0.8, transform: [{ scale }] }}>
+    <Animated.View style={{ width: W, height: 24, justifyContent: 'flex-end', opacity: focused ? 1 : 0.72, transform: [{ scale: focused ? Animated.multiply(scale, 1.1) : scale }] }}>
       {/* the clapper arm, hinged on the left */}
       <Animated.View style={{ position: 'absolute', left: 0, top: 0, transformOrigin: 'left bottom', transform: [{ rotate }] }}>
         <Stripes width={W} />

@@ -12,7 +12,7 @@ function Stat({ n, label, onPress }) {
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ flex: 1, alignItems: 'center', opacity: hovered ? 0.8 : 1 })}>
       <Text style={{ color: colors.text, fontSize: 19, lineHeight: 23, fontFamily: fonts.bold, textAlign: 'center' }}>{n ?? 0}</Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: colors.muted, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.medium, textAlign: 'center' }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: colors.muted, fontSize: 12, lineHeight: 16, fontFamily: fonts.medium, textAlign: 'center', marginTop: 1 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -66,10 +66,10 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
       {/* soft cover glow behind the top row */}
       <LinearGradient pointerEvents="none" colors={['rgba(124,92,252,0.22)', 'rgba(255,107,157,0.07)', 'rgba(8,7,13,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 170 }} />
-      {/* one line: photo · name + counts · Pulse meter */}
+      {/* one line: photo · name · Pulse meter, all centred on the same middle line */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingTop: space.lg }}>
         <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} accessibilityLabel={onAvatarPress ? 'Change profile photo' : undefined}>
-          <AuraAvatar user={user} size={86} />
+          <AuraAvatar user={user} size={84} />
           {onAvatarPress ? (
             <View style={{ position: 'absolute', right: 0, bottom: 0, borderRadius: 13, overflow: 'hidden', padding: 4, borderWidth: 2, borderColor: colors.void }}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -77,20 +77,14 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
             </View>
           ) : null}
         </Pressable>
-        <View style={{ flex: 1, marginHorizontal: space.md, minWidth: 0 }}>
+        <View style={{ flex: 1, marginHorizontal: space.md, minWidth: 0, justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19, lineHeight: 24, flexShrink: 1 }}>{user.displayName || user.username}</Text>
+            <Text numberOfLines={2} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 25, flexShrink: 1 }}>{user.displayName || user.username}</Text>
             {user.isPremium ? <Ionicons name="diamond" size={13} color={colors.gold} style={{ marginLeft: 5 }} /> : null}
           </View>
-          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12.5, marginTop: 1 }}>@{user.username}</Text>
-          {/* Connections: both connected. Requests: waiting for their answer (only you open the list). Followers: everyone connected to them */}
-          <View style={{ flexDirection: 'row', marginTop: 14 }}>
-            <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
-            <Stat n={counts?.requests} label="Requests" onPress={isMe ? () => router.push('/activity') : undefined} />
-            <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
-          </View>
+          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
         </View>
-        {pulse ? <PulseMeter pulse={pulse} size={78} onPress={() => setPulseOpen((o) => !o)} /> : null}
+        {pulse ? <PulseMeter pulse={pulse} size={72} onPress={() => setPulseOpen((o) => !o)} /> : null}
       </View>
 
       {pulse && pulseOpen ? <View style={{ paddingHorizontal: space.lg }}><PulseInfo pulse={pulse} isMe={isMe} name={(user.displayName || user.username || '').split(' ')[0]} onClose={() => setPulseOpen(false)} /></View> : null}
@@ -115,8 +109,19 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           <Text onPress={() => router.push('/edit-profile')} style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 13.5, marginTop: space.md }}>+ Add your profession</Text>
         ) : null}
 
+        {/* counts: three equal columns, number centred over its label, thin dividers between */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md, paddingVertical: 10, borderRadius: 16,
+          backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.14)' }}>
+          {/* Connections: both connected. Requests: waiting for their answer (only you open the list). Followers: everyone connected to them */}
+          <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
+          <View style={{ width: 1, height: 28, backgroundColor: 'rgba(176,143,255,0.18)' }} />
+          <Stat n={counts?.requests} label="Requests" onPress={isMe ? () => router.push('/activity') : undefined} />
+          <View style={{ width: 1, height: 28, backgroundColor: 'rgba(176,143,255,0.18)' }} />
+          <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
+        </View>
+
         {user.soulType ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginLeft: -3 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: space.sm, marginLeft: -3 }}>
             <Pressable disabled={!isMe} onPress={() => router.push('/soul')} accessibilityLabel={isMe ? 'Open my Soul DNA' : undefined}>
               <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.45)" bg="rgba(124,92,252,0.10)" />
             </Pressable>

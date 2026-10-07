@@ -10,67 +10,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
-import ClapperIcon, { clap } from '../../components/ClapperIcon';
+import { clap } from '../../components/ClapperIcon';
+import { MessagesTabButton, ProfileTabIcon, SparksIcon, TabIcon, HoverTab, TAB_ACTIVE, TAB_INACTIVE, TAB_BAR_STYLE } from '../../components/TabBar';
 import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
-const icon = (name) => ({ color, focused, size }) => (
-  <View style={{ alignItems: 'center' }}>
-    <Ionicons name={focused ? name : `${name}-outline`} size={size} color={color} />
-  </View>
-);
-
-
-// Every tab icon grows a little and glows on hover (laptop / web) and dips when pressed
-function HoverTab({ children, style, onPress, onLongPress, accessibilityState, accessibilityLabel, testID }) {
-  return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityState={accessibilityState} accessibilityLabel={accessibilityLabel} testID={testID}
-      style={({ hovered, pressed }) => [style, { flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.9 : hovered ? 1.18 : 1 }] },
-        Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer' } : null,
-        hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 6px rgba(176,143,255,0.8))' } : null]}>
-      {children}
-    </Pressable>
-  );
-}
-
-// Profile tab: your own profile photo in a small ring (gradient ring when you're on the tab)
-function ProfileTabIcon({ focused }) {
-  const { user } = useAuth();
-  const ring = focused ? gradients.button : [colors.border, colors.border];
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <LinearGradient colors={ring} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 30, height: 30, borderRadius: 15, padding: 1.5 }}>
-        <View style={{ flex: 1, borderRadius: 14, padding: 1, backgroundColor: colors.void }}>
-          {user?.avatarUrl
-            ? <Image source={{ uri: mediaUrl(user.avatarUrl) }} style={{ flex: 1, borderRadius: 13 }} contentFit="cover" />
-            : <View style={{ flex: 1, borderRadius: 13, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="person" size={14} color={colors.muted} /></View>}
-        </View>
-      </LinearGradient>
-    </View>
-  );
-}
-
-// Messages: a normal tab icon now (the raised highlighter belongs to Soulink Events). Opens the inbox; unread badge on top.
-function MessagesTabButton() {
-  const { unread } = useRealtime();
-  const count = (unread?.chats || 0) + (unread?.requests || 0) + (unread?.anon || 0);
-  return (
-    <HoverTab onPress={() => router.push('/messages')} accessibilityLabel={count ? `Messages, ${count} unread` : 'Messages'}>
-      <View style={{ alignItems: 'center' }}>
-        <Ionicons name="chatbubble-outline" size={25} color={colors.dim} />
-        {count ? (
-          <View style={{ position: 'absolute', top: -7, right: -12, minWidth: 18, height: 18, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.void }}>
-            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10, paddingHorizontal: 4 }}>{count > 99 ? '99+' : count}</Text>
-          </View>
-        ) : null}
-        <View style={{ width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' }} />
-      </View>
-    </HoverTab>
-  );
-}
-
-// Sparks 🎬: a real clapperboard that claps when you tap the tab
-const SparksIcon = ({ focused }) => <View style={{ alignItems: 'center', justifyContent: 'center' }}><ClapperIcon focused={focused} /></View>;
+const icon = (name) => ({ focused }) => <TabIcon name={name} focused={focused} />;
 
 export default function TabsLayout() {
   const { refreshUnread } = useRealtime();
@@ -90,9 +34,9 @@ export default function TabsLayout() {
           headerTintColor: colors.text,
           headerTitleAlign: 'center',
           headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
-          tabBarStyle: { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', height: 66, paddingTop: 8, paddingBottom: 8 },
-          tabBarActiveTintColor: colors.aura,
-          tabBarInactiveTintColor: colors.dim,
+          tabBarStyle: TAB_BAR_STYLE,
+          tabBarActiveTintColor: TAB_ACTIVE,
+          tabBarInactiveTintColor: TAB_INACTIVE,
           tabBarShowLabel: false,
           tabBarButton: (props) => <HoverTab {...props} />,
           sceneStyle: { backgroundColor: 'transparent', display: focused ? 'flex' : 'none' },

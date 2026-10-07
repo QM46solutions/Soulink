@@ -1,5 +1,5 @@
 // The "Soulink" wordmark in the header is the button for Soulink Events. It beats like the Pulse meter
-// (a lub-dub every 5 seconds, with a soft pink glow) so people notice it's tappable.
+// (a lub-dub every 7 seconds, with a soft pink glow) so people notice it's tappable.
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
@@ -17,7 +17,7 @@ export default function SoulinkTitleButton({ size = 22 }) {
       Animated.timing(thump, { toValue: 0.15, duration: 110, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
       Animated.timing(thump, { toValue: 0.6, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: ND }),  // dub
       Animated.timing(thump, { toValue: 0, duration: 260, easing: Easing.inOut(Easing.quad), useNativeDriver: ND }),
-      Animated.delay(3520), // one beat every 5 s
+      Animated.delay(5520), // one beat every 7 s
     ]));
     beat.start();
     return () => { beat.stop(); thump.setValue(0); };

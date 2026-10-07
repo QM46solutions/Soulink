@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PHONE } from '../lib/device';
-import { Stack, ThemeProvider, DarkTheme } from 'expo-router';
+import { Stack, ThemeProvider, DarkTheme, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -16,6 +16,7 @@ import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
 import { useUsageTracker } from '../lib/usage';
 import BackButton from '../components/BackButton';
+import { BottomBar } from '../components/TabBar';
 import { colors, fonts } from '../lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -48,8 +49,16 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
   document.head.appendChild(css);
 }
 
+// Screens outside the tabs still show the bottom bar; which icon is "bold" there
+const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'spark', 'create-post', 'share-post']);
+const SECTION = {
+  messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
+  settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile',
+};
+
 function RootStack() {
   const { user, ready } = useAuth();
+  const segs = useSegments();
 
   useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
   useUsageTracker(!!user?.onboardingDone); // Settings › Time management (hooks must run before any early return)
@@ -58,7 +67,12 @@ function RootStack() {
   const loggedIn = !!user;
   const onboarded = !!user?.onboardingDone;
 
+  const top = segs[0];
+  const showBar = loggedIn && onboarded && top && !NO_BAR.has(top) && !(top === 'messages' && segs[1] === 'new');
+  const active = SECTION[top] || null;
+
   return (
+    <View style={{ flex: 1 }}>
     <Stack screenOptions={headerStyle}>
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -104,6 +118,8 @@ function RootStack() {
         <Stack.Screen name="chat/info/[id]" options={{ title: 'Details' }} />
       </Stack.Protected>
     </Stack>
+    {showBar ? <BottomBar active={active} /> : null}
+    </View>
   );
 }
 

@@ -29,7 +29,7 @@ function Tab({ label, count, active, onPress }) {
 function ArgueButton() {
   const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', right: space.lg, bottom: Math.max(insets.bottom, 12) + 14, alignItems: 'center' }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', right: space.lg, bottom: 16, alignItems: 'center' }}>
       <Pressable onPress={() => router.push('/argue')} accessibilityRole="button" accessibilityLabel="Argue Referee"
         style={({ hovered, pressed }) => ({ width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
           backgroundColor: 'rgba(20,18,32,0.92)', borderWidth: StyleSheet.hairlineWidth, borderColor: hovered ? 'rgba(176,143,255,0.7)' : 'rgba(176,143,255,0.3)',
