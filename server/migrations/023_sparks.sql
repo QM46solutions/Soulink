@@ -1,10 +1,10 @@
--- Sparks ⚡: short talent videos in 5 categories (travel, cooking, acting, comedy, music & dance).
+-- Sparks 🎬: short videos in 5 categories (travel, cooking, acting, fitness inspiration, news).
 -- Each category has its own extras (stored in details JSON): place + sound for travel, recipe card for cooking,
--- the acting prompt/script for acting, the joke prompt for comedy, song credit + original/cover for music.
+-- the acting prompt/script for acting, workout card for fitness, headline + topic + source for news.
 CREATE TABLE sparks (
   id          UNIQUEIDENTIFIER NOT NULL CONSTRAINT pk_sparks PRIMARY KEY DEFAULT NEWID(),
   author_id   UNIQUEIDENTIFIER NOT NULL CONSTRAINT fk_sparks_author REFERENCES users(id),
-  category    NVARCHAR(12) NOT NULL CONSTRAINT ck_sparks_category CHECK (category IN (N'travel', N'cooking', N'acting', N'comedy', N'music')),
+  category    NVARCHAR(12) NOT NULL CONSTRAINT ck_sparks_category CHECK (category IN (N'travel', N'cooking', N'acting', N'fitness', N'news')),
   video_url   NVARCHAR(500) NOT NULL,
   music_url   NVARCHAR(500) NULL,
   music_title NVARCHAR(150) NULL,

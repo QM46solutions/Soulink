@@ -93,7 +93,7 @@ export default function Argue() {
 
   if (step === 0) {
     return (
-      <BrandScreen back onBack={() => router.navigate('/')} center={false}>
+      <BrandScreen back onBack={() => (router.canGoBack() ? router.back() : router.replace('/messages'))} center={false}>
         <View style={{ alignItems: 'center', marginTop: space.lg }}>
           <LiveFrame size={150}><ScalesIcon size={124} /></LiveFrame>
         </View>

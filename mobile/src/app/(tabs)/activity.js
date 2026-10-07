@@ -37,8 +37,8 @@ const TEXT = {
   follow_accept: 'accepted your request.',
   like: 'liked your post.',
   post_like: 'gave your post a 👌🏻.',
-  spark_reaction: 'reacted to your Spark ⚡',
-  spark_tried: 'tried your recipe 😋',
+  spark_reaction: 'reacted to your Spark 🎬',
+  spark_tried: (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`),
   post_comment: 'commented on your post.',
   post_suspended: 'Your post was suspended: more than 75 people found it offensive. Only you can see it now.',
   comment: 'commented on your post.',
@@ -129,7 +129,7 @@ export default function Activity() {
           {item.type === 'anon_message' ? <MaskAvatar size={44} /> : <Avatar uri={item.actor?.avatarUrl} name={item.actor?.username} />}
           <Text style={{ fontFamily: fonts.body, color: colors.text, flex: 1, marginLeft: space.md, lineHeight: 20 }}>
             {item.actor ? <Text style={{ fontFamily: fonts.bold }}>{item.actor.username} </Text> : null}
-            {CONNECT_TEXT[item.type] ? CONNECT_TEXT[item.type](item.meta) : TEXT[item.type] || item.type}
+            {CONNECT_TEXT[item.type] ? CONNECT_TEXT[item.type](item.meta) : (typeof TEXT[item.type] === 'function' ? TEXT[item.type](item.meta) : TEXT[item.type]) || item.type}
             <Text style={{ fontFamily: fonts.body, color: colors.dim }}>  {ago(item.createdAt)}</Text>
           </Text>
         </Pressable>

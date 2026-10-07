@@ -1,4 +1,4 @@
-// Sparks ⚡ tab: everyone's talent videos, newest first. Filter by category; the + posts your own Spark.
+// Sparks 🎬 tab: everyone's short videos, newest first. Filter by category; the + posts your own Spark.
 import { useCallback, useLayoutEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
@@ -20,7 +20,7 @@ export default function Sparks() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks ⚡</GradientText>,
+      headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks 🎬</GradientText>,
       headerRight: () => (
         <Pressable onPress={() => router.push('/spark/new')} hitSlop={10} style={{ marginRight: 16 }} accessibilityLabel="Post a Spark">
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
@@ -44,7 +44,7 @@ export default function Sparks() {
 
   const chips = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingVertical: space.sm, gap: 8 }}>
-      {[{ key: null, label: 'All', emoji: '⚡', colors: gradients.button }, ...CATEGORIES].map((c) => {
+      {[{ key: null, label: 'All', emoji: '🎬', colors: gradients.button }, ...CATEGORIES].map((c) => {
         const on = cat === c.key;
         return (
           <Pressable key={c.label} onPress={() => choose(c.key)} style={{ borderRadius: 999, overflow: 'hidden', borderWidth: 1.5, borderColor: on ? 'transparent' : colors.border }}>
@@ -67,8 +67,8 @@ export default function Sparks() {
       contentContainerStyle={{ paddingBottom: space.xxl, flexGrow: 1 }}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       ListEmptyComponent={list ? (
-        <Empty icon="flash-outline" title={cat ? 'No Sparks here yet' : 'No Sparks yet'} text="Show the world your talent: travel, cooking, acting, comedy, music and dance.">
-          <Button title="Post the first Spark ⚡" onPress={() => router.push('/spark/new')} style={{ marginTop: space.lg }} />
+        <Empty icon="film-outline" title={cat ? 'No Sparks here yet' : 'No Sparks yet'} text="Travel, cooking, acting, fitness and news: short videos from the people around you.">
+          <Button title="Post the first Spark 🎬" onPress={() => router.push('/spark/new')} style={{ marginTop: space.lg }} />
         </Empty>
       ) : <Loading />}
     />

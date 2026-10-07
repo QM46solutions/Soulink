@@ -1,5 +1,6 @@
 // One Spark in the Sparks tab: author, category, the video, and the category's extras
-// (📍 place for travel, recipe card + "I tried it" for cooking, the acting prompt / script, the joke prompt, song credit).
+// (📍 place for travel, recipe card + "I tried it" for cooking, the acting prompt / script, workout card + "I did it" for fitness,
+// headline + topic + source for news).
 import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
-import { DIETS, catOf } from '../lib/sparks';
+import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf } from '../lib/sparks';
 import SparkVideo from './SparkVideo';
 import { BottomSheet } from './PostSheets';
 import { Avatar, VerifiedBadge } from './ui';
@@ -40,10 +41,12 @@ export default function SparkCard({ spark, onDeleted }) {
   const del = async () => {
     if (await confirm('Delete this Spark?', undefined, { confirmText: 'Delete', destructive: true })) { await api(`/sparks/${spark.id}`, { method: 'DELETE' }).catch(() => {}); onDeleted?.(spark.id); }
   };
-  const openPlace = () => {
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spark.place)}`;
-    if (Platform.OS === 'web') window.open(url, '_blank'); else Linking.openURL(url);
-  };
+  const openUrl = (url) => { if (Platform.OS === 'web') window.open(url, '_blank', 'noopener'); else Linking.openURL(url); };
+  const openPlace = () => openUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spark.place)}`);
+  const label = (list, k) => list.find(([x]) => x === k)?.[1];
+  const fitLine = spark.category === 'fitness' ? [label(FIT_TYPES, d.type), label(FIT_LEVELS, d.level), d.minutes ? `⏱ ${d.minutes} min` : null].filter(Boolean).join('  ·  ') : null;
+  const tryable = spark.category === 'cooking' || spark.category === 'fitness';
+  const hasSheet = spark.category === 'cooking' || (spark.category === 'fitness' && d.moves?.length);
   const actingLine = d.mode === 'dice' && d.prompt ? `🎲 ${d.prompt.emotion} · ${d.prompt.situation} · ${d.prompt.character}`
     : d.mode === 'script' && d.scriptTitle ? `📜 Script: ${d.scriptTitle}` : d.scene ? `🎬 Recreating: ${d.scene}` : d.mode === 'dub' ? '🎙️ Dub' : null;
 
@@ -77,9 +80,13 @@ export default function SparkCard({ spark, onDeleted }) {
       </View>
 
       {actingLine ? <Text style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, marginTop: 8, paddingHorizontal: 4 }}>{actingLine}</Text> : null}
-      {spark.category === 'comedy' && d.promptOfDay ? <Text style={{ fontFamily: fonts.semibold, color: colors.gold, fontSize: 13, marginTop: 8, paddingHorizontal: 4 }}>😂 Prompt: {d.promptOfDay}</Text> : null}
-      {spark.category === 'music' && (d.songCredit || d.kind) ? (
-        <Text style={{ fontFamily: fonts.semibold, color: colors.spark, fontSize: 13, marginTop: 8, paddingHorizontal: 4 }}>{d.kind === 'original' ? '✨ Original' : d.kind === 'cover' ? '🎤 Cover' : ''}{d.songCredit ? ` · ${d.songCredit}` : ''}</Text>
+      {fitLine ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 8, paddingHorizontal: 4 }}>{fitLine}</Text> : null}
+      {spark.category === 'fitness' && d.challenge ? <Text style={{ fontFamily: fonts.semibold, color: colors.gold, fontSize: 13, marginTop: 4, paddingHorizontal: 4 }}>🏆 Challenge: {d.challenge}</Text> : null}
+      {spark.category === 'news' && (d.headline || d.topic) ? (
+        <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
+          {d.topic ? <Text style={{ fontFamily: fonts.mono, color: colors.spark, fontSize: 11, letterSpacing: 1 }}>{(label(NEWS_TOPICS, d.topic) || '').toUpperCase()}</Text> : null}
+          {d.headline ? <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 17, lineHeight: 23, marginTop: 2 }}>{d.headline}</Text> : null}
+        </View>
       ) : null}
       {spark.caption ? <Text style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 6, paddingHorizontal: 4 }}>{spark.caption}</Text> : null}
 
@@ -89,16 +96,22 @@ export default function SparkCard({ spark, onDeleted }) {
           <Text style={{ fontSize: 17, marginRight: 6 }}>{cat.react.emoji}</Text>
           <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{cat.react.label} · {reactions}</Text>
         </Pressable>
-        {spark.category === 'cooking' ? (
-          <>
-            <Pressable onPress={() => setRecipe(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border, marginRight: 8 }}>
-              <Ionicons name="reader" size={15} color={colors.gold} style={{ marginRight: 5 }} />
-              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Recipe</Text>
-            </Pressable>
-            <Pressable onPress={tryIt} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: iTried ? colors.mint : colors.border, backgroundColor: iTried ? 'rgba(66,232,192,0.14)' : 'transparent' }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{iTried ? '✅ I tried it' : '🧑‍🍳 I tried it'} · {tried}</Text>
-            </Pressable>
-          </>
+        {hasSheet ? (
+          <Pressable onPress={() => setRecipe(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border, marginRight: 8 }}>
+            <Ionicons name={spark.category === 'cooking' ? 'reader' : 'list'} size={15} color={colors.gold} style={{ marginRight: 5 }} />
+            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'cooking' ? 'Recipe' : 'Moves'}</Text>
+          </Pressable>
+        ) : null}
+        {tryable ? (
+          <Pressable onPress={tryIt} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: iTried ? colors.mint : colors.border, backgroundColor: iTried ? 'rgba(66,232,192,0.14)' : 'transparent' }}>
+            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · {tried}</Text>
+          </Pressable>
+        ) : null}
+        {spark.category === 'news' && d.source ? (
+          <Pressable onPress={() => openUrl(d.source)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border }}>
+            <Ionicons name="open-outline" size={15} color={colors.aura} style={{ marginRight: 5 }} />
+            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Source</Text>
+          </Pressable>
         ) : null}
       </View>
 
@@ -113,6 +126,14 @@ export default function SparkCard({ spark, onDeleted }) {
             {d.steps?.length ? <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 15, marginTop: space.md }}>Steps</Text> : null}
             {(d.steps || []).map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, marginTop: 6, lineHeight: 20 }}>{k + 1}.  {x}</Text>)}
             {!d.ingredients?.length && !d.steps?.length ? <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: space.md }}>No recipe card on this one.</Text> : null}
+          </ScrollView>
+        </BottomSheet>
+      ) : null}
+      {spark.category === 'fitness' && d.moves?.length ? (
+        <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title="💪 Workout">
+          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: space.lg }}>
+            {fitLine ? <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 13 }}>{fitLine}</Text> : null}
+            {d.moves.map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 15, marginTop: 8 }}>{k + 1}.  {x}</Text>)}
           </ScrollView>
         </BottomSheet>
       ) : null}

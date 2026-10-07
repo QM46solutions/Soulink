@@ -1,4 +1,4 @@
-// Sparks ⚡: short talent videos in 5 categories with category extras.
+// Sparks 🎬: short videos in 5 categories with category extras.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, resetDb, makeUser, closePool } from './helpers.js';
@@ -30,9 +30,9 @@ describe('Sparks', () => {
 
   test('rules: a video is required, travel needs a place, unknown category refused', async () => {
     const a = await makeUser();
-    await post(a, { category: 'comedy' }, null).expect(400);
+    await post(a, { category: 'news' }, null).expect(400);
     assert.equal((await post(a, { category: 'travel' }).expect(400)).body.error.code, 'no_place');
-    await post(a, { category: 'dance' }).expect(400);
+    await post(a, { category: 'comedy' }).expect(400);
   });
 
   test('reactions, I tried it (cooking only), views, delete', async () => {
@@ -44,16 +44,20 @@ describe('Sparks', () => {
     await api().post(`/sparks/${s.id}/view`).set(b.h).expect(200);
     const seen = (await api().get(`/sparks/user/${a.user.id}`).set(b.h).expect(200)).body.sparks[0];
     assert.equal(seen.views, 1); assert.equal(seen.reacted, true); assert.equal(seen.iTried, true);
-    const c = (await post(a, { category: 'comedy' }).expect(201)).body.spark;
+    const c = (await post(a, { category: 'news', details: { headline: 'New metro line opens', topic: 'local', source: 'https://example.com/metro' } }).expect(201)).body.spark;
+    assert.equal(c.details.headline, 'New metro line opens');
     await api().post(`/sparks/${c.id}/tried`).set(b.h).expect(400);
+    const f = (await post(a, { category: 'fitness', details: { type: 'home', level: 'beginner', minutes: 10, moves: ['Squats × 15', 'Plank 30 s'] } }).expect(201)).body.spark;
+    assert.equal((await api().post(`/sparks/${f.id}/tried`).set(b.h).expect(200)).body.tried, 1);
+    await post(a, { category: 'news', details: { source: 'javascript:alert(1)' } }).expect(400);
     await api().delete(`/sparks/${s.id}`).set(b.h).expect(404);
     await api().delete(`/sparks/${s.id}`).set(a.h).expect(200);
-    assert.equal((await api().get(`/sparks/user/${a.user.id}`).set(b.h).expect(200)).body.sparks.length, 1);
+    assert.equal((await api().get(`/sparks/user/${a.user.id}`).set(b.h).expect(200)).body.sparks.length, 2);
   });
 
   test('private accounts: only their followers see their Sparks', async () => {
     const p = await makeUser({ isPrivate: true }); const x = await makeUser();
-    await post(p, { category: 'music', details: { kind: 'original', songCredit: 'My own song' } }).expect(201);
+    await post(p, { category: 'fitness', details: { type: 'yoga' } }).expect(201);
     assert.equal((await api().get('/sparks').set(x.h).expect(200)).body.sparks.length, 0);
     assert.equal((await api().get('/sparks').set(p.h).expect(200)).body.sparks.length, 1);
   });

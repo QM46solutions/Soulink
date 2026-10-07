@@ -5,10 +5,9 @@ import { useAuth } from '../../lib/auth';
 import { mediaUrl } from '../../lib/api';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText, HeaderBackground } from '../../components/brand';
-import { ScalesIcon } from '../../components/LiveIcons';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
 
@@ -68,14 +67,12 @@ function MessagesTabButton() {
   );
 }
 
-// Argue Referee tab: the live balancing-scales animation from the pitch site
-function ArgueIcon({ focused }) {
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <ScalesIcon size={38} bold />
-    </View>
-  );
-}
+// Sparks 🎬: a clapperboard (filled when you're on the tab)
+const SparksIcon = ({ color, focused, size }) => (
+  <View style={{ alignItems: 'center' }}>
+    <MaterialCommunityIcons name={focused ? 'movie-open' : 'movie-open-outline'} size={size + 2} color={color} />
+  </View>
+);
 
 export default function TabsLayout() {
   const { refreshUnread } = useRealtime();
@@ -121,9 +118,8 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
-      <Tabs.Screen name="sparks" options={{ title: 'Sparks', tabBarAccessibilityLabel: 'Sparks', tabBarIcon: icon('flash') }} />
-      {/* Argue Referee sits between Search and Messages, with its live scales icon */}
-      <Tabs.Screen name="argue" options={{ headerShown: false, tabBarAccessibilityLabel: 'Argue Referee', tabBarIcon: ({ focused }) => <ArgueIcon focused={focused} /> }} />
+      {/* Sparks 🎬 (short videos). Argue Referee now lives on the Messages screen (floating button, bottom right) */}
+      <Tabs.Screen name="sparks" options={{ title: 'Sparks', tabBarAccessibilityLabel: 'Sparks', tabBarIcon: SparksIcon }} />
       {/* Messages: normal icon with unread badge, opens the inbox */}
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
       {/* Soulink Events opens from the "Soulink" title at the top of Home; Notifications from the bell */}

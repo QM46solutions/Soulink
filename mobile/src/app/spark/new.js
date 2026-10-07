@@ -1,4 +1,4 @@
-// Post a Spark ⚡: 1) pick a category  2) record in Soulink (one take) or choose a video  3) the category's extras + caption.
+// Post a Spark 🎬: 1) pick a category  2) record in Soulink (one take) or choose a video  3) the category's extras + caption.
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notice } from '../../lib/confirm';
-import { CATEGORIES, COMEDY_STYLES, DIETS, MUSIC_STYLES, catOf, jokePromptOfDay, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
+import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChallengeOfWeek, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
 import SparkVideo from '../../components/SparkVideo';
 import SparkRecorder from '../../components/SparkRecorder';
 import { pickAudio } from '../../components/PostMusic';
@@ -62,8 +62,8 @@ export default function NewSpark() {
   const [sound, setSound] = useState('place');
   const [cook, setCook] = useState({ dish: '', minutes: '', diet: null, ingredients: '', steps: '' });
   const [scene, setScene] = useState('');
-  const [comedy, setComedy] = useState({ style: null, usePrompt: false });
-  const [mus, setMus] = useState({ style: null, kind: null, songCredit: '' });
+  const [fit, setFit] = useState({ type: null, level: null, minutes: '', moves: '', useChallenge: false });
+  const [news, setNews] = useState({ headline: '', topic: null, source: '' });
   const [busy, setBusy] = useState(false);
   const cat = category ? catOf(category) : null;
   const script = scriptOfWeek();
@@ -79,7 +79,7 @@ export default function NewSpark() {
   };
   const addMusic = async () => { const f = await pickAudio(); if (f) setMusic(f); };
   const cue = category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
-    : category === 'comedy' && comedy.usePrompt ? `😂 ${jokePromptOfDay()}` : null;
+    : category === 'fitness' && fit.useChallenge ? `💪 ${fitChallengeOfWeek()}` : null;
 
   const details = () => {
     if (category === 'travel') return { sound: music ? 'music' : sound };
@@ -89,11 +89,18 @@ export default function NewSpark() {
         ingredients: lines(cook.ingredients).slice(0, 25), steps: lines(cook.steps).slice(0, 15) };
     }
     if (category === 'acting') return { mode, ...(mode === 'dice' && dice ? { prompt: { emotion: dice.emotion, situation: dice.situation, character: dice.character } } : {}), ...(mode === 'script' ? { scriptTitle: script.title } : {}), ...(scene.trim() ? { scene: scene.trim() } : {}) };
-    if (category === 'comedy') return { ...(comedy.style ? { style: comedy.style } : {}), ...(comedy.usePrompt ? { promptOfDay: jokePromptOfDay() } : {}) };
-    return { ...(mus.style ? { style: mus.style } : {}), ...(mus.kind ? { kind: mus.kind } : {}), ...(mus.songCredit.trim() ? { songCredit: mus.songCredit.trim() } : {}) };
+    if (category === 'fitness') {
+      const moves = fit.moves.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 20);
+      return { ...(fit.type ? { type: fit.type } : {}), ...(fit.level ? { level: fit.level } : {}), ...(Number(fit.minutes) ? { minutes: Math.round(Number(fit.minutes)) } : {}),
+        ...(moves.length ? { moves } : {}), ...(fit.useChallenge ? { challenge: fitChallengeOfWeek() } : {}) };
+    }
+    const src = news.source.trim();
+    return { ...(news.headline.trim() ? { headline: news.headline.trim() } : {}), ...(news.topic ? { topic: news.topic } : {}),
+      ...(src ? { source: /^https?:\/\//i.test(src) ? src : `https://${src}` } : {}) };
   };
   const post = async () => {
     if (category === 'travel' && !place.trim()) { notice('Add the place', 'Travel Sparks show where you are. Type the place.'); return; }
+    if (category === 'news' && !news.headline.trim()) { notice('Add a headline', 'Say in one line what happened.'); return; }
     if (category === 'acting' && mode === 'dub' && !music) { notice('Add the audio', 'For a dub, add the dialogue or song you are acting to.'); return; }
     setBusy(true);
     try {
@@ -107,7 +114,7 @@ export default function NewSpark() {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg }}>
         <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back"><Ionicons name={step === 'category' ? 'close' : 'arrow-back'} size={26} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{cat ? `${cat.emoji} ${cat.label} Spark` : 'New Spark ⚡'}</Text>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{cat ? `${cat.emoji} ${cat.label} Spark` : 'New Spark 🎬'}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -115,7 +122,7 @@ export default function NewSpark() {
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           {step === 'category' ? (
             <>
-              <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, marginBottom: space.lg, textAlign: 'center' }}>What's your talent today? Each category has its own tools.</Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, marginBottom: space.lg, textAlign: 'center' }}>What are you sharing today? Each category has its own tools.</Text>
               {CATEGORIES.map((c) => <BigOption key={c.key} icon={c.icon} title={`${c.emoji} ${c.label}`} text={c.line} colors={c.colors} onPress={() => pickCategory(c.key)} />)}
             </>
           ) : null}
@@ -150,12 +157,15 @@ export default function NewSpark() {
                   {mode === 'dub' ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginTop: space.md }}>Act to a dialogue or song. Record your acting here, then add the audio from your phone in the next step (your video plays muted under it).</Text> : null}
                 </>
               ) : null}
-              {category === 'comedy' ? (
-                <Pressable onPress={() => setComedy((c) => ({ ...c, usePrompt: !c.usePrompt }))} style={{ marginBottom: space.md, padding: space.lg, borderRadius: 20, borderWidth: 1.5, borderColor: comedy.usePrompt ? colors.gold : colors.border, backgroundColor: comedy.usePrompt ? 'rgba(245,200,66,0.12)' : colors.glass }}>
-                  <Text style={{ fontFamily: fonts.mono, color: colors.gold, fontSize: 11, letterSpacing: 1 }}>JOKE PROMPT OF THE DAY</Text>
-                  <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 18, marginTop: 4 }}>{jokePromptOfDay()}</Text>
-                  <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, marginTop: 6 }}>{comedy.usePrompt ? '✅ You are doing today’s prompt' : 'Tap to take today’s prompt (optional)'}</Text>
+              {category === 'fitness' ? (
+                <Pressable onPress={() => setFit((f) => ({ ...f, useChallenge: !f.useChallenge }))} style={{ marginBottom: space.md, padding: space.lg, borderRadius: 20, borderWidth: 1.5, borderColor: fit.useChallenge ? colors.mint : colors.border, backgroundColor: fit.useChallenge ? 'rgba(66,232,192,0.12)' : colors.glass }}>
+                  <Text style={{ fontFamily: fonts.mono, color: colors.mint, fontSize: 11, letterSpacing: 1 }}>CHALLENGE OF THE WEEK</Text>
+                  <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 18, marginTop: 4 }}>{fitChallengeOfWeek()}</Text>
+                  <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, marginTop: 6 }}>{fit.useChallenge ? '✅ You are taking this week’s challenge' : 'Tap to take this week’s challenge (optional), or post any workout'}</Text>
                 </Pressable>
+              ) : null}
+              {category === 'news' ? (
+                <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginBottom: space.md, lineHeight: 19 }}>Share something that happened: in your area, in India or the world. Record yourself telling it, or a clip you shot. Add the headline and a source link in the next step.</Text>
               ) : null}
               <Label>Your video · up to 60 seconds</Label>
               {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="One take, no edits: gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} /> : null}
@@ -202,16 +212,29 @@ export default function NewSpark() {
                 </>
               ) : null}
 
-              {category === 'comedy' ? (<><Label>Style</Label><Pills value={comedy.style} onPick={(k) => setComedy({ ...comedy, style: k })} options={COMEDY_STYLES} /></>) : null}
-
-              {category === 'music' ? (
+              {category === 'fitness' ? (
                 <>
-                  <Label>What is it?</Label>
-                  <Pills value={mus.style} onPick={(k) => setMus({ ...mus, style: k })} options={MUSIC_STYLES} />
-                  <View style={{ marginTop: space.sm }}><Pills value={mus.kind} onPick={(k) => setMus({ ...mus, kind: k })} options={[['original', '✨ Original'], ['cover', '🎤 Cover']]} /></View>
-                  <Field value={mus.songCredit} onChangeText={(v) => setMus({ ...mus, songCredit: v })} placeholder="Song credit (song · artist)" maxLength={120} style={{ marginTop: space.sm }} />
-                  <Label>Track to dance to (optional)</Label>
+                  <Label>💪 Workout card</Label>
+                  <Pills value={fit.type} onPick={(k) => setFit({ ...fit, type: k })} options={FIT_TYPES} />
+                  <View style={{ marginTop: space.sm }}><Pills value={fit.level} onPick={(k) => setFit({ ...fit, level: k })} options={FIT_LEVELS} /></View>
+                  <Field value={fit.minutes} onChangeText={(v) => setFit({ ...fit, minutes: v.replace(/[^0-9]/g, '') })} placeholder="How many minutes?" keyboardType="number-pad" maxLength={3} style={{ marginTop: space.sm }} />
+                  <Field value={fit.moves} onChangeText={(v) => setFit({ ...fit, moves: v })} placeholder={'Moves, one per line (optional)\nSquats × 15\nPlank 30 s'} multiline style={{ marginTop: space.sm, minHeight: 100 }} />
+                  <Label>Workout music (optional)</Label>
                   <Pills value={music ? 'yes' : null} onPick={(k) => (k ? addMusic() : setMusic(null))} options={[['yes', music ? `🎵 ${music.name}` : '🎵 Add a song from my phone']]} />
+                </>
+              ) : null}
+
+              {category === 'news' ? (
+                <>
+                  <Label>📰 Headline (required)</Label>
+                  <Field value={news.headline} onChangeText={(v) => setNews({ ...news, headline: v })} placeholder="What happened, in one line" maxLength={120} />
+                  <Label>Topic</Label>
+                  <Pills value={news.topic} onPick={(k) => setNews({ ...news, topic: k })} options={NEWS_TOPICS} />
+                  <Label>📍 Where (optional)</Label>
+                  <CityField value={place} onChange={setPlace} autoLocate={false} />
+                  <Label>Source link (optional)</Label>
+                  <Field value={news.source} onChangeText={(v) => setNews({ ...news, source: v })} placeholder="https://… where people can read more" autoCapitalize="none" keyboardType="url" maxLength={300} />
+                  <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, marginTop: 6 }}>Only share what you know is true. A source helps people trust it.</Text>
                 </>
               ) : null}
 
@@ -221,7 +244,7 @@ export default function NewSpark() {
 
               <Pressable onPress={post} disabled={busy} style={{ marginTop: space.xl, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                 <LinearGradient colors={cat?.colors || gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>Post Spark ⚡</Text>}
+                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>Post Spark 🎬</Text>}
               </Pressable>
               {busy ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>Uploading your video… this can take a minute.</Text> : null}
             </>

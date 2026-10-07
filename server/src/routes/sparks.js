@@ -1,9 +1,9 @@
-// Sparks ⚡: short talent videos (up to 60 s) in 5 categories, each with its own extras.
+// Sparks 🎬: short videos (up to 60 s) in 5 categories, each with its own extras.
 //  GET    /sparks?category=&before=   the Sparks tab (everyone's, newest first; filter by category)
 //  GET    /sparks/user/:userId        someone's Sparks
 //  POST   /sparks                     multipart: video (required), music? + category, caption, place?, details (json), oneTake=1|0
-//  POST   /sparks/:id/react           the category reaction (🌍 ✈️ / 😋 / 👏 / 😂 / 🔥), toggle
-//  POST   /sparks/:id/tried           cooking: "I tried it", toggle
+//  POST   /sparks/:id/react           the category reaction (😍 / 😋 / 👏 / 💪 / 💡), toggle
+//  POST   /sparks/:id/tried           cooking "I tried it" / fitness "I did it", toggle
 //  POST   /sparks/:id/view            counts a view (once a day per person)
 //  DELETE /sparks/:id                 delete my Spark
 import { Router } from 'express';
@@ -17,7 +17,7 @@ import { notify, userCard } from '../services/social.js';
 const r = Router();
 r.use(requireAuth);
 const uuid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id');
-export const SPARK_CATEGORIES = ['travel', 'cooking', 'acting', 'comedy', 'music'];
+export const SPARK_CATEGORIES = ['travel', 'cooking', 'acting', 'fitness', 'news'];
 
 // what each category may carry in "details"
 const DETAILS = {
@@ -35,8 +35,18 @@ const DETAILS = {
     scriptTitle: z.string().trim().max(80).optional(),
     scene: z.string().trim().max(120).optional(), // "Recreating: …" (movie scene / dialogue they performed)
   }),
-  comedy: z.object({ promptOfDay: z.string().trim().max(160).optional(), style: z.enum(['standup', 'skit', 'meme', 'roast', 'mimicry']).optional() }),
-  music: z.object({ songCredit: z.string().trim().max(120).optional(), kind: z.enum(['original', 'cover']).optional(), style: z.enum(['singing', 'dance', 'instrument', 'beatbox', 'rap']).optional() }),
+  fitness: z.object({
+    type: z.enum(['gym', 'yoga', 'run', 'home', 'sport', 'dance', 'transformation']).optional(),
+    level: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+    minutes: z.number().int().min(1).max(600).optional(),
+    moves: z.array(z.string().trim().min(1).max(80)).max(20).optional(), // "Squats × 15"
+    challenge: z.string().trim().max(120).optional(),                  // the challenge of the week they took
+  }),
+  news: z.object({
+    headline: z.string().trim().min(1).max(120).optional(),
+    topic: z.enum(['local', 'india', 'world', 'tech', 'sports', 'cinema', 'business', 'good']).optional(),
+    source: z.string().trim().url().max(300).refine((u) => /^https?:\/\//i.test(u), 'Use a web link').optional(),
+  }),
 };
 
 const SELECT = `SELECT s.*,
@@ -124,11 +134,11 @@ r.post('/:id/react', ah(async (req, res) => {
 
 r.post('/:id/tried', ah(async (req, res) => {
   const x = await visible(req);
-  if (x.category !== 'cooking') throw badRequest('"I tried it" is for cooking Sparks');
+  if (x.category !== 'cooking' && x.category !== 'fitness') throw badRequest('"I tried it" is for cooking and fitness Sparks');
   if (x.i_tried) await query('DELETE FROM spark_tried WHERE spark_id=$1 AND user_id=$2', [x.id, req.user.id]);
   else {
     await query('INSERT INTO spark_tried (spark_id, user_id) VALUES ($1, $2)', [x.id, req.user.id]);
-    await notify(x.author_id, req.user.id, 'spark_tried', x.id, { dish: parse(x.details)?.dish || null }).catch(() => {});
+    await notify(x.author_id, req.user.id, 'spark_tried', x.id, { category: x.category, dish: parse(x.details)?.dish || null }).catch(() => {});
   }
   const n = await one('SELECT COUNT(*) AS n FROM spark_tried WHERE spark_id=$1', [x.id]);
   res.json({ iTried: !x.i_tried, tried: Number(n.n) });

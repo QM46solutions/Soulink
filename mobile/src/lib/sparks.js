@@ -1,4 +1,4 @@
-// Sparks ⚡: categories, their extras, and the creative prompts (all Soulink's own, no copyrighted lines).
+// Sparks 🎬: categories, their extras, and the creative prompts (all Soulink's own, no copyrighted lines).
 import { Platform } from 'react-native';
 import { api } from './api';
 
@@ -9,10 +9,10 @@ export const CATEGORIES = [
     line: 'Recipe card, time, veg / non-veg, "I tried it"' },
   { key: 'acting', label: 'Acting', emoji: '🎭', icon: 'film', colors: ['#7c5cfc', '#ff6b9d'], react: { emoji: '👏', label: 'Bravo' },
     line: 'Improv Dice, Script of the week, scenes and dubs' },
-  { key: 'comedy', label: 'Comedy', emoji: '😂', icon: 'happy', colors: ['#f5c842', '#ff6b9d'], react: { emoji: '😂', label: 'Haha' },
-    line: 'Joke prompt of the day, stand-up, skits, mimicry' },
-  { key: 'music', label: 'Music & Dance', emoji: '🎵', icon: 'musical-notes', colors: ['#ff6b9d', '#b08fff'], react: { emoji: '🔥', label: 'Fire' },
-    line: 'Sing, dance, play: original or cover, with credit' },
+  { key: 'fitness', label: 'Fitness', emoji: '💪', icon: 'barbell', colors: ['#42e8c0', '#7cf57c'], react: { emoji: '💪', label: 'Strong' },
+    line: 'Workouts, yoga, runs, transformations: workout card + "I did it"' },
+  { key: 'news', label: 'News', emoji: '📰', icon: 'newspaper', colors: ['#ff6b6b', '#ff9a5a'], react: { emoji: '💡', label: 'Useful' },
+    line: 'What happened, where, with the headline and a source link' },
 ];
 export const catOf = (k) => CATEGORIES.find((c) => c.key === k) || CATEGORIES[0];
 
@@ -33,21 +33,23 @@ export const SCRIPTS = [
 ];
 export const scriptOfWeek = () => SCRIPTS[Math.floor(Date.now() / (7 * 86400000)) % SCRIPTS.length];
 
-// ---- Comedy: joke prompt of the day 😂 ----
-const JOKE_PROMPTS = [
-  'Explain your job to your grandmother',
-  'Things Hyderabad traffic has taught me',
-  'If my phone could talk about me',
-  'Rating my relatives like food delivery apps',
-  'My mom when the WiFi stops working',
-  'Every group chat has this one person',
-  'Biryani is not food, it is…',
-  'What my alarm clock thinks of me',
+// ---- Fitness: challenge of the week 💪 (everyone can take the same one) ----
+const FIT_CHALLENGES = [
+  '50 squats, no breaks',
+  '1-minute plank',
+  '20 push-ups (knees are fine)',
+  '10-minute morning stretch',
+  '5,000 steps before breakfast',
+  '30 jumping jacks + 30 high knees',
+  'Sun salutation × 5',
+  'Stairs only, all day',
 ];
-export const jokePromptOfDay = () => JOKE_PROMPTS[Math.floor(Date.now() / 86400000) % JOKE_PROMPTS.length];
+export const fitChallengeOfWeek = () => FIT_CHALLENGES[Math.floor(Date.now() / (7 * 86400000)) % FIT_CHALLENGES.length];
+export const FIT_TYPES = [['gym', '🏋️ Gym'], ['home', '🏠 Home workout'], ['yoga', '🧘 Yoga'], ['run', '🏃 Run / walk'], ['sport', '⚽ Sport'], ['dance', '💃 Dance fitness'], ['transformation', '✨ Transformation']];
+export const FIT_LEVELS = [['beginner', '🟢 Beginner'], ['intermediate', '🟡 Intermediate'], ['advanced', '🔴 Advanced']];
 
-export const COMEDY_STYLES = [['standup', 'Stand-up'], ['skit', 'Skit'], ['meme', 'Meme act'], ['roast', 'Roast (kind)'], ['mimicry', 'Mimicry']];
-export const MUSIC_STYLES = [['singing', 'Singing'], ['dance', 'Dance'], ['instrument', 'Instrument'], ['beatbox', 'Beatbox'], ['rap', 'Rap']];
+// ---- News 📰 ----
+export const NEWS_TOPICS = [['local', '📍 Local'], ['india', '🇮🇳 India'], ['world', '🌍 World'], ['tech', '💻 Tech'], ['sports', '🏏 Sports'], ['cinema', '🎬 Cinema'], ['business', '📈 Business'], ['good', '🌈 Good news']];
 export const DIETS = [['veg', '🟢 Veg'], ['nonveg', '🔴 Non-veg'], ['egg', '🟡 Egg'], ['vegan', '🌱 Vegan']];
 
 const blobOf = async (uri) => (await fetch(uri)).blob();
