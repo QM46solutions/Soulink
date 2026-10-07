@@ -5,11 +5,12 @@ import { useAuth } from '../../lib/auth';
 import { mediaUrl } from '../../lib/api';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
+import ClapperIcon, { clap } from '../../components/ClapperIcon';
 
 const icon = (name) => ({ color, focused, size }) => (
   <View style={{ alignItems: 'center' }}>
@@ -67,12 +68,8 @@ function MessagesTabButton() {
   );
 }
 
-// Sparks 🎬: a clapperboard (filled when you're on the tab)
-const SparksIcon = ({ color, focused, size }) => (
-  <View style={{ alignItems: 'center' }}>
-    <MaterialCommunityIcons name={focused ? 'movie-open' : 'movie-open-outline'} size={size + 2} color={color} />
-  </View>
-);
+// Sparks 🎬: a real clapperboard that claps when you tap the tab
+const SparksIcon = ({ focused }) => <View style={{ alignItems: 'center' }}><ClapperIcon focused={focused} /></View>;
 
 export default function TabsLayout() {
   const { refreshUnread } = useRealtime();
@@ -119,7 +116,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
       {/* Sparks 🎬 (short videos). Argue Referee now lives on the Messages screen (floating button, bottom right) */}
-      <Tabs.Screen name="sparks" options={{ title: 'Sparks', tabBarAccessibilityLabel: 'Sparks', tabBarIcon: SparksIcon }} />
+      <Tabs.Screen name="sparks" options={{ title: 'Sparks', tabBarAccessibilityLabel: 'Sparks', tabBarIcon: SparksIcon }} listeners={{ tabPress: () => clap() }} />
       {/* Messages: normal icon with unread badge, opens the inbox */}
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
       {/* Soulink Events opens from the "Soulink" title at the top of Home; Notifications from the bell */}

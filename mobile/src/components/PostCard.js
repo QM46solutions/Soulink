@@ -18,8 +18,24 @@ export const LIKE_EMOJI = '👌🏻';
 // long words / links wrap instead of running off the screen (web needs this explicitly)
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 const ND = Platform.OS !== 'web';
-// icon colours once used: like = the 👌🏻 itself, comment = Soulink lilac, share = Soulink mint, offense = red
-const ACTIVE = { comment: colors.aura, share: colors.mint, offense: colors.danger };
+// before you use an icon it's an outline; once used it turns into the solid icon in its colour:
+// like = the 👌🏻 itself, comment = white, share = sky blue, offense = red
+const ACTIVE = { comment: '#ffffff', share: '#38bdf8', offense: '#ff4d4f' };
+
+/** Outline icon that becomes solid + coloured (with a little pop) once you've used it */
+function StateIcon({ name, on, color, size = 22 }) {
+  const pop = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (on) Animated.sequence([Animated.timing(pop, { toValue: 1.3, duration: 110, useNativeDriver: true }), Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: true })]).start();
+  }, [on, pop]);
+  return (
+    <Animated.View style={{ transform: [{ scale: pop }] }}>
+      <Ionicons name={on ? name : `${name}-outline`} size={size} color={on ? color : colors.text} />
+    </Animated.View>
+  );
+}
 
 export function timeAgo(iso) {
   const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -230,15 +246,15 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         </Action>
         {/* each icon takes its own colour once you've used it, like the 👌🏻 */}
         <Action onPress={openPost} label={commentsOff ? 'Commenting is off' : 'Comments'} count={commentsOff ? null : comments} color={commented ? ACTIVE.comment : undefined}>
-          <Ionicons name="chatbubble" size={22} color={commented ? ACTIVE.comment : colors.text} />
+          <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} />
         </Action>
         <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
-          <Ionicons name="paper-plane" size={22} color={shared ? ACTIVE.share : colors.text} />
+          <StateIcon name="paper-plane" on={shared} color={ACTIVE.share} />
         </Action>
         {/* Offense ❗: others tap it to report (Instagram-style sheet); on your own post it shows how many marked it and why */}
         <Action onPress={offense} count={offenses} color={offended ? ACTIVE.offense : undefined}
           label={post.mine ? `${offenses} offense marks on your post` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
-          <Ionicons name="alert-circle" size={24} color={offended ? ACTIVE.offense : colors.text} />
+          <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} />
         </Action>
       </View>
       <LikesSheet visible={likesOpen} postId={post.id} onClose={() => setLikesOpen(false)} />

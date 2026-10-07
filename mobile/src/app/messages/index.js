@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
-import { FlatList, Platform, Pressable, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,12 +31,12 @@ function ArgueButton() {
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', right: space.lg, bottom: Math.max(insets.bottom, 12) + 14, alignItems: 'center' }}>
       <Pressable onPress={() => router.push('/argue')} accessibilityRole="button" accessibilityLabel="Argue Referee"
-        style={({ hovered, pressed }) => ({ width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
-          transform: [{ scale: pressed ? 0.92 : hovered ? 1.08 : 1 }],
-          ...(Platform.OS === 'web' ? { cursor: 'pointer', outlineStyle: 'none', boxShadow: '0 6px 22px rgba(124,92,252,0.45)' } : { shadowColor: '#7c5cfc', shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }) })}>
-        <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        <View style={{ position: 'absolute', top: 2.5, left: 2.5, right: 2.5, bottom: 2.5, borderRadius: 29, backgroundColor: 'rgba(14,12,22,0.94)' }} />
-        <ScalesIcon size={46} bold />
+        style={({ hovered, pressed }) => ({ width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
+          backgroundColor: 'rgba(20,18,32,0.92)', borderWidth: StyleSheet.hairlineWidth, borderColor: hovered ? 'rgba(176,143,255,0.7)' : 'rgba(176,143,255,0.3)',
+          transform: [{ scale: pressed ? 0.92 : hovered ? 1.06 : 1 }],
+          ...(Platform.OS === 'web' ? { cursor: 'pointer', outlineStyle: 'none', boxShadow: '0 8px 26px rgba(124,92,252,0.35)' } : { shadowColor: '#7c5cfc', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 }) })}>
+        {/* thin floating bubble (hairline edge + soft glow), the scales fill most of it */}
+        <ScalesIcon size={66} bold />
       </Pressable>
       <Text style={{ marginTop: 4, fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>Argue</Text>
     </View>
@@ -122,7 +122,7 @@ export default function Messages() {
             />
           ))}
           refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
-          contentContainerStyle={{ paddingTop: space.sm, paddingBottom: 110, flexGrow: 1 }}
+          contentContainerStyle={{ paddingTop: space.sm, paddingBottom: 130, flexGrow: 1 }}
           ListEmptyComponent={box === 'inbox' ? (
             <Empty icon="paper-plane-outline" title="No messages yet" text="Start a chat with someone you know, or create a group.">
               <Pressable onPress={() => router.push('/messages/new')} style={{ marginTop: space.lg, borderWidth: 1, borderColor: colors.soul, borderRadius: radius.pill, paddingHorizontal: 18, paddingVertical: 10 }}>

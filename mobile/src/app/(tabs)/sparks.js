@@ -21,8 +21,10 @@ export default function Sparks() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks 🎬</GradientText>,
-      headerRight: () => (
-        <Pressable onPress={() => router.push('/spark/new')} hitSlop={10} style={{ marginRight: 16 }} accessibilityLabel="Post a Spark">
+      // no back arrow here: the + to post sits where the back arrow was
+      headerRight: () => null,
+      headerLeft: () => (
+        <Pressable onPress={() => router.push('/spark/new')} hitSlop={10} style={{ marginLeft: 16 }} accessibilityLabel="Post a Spark">
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="add" size={22} color="#fff" />
           </LinearGradient>
