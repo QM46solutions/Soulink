@@ -70,7 +70,7 @@ function MessagesTabButton() {
 }
 
 // Sparks 🎬: a real clapperboard that claps when you tap the tab
-const SparksIcon = ({ focused }) => <View style={{ alignItems: 'center' }}><ClapperIcon focused={focused} /></View>;
+const SparksIcon = ({ focused }) => <View style={{ alignItems: 'center', justifyContent: 'center' }}><ClapperIcon focused={focused} /></View>;
 
 export default function TabsLayout() {
   const { refreshUnread } = useRealtime();

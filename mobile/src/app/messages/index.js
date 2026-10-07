@@ -36,7 +36,8 @@ function ArgueButton() {
           transform: [{ scale: pressed ? 0.92 : hovered ? 1.06 : 1 }],
           ...(Platform.OS === 'web' ? { cursor: 'pointer', outlineStyle: 'none', boxShadow: '0 8px 26px rgba(124,92,252,0.35)' } : { shadowColor: '#7c5cfc', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 }) })}>
         {/* thin floating bubble (hairline edge + soft glow), the scales fill most of it */}
-        <ScalesIcon size={66} bold />
+        {/* the scales drawing sits low in its own box (base at the bottom), so lift it to the exact centre */}
+        <View style={{ transform: [{ translateY: -4.5 }] }}><ScalesIcon size={56} bold /></View>
       </Pressable>
       <Text style={{ marginTop: 4, fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>Argue</Text>
     </View>

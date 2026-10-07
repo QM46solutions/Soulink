@@ -9,16 +9,16 @@ import { gradients } from '../lib/theme';
 const listeners = new Set();
 export const clap = () => listeners.forEach((f) => f());
 
-const W = 28; // icon width
-const BAR = 7; // striped bar height
+const W = 24; // icon width (same visual size as the other tab icons)
+const BAR = 6; // striped bar height
 
 /** A white bar with black diagonal stripes (the classic clapper look). */
 function Stripes({ width }) {
-  const n = Math.ceil(width / 7) + 2;
+  const n = Math.ceil(width / 6) + 2;
   return (
     <View style={{ width, height: BAR, backgroundColor: '#fff', borderRadius: 1.5, overflow: 'hidden', flexDirection: 'row' }}>
       {Array.from({ length: n }).map((_, i) => (
-        <View key={i} style={{ position: 'absolute', left: i * 7 - 4, top: -3, width: 3.4, height: BAR + 6, backgroundColor: '#15121f', transform: [{ skewX: '-35deg' }] }} />
+        <View key={i} style={{ position: 'absolute', left: i * 6 - 4, top: -3, width: 3, height: BAR + 6, backgroundColor: '#15121f', transform: [{ skewX: '-35deg' }] }} />
       ))}
     </View>
   );
@@ -51,16 +51,16 @@ export default function ClapperIcon({ focused }) {
   const scale = bump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
 
   return (
-    <Animated.View style={{ width: W, height: 30, justifyContent: 'flex-end', opacity: focused ? 1 : 0.8, transform: [{ scale }] }}>
+    <Animated.View style={{ width: W, height: 24, justifyContent: 'flex-end', opacity: focused ? 1 : 0.8, transform: [{ scale }] }}>
       {/* the clapper arm, hinged on the left */}
-      <Animated.View style={{ position: 'absolute', left: 0, top: 2, transformOrigin: 'left bottom', transform: [{ rotate }] }}>
+      <Animated.View style={{ position: 'absolute', left: 0, top: 0, transformOrigin: 'left bottom', transform: [{ rotate }] }}>
         <Stripes width={W} />
       </Animated.View>
       {/* the slate: striped top + coloured board with two "write here" lines */}
       <Stripes width={W} />
-      <View style={{ width: W, height: 13, marginTop: 1, borderRadius: 3, overflow: 'hidden', justifyContent: 'center', paddingHorizontal: 4 }}>
+      <View style={{ width: W, height: 11, marginTop: 1, borderRadius: 2.5, overflow: 'hidden', justifyContent: 'center', paddingHorizontal: 3.5 }}>
         <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        <View style={{ height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.85)', marginBottom: 3 }} />
+        <View style={{ height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.85)', marginBottom: 2.5 }} />
         <View style={{ height: 1.5, width: '60%', borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.85)' }} />
       </View>
     </Animated.View>
