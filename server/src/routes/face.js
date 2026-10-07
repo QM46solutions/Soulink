@@ -5,6 +5,7 @@
 // only if the person chooses it as their profile picture).
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { clientKey } from '../lib/clientKey.js';
 import { z } from 'zod';
 import { many, tx } from '../db.js';
 import { config } from '../config.js';
@@ -72,7 +73,7 @@ export async function assessFrame(buf, { accurate = false } = {}) {
 
 // Live check, called about once a second while the camera is open
 r.post('/check',
-  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 5000 : 900, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 5000 : config.testing ? 20000 : 900, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frame: f } = z.object({ frame }).parse(req.body);
     const t0 = Date.now();
@@ -84,7 +85,7 @@ r.post('/check',
 );
 
 r.post('/enroll',
-  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : config.testing ? 300 : 20, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : config.testing ? 300 : 20, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frames, useAsAvatar } = z.object({ frames: z.array(frame).length(3), useAsAvatar: z.boolean().optional() }).parse(req.body);
     if (req.user.face_verified) return res.json({ user: meView(req.user), already: true });
@@ -129,8 +130,7 @@ r.post('/enroll',
       if (hit && !match) match = o.user_id;
     }
     flog(`enroll user=${req.user.id.slice(0, 8)} compared with ${others.length} stored face(s), nearest ${nearest ? `avg=${nearest.avgD.toFixed(3)} photos=${nearest.singles.map((d) => d.toFixed(3)).join('/')} (${nearest.user.slice(0, 8)})` : 'none'}`);
-    if (match && config.testing) flog(`enroll user=${req.user.id.slice(0, 8)} same face as another account, ALLOWED (testing mode)`);
-    if (match && !config.testing) {
+    if (match) {
       flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face`);
       throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);
     }

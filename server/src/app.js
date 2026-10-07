@@ -6,6 +6,7 @@ import { ensureLocal } from './providers/storage.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { clientKey } from './lib/clientKey.js';
 import { config } from './config.js';
 import { errorHandler, notFound } from './lib/errors.js';
 import authRoutes from './routes/auth.js';
@@ -50,8 +51,9 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   if (config.env !== 'test') {
-    app.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false }));
-    app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 20, standardHeaders: true, legacyHeaders: false }));
+    // Limits count per phone, not per laptop: through the phone link every phone arrives via this laptop
+    app.use(rateLimit({ windowMs: 60_000, limit: config.testing ? 3000 : 300, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
+    app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 20, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
   }
 
   // Private preview gate: every API call needs the access code (photos and the health check don't)

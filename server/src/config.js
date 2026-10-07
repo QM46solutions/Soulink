@@ -43,8 +43,8 @@ export const config = {
   faceRequired: bool(process.env.FACE_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   // Premium Soul Filters (min Soul Score, Soul type, personality) are free while testing; set PREMIUM_FREE_TRIAL=false at launch
   premiumFreeTrial: bool(process.env.PREMIUM_FREE_TRIAL, true),
-  // Testing mode (on until launch): one person may make many test accounts (same face allowed on several
-  // accounts, higher sign-up limits). Set TESTING_MODE=false at launch to enforce "one face, one account".
+  // Testing mode (on until launch): roomy request limits so a group of testers on one Wi-Fi or the phone link
+  // never gets blocked. Set TESTING_MODE=false at launch for the strict limits. ("One face, one account" is always on.)
   testing: bool(process.env.TESTING_MODE, true),
   otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
   minAge: 18,
