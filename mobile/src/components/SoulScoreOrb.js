@@ -35,6 +35,19 @@ export const THEMES = {
       [0, { label: 'Opposites attract', line: 'Different wavelengths. Sometimes that is the magic.', icon: 'swap-horizontal', color: colors.mint }],
     ]),
   },
+  eternal: {
+    tag: 'Life partner', icon: 'diamond', coreLabel: 'PARTNER SCORE',
+    stops: [[255, 214, 120], [255, 140, 170], [214, 51, 108]],
+    halo: '#f5c842', core: ['rgba(245,200,66,0.36)', 'rgba(255,107,157,0.2)', 'rgba(20,8,6,0.93)'], edge: 'rgba(255,214,120,0.55)',
+    pulse: 'heartbeat', count: 'smooth', burst: 'heart', orbit: 'heart', ambient: 'hearts',
+    vibe: (s) => tiers(s, [
+      [90, { label: 'Made for each other', line: 'The same dreams, the same values. A life together fits.', icon: 'diamond', color: '#f5c842' }],
+      [75, { label: 'Marriage material', line: 'Strong foundations for a life together.', icon: 'heart', color: '#ff8fae' }],
+      [60, { label: 'Promising', line: 'Good roots. Talk about family and future early.', icon: 'home', color: '#ffb36b' }],
+      [45, { label: 'Needs real talks', line: 'Some big life choices differ. Discuss them openly.', icon: 'chatbubbles', color: '#ffc9a8' }],
+      [0, { label: 'Different paths', line: 'You want different lives right now.', icon: 'git-compare', color: '#ffc9a8' }],
+    ]),
+  },
   romantic: {
     tag: 'Dating', icon: 'heart', coreLabel: 'LOVE SCORE',
     stops: [[255, 138, 170], [255, 77, 109], [214, 20, 70]],
@@ -115,7 +128,7 @@ export const THEMES = {
   },
 };
 
-const THEME_OF = { dating: 'romantic', situationship: 'moonlit', friendship: 'platonic', vibing: 'chill', networking: 'formal', buddy: 'buddy' };
+const THEME_OF = { life_partner: 'eternal', dating: 'romantic', situationship: 'moonlit', friendship: 'platonic', vibing: 'chill', networking: 'formal', buddy: 'buddy' };
 export const themeFor = (intent) => THEMES[THEME_OF[intent]] || THEMES.cosmic;
 export const vibeOf = (score, intent) => themeFor(intent).vibe(score);
 

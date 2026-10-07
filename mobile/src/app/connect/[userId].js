@@ -7,7 +7,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { BrandScreen } from '../../components/BrandScreen';
 import { AuraAvatar } from '../../components/ProfileHeader';
-import { ChoiceCard, IntentChip, ScorePill } from '../../components/Choice';
+import { ChoiceCard, IntentBadge, IntentCard, ScorePill } from '../../components/Choice';
 import { Button, ErrorText, Input, Loading, s } from '../../components/ui';
 import { INTENTS, intentOf } from '../../lib/intents';
 import { colors, fonts, space } from '../../lib/theme';
@@ -50,9 +50,7 @@ export default function Connect() {
     return (
       <BrandScreen back>
         <View style={{ alignItems: 'center' }}>
-          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(66,232,192,0.1)', borderWidth: 1.5, borderColor: 'rgba(66,232,192,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="paper-plane" size={42} color={colors.mint} />
-          </View>
+          <IntentBadge intent={it} size={96} />
           <Text style={{ fontFamily: fonts.displayBold, fontSize: 24, color: colors.text, marginTop: space.lg, textAlign: 'center' }}>Request sent</Text>
           <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.muted, marginTop: space.sm, textAlign: 'center' }}>
             {first} will see you want to connect for {it.label} {it.emoji}. You'll get a notification when they accept, hold or reject.
@@ -78,9 +76,9 @@ export default function Connect() {
       </View>
 
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0, textAlign: 'center' }]}>What are you hoping for?</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         {INTENTS.map((i) => (
-          <IntentChip key={i.key} intent={i} selected={intent === i.key} onPress={() => setIntent(i.key)} />
+          <IntentCard key={i.key} intent={i} selected={intent === i.key} onPress={() => setIntent(i.key)} />
         ))}
       </View>
 

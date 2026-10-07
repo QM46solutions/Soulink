@@ -12,6 +12,7 @@ import { BottomSheet } from './PostSheets';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
 export const RELATIONS = [
+  { key: 'lifepartner', label: 'Life partner', short: 'Partner', emoji: '💍', intent: 'life_partner' },
   { key: 'dating', label: 'Dating', emoji: '💘', intent: 'dating' },
   { key: 'friendship', label: 'Friendship', emoji: '🤝', intent: 'friendship' },
   { key: 'business', label: 'Business', emoji: '💼', intent: 'networking' },
@@ -94,19 +95,20 @@ export default function MatchPanel({ match, userId, name }) {
   const [rel, setRel] = useState(match.relation);
   const [why, setWhy] = useState(false);
   useEffect(() => { setRel(match.relation); }, [match.relation]);
-  const cur = match.all[rel];
+  const cur = match.all[rel] || match.all[match.relation];
+  if (!cur) return null;
   const meta = RELATIONS.find((r) => r.key === rel);
   return (
     <View style={{ marginBottom: space.md }}>
-      <View style={{ flexDirection: 'row', paddingHorizontal: space.lg, gap: 6, marginBottom: space.sm }}>
+      <View style={{ flexDirection: 'row', paddingHorizontal: space.md, gap: 5, marginBottom: space.sm }}>
         {RELATIONS.map((r) => {
           const on = r.key === rel;
           return (
-            <Pressable key={r.key} onPress={() => setRel(r.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+            <Pressable key={r.key} disabled={!match.all[r.key]} onPress={() => setRel(r.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
               style={({ hovered }) => ({ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 14, borderWidth: 1,
                 borderColor: on ? colors.soul : colors.border, backgroundColor: on ? 'rgba(124,92,252,0.22)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
               <Text style={{ fontSize: 15 }}>{r.emoji}</Text>
-              <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 11, color: on ? colors.text : colors.muted, marginTop: 1 }}>{r.label}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 11, color: on ? colors.text : colors.muted, marginTop: 1 }}>{r.short || r.label}</Text>
               <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: on ? colors.aura : colors.dim }}>{match.all[r.key]?.overall ?? '–'}%</Text>
             </Pressable>
           );

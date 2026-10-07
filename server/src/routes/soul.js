@@ -14,6 +14,7 @@ import { meView } from '../services/social.js';
 import { soulTypeOf } from '../services/soulQuiz.js';
 import { QUESTIONS, QUESTION_IDS, RELATION_KEYS, SECTIONS, compat, publicQuestions, selfView, traitsFromAxes, validAnswer } from '../services/soulDna.js';
 import { loadDna, relationBetween, saveCompletedDna } from '../services/soulStore.js';
+import { pinnedCompat, pinsFor } from '../services/soulPins.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -62,10 +63,11 @@ r.get('/dna/me', ah(async (req, res) => {
 r.get('/compat/:userId', ah(async (req, res) => {
   const otherId = uuid.parse(req.params.userId);
   const relation = z.enum(RELATION_KEYS).optional().parse(req.query.relation) || await relationBetween(req.user.id, otherId);
+  const pin = (await pinsFor(req.user.id, otherId))[relation];
   const m = await loadDna([req.user.id, otherId]);
   const A = m.get(String(req.user.id).toLowerCase()); const B = m.get(String(otherId).toLowerCase());
-  if (!A || !B) return res.json({ ready: false, mine: !!A, theirs: !!B });
-  const full = compat(A, B, relation);
+  if (pin == null && (!A || !B)) return res.json({ ready: false, mine: !!A, theirs: !!B });
+  const full = pin != null ? pinnedCompat(relation, pin) : compat(A, B, relation);
   const unlocked = !!req.user.is_premium || config.premiumFreeTrial;
   res.json({
     ready: true, predicted: true, unlocked,

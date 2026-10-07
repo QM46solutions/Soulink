@@ -2,6 +2,7 @@
 import { many, one, tx } from '../db.js';
 import { buildAxes, compat, compatAll, relationOf, traitsFromAxes } from './soulDna.js';
 import { TRAITS, soulTypeOf } from './soulQuiz.js';
+import { applyPinsAll, pinsFor } from './soulPins.js';
 
 const parse = (v) => { if (v && typeof v === 'object') return v; try { return JSON.parse(v || 'null'); } catch { return null; } };
 
@@ -29,6 +30,8 @@ export async function relationBetween(a, b) {
 /** One number (0-100) for a pair and a request intent; null if either has no Soul DNA yet. */
 export async function scoreFor(aId, bId, intent) {
   const m = await loadDna([aId, bId]);
+  const pin = (await pinsFor(aId, bId))[relationOf(intent)];
+  if (pin != null) return pin;
   const A = m.get(String(aId).toLowerCase()); const B = m.get(String(bId).toLowerCase());
   return A && B ? compat(A, B, relationOf(intent)).overall : null;
 }
@@ -37,9 +40,12 @@ export async function scoreFor(aId, bId, intent) {
 export async function headline(aId, bId) {
   const m = await loadDna([aId, bId]);
   const A = m.get(String(aId).toLowerCase()); const B = m.get(String(bId).toLowerCase());
-  if (!A || !B) return null;
+  const pins = await pinsFor(aId, bId); // special pairs chosen by the Soulink team
+  const pinned = Object.keys(pins);
+  if (!A || !B) return pinned.length ? { relation: pinned[0], all: applyPinsAll({}, pins) } : null;
+  // pins replace only their own relation's score; the default tab and every other score stay as calculated
   const relation = await relationBetween(aId, bId);
-  return { relation, all: compatAll(A, B) };
+  return { relation, all: applyPinsAll(compatAll(A, B), pins) };
 }
 
 /** Observed compatibility from check-ins after real chats (both people's latest few). */

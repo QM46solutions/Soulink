@@ -3,6 +3,7 @@ import { many, one, query } from '../db.js';
 import { notify } from './social.js';
 
 export const INTENTS = {
+  life_partner: { label: 'Life partner', emoji: '💍' },
   friendship: { label: 'Friendship', emoji: '🤝' },
   dating: { label: 'Dating', emoji: '💘' },
   situationship: { label: 'Situationship', emoji: '🌗' },

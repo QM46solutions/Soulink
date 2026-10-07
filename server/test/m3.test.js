@@ -40,6 +40,26 @@ describe('Soul DNA', () => {
     assert.equal(me.body.ready, true);
   });
 
+  test('Life partner score, and the pinned pair gets 93% only with each other', async () => {
+    const ak = await makeUser({ username: 'akhii' }); const ni = await makeUser({ username: 'nikhil.cheedella' }); const x = await makeUser();
+    await takeQuiz(ak, 0); await takeQuiz(ni, 3); await takeQuiz(x, 0);
+    const pairBody = (await api().get(`/users/u/nikhil.cheedella`).set(ak.h).expect(200)).body;
+    const pair = pairBody.match;
+    assert.equal(pair.all.lifepartner.overall, 93);
+    // every other score is the normal calculation, and the default score shown is unchanged
+    const { compatAll, buildAxes, sampleAnswers: sa } = await import('../src/services/soulDna.js');
+    const real = compatAll(buildAxes(sa(0)), buildAxes(sa(3)));
+    for (const k of ['dating', 'friendship', 'business', 'buddy']) assert.equal(pair.all[k].overall, real[k].overall);
+    assert.equal(pair.relation, 'friendship');
+    assert.equal(pairBody.soulScore, real.friendship.overall);
+    const full = (await api().get(`/soul/compat/${ni.user.id}?relation=lifepartner`).set(ak.h).expect(200)).body;
+    assert.equal(full.overall, 93);
+    const other = (await api().get(`/users/u/${x.user.username}`).set(ak.h).expect(200)).body.match;
+    assert.equal(typeof other.all.lifepartner.overall, 'number');
+    assert.ok(other.all.lifepartner.overall >= 80, 'same answers score high the normal way');
+    assert.notEqual(other.relation, 'lifepartner');
+  });
+
   test('invalid answers are rejected', async () => {
     const u = await makeUser();
     const q = (await api().get('/soul/dna').set(u.h)).body.questions;

@@ -29,6 +29,8 @@ export const DIMS = {
 
 // Relation types (from a request's intent) and how much each dimension counts (sums to 100)
 export const RELATIONS = {
+  // marriage: values, family, money, life goals and handling conflict matter most; dealbreakers count fully
+  lifepartner: { label: 'Life partner', emoji: '💍', pair: 'couple', weights: { values: 18, family: 12, goals: 11, conflict: 11, emotional: 10, money: 9, communication: 8, growth: 7, respect: 6, romance: 4, lifestyle: 3, personality: 1 } },
   dating: { label: 'Dating', emoji: '💘', pair: 'couple', weights: { values: 16, emotional: 13, communication: 11, conflict: 13, goals: 10, growth: 9, lifestyle: 5, family: 5, money: 5, romance: 6, respect: 4, personality: 3 } },
   friendship: { label: 'Friendship', emoji: '🤝', pair: 'friendship', weights: { values: 15, emotional: 14, communication: 10, conflict: 10, lifestyle: 15, personality: 12, respect: 10, growth: 8, goals: 3, money: 3 } },
   business: { label: 'Business', emoji: '💼', pair: 'partnership', weights: { values: 15, communication: 16, conflict: 14, goals: 20, money: 12, personality: 8, respect: 10, growth: 5 } },
@@ -36,10 +38,10 @@ export const RELATIONS = {
 };
 export const RELATION_KEYS = Object.keys(RELATIONS);
 /** Request intent → relation type for scoring */
-export const relationOf = (intent) => ({ dating: 'dating', situationship: 'dating', friendship: 'friendship', vibing: 'friendship', unsure: 'friendship', networking: 'business', buddy: 'buddy' }[intent] || 'friendship');
+export const relationOf = (intent) => ({ life_partner: 'lifepartner', dating: 'dating', situationship: 'dating', friendship: 'friendship', vibing: 'friendship', unsure: 'friendship', networking: 'business', buddy: 'buddy' }[intent] || 'friendship');
 
-const D = ['dating'];
-const DF = ['dating', 'friendship'];
+const D = ['dating', 'lifepartner'];
+const DF = ['dating', 'lifepartner', 'friendship'];
 export const AXES = {
   // values
   honesty: { dim: 'values', mode: 'similar', k: 1.1, label: 'honesty' },
@@ -52,7 +54,7 @@ export const AXES = {
   kids: { dim: 'goals', mode: 'deal', only: D, label: 'children' },
   career: { dim: 'goals', mode: 'similar', k: 0.9, label: 'career drive' },
   pace: { dim: 'goals', mode: 'similar', k: 0.9, label: 'pace of life' },
-  settle: { dim: 'goals', mode: 'similar', k: 0.7, only: ['dating', 'business'], label: 'where to live' },
+  settle: { dim: 'goals', mode: 'similar', k: 0.7, only: ['dating', 'lifepartner', 'business'], label: 'where to live' },
   // emotional
   empathy: { dim: 'emotional', mode: 'quality', label: 'empathy' },
   reassurance: { dim: 'emotional', mode: 'similar', k: 0.9, tol: 'reassure', label: 'need for reassurance' },
