@@ -2,6 +2,16 @@
 rem Puts the latest Soulink online: uploads the code to GitHub, which builds it and Render goes live by itself
 rem (about 5-8 minutes). See docs\CLOUD-HOSTING.md.
 cd /d "%~dp0"
+rem Find Git even if this window was opened before Git was installed (PATH not refreshed yet),
+rem or if only GitHub Desktop (which has its own copy of Git) is installed.
+where git >nul 2>nul
+if errorlevel 1 if exist "%ProgramFiles%\Git\cmd\git.exe" set "PATH=%ProgramFiles%\Git\cmd;%PATH%"
+where git >nul 2>nul
+if errorlevel 1 if exist "%ProgramFiles(x86)%\Git\cmd\git.exe" set "PATH=%ProgramFiles(x86)%\Git\cmd;%PATH%"
+where git >nul 2>nul
+if errorlevel 1 if exist "%LocalAppData%\Programs\Git\cmd\git.exe" set "PATH=%LocalAppData%\Programs\Git\cmd;%PATH%"
+where git >nul 2>nul
+if errorlevel 1 for /d %%D in ("%LocalAppData%\GitHubDesktop\app-*") do if exist "%%D\resources\app\git\cmd\git.exe" set "PATH=%%D\resources\app\git\cmd;%PATH%"
 where git >nul 2>nul
 if errorlevel 1 (
   echo.
