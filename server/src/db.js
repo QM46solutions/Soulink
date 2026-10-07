@@ -64,6 +64,7 @@ function bind(request, params = []) {
     else if (typeof v === 'boolean') request.input(name, sql.Bit, v);
     else if (typeof v === 'number') request.input(name, Number.isInteger(v) ? sql.Int : sql.Float, v);
     else if (v instanceof Date) request.input(name, sql.DateTimeOffset, v);
+    else if (Buffer.isBuffer(v)) request.input(name, sql.VarBinary(sql.MAX), v);
     else if (typeof v === 'object') request.input(name, sql.NVarChar(sql.MAX), JSON.stringify(v));
     else request.input(name, sql.NVarChar(sql.MAX), String(v));
   });

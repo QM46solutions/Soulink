@@ -1,0 +1,47 @@
+# Render (free plan): one web service = the Soulink web app + its API on one https address.
+# The code comes from the "deploy" branch, which GitHub builds automatically (.github/workflows/deploy.yml).
+# Secrets marked sync:false are typed in once in the Render dashboard (see docs/CLOUD-HOSTING.md).
+services:
+  - type: web
+    name: soulink
+    runtime: node
+    plan: free
+    region: singapore
+    branch: deploy
+    autoDeploy: true
+    buildCommand: npm ci --omit=dev --no-audit --no-fund
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: WEB_DIR
+        value: web
+      - key: STORAGE
+        value: db
+      - key: AI_PROVIDER
+        value: basic
+      - key: SMS_PROVIDER
+        value: console
+      - key: OTP_DEV_ECHO
+        value: "true"
+      - key: DB_PORT
+        value: "1433"
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERT
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_SERVER
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ACCESS_CODE
+        sync: false

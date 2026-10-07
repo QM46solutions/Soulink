@@ -1,3 +1,4 @@
+import { config } from './config.js';
 // Real-time events (Socket.IO). Each signed-in phone joins a room named after its user id,
 // so the server can push "new message", "typing" and "seen" to exactly the right people.
 import { Server } from 'socket.io';
@@ -7,7 +8,7 @@ import { one, many } from './db.js';
 let io = null;
 
 export function initRealtime(httpServer) {
-  io = new Server(httpServer, { cors: { origin: '*' } });
+  io = new Server(httpServer, { cors: { origin: '*' }, path: config.webDir ? '/api/socket.io' : '/socket.io' });
 
   io.use((socket, next) => {
     const userId = verifyToken(socket.handshake.auth?.token || '');

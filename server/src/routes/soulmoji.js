@@ -12,7 +12,7 @@ import { many, one, query } from '../db.js';
 import { config } from '../config.js';
 import { ah, badRequest } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
-import { uploadMemory, saveFile } from '../providers/storage.js';
+import { uploadMemory, saveFile, ensureLocal } from '../providers/storage.js';
 import { faceDistance } from '../services/faceEngine.js';
 import { prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS } from '../services/soulmojiRender.js';
@@ -73,7 +73,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
       console.warn('Soulmoji AI failed, using the built-in engine:', e.message);
     }
   }
-  const img = decode(await fs.readFile(diskPath(faceUrl)));
+  const img = decode(await fs.readFile(await ensureLocal(faceUrl)));
   const out = renderMood(img, points, mood);
   const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 95)), mimetype: 'image/jpeg' }, 'soulmoji');
   await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@${ENGINE}`, url]);

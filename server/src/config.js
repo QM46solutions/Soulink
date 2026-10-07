@@ -23,6 +23,10 @@ export const config = {
   smsProvider: process.env.SMS_PROVIDER || 'console',
   otpDevEcho: bool(process.env.OTP_DEV_ECHO, true),
   storage: process.env.STORAGE || 'local',
+  // Cloud hosting: the built web app is served from this folder, with the API under /api (one address for everything)
+  webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',
+  // Private preview: everyone must type this code once before using the app (empty = no code)
+  accessCode: process.env.ACCESS_CODE || '',
   uploadDir: process.env.UPLOAD_DIR || fileURLToPath(new URL('../uploads/', import.meta.url)),
   // Argue referee AI: local = free Ollama on this laptop (falls back to the basic judge), claude = Claude API (paid), basic = rules only
   aiProvider: process.env.AI_PROVIDER || 'local',

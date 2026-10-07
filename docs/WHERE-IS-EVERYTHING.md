@@ -14,6 +14,8 @@ Project folder: **C:\Users\Sai raghava\Documents\Soulink**
 | Run the automated tests only | VS Code terminal: `cd server` then `npm test` |
 | Stop the app | Close the two black windows |
 | Turn on the free AI referee (one time) | Double-click `INSTALL-FREE-AI.bat` (Ollama + Llama 3.2 3B, ~2 GB) |
+| Put Soulink online (free; laptop can be off) | Follow `docs\CLOUD-HOSTING.md` once, then double-click `PUBLISH-SOULINK.bat` for every update |
+| Copy laptop accounts/photos to the online version | Double-click `COPY-DATA-TO-CLOUD.bat` |
 | Erase all test data and start fresh | Double-click `RESET-SOULINK-DATA.bat`, type YES |
 | See stored face fingerprints | Double-click `SHOW-FACE-DATA.bat` (writes face-report.txt) |
 

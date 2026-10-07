@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { one, many, query, tx } from '../db.js';
 import { ah, badRequest, forbidden, notFound, HttpError } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
-import { uploadMemory, saveFile, mediaKind } from '../providers/storage.js';
+import { uploadMemory, saveFile, mediaKind, persistFile } from '../providers/storage.js';
 import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
@@ -385,7 +385,7 @@ r.post('/:id/messages/:messageId/translate', ah(async (req, res) => {
   if (from === to) return res.json({ text: msg.body, from, to, same: true });
   const saved = await one('SELECT text, src_lang FROM message_translations WHERE message_id=$1 AND lang=$2', [messageId, to]);
   if (saved) return res.json({ text: saved.text, from: saved.src_lang, to });
-  if (!translatorInstalled()) throw new HttpError(503, 'The chat translator is not installed on this laptop yet (run INSTALL-CHAT-TRANSLATOR.bat).', 'translator_missing');
+  if (!translatorInstalled()) throw new HttpError(503, 'The chat translator works on the laptop version only for now (run INSTALL-CHAT-TRANSLATOR.bat there).', 'translator_missing');
   const text = await aiTranslate(msg.body, from, to);
   await query(`IF NOT EXISTS (SELECT 1 FROM message_translations WHERE message_id=$1 AND lang=$2)
                  INSERT INTO message_translations (message_id, lang, src_lang, text) VALUES ($1, $2, $3, $4)`, [messageId, to, from, text]);
@@ -398,14 +398,16 @@ function ownsVoiceClip(userId, url) {
   const m = /^\/uploads\/voice-tr\/([0-9a-fA-F-]{36})-[0-9a-fA-F-]{36}\.(m4a|wav)$/.exec(url || '');
   return !!m && m[1].toUpperCase() === String(userId).toUpperCase() && fsSync.existsSync(path.join(config.uploadDir, VOICE_DIR, path.basename(url)));
 }
-const translatorMissing = () => new HttpError(503, 'The chat translator is not installed on this laptop yet (run INSTALL-CHAT-TRANSLATOR.bat).', 'translator_missing');
-const voiceMissing = () => new HttpError(503, 'The voice translator is not installed on this laptop yet (run INSTALL-VOICE-TRANSLATOR.bat).', 'voice_missing');
+const translatorMissing = () => new HttpError(503, 'The chat translator works on the laptop version only for now (run INSTALL-CHAT-TRANSLATOR.bat there).', 'translator_missing');
+const voiceMissing = () => new HttpError(503, 'The voice translator works on the laptop version only for now (run INSTALL-VOICE-TRANSLATOR.bat there).', 'voice_missing');
 
 async function makeVoiceClip(userId, text, lang) {
   const dir = path.join(config.uploadDir, VOICE_DIR);
   await fs.mkdir(dir, { recursive: true });
   const { file, durationMs } = await aiSpeak(text, lang, path.join(dir, `${String(userId).toUpperCase()}-${crypto.randomUUID()}.m4a`));
-  return { url: `/uploads/${VOICE_DIR}/${path.basename(file)}`, durationMs };
+  const url = `/uploads/${VOICE_DIR}/${path.basename(file)}`;
+  await persistFile(url);
+  return { url, durationMs };
 }
 
 // POST /conversations/:id/translate-draft { text, to, output: 'text' | 'voice' } -> { from, to, text, same, voice? }

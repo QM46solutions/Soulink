@@ -23,19 +23,48 @@ export const uploadMemory = (kind = 'image', maxMb = 10, maxFiles = 1) =>
       ALLOWED[kind][file.mimetype] ? cb(null, true) : cb(badRequest(`Unsupported file type ${file.mimetype}`)),
   });
 
-/** Saves a buffer and returns its public URL. Local disk now; S3 at cloud move. */
+/** Saves a buffer and returns its public URL (/uploads/folder/name).
+ *  STORAGE=local: file on this computer's disk (server/uploads).
+ *  STORAGE=db:    file on disk as a cache AND in the database (stored_files), for cloud hosts whose disk is wiped on restart. */
 export async function saveFile(file, folder, kind = 'image') {
   if (!file) throw badRequest('No file uploaded');
   const ext = ALLOWED[kind][file.mimetype] || '';
   const name = `${crypto.randomUUID()}${ext}`;
-  if (config.storage === 'local') {
-    const dir = path.join(config.uploadDir, folder);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, name), file.buffer);
-    return `/uploads/${folder}/${name}`;
-  }
-  throw new Error(`Storage "${config.storage}" is not set up yet`);
+  if (config.storage !== 'local' && config.storage !== 'db') throw new Error(`Storage "${config.storage}" is not set up yet`);
+  const dir = path.join(config.uploadDir, folder);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, name), file.buffer);
+  const url = `/uploads/${folder}/${name}`;
+  if (config.storage === 'db') await storeInDb(url, file.buffer, file.mimetype);
+  return url;
 }
 
-// Note: local files are returned as relative paths (/uploads/...). The app prefixes its API URL,
-// so it works whatever IP your laptop has. S3 URLs will be absolute and used as-is.
+const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'audio/webm', '.3gp': 'audio/3gpp', '.wav': 'audio/wav' };
+const diskOf = (url) => path.join(config.uploadDir, String(url).replace(/^\/uploads\//, ''));
+
+async function storeInDb(url, buffer, mimetype) {
+  const { query } = await import('../db.js');
+  await query(
+    `IF NOT EXISTS (SELECT 1 FROM stored_files WHERE path=$1) INSERT INTO stored_files (path, mime, data) VALUES ($1, $2, $3)`,
+    [url, mimetype || MIME[path.extname(url).toLowerCase()] || 'application/octet-stream', buffer],
+  );
+}
+
+/** A file written straight to disk by other code (e.g. a translated voice clip): also keep it in the database. */
+export async function persistFile(url) {
+  if (config.storage !== 'db') return;
+  await storeInDb(url, await fs.readFile(diskOf(url)));
+}
+
+/** Makes sure an /uploads/... file is on this computer's disk (restores it from the database if needed). Returns the disk path. */
+export async function ensureLocal(url) {
+  const file = diskOf(url);
+  if (config.storage !== 'db') return file;
+  try { await fs.access(file); return file; } catch { /* not cached yet */ }
+  const { one } = await import('../db.js');
+  const row = await one('SELECT data FROM stored_files WHERE path=$1', [url]);
+  if (!row?.data) return file;
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, row.data);
+  return file;
+}

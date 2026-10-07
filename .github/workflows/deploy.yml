@@ -1,0 +1,46 @@
+# Every push to GitHub builds the Soulink web app and puts it, together with the server,
+# on the "deploy" branch. Render watches that branch and puts the new version online by itself.
+name: Build Soulink for the cloud
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install the app's packages
+        working-directory: mobile
+        run: npm ci --no-audit --no-fund
+      - name: Build the web app
+        working-directory: mobile
+        env:
+          CI: 1
+        run: npx expo export --platform web --output-dir dist
+      - name: Put the server and the web app together
+        run: |
+          mkdir out
+          cp -r server/. out/
+          rm -rf out/node_modules out/uploads out/test out/.env out/cloud.env
+          cp -r mobile/dist out/web
+          cp render.yaml out/render.yaml
+      - name: Publish to the deploy branch (Render picks it up)
+        working-directory: out
+        run: |
+          git init -q -b deploy
+          git config user.name "Soulink Deploy"
+          git config user.email "deploy@soulink.local"
+          git add -A
+          git commit -qm "Deploy ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" deploy

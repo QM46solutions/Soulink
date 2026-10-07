@@ -1,0 +1,9 @@
+{
+  "name": "Soulink",
+  "short_name": "Soulink",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "icons": [{ "src": "/apple-touch-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }]
+}

@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from '../lib/auth';
 import { RealtimeProvider } from '../lib/realtime';
 import { HeaderBackground, Starfield } from '../components/brand';
 import DialogHost from '../components/DialogHost';
+import AccessGate from '../components/AccessGate';
 import BackButton from '../components/BackButton';
 import { colors, fonts } from '../lib/theme';
 
@@ -161,13 +162,15 @@ export default function RootLayout() {
     <PhoneFrame>
       <Starfield />
       <ThemeProvider value={navTheme}>
-        <AuthProvider>
-          <RealtimeProvider>
-            <StatusBar style="light" />
-            <RootStack />
-            <DialogHost />
-          </RealtimeProvider>
-        </AuthProvider>
+        <StatusBar style="light" />
+        <AccessGate>
+          <AuthProvider>
+            <RealtimeProvider>
+              <RootStack />
+              <DialogHost />
+            </RealtimeProvider>
+          </AuthProvider>
+        </AccessGate>
       </ThemeProvider>
     </PhoneFrame>
   );

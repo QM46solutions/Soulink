@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 
 const SERVER_KEY = 'soulink.server';
 const TOKEN_KEY = 'soulink.token';
+const ACCESS_KEY = 'soulink.access';
 
 // Default server: the laptop that is running Expo, on port 4000. Expo tells the app that laptop's
 // Wi-Fi address, so the phone finds the server automatically. You can still override it from the
@@ -22,18 +23,31 @@ function defaultServer() {
 }
 let baseUrl = defaultServer();
 let token = null;
+let access = null; // private-preview access code (hosted version only)
 
 export async function loadSession() {
   const [s, t] = await Promise.all([
     AsyncStorage.getItem(SERVER_KEY),
     Platform.OS === 'web' ? AsyncStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY),
   ]);
-  if (s) baseUrl = s;
+  // the hosted web app always talks to its own address (ignore a server picked earlier for the laptop)
+  if (s && !(Platform.OS === 'web' && baseUrl.endsWith('/api') && typeof window !== 'undefined' && baseUrl.startsWith(window.location.origin))) baseUrl = s;
   token = t || null;
+  access = (await AsyncStorage.getItem(ACCESS_KEY)) || null;
   return { baseUrl, token };
 }
 
 export const getServer = () => baseUrl;
+
+/** Private preview: is an access code needed, and is the saved one right? */
+export async function checkAccess(code) {
+  const try1 = code ?? access ?? (await AsyncStorage.getItem(ACCESS_KEY));
+  const res = await fetch(`${baseUrl}/access`, { headers: try1 ? { 'x-soulink-access': try1 } : {} });
+  const data = await res.json();
+  if (data.ok && try1) { access = try1; await AsyncStorage.setItem(ACCESS_KEY, try1); }
+  return data;
+}
+export const getAccess = () => access;
 export const getToken = () => token;
 
 export async function setServer(url) {
@@ -68,6 +82,7 @@ export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 export async function api(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (access) headers['x-soulink-access'] = access;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

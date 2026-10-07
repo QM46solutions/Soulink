@@ -48,7 +48,7 @@ r.post(
       [target, channel, hashCode(target, code), config.otp.ttlSeconds],
     );
     await sendOtp({ target, channel, code });
-    res.json({ sent: true, target, channel, accountExists: !!existing, expiresIn: config.otp.ttlSeconds, ...(config.isDev && config.otpDevEcho ? { devCode: code } : {}) });
+    res.json({ sent: true, target, channel, accountExists: !!existing, expiresIn: config.otp.ttlSeconds, ...((config.isDev || config.accessCode) && config.otpDevEcho ? { devCode: code } : {}) });
   }),
 );
 

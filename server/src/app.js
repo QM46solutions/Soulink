@@ -1,4 +1,8 @@
 import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { ensureLocal } from './providers/storage.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -25,7 +29,22 @@ import anonRoutes from './routes/anon.js';
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // Cloud hosting: one address serves the web app (/...) and the API (/api/...)
+  const web = !!config.webDir && fs.existsSync(path.join(config.webDir, 'index.html'));
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, ...(web ? { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false } : {}) }));
+  if (web) {
+    const site = express.Router();
+    site.use(express.static(config.webDir, { maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
+    site.get(/.*/, (req, res) => res.setHeader('Cache-Control', 'no-cache').sendFile(path.join(config.webDir, 'index.html')));
+    app.use((req, res, next) => {
+      if (req.url === '/api' || req.url.startsWith('/api/') || req.url.startsWith('/api?')) {
+        req.url = req.url.slice(4) || '/';
+        if (!req.url.startsWith('/')) req.url = `/${req.url}`;
+        return next();
+      }
+      return site(req, res, next);
+    });
+  }
   app.use(cors());
   app.use('/face', express.json({ limit: '8mb' })); // Face ID photos are bigger than normal requests
   app.use(express.json({ limit: '1mb' }));
@@ -35,6 +54,29 @@ export function createApp() {
     app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }));
   }
 
+  // Private preview gate: every API call needs the access code (photos and the health check don't)
+  if (config.accessCode) {
+    const want = crypto.createHash('sha256').update(config.accessCode).digest();
+    const ok = (v) => !!v && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(v)).digest(), want);
+    app.get('/access', (req, res) => res.json({ required: true, ok: ok(req.get('x-soulink-access')) }));
+    app.use((req, res, next) => {
+      if (req.path === '/health' || req.path.startsWith('/uploads/') || ok(req.get('x-soulink-access'))) return next();
+      return res.status(403).json({ error: { code: 'access_code', message: 'Enter the Soulink access code' } });
+    });
+  } else {
+    app.get('/access', (req, res) => res.json({ required: false, ok: true }));
+  }
+
+  // Photos and voice notes; on cloud hosts they're restored from the database if the disk was wiped
+  if (config.storage === 'db') {
+    app.use('/uploads', async (req, res, next) => {
+      try {
+        const rel = decodeURIComponent(req.path);
+        if (req.method === 'GET' && !rel.includes('..') && !rel.includes('\\')) await ensureLocal(`/uploads${rel}`);
+      } catch { /* falls through to 404 */ }
+      next();
+    });
+  }
   app.use('/uploads', express.static(config.uploadDir, { maxAge: '7d' }));
 
   app.get('/health', (req, res) => res.json({ ok: true, name: 'soulink', env: config.env }));
