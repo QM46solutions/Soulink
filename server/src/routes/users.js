@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pulseFor, recordProfileView } from '../services/pulse.js';
+import { prefsOf } from '../services/push.js';
 import { z } from 'zod';
 import { one, many, query, tx } from '../db.js';
 import { config } from '../config.js';
@@ -31,6 +32,8 @@ const profileSchema = z.object({
   showInDiscover: z.boolean().optional(),
   faceDiscoverable: z.boolean().optional(),
   consentTracking: z.boolean().optional(),
+  showPulse: z.boolean().optional(),
+  notifyPrefs: z.record(z.enum(['messages', 'requests', 'likes', 'comments', 'anonymous', 'argue', 'events']), z.boolean()).optional(),
   college: z.string().trim().max(120).nullable().optional(),
   company: z.string().trim().max(120).nullable().optional(),
   languages: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
@@ -40,7 +43,7 @@ const profileSchema = z.object({
 const COLS = {
   username: 'username', displayName: 'display_name', bio: 'bio', city: 'city', birthDate: 'birth_date',
   gender: 'gender', interests: 'interests', isPrivate: 'is_private', showInDiscover: 'show_in_discover',
-  faceDiscoverable: 'face_discoverable', consentTracking: 'consent_tracking',
+  faceDiscoverable: 'face_discoverable', consentTracking: 'consent_tracking', showPulse: 'show_pulse', notifyPrefs: 'notify_prefs',
   college: 'college', company: 'company', languages: 'languages', chatLanguage: 'chat_language',
 };
 
@@ -79,6 +82,7 @@ r.patch('/me', ah(async (req, res) => {
   if (data.birthDate && ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
   if (data.faceDiscoverable && !req.user.face_verified) throw badRequest('Verify your face first to be discoverable by face', 'face_not_verified');
 
+  if (data.notifyPrefs) data.notifyPrefs = JSON.stringify({ ...prefsOf(req.user), ...data.notifyPrefs }); // change one kind, keep the rest
   const entries = withCityCoords(data, Object.entries(data));
   if (!entries.length) return res.json({ user: meView(req.user) });
 
@@ -188,7 +192,8 @@ r.get('/u/:username', ah(async (req, res) => {
   const match = u.id !== req.user.id ? await headline(req.user.id, u.id) : null;
   const score = match ? match.all[match.relation].overall : null;
   await recordProfileView(req.user.id, u.id); // feeds their Pulse meter
-  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, match, pulse: await pulseFor(u.id) });
+  const pulseHidden = u.id !== req.user.id && (u.show_pulse === false || u.show_pulse === 0); // they switched their Pulse meter off
+  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, match, pulse: pulseHidden ? null : await pulseFor(u.id) });
 }));
 
 async function listFollows(req, res, direction) {

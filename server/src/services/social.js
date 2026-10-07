@@ -57,6 +57,7 @@ export async function notify(userId, actorId, type, entityId = null, meta = null
   if (userId === actorId) return;
   await query(`INSERT INTO notifications (user_id, actor_id, type, entity_id, meta) VALUES ($1,$2,$3,$4,$5)`, [userId, actorId, type, entityId, meta ? JSON.stringify(meta) : null]);
   try { (await import('../realtime.js')).emitToUsers([userId], 'notification:new', { type }); } catch { /* realtime not running (tests) */ }
+  import('./push.js').then((p) => p.pushNotification(userId, actorId, type, entityId, meta)).catch(() => {}); // phone notification, in the background
 }
 
 /** Compact user card used in lists (search, followers, requests). */
@@ -82,6 +83,13 @@ export const publicProfile = (u) => ({
   languages: Array.isArray(u.languages) ? u.languages : [],
 });
 
+const NOTIFY_KINDS = ['messages', 'requests', 'likes', 'comments', 'anonymous', 'argue', 'events'];
+function notifyPrefsOf(u) {
+  let p = u.notify_prefs;
+  if (typeof p === 'string') { try { p = JSON.parse(p); } catch { p = null; } }
+  return Object.fromEntries(NOTIFY_KINDS.map((k) => [k, p && typeof p === 'object' && k in p ? !!p[k] : true]));
+}
+
 /** The logged-in user's own account, including private settings. */
 export const meView = (u) => ({
   ...publicProfile(u),
@@ -91,6 +99,8 @@ export const meView = (u) => ({
   age: u.birth_date ? ageFrom(u.birth_date) : null,
   gender: u.gender,
   settings: {
+    showPulse: u.show_pulse !== false && u.show_pulse !== 0,
+    notifyPrefs: notifyPrefsOf(u),
     isPrivate: u.is_private,
     showInDiscover: u.show_in_discover,
     faceDiscoverable: u.face_discoverable,

@@ -26,6 +26,7 @@ import discoverRoutes from './routes/discover.js';
 import postRoutes from './routes/posts.js';
 import soulmojiRoutes from './routes/soulmoji.js';
 import anonRoutes from './routes/anon.js';
+import pushRoutes from './routes/push.js';
 
 export function createApp() {
   const app = express();
@@ -35,7 +36,7 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, ...(web ? { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false } : {}) }));
   if (web) {
     const site = express.Router();
-    site.use(express.static(config.webDir, { maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
+    site.use(express.static(config.webDir, { maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('.html') || file.endsWith('sw.js') || file.endsWith('manifest.json')) res.setHeader('Cache-Control', 'no-cache'); } }));
     site.get(/.*/, (req, res) => res.setHeader('Cache-Control', 'no-cache').sendFile(path.join(config.webDir, 'index.html')));
     app.use((req, res, next) => {
       if (req.url === '/api' || req.url.startsWith('/api/') || req.url.startsWith('/api?')) {
@@ -99,6 +100,7 @@ export function createApp() {
   app.use('/connections', connectionRoutes);
   app.use('/argue', argueRoutes);
   app.use('/anon', anonRoutes);
+  app.use('/push', pushRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

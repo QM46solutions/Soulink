@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ import { confirm } from '../lib/confirm';
 import { colors, space, fonts } from '../lib/theme';
 import ActionSheet from '../components/ActionSheet';
 import { CHAT_LANGS } from '../lib/languages';
+import { disablePush, enablePush, pushEnabled, pushSupport, sendTestPush } from '../lib/push';
+import { notice } from '../lib/confirm';
 
 function Toggle({ title, text, value, onChange, disabled }) {
   return (
@@ -50,9 +52,48 @@ export default function Settings() {
   };
 
 
+  // ---- notifications on this phone ----
+  const [phoneOn, setPhoneOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const support = pushSupport();
+  useEffect(() => { pushEnabled().then(setPhoneOn); }, []);
+  const togglePhone = async (on) => {
+    setPushBusy(true); setError(null);
+    try {
+      if (on) { await enablePush(); setPhoneOn(true); await sendTestPush().catch(() => {}); }
+      else { await disablePush(); setPhoneOn(false); }
+    } catch (e) { notice('Notifications', e.message); setPhoneOn(await pushEnabled()); }
+    finally { setPushBusy(false); }
+  };
+  const prefs = user.settings.notifyPrefs || {};
+  const setPref = (k, v) => update({ notifyPrefs: { ...prefs, [k]: v } });
+  const phoneHint = phoneOn ? 'This phone gets Soulink notifications, even when the app is closed.'
+    : support === 'needs_home_screen' ? 'On iPhone: in Safari tap Share › Add to Home Screen, open Soulink from that icon, then switch this on.'
+    : support === 'blocked' ? 'Notifications are blocked for Soulink in your phone/browser settings. Allow them there first.'
+    : support === 'unsupported' ? "This browser can't show notifications."
+    : 'Get a notification when something happens, even when Soulink is closed.';
+
   return (
     <ScrollView style={s.screen}>
       <ErrorText>{error}</ErrorText>
+      <Section>Notifications</Section>
+      <Toggle title="Notifications on this phone" text={phoneHint} value={phoneOn} disabled={pushBusy || (support !== 'ready' && !phoneOn)} onChange={togglePhone} />
+      {[
+        ['messages', 'Messages', 'New chat messages'],
+        ['requests', 'Requests & connections', 'Connect requests, accepts and connect backs'],
+        ['likes', 'Likes 👌🏻', 'When someone likes your post'],
+        ['comments', 'Comments', 'When someone comments on your post'],
+        ['anonymous', 'Anonymous messages', 'Secret messages and reveals'],
+        ['argue', 'Argue', 'Invites and verdicts'],
+        ['events', 'Soulink Events', 'When events launch near you'],
+      ].map(([k, title, text]) => (
+        <Toggle key={k} title={title} text={text} value={prefs[k] !== false} disabled={!phoneOn} onChange={(v) => setPref(k, v)} />
+      ))}
+      {phoneOn ? <Link icon="notifications-outline" title="Send me a test notification" onPress={() => sendTestPush().then(() => notice('Sent', 'Lock your phone or switch apps: it should arrive in a few seconds.')).catch((e) => setError(e.message))} /> : null}
+
+      <Section>Pulse meter</Section>
+      <Toggle title="Show my Pulse meter" text={user.settings.showPulse === false ? "Hidden: people visiting your profile don't see your Pulse. You still see yours." : 'People visiting your profile see how active and loved your profile is.'} value={user.settings.showPulse !== false} onChange={(v) => update({ showPulse: v })} />
+
       <Section>Privacy</Section>
       <Toggle title="Private account" text="Only people you've accepted (your Connections and Followers) see your posts." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
       <Toggle title="Show me in Discover" text="Let Soulink suggest you to people with a high Match %." value={user.settings.showInDiscover} onChange={(v) => update({ showInDiscover: v })} />

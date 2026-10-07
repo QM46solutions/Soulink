@@ -52,3 +52,36 @@ describe('Pulse meter', () => {
     assert.equal(levelOf(10).key, 'quiet');
   });
 });
+
+describe('Settings: Pulse meter on/off and notification kinds', () => {
+  test('hiding my Pulse meter hides it from others, not from me', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const me = await api().patch('/users/me').set(a.h).send({ showPulse: false }).expect(200);
+    assert.equal(me.body.user.settings.showPulse, false);
+    assert.equal((await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200)).body.pulse, null);
+    assert.ok((await api().get(`/users/u/${a.user.username}`).set(a.h).expect(200)).body.pulse);
+    await api().patch('/users/me').set(a.h).send({ showPulse: true }).expect(200);
+    assert.ok((await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200)).body.pulse);
+  });
+
+  test('notification kinds: all on by default, change one at a time', async () => {
+    const a = await makeUser();
+    const start = (await api().get('/users/me').set(a.h).expect(200)).body.user.settings.notifyPrefs;
+    assert.equal(start.messages, true); assert.equal(start.likes, true);
+    const r = await api().patch('/users/me').set(a.h).send({ notifyPrefs: { likes: false } }).expect(200);
+    assert.equal(r.body.user.settings.notifyPrefs.likes, false);
+    assert.equal(r.body.user.settings.notifyPrefs.messages, true);
+    await api().patch('/users/me').set(a.h).send({ notifyPrefs: { nope: true } }).expect(400);
+  });
+
+  test('push subscription endpoints', async () => {
+    const a = await makeUser();
+    await api().get('/push/key').set(a.h).expect(200);
+    const sub = { endpoint: 'https://push.example.com/abc', keys: { p256dh: 'x'.repeat(20), auth: 'y'.repeat(8) } };
+    await api().post('/push/subscribe').set(a.h).send(sub).expect(201);
+    await api().post('/push/subscribe').set(a.h).send(sub).expect(201); // same phone again: no duplicate
+    const { rows } = await query('SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id=$1', [a.user.id]);
+    assert.equal(Number(rows[0].n), 1);
+    await api().delete('/push/subscribe').set(a.h).send({ endpoint: sub.endpoint }).expect(200);
+  });
+});

@@ -9,6 +9,7 @@ import { uploadMemory, saveFile, mediaKind, persistFile } from '../providers/sto
 import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
+import { pushTo } from '../services/push.js';
 import { connectionBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
 import { aiSpeak, aiTranscribe, aiTranslate, detectLanguage, TRANSLATE_LANGS, translatorInstalled, voiceInstalled } from '../services/soulmojiAi.js';
@@ -166,8 +167,21 @@ export async function postMessage(conv, senderId, { kind, body = null, mediaUrl 
     return m;
   });
   const [message] = await enrich([serializeMessage(msg)], senderId);
-  emitToUsers(await memberIds(conv.id), 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
+  const members = await memberIds(conv.id);
+  emitToUsers(members, 'message:new', { conversationId: conv.id, message: { ...message, reactions: [] } });
+  if (senderId) pushMessage(conv, senderId, members, kind, body).catch(() => {}); // phone notifications, in the background
   return message;
+}
+
+// Phone notification for a new chat message ("Nikhil: see you at 6" / "Nikhil sent a photo")
+async function pushMessage(conv, senderId, members, kind, body) {
+  const others = members.filter((id) => String(id).toLowerCase() !== String(senderId).toLowerCase());
+  if (!others.length) return;
+  const s = await one('SELECT username, display_name FROM users WHERE id=$1', [senderId]);
+  const who = s?.display_name || s?.username || 'Someone';
+  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : 'New message';
+  const title = conv.is_group && conv.title ? `${who} · ${conv.title}` : who;
+  for (const id of others) await pushTo(id, 'messages', { title, body: what, url: `/chat/${conv.id}`, tag: `chat-${conv.id}` });
 }
 
 export async function systemMessage(conv, text) {

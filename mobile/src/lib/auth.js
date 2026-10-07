@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, loadSession, setToken, setUnauthorizedHandler } from './api';
+import { disablePush, resyncPush } from './push';
 
 const AuthContext = createContext(null);
 
@@ -8,6 +9,7 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
 
   const signOut = useCallback(async () => {
+    await disablePush(); // this phone stops getting this account's notifications
     await setToken(null);
     setUser(null);
   }, []);
@@ -20,6 +22,7 @@ export function AuthProvider({ children }) {
         try {
           const { user: me } = await api('/users/me');
           setUser(me);
+          resyncPush(); // notifications switched on earlier: make sure the server still has this phone
         } catch (e) {
           if (e.status === 401) await setToken(null);
           // network errors: stay logged out screen-wise but keep token for retry
