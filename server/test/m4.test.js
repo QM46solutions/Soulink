@@ -141,3 +141,15 @@ describe('Connect requests', () => {
     } finally { config.connectRequired = was; }
   });
 });
+
+describe('Requests count on profiles', () => {
+  test("others see how many requests someone has, never who sent them", async () => {
+    const [a, b] = await pair();
+    const c = await makeUser(); await quiz(c, 2);
+    await send(b, a).expect(201);
+    const seen = (await api().get(`/users/u/${a.user.username}`).set(c.h).expect(200)).body;
+    assert.equal(seen.counts.requests, 1);
+    assert.equal(JSON.stringify(seen).includes(b.user.id), false, "the sender's id never appears");
+    assert.equal((await api().get(`/users/u/${a.user.username}`).set(a.h).expect(200)).body.counts.requests, 1);
+  });
+});

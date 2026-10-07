@@ -73,9 +73,8 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         {/* counts sit a little lower, level with the Pulse meter's dial, with room between them */}
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', marginLeft: space.sm }}>
           <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingTop: 34, marginRight: 4 }}>
-          {isMe
-            ? <Stat n={counts?.requests} label="Requests" onPress={() => router.push('/activity')} />
-            : <Stat n={counts?.posts} label="Posts" />}
+          {/* Requests waiting for this person's answer. Only you can open your own list; others see just the number */}
+          <Stat n={counts?.requests} label="Requests" onPress={isMe ? () => router.push('/activity') : undefined} />
           {/* Connections: both connected to each other. Followers: everyone connected to them, connected back or not */}
           <Stat n={counts?.connections} label="Connections" onPress={openList('connections')} />
           <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />

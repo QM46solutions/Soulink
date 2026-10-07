@@ -194,7 +194,9 @@ r.get('/u/:username', ah(async (req, res) => {
   const score = match ? match.all[match.relation].overall : null;
   await recordProfileView(req.user.id, u.id); // feeds their Pulse meter
   const pulseHidden = u.show_pulse === false || u.show_pulse === 0; // Pulse meter switched off: hidden on the profile for everyone
-  res.json({ user: publicProfile(u), counts: await counts(u.id), relationship: rel, canViewContent: canView, soulScore: score, match, pulse: pulseHidden ? null : await pulseFor(u.id) });
+  // Requests waiting for their answer: everyone sees the number, never who sent them
+  const reqs = await one(`SELECT COUNT(*) AS n FROM connection_requests WHERE to_id=$1 AND status IN (N'pending', N'held')`, [u.id]);
+  res.json({ user: publicProfile(u), counts: { ...(await counts(u.id)), requests: Number(reqs?.n || 0) }, relationship: rel, canViewContent: canView, soulScore: score, match, pulse: pulseHidden ? null : await pulseFor(u.id) });
 }));
 
 async function listFollows(req, res, direction) {
