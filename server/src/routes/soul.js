@@ -2,12 +2,13 @@
 //  GET  /soul/dna                 questions + sections + my saved answers
 //  PUT  /soul/dna/answers         { answers: { questionId: value } }  (merge, any number at a time)
 //  POST /soul/dna/complete        all answered → Soul DNA ready, Soul type
+//  POST /soul/dna/retake          Premium: start over (your current Soul DNA stays until you finish the new one)
 //  GET  /soul/dna/me              my own Soul DNA (dimensions, spectrum, strengths, tensions)
 //  GET  /soul/compat/:userId      ?relation=dating|friendship|business|buddy → full predicted compatibility
 import { Router } from 'express';
 import { z } from 'zod';
 import { one, query } from '../db.js';
-import { ah, badRequest } from '../lib/errors.js';
+import { ah, badRequest, forbidden } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { meView } from '../services/social.js';
@@ -29,10 +30,23 @@ async function myRow(userId) {
 r.get('/dna', ah(async (req, res) => {
   const row = await myRow(req.user.id);
   const answers = parse(row?.answers);
-  res.json({ sections: SECTIONS, questions: publicQuestions(), answers, answered: Object.keys(answers).filter((k) => QMAP[k]).length, total: QUESTIONS.length, completed: !!row?.completed_at });
+  res.json({ sections: SECTIONS, questions: publicQuestions(), answers, answered: Object.keys(answers).filter((k) => QMAP[k]).length, total: QUESTIONS.length, completed: !!row?.completed_at, canRetake: !!req.user.is_premium });
+}));
+
+// Your first Soul DNA is free. Changing it after it's done (retaking) is Premium.
+const retakeLocked = (req, row) => !!row?.completed_at && !req.user.is_premium;
+const premiumRetake = () => forbidden('Retaking your Soul DNA is a Premium feature', 'premium_required');
+
+r.post('/dna/retake', ah(async (req, res) => {
+  const row = await myRow(req.user.id);
+  if (!row?.completed_at) return res.json({ ok: true, fresh: true }); // never finished one: nothing to retake, just take it
+  if (retakeLocked(req, row)) throw premiumRetake();
+  await query("UPDATE soul_dna SET answers=N'{}', updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1", [req.user.id]);
+  res.json({ ok: true });
 }));
 
 r.put('/dna/answers', ah(async (req, res) => {
+  if (retakeLocked(req, await myRow(req.user.id))) throw premiumRetake();
   const { answers } = z.object({ answers: z.record(z.string(), z.any()) }).parse(req.body);
   for (const [id, v] of Object.entries(answers)) if (!validAnswer(QMAP[id], v)) throw badRequest(`Invalid answer for question ${id}`);
   const row = await myRow(req.user.id);

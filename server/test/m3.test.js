@@ -1,7 +1,7 @@
 // Build 1: Soul DNA (v2 sectioned quiz, predicted compatibility), connecting rules, home feed, place search.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool, makeDna, sampleAnswers } from './helpers.js';
+import { api, resetDb, makeUser, closePool, makeDna, sampleAnswers, query } from './helpers.js';
 import { config } from '../src/config.js';
 
 before(resetDb);
@@ -58,6 +58,20 @@ describe('Soul DNA', () => {
     assert.equal(typeof other.all.lifepartner.overall, 'number');
     assert.ok(other.all.lifepartner.overall >= 80, 'same answers score high the normal way');
     assert.notEqual(other.relation, 'lifepartner');
+  });
+
+  test('first Soul DNA is free; retaking it is Premium', async () => {
+    const u = await makeUser();
+    await takeQuiz(u, 0);
+    const again = await api().put('/soul/dna/answers').set(u.h).send({ answers: { v1: 1 } }).expect(403);
+    assert.equal(again.body.error.code, 'premium_required');
+    assert.equal((await api().post('/soul/dna/retake').set(u.h).expect(403)).body.error.code, 'premium_required');
+    await query('UPDATE users SET is_premium=1 WHERE id=$1', [u.user.id]);
+    await api().post('/soul/dna/retake').set(u.h).expect(200);
+    const d = (await api().get('/soul/dna').set(u.h).expect(200)).body;
+    assert.equal(d.answered, 0); assert.equal(d.canRetake, true);
+    assert.equal((await api().get('/users/me').set(u.h)).body.user.soulReady, true, 'old Soul DNA stays until the new one is done');
+    await takeQuiz(u, 4);
   });
 
   test('invalid answers are rejected', async () => {

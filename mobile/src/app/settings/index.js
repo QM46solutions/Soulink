@@ -3,6 +3,7 @@ import { ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { confirm } from '../../lib/confirm';
+import { retakeSoulDna } from '../../lib/retake';
 import { MenuRow, Note, Section } from '../../components/SettingsUI';
 import { s } from '../../components/ui';
 
@@ -16,6 +17,7 @@ export default function Settings() {
       <MenuRow icon="pulse" title="Your activity" text="Likes, comments and requests you sent" onPress={go('/settings/activity')} tint={['#7c5cfc', '#b08fff']} />
       <MenuRow icon="hourglass-outline" title="Time management" text="Daily time on Soulink, limits and breaks" onPress={go('/settings/time')} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="notifications" title="Notifications" text="Phone alerts and what you hear about" onPress={go('/settings/notifications')} tint={['#ff6b9d', '#ff9a5a']} />
+      <MenuRow icon="git-network" title="Retake Soul DNA" text={user.isPremium ? 'Premium 💎 · answer everything again' : 'Premium 💎 · start your Soul DNA again'} onPress={() => retakeSoulDna(user)} tint={['#f5c842', '#ff6b9d']} />
       <MenuRow icon="eye" title="Who viewed my profile" text="Top 3 free · everyone with Premium 💎" onPress={go('/settings/viewers')} tint={['#b08fff', '#ff6b9d']} />
 
       <Section>Privacy & safety</Section>

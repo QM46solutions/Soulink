@@ -4,7 +4,8 @@
 // Ends with your Soul DNA: Soul type, your spectrum, strengths, priorities and things to reflect on.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { retakeSoulDna } from '../lib/retake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -177,13 +178,14 @@ export function DnaResult({ type, tagline, me, labels, onDone, onRetake }) {
         Match scores are predicted from Soul DNA. Your chats and meetups stay private and are never used.
       </Text>
       {onDone ? <Button title="Start connecting" style={{ marginTop: space.lg }} onPress={onDone} /> : null}
-      {onRetake ? <Button variant="ghost" title="Change my answers" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
+      {onRetake ? <Button variant="ghost" title="Retake Soul DNA 💎" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
     </>
   );
 }
 
 export default function SoulQuiz() {
   const { user, setUser } = useAuth();
+  const { retake } = useLocalSearchParams(); // Premium retake: start from the first question
   const [data, setData] = useState(null); // { sections, questions, total, completed }
   const [answers, setAnswers] = useState({});
   const [phase, setPhase] = useState('loading'); // loading | intro | quiz | saving | result
@@ -200,7 +202,7 @@ export default function SoulQuiz() {
       try {
         const d = await api('/soul/dna');
         setData(d); setAnswers(d.answers || {});
-        if (d.completed && user?.soulReady) {
+        if (d.completed && user?.soulReady && !retake) {
           const m = await api('/soul/dna/me');
           if (m.ready) { setResult({ type: m.type, tagline: m.tagline, me: m.me }); setPhase('result'); return; }
         }
@@ -221,7 +223,10 @@ export default function SoulQuiz() {
     const batch = pending.current; pending.current = {};
     if (!Object.keys(batch).length) return;
     try { await api('/soul/dna/answers', { method: 'PUT', body: { answers: batch } }); }
-    catch (e) { pending.current = { ...batch, ...pending.current }; setError('Could not save, will retry…'); }
+    catch (e) {
+      if (e.code === 'premium_required') { setError(e.message); return; } // finished Soul DNA can only be changed with Premium
+      pending.current = { ...batch, ...pending.current }; setError('Could not save, will retry…');
+    }
   };
   const queue = (id, v) => {
     pending.current[id] = v;
@@ -270,7 +275,7 @@ export default function SoulQuiz() {
       <BrandScreen back center={false}>
         <DnaResult {...result} labels={labels}
           onDone={result.fresh ? () => router.back() : null}
-          onRetake={() => { setI(0); setPhase('quiz'); }} />
+          onRetake={() => retakeSoulDna(user)} />
       </BrandScreen>
     );
   }
@@ -279,7 +284,7 @@ export default function SoulQuiz() {
     const started = answeredCount > 0;
     return (
       <BrandScreen back onBack={back}>
-        <BrandHeader size={36} title={user?.soulType && !user?.soulReady ? 'Soul DNA got smarter' : 'Create your Soul DNA'}
+        <BrandHeader size={36} title={retake ? 'Retake your Soul DNA' : user?.soulType && !user?.soulReady ? 'Soul DNA got smarter' : 'Create your Soul DNA'}
           subtitle={user?.soulType && !user?.soulReady
             ? 'We rebuilt Soul DNA to understand you much deeper. Please take the new version to see your matches again.'
             : 'Your values, nature, thinking and loyalty. About 10 minutes. No right answers.'} />
