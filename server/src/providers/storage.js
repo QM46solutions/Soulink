@@ -11,6 +11,9 @@ const ALLOWED = {
 };
 // Chat attachments: a photo or a voice note
 ALLOWED.media = { ...ALLOWED.image, ...ALLOWED.audio };
+// Sparks: a short video (+ optional music from the phone)
+ALLOWED.video = { 'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/webm': '.webm', 'video/x-m4v': '.m4v', 'video/3gpp': '.3gp' };
+ALLOWED.spark = { ...ALLOWED.video, ...ALLOWED.audio };
 
 export const mediaKind = (mimetype) => (ALLOWED.image[mimetype] ? 'image' : ALLOWED.audio[mimetype] ? 'voice' : null);
 
@@ -39,7 +42,7 @@ export async function saveFile(file, folder, kind = 'image') {
   return url;
 }
 
-const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'audio/webm', '.3gp': 'audio/3gpp', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac' };
+const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'video/webm', '.3gp': 'video/3gpp', '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.m4v': 'video/x-m4v', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac' };
 const diskOf = (url) => path.join(config.uploadDir, String(url).replace(/^\/uploads\//, ''));
 
 async function storeInDb(url, buffer, mimetype) {

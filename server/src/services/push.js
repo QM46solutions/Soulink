@@ -33,6 +33,8 @@ const TYPES = {
   anon_reply: ['anonymous', () => 'replied to your anonymous message.'],
   anon_revealed: ['anonymous', (m) => `was "${m?.alias || 'Anonymous'}". Now you know who wrote to you.`],
   anon_revealed_sender: ['anonymous', (m) => `can now see you were "${m?.alias || 'Anonymous'}".`],
+  spark_reaction: ['likes', () => 'reacted to your Spark ⚡'],
+  spark_tried: ['likes', (m) => `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`],
   argue_invite: ['argue', (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}`],
   argue_verdict: ['argue', (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''} ⚖️`, true],
 };
@@ -42,6 +44,7 @@ const LINK = (type, entityId, meta) => {
   if (type.startsWith('post_') && entityId) return `/post/${entityId}`;
   if (type.startsWith('anon_') && entityId) return `/anon/${entityId}`;
   if (type.startsWith('argue_') && meta?.caseId) return `/argue/${meta.caseId}`;
+  if (type.startsWith('spark_')) return '/sparks';
   return '/activity';
 };
 

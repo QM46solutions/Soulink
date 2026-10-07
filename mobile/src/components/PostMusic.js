@@ -39,7 +39,7 @@ export function MusicChip({ music }) {
 }
 
 /** Web: open the phone's file picker for audio. Resolves { uri, name, type } or null. */
-function pickAudio() {
+export function pickAudio() {
   return new Promise((resolve) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') { resolve(null); return; }
     const input = document.createElement('input');

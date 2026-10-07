@@ -37,6 +37,8 @@ const TEXT = {
   follow_accept: 'accepted your request.',
   like: 'liked your post.',
   post_like: 'gave your post a 👌🏻.',
+  spark_reaction: 'reacted to your Spark ⚡',
+  spark_tried: 'tried your recipe 😋',
   post_comment: 'commented on your post.',
   post_suspended: 'Your post was suspended: more than 75 people found it offensive. Only you can see it now.',
   comment: 'commented on your post.',
@@ -118,6 +120,7 @@ export default function Activity() {
             else if ((item.type === 'connect_accepted' || item.type === 'connect_back') && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
             else if (['post_like', 'post_comment', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
+            else if (item.type.startsWith('spark_')) router.push('/sparks');
             else if ((item.type === 'argue_invite' || item.type === 'argue_verdict') && item.meta?.caseId) router.push(`/argue/${item.meta.caseId}`);
             else if (item.actor) router.push(`/user/${item.actor.username}`);
           }}

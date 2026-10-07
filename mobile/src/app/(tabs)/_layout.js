@@ -121,6 +121,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: icon('search') }} />
+      <Tabs.Screen name="sparks" options={{ title: 'Sparks', tabBarAccessibilityLabel: 'Sparks', tabBarIcon: icon('flash') }} />
       {/* Argue Referee sits between Search and Messages, with its live scales icon */}
       <Tabs.Screen name="argue" options={{ headerShown: false, tabBarAccessibilityLabel: 'Argue Referee', tabBarIcon: ({ focused }) => <ArgueIcon focused={focused} /> }} />
       {/* Messages: normal icon with unread badge, opens the inbox */}
