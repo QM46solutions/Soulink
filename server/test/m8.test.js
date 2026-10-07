@@ -86,3 +86,22 @@ describe('Settings: Pulse meter on/off and notification kinds', () => {
     await api().delete('/push/subscribe').set(a.h).send({ endpoint: sub.endpoint }).expect(200);
   });
 });
+
+describe('Settings pages: activity, profile viewers, account status, location', () => {
+  test('who viewed my profile, my activity and account status', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200); // b views a
+    const v = (await api().get('/account/viewers').set(a.h).expect(200)).body.viewers;
+    assert.equal(v.length, 1); assert.equal(v[0].username, b.user.username);
+    const p = (await api().post('/posts').set(a.h).field('caption', 'hi').expect(201)).body.post;
+    await api().post(`/posts/${p.id}/like`).set(b.h).expect(200);
+    await api().post(`/posts/${p.id}/comments`).set(b.h).send({ body: 'nice' }).expect(201);
+    assert.equal((await api().get('/account/activity?kind=likes').set(b.h).expect(200)).body.posts.length, 1);
+    assert.equal((await api().get('/account/activity?kind=comments').set(b.h).expect(200)).body.comments[0].body, 'nice');
+    await api().get('/account/activity?kind=requests').set(b.h).expect(200);
+    const st = (await api().get('/account/status').set(a.h).expect(200)).body;
+    assert.equal(st.level, 'good'); assert.equal(st.checks.posts, 1);
+    await api().put('/users/me/location').set(a.h).send({ lat: 17.44, lon: 78.38 }).expect(200);
+    assert.equal((await api().delete('/account/location').set(a.h).expect(200)).body.user.hasLocation, false);
+  });
+});

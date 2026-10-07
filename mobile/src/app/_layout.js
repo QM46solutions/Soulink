@@ -14,6 +14,7 @@ import { RealtimeProvider } from '../lib/realtime';
 import { HeaderBackground, Starfield } from '../components/brand';
 import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
+import { useUsageTracker } from '../lib/usage';
 import BackButton from '../components/BackButton';
 import { colors, fonts } from '../lib/theme';
 
@@ -51,6 +52,7 @@ function RootStack() {
   const { user, ready } = useAuth();
 
   useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
+  useUsageTracker(!!user?.onboardingDone); // Settings › Time management (hooks must run before any early return)
   if (!ready) return null;
 
   const loggedIn = !!user;
@@ -78,8 +80,18 @@ function RootStack() {
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
         <Stack.Screen name="share-post" options={{ title: 'Send in a chat', presentation: 'modal' }} />
         <Stack.Screen name="post-likes/[id]" options={{ title: '👌🏻 Likes' }} />
-        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-        <Stack.Screen name="blocked" options={{ title: 'Blocked accounts' }} />
+        <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
+        <Stack.Screen name="settings/activity" options={{ title: 'Your activity' }} />
+        <Stack.Screen name="settings/time" options={{ title: 'Time management' }} />
+        <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="settings/viewers" options={{ title: 'Who viewed my profile' }} />
+        <Stack.Screen name="settings/privacy" options={{ title: 'Account privacy' }} />
+        <Stack.Screen name="settings/status" options={{ title: 'Account status' }} />
+        <Stack.Screen name="settings/app-permissions" options={{ title: 'App permissions' }} />
+        <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
+        <Stack.Screen name="settings/device-permissions" options={{ title: 'Device permissions' }} />
+        <Stack.Screen name="settings/about" options={{ title: 'About' }} />
+        <Stack.Screen name="blocked" options={{ title: 'Blocked contacts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />
         <Stack.Screen name="messages/index" options={{ title: 'Messages' }} />
         <Stack.Screen name="messages/new" options={{ title: 'New message', presentation: 'modal' }} />
