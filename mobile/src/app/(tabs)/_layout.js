@@ -11,13 +11,15 @@ import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
 import { clap } from '../../components/ClapperIcon';
-import { MessagesTabButton, ProfileTabIcon, SparksIcon, TabIcon, HoverTab, TAB_ACTIVE, TAB_INACTIVE, TAB_BAR_STYLE } from '../../components/TabBar';
+import { MessagesTabButton, ProfileTabIcon, SparksIcon, TabIcon, HoverTab, TAB_ACTIVE, TAB_INACTIVE, tabBarStyleFor } from '../../components/TabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
 const icon = (name) => ({ focused }) => <TabIcon name={name} focused={focused} />;
 
 export default function TabsLayout() {
   const { refreshUnread } = useRealtime();
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenListeners={{ focus: () => refreshUnread() }}
@@ -34,7 +36,7 @@ export default function TabsLayout() {
           headerTintColor: colors.text,
           headerTitleAlign: 'center',
           headerTitleStyle: { fontFamily: fonts.displayBold, fontSize: 18 },
-          tabBarStyle: TAB_BAR_STYLE,
+          tabBarStyle: tabBarStyleFor(insets),
           tabBarActiveTintColor: TAB_ACTIVE,
           tabBarInactiveTintColor: TAB_INACTIVE,
           tabBarShowLabel: false,

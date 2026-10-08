@@ -15,18 +15,16 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
     <style id="expo-reset">
-      html, body { height: 100%; background: #0a0a0f; }
+      html, body { height: 100%; margin: 0; background: #08070d; overscroll-behavior: none; }
       body { overflow: hidden; }
-      #root { display: flex; height: 100%; flex: 1; }
-      /* Opened from the Home Screen icon: the strip behind the time and battery gets the Soulink gradient.
-         (In a normal Safari tab this strip is 0 px high, so nothing shows.) */
-      #sl-statusbar { position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px);
-        background: linear-gradient(120deg, #7c5cfc 0%, #b08fff 55%, #ff6b9d 100%); z-index: 2147483647; pointer-events: none; }
+      /* Fill the WHOLE screen like a real app (Instagram): from the very top (behind the time and battery)
+         to the very bottom (behind the home bar). iPhone Home Screen apps otherwise come out one status-bar
+         height short, which left a gap under the bottom bar. */
+      #root { display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run Soulink.</noscript>
-    <div id="sl-statusbar"></div>
     <div id="root"></div>
   </body>
 </html>

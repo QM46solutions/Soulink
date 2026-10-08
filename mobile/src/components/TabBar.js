@@ -2,6 +2,7 @@
 // copy of it shown under every other screen (chats, profiles, settings…), so the bar is always there.
 // The icon of the place you're in turns solid and white ("bold").
 import { Platform, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,7 +31,9 @@ export function GradientIcon({ name, size }) {
     </MaskedView>
   );
 }
-export const TAB_BAR_STYLE = { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', borderTopWidth: 1, height: 66, paddingTop: 8, paddingBottom: 8 };
+// Like Instagram: the bar's background runs to the very bottom edge, and the icons sit just above the iPhone home bar
+export const TAB_BAR_STYLE = { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', borderTopWidth: 1, height: 56, paddingTop: 6, paddingBottom: 6 };
+export const tabBarStyleFor = (insets) => ({ ...TAB_BAR_STYLE, height: 54 + (insets?.bottom || 0), paddingBottom: Math.max(4, insets?.bottom || 0) });
 
 /** Ionicons tab icon: outline normally, solid + white + a touch bigger when it's where you are */
 export const TabIcon = ({ name, focused }) => (
@@ -111,8 +114,9 @@ export function BottomBar({ active }) {
     ['messages', 'Messages', () => (active === 'messages' ? go('/messages') : router.push('/messages')), (f) => <MessagesIcon focused={f} />],
     ['profile', 'Profile', () => go('/profile'), (f) => <ProfileTabIcon focused={f} />],
   ];
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[TAB_BAR_STYLE, { flexDirection: 'row' }]}>
+    <View style={[tabBarStyleFor(insets), { flexDirection: 'row' }]}>
       {items.map(([k, label, onPress, render]) => (
         <HoverTab key={k} onPress={onPress} accessibilityLabel={label} accessibilityState={{ selected: active === k }}>{render(active === k)}</HoverTab>
       ))}

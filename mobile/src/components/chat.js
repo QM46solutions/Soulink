@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { api, mediaUrl } from '../lib/api';
@@ -517,6 +518,7 @@ function TranslatePreview({ result, onSend, onEdit, onCancel, sending }) {
 }
 
 export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo }) {
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [tr, setTr] = useState(null); // { to, output } while the translator is on
   const [trSetup, setTrSetup] = useState(false);
@@ -531,7 +533,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
   const lastTyping = useRef(0);
 
   if (disabled) {
-    return <View style={st.composerDisabled}><Text style={st.meta}>{disabledText}</Text></View>;
+    return <View style={[st.composerDisabled, { paddingBottom: space.lg + insets.bottom }]}><Text style={st.meta}>{disabledText}</Text></View>;
   }
 
   const change = (t) => {
@@ -653,7 +655,8 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
 
   const hasText = text.trim().length > 0;
   return (
-    <View>
+    // the open chat fills the screen, so keep the message pill above the iPhone home bar
+    <View style={{ paddingBottom: insets.bottom }}>
     {replyTo ? (
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(14,12,22,0.96)' }}>
         <View style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: colors.aura, marginRight: 10 }} />
