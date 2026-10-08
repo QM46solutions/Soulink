@@ -527,8 +527,23 @@ function TranslatePreview({ result, onSend, onEdit, onCancel, sending }) {
   );
 }
 
+// Web/iPhone: is the on-screen keyboard open? (then the message box sits right on it, no home-bar gap)
+function useKeyboardOpen() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.visualViewport) return undefined;
+    const vv = window.visualViewport;
+    const f = () => setOpen(document.documentElement.classList.contains('sl-keyboard') || window.innerHeight - vv.height > 150);
+    vv.addEventListener('resize', f); f();
+    return () => vv.removeEventListener('resize', f);
+  }, []);
+  return open;
+}
+
 export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll }) {
-  const insets = useSafeAreaInsets();
+  const safe = useSafeAreaInsets();
+  const keyboardOpen = useKeyboardOpen();
+  const insets = keyboardOpen ? { ...safe, bottom: 0 } : safe;
   const [attach, setAttach] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
