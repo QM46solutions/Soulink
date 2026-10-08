@@ -32,8 +32,17 @@ export function GradientIcon({ name, size }) {
   );
 }
 // Like Instagram: the bar's background runs to the very bottom edge, and the icons sit just above the iPhone home bar
-export const TAB_BAR_STYLE = { backgroundColor: 'rgba(14,12,22,0.82)', borderTopColor: 'rgba(42,39,64,0.6)', borderTopWidth: 1, height: 56, paddingTop: 6, paddingBottom: 6 };
-export const tabBarStyleFor = (insets) => ({ ...TAB_BAR_STYLE, height: 54 + (insets?.bottom || 0), paddingBottom: Math.max(4, insets?.bottom || 0) });
+// Floating bar: a slim rounded pill hovering just above the bottom edge, with the background showing around it
+export const BAR_HEIGHT = 52;
+export const barBottom = (insets) => Math.max(8, (insets?.bottom || 0) - 16);   // sits a little into the home-bar area
+export const barSpace = (insets) => barBottom(insets) + BAR_HEIGHT + 8;            // room screens keep free under their content
+export const TAB_BAR_STYLE = {
+  position: 'absolute', left: 14, right: 14, height: BAR_HEIGHT, borderRadius: BAR_HEIGHT / 2, paddingTop: 0, paddingBottom: 0,
+  backgroundColor: 'rgba(20,18,32,0.9)', borderTopWidth: 1, borderWidth: 1, borderColor: 'rgba(176,143,255,0.2)', borderTopColor: 'rgba(176,143,255,0.2)',
+  elevation: 12, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 8 },
+  ...(Platform.OS === 'web' ? { boxShadow: '0 10px 30px rgba(0,0,0,0.55), 0 0 0 1px rgba(176,143,255,0.08)', backdropFilter: 'blur(14px)' } : {}),
+};
+export const tabBarStyleFor = (insets) => ({ ...TAB_BAR_STYLE, bottom: barBottom(insets) });
 
 /** Ionicons tab icon: outline normally, solid + white + a touch bigger when it's where you are */
 export const TabIcon = ({ name, focused }) => (

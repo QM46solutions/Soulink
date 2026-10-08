@@ -16,7 +16,8 @@ import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
 import { useUsageTracker } from '../lib/usage';
 import BackButton from '../components/BackButton';
-import { BottomBar } from '../components/TabBar';
+import { BottomBar, barSpace } from '../components/TabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -60,6 +61,7 @@ const SECTION = {
 function RootStack() {
   const { user, ready } = useAuth();
   const segs = useSegments();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
   useUsageTracker(!!user?.onboardingDone); // Settings › Time management (hooks must run before any early return)
@@ -73,8 +75,8 @@ function RootStack() {
   const active = SECTION[top] || null;
 
   return (
-    <View style={{ flex: 1 }}>
-    <Stack screenOptions={headerStyle}>
+    <View style={{ flex: 1, paddingBottom: showBar ? barSpace(insets) : 0 }}>
+    <Stack screenOptions={{ ...headerStyle, headerStyle: { backgroundColor: 'transparent', height: insets.top + 46 } }}>
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>

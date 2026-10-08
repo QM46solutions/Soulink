@@ -11,7 +11,7 @@ import { GradientText, HeaderBackground } from '../../components/brand';
 import { colors, fonts, gradients } from '../../lib/theme';
 import BackButton from '../../components/BackButton';
 import { clap } from '../../components/ClapperIcon';
-import { MessagesTabButton, ProfileTabIcon, SparksIcon, TabIcon, HoverTab, TAB_ACTIVE, TAB_INACTIVE, tabBarStyleFor } from '../../components/TabBar';
+import { MessagesTabButton, ProfileTabIcon, SparksIcon, TabIcon, HoverTab, TAB_ACTIVE, TAB_INACTIVE, tabBarStyleFor, barSpace } from '../../components/TabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
@@ -30,7 +30,7 @@ export default function TabsLayout() {
         return {
           // tabs other than Home get a back arrow that returns Home
           ...(route.name !== 'index' && route.name !== 'profile' ? { headerLeft: () => <BackButton toHome /> } : {}),
-          headerStyle: { backgroundColor: 'transparent' },
+          headerStyle: { backgroundColor: 'transparent', height: insets.top + 46 },
           headerShadowVisible: false,
           headerBackground: () => <HeaderBackground />,
           headerTintColor: colors.text,
@@ -41,7 +41,8 @@ export default function TabsLayout() {
           tabBarInactiveTintColor: TAB_INACTIVE,
           tabBarShowLabel: false,
           tabBarButton: (props) => <HoverTab {...props} />,
-          sceneStyle: { backgroundColor: 'transparent', display: focused ? 'flex' : 'none' },
+          // the bar floats: keep the screen's content above it, the background shows around it
+          sceneStyle: { backgroundColor: 'transparent', display: focused ? 'flex' : 'none', paddingBottom: barSpace(insets) },
           ...(focused ? {} : { headerShown: false }),
         };
       }}
