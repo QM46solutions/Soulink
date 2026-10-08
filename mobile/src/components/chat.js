@@ -234,8 +234,8 @@ export function BigHeart({ size = 84 }) {
 }
 
 /**
- * The heart you send by tapping twice: it pops up big in the middle of the chat, beats 3 times with a glowing
- * ripple, then flies down to its place in the chat (right side if you sent it, left if you received it).
+ * The heart you send by tapping twice: it pops up big in the middle of the chat, beats 3 times with a soft
+ * glow, then flies down to its place in the chat (right side if you sent it, left if you received it).
  */
 export function HeartFlight({ mine, area, onLanded }) {
   const enter = useRef(new Animated.Value(0)).current;
@@ -259,7 +259,6 @@ export function HeartFlight({ mine, area, onLanded }) {
     Animated.multiply(enter.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }), beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] })),
     fly.interpolate({ inputRange: [0, 1], outputRange: [1, 72 / BIG] }),
   );
-  const ripple = (delay) => beat.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
   return (
     <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
       {/* soft dim + pink glow while it beats */}
@@ -267,12 +266,9 @@ export function HeartFlight({ mine, area, onLanded }) {
         opacity: Animated.multiply(enter, fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })) }} />
       <Animated.View style={{ alignItems: 'center', justifyContent: 'center', opacity: enter,
         transform: [{ translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, tx] }) }, { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [0, ty] }) }, { scale }] }}>
-        {/* glowing ring that bursts out on every beat */}
-        <Animated.View style={{ position: 'absolute', width: BIG * 1.05, height: BIG * 1.05, borderRadius: BIG, borderWidth: 3, borderColor: 'rgba(255,107,157,0.75)',
-          opacity: Animated.multiply(ripple(), fly.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0], extrapolate: 'clamp' })),
-          transform: [{ scale: beat.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.45] }) }] }} />
-        <Animated.View style={{ position: 'absolute', width: BIG * 0.9, height: BIG * 0.9, borderRadius: BIG, backgroundColor: 'rgba(255,107,157,0.35)',
-          opacity: beat.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.7] }), ...(Platform.OS === 'web' ? { filter: 'blur(28px)' } : {}) }} />
+        {/* soft pink-violet glow that swells with each beat (no rings, no borders) */}
+        <Animated.View style={{ position: 'absolute', width: BIG * 1.1, height: BIG * 1.1, borderRadius: BIG, backgroundColor: 'rgba(196,110,220,0.28)',
+          opacity: beat.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.5] }), ...(Platform.OS === 'web' ? { filter: 'blur(40px)' } : {}) }} />
         <Image source={HEART_3D} style={{ width: BIG, height: BIG }} contentFit="contain" />
       </Animated.View>
     </View>
