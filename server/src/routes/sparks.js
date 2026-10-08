@@ -13,6 +13,7 @@ import { ah, badRequest, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { notify, userCard } from '../services/social.js';
+import { REF_RE, playPath } from '../services/music.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -133,6 +134,7 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
     caption: z.string().trim().max(1000).default(''),
     place: z.string().trim().max(150).optional(),
     musicTitle: z.string().trim().max(150).optional(),
+    musicRef: z.string().regex(REF_RE, 'Pick the song again').optional(), // a song from JioSaavn / Deezer / free music
     details: z.string().optional(),
     oneTake: z.enum(['0', '1']).default('0'),
     castingId: uuid.optional(),   // an audition for a Casting Board role
@@ -148,11 +150,11 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   try { details = b.details ? DETAILS[b.category].parse(JSON.parse(b.details)) : {}; } catch { throw badRequest('Some of the extra details are not right'); }
   if (b.category === 'travel' && !b.place) throw badRequest('Add the place for a travel Spark', 'no_place');
   const videoUrl = await saveFile(video, 'sparks', 'spark');
-  const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : null;
+  const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : b.musicRef ? playPath(b.musicRef) : null;
   const x = await one(
     `INSERT INTO sparks (author_id, category, video_url, music_url, music_title, caption, place, details, one_take, casting_id, stage_week)
      OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [req.user.id, b.category, videoUrl, musicUrl, musicUrl ? (b.musicTitle || music.originalname?.replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music') : null, b.caption, b.place || null, JSON.stringify(details), b.oneTake === '1',
+    [req.user.id, b.category, videoUrl, musicUrl, musicUrl ? (b.musicTitle || music?.originalname?.replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music') : null, b.caption, b.place || null, JSON.stringify(details), b.oneTake === '1',
       casting ? casting.id : null, b.stage === '1' ? stageWeek() : null],
   );
   if (casting && String(casting.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {

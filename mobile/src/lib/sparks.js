@@ -66,6 +66,8 @@ export async function postSpark({ videoUri, videoType, music, category, caption,
   form.append('details', JSON.stringify(details || {}));
   form.append('oneTake', oneTake ? '1' : '0');
   if (musicTitle) form.append('musicTitle', musicTitle);
+  // a song from JioSaavn / Deezer / free music is just a reference; only a song from the phone is uploaded
+  if (music?.ref) { form.append('musicRef', music.ref); music = null; }
   if (Platform.OS === 'web') {
     const v = await blobOf(videoUri);
     const type = videoType || v.type || 'video/mp4';

@@ -13,8 +13,9 @@ export const MOMENT_BGS = {
 export const bgOf = (k) => MOMENT_BGS[k] || MOMENT_BGS.aurora;
 
 /** photoUri (optional), text, bg, story (bool), conversationIds ([]) -> { moment, sent, failed } */
-export async function sendMoment({ photoUri, text, bg, story, conversationIds }) {
+export async function sendMoment({ photoUri, text, bg, story, conversationIds, music }) {
   const fields = { story: story ? '1' : '0', conversationIds: JSON.stringify(conversationIds || []) };
+  if (music?.ref) { fields.musicRef = music.ref; fields.musicTitle = music.title || 'Music'; fields.musicStart = String(music.start || 0); }
   if (text?.trim()) fields.text = text.trim();
   if (!photoUri) {
     if (bg) fields.bg = bg;

@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } fro
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FILTERS, SPEEDS, STICKERS, TEXT_COLORS, TEXT_STYLES, filterCss, fmt } from '../lib/sparkEdit';
-import { pickAudio } from './PostMusic';
+import MusicPicker from './MusicPicker';
 import { RangeSlider, Slider } from './Slider';
 import SparkOverlays from './SparkOverlays';
 import { colors, fonts, gradients, space } from '../lib/theme';
@@ -103,7 +103,9 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
     set({ texts: texts.slice(0, 10) });
   };
   const addSticker = (em) => set({ stickers: [...(e.stickers || []), { e: em, x: 0.5, y: 0.55, size: 70 }].slice(0, 15) });
-  const chooseMusic = async () => { const f = await pickAudio(); if (f) { onMusic(f); set({ musicStart: 0, musicVolume: 1, videoVolume: 0.3 }); } };
+  const [musicOpen, setMusicOpen] = useState(false);
+  const chooseMusic = () => { pause(); setMusicOpen(true); };
+  const picked = (m) => { onMusic(m); set({ musicStart: m.start || 0, musicVolume: 1, videoVolume: 0.3 }); };
   // tap a text on the video while it's selected → edit it
   const onSelect = (sel) => {
     if (sel?.kind === 'texts' && selected?.kind === 'texts' && selected.i === sel.i) { const t = e.texts[sel.i]; setDraft({ ...t, i: sel.i }); setTool('text'); return; }
@@ -262,7 +264,7 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
           ) : (
             <>
               <Pressable onPress={chooseMusic} style={{ height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: colors.spark, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
-                <MaterialCommunityIcons name="music-note-plus" size={22} color={colors.spark} /><Text style={{ marginLeft: 8, fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>Add a song from your phone</Text>
+                <MaterialCommunityIcons name="music-note-plus" size={22} color={colors.spark} /><Text style={{ marginLeft: 8, fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>Add music</Text>
               </Pressable>
               <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: 10, lineHeight: 18 }}>Pick where the song starts and mix it with your video's own sound. Only use music you're allowed to share.</Text>
             </>
@@ -278,6 +280,7 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
 
         {cue ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: space.lg, lineHeight: 18 }}>{cue}</Text> : null}
       </ScrollView>
+      <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={picked} clip={60} title="Music for your Spark" />
     </View>
   );
 }

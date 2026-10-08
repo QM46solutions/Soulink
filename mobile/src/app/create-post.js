@@ -10,6 +10,8 @@ import { createPost } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { AuraAvatar } from '../components/ProfileHeader';
 import CityField from '../components/CityField';
+import MusicPicker from '../components/MusicPicker';
+import { saveMusicOnPost } from '../components/PostMusic';
 import { Button, ErrorText, s } from '../components/ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -23,6 +25,8 @@ export default function CreatePost() {
   const [place, setPlace] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [music, setMusic] = useState(null); // song picked from JioSaavn / Deezer / free music / the phone
+  const [musicOpen, setMusicOpen] = useState(false);
 
   const gallery = async () => {
     setError(null);
@@ -51,7 +55,11 @@ export default function CreatePost() {
 
   const share = async () => {
     setBusy(true); setError(null);
-    try { await createPost({ caption: caption.trim(), uris: photos, place: place.trim() || undefined }); router.back(); } catch (e) { setError(e.message); setBusy(false); }
+    let made = null;
+    try { made = await createPost({ caption: caption.trim(), uris: photos, place: place.trim() || undefined }); } catch (e) { setError(e.message); setBusy(false); return; }
+    // the post is up; adding its music is a second step (if it fails, the post stays and music can be added from its ⋯ menu)
+    if (music && made?.post?.id) await saveMusicOnPost(made.post.id, music).catch(() => {});
+    router.back();
   };
 
   return (
@@ -100,6 +108,12 @@ export default function CreatePost() {
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
           {photos.length ? `${photos.length}/${MAX} photos · first photo is the cover` : `Add up to ${MAX} photos, or just write something`}
         </Text>
+        <Pressable onPress={() => setMusicOpen(true)} style={({ hovered }) => ({ marginTop: space.lg, height: 52, borderRadius: 999, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderWidth: 1, borderColor: hovered || music ? colors.aura : colors.border, backgroundColor: colors.glass })}>
+          <Ionicons name="musical-notes" size={19} color={music ? colors.spark : colors.aura} style={{ marginRight: 10 }} />
+          <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.text }}>{music ? music.title : '🎵 Add music (optional)'}</Text>
+          {music ? <Pressable onPress={() => setMusic(null)} hitSlop={10} accessibilityLabel="Remove music"><Ionicons name="close-circle" size={20} color={colors.muted} /></Pressable> : <Ionicons name="chevron-forward" size={18} color={colors.dim} />}
+        </Pressable>
+        <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={setMusic} />
         <View style={{ marginTop: space.lg }}><CityField value={place} onChange={setPlace} autoLocate={false} label="📍 Add location (optional)" /></View>
         <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Connections and Followers{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
         {/* community rule, told to the person posting (not to people who mark posts) */}

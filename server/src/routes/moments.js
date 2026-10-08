@@ -14,6 +14,7 @@ import { many, one, query } from '../db.js';
 import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
+import { REF_RE, playPath } from '../services/music.js';
 import { isBlockedEither, userCard } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';
 import { config } from '../config.js';
@@ -25,7 +26,8 @@ const uuid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id');
 const BGS = ['aurora', 'sunset', 'ocean', 'forest', 'night', 'gold'];
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
-const view = (m, seen) => ({ id: m.id, mediaUrl: m.media_url || null, text: m.text || null, bg: m.bg || null, createdAt: m.created_at, expiresAt: m.expires_at, seen: !!seen });
+const view = (m, seen) => ({ id: m.id, mediaUrl: m.media_url || null, text: m.text || null, bg: m.bg || null,
+  music: m.music_url ? { url: m.music_url, title: m.music_title || 'Music', start: m.music_start || 0 } : null, createdAt: m.created_at, expiresAt: m.expires_at, seen: !!seen });
 
 /** Can the viewer see this person's Moments? You, or you're connected to them (Connection or Follower). */
 async function canSee(viewerId, authorId) {
@@ -40,6 +42,9 @@ r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (re
     bg: z.enum(BGS).optional(),
     story: z.enum(['0', '1']).default('0'),
     conversationIds: z.string().optional(),
+    musicRef: z.string().regex(REF_RE, 'Pick the song again').optional(),
+    musicTitle: z.string().trim().max(150).optional(),
+    musicStart: z.coerce.number().int().min(0).max(1200).optional(),
   }).parse(req.body || {});
   const text = d.text || null;
   if (!req.file && !text) throw badRequest('Add a photo or write something', 'empty_moment');
@@ -51,7 +56,8 @@ r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (re
 
   // every Moment is kept for your own profile's Moments tab; only story ones are shown to others (24 h)
   const story = d.story === '1';
-  const moment = await one('INSERT INTO moments (author_id, media_url, text, bg, is_story) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5)', [req.user.id, mediaUrl, text, bg, story ? 1 : 0]);
+  const moment = await one('INSERT INTO moments (author_id, media_url, text, bg, is_story, music_url, music_title, music_start) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+    [req.user.id, mediaUrl, text, bg, story ? 1 : 0, d.musicRef ? playPath(d.musicRef) : null, d.musicRef ? (d.musicTitle || 'Music') : null, d.musicRef ? (d.musicStart || null) : null]);
   const sent = []; const failed = [];
   for (const cid of chats) {
     try {

@@ -16,7 +16,7 @@ import SparkRecorder from '../../components/SparkRecorder';
 import SparkStudio from '../../components/SparkStudio';
 import { api } from '../../lib/api';
 import { cleanEdit, emptyEdit } from '../../lib/sparkEdit';
-import { pickAudio } from '../../components/PostMusic';
+import MusicPicker from '../../components/MusicPicker';
 import CityField from '../../components/CityField';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 
@@ -96,7 +96,8 @@ export default function NewSpark() {
     if (a.fileSize && a.fileSize > MAX_MB * 1024 * 1024) { notice('Too big', `Videos up to ${MAX_MB} MB. Tip: record in Soulink for a smaller file.`); return; }
     setVideo({ uri: a.uri, type: a.mimeType || 'video/mp4', oneTake: false }); setEdit(emptyEdit()); setStep('edit');
   };
-  const addMusic = async () => { const f = await pickAudio(); if (f) setMusic(f); };
+  const [musicOpen, setMusicOpen] = useState(false);
+  const addMusic = () => setMusicOpen(true); // JioSaavn / Deezer / free music / a song from the phone
   const castingCue = casting ? `🎭 ${casting.title}: ${casting.role}${casting.script ? `\n“${casting.script}”` : ''}` : null;
   const stageCue = stage ? `🎤 Open Mic: ${stage.title}` : null;
   const cue = castingCue || stageCue || (category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
@@ -126,7 +127,7 @@ export default function NewSpark() {
     if (category === 'acting' && mode === 'dub' && !music) { notice('Add the audio', 'For a dub, add the dialogue or song you are acting to.'); return; }
     setBusy(true);
     try {
-      await postSpark({ videoUri: video.uri, videoType: video.type, music, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
+      await postSpark({ videoUri: video.uri, videoType: video.type, music, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
         castingId: casting?.id, stage: forStage });
       if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage) router.replace('/spark/stage'); else router.replace('/sparks');
     } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); }
@@ -238,7 +239,7 @@ export default function NewSpark() {
                   <CityField value={place} onChange={setPlace} autoLocate={false} />
                   <Label>Sound</Label>
                   <Pills value={music ? 'music' : sound} onPick={(k) => { if (k === 'music') addMusic(); else { setMusic(null); setSound(k || 'place'); } }}
-                    options={[['place', '🌊 Real sound of the place'], ['music', '🎵 Add a song from my phone'], ['none', '🔇 No sound']]} />
+                    options={[['place', '🌊 Real sound of the place'], ['music', music ? `🎵 ${music.title || music.name}` : '🎵 Add music'], ['none', '🔇 No sound']]} />
                 </>
               ) : null}
 
@@ -262,7 +263,7 @@ export default function NewSpark() {
                     </>
                   ) : null}
                   <Label>{mode === 'dub' ? 'The dialogue / song (required)' : 'Movie sound or song (optional)'}</Label>
-                  <Pills value={music ? 'yes' : null} onPick={(k) => (k ? addMusic() : setMusic(null))} options={[['yes', music ? `🎵 ${music.name}` : '🎵 Add audio from my phone']]} />
+                  <Pills value={music ? 'yes' : null} onPick={(k) => (k ? addMusic() : setMusic(null))} options={[['yes', music ? `🎵 ${music.title || music.name}` : '🎵 Add audio or a song']]} />
                 </>
               ) : null}
 
@@ -274,7 +275,7 @@ export default function NewSpark() {
                   <Field value={fit.minutes} onChangeText={(v) => setFit({ ...fit, minutes: v.replace(/[^0-9]/g, '') })} placeholder="How many minutes?" keyboardType="number-pad" maxLength={3} style={{ marginTop: space.sm }} />
                   <Field value={fit.moves} onChangeText={(v) => setFit({ ...fit, moves: v })} placeholder={'Moves, one per line (optional)\nSquats × 15\nPlank 30 s'} multiline style={{ marginTop: space.sm, minHeight: 100 }} />
                   <Label>Workout music (optional)</Label>
-                  <Pills value={music ? 'yes' : null} onPick={(k) => (k ? addMusic() : setMusic(null))} options={[['yes', music ? `🎵 ${music.name}` : '🎵 Add a song from my phone']]} />
+                  <Pills value={music ? 'yes' : null} onPick={(k) => (k ? addMusic() : setMusic(null))} options={[['yes', music ? `🎵 ${music.title || music.name}` : '🎵 Add music']]} />
                 </>
               ) : null}
 
@@ -306,6 +307,7 @@ export default function NewSpark() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={(m) => { setMusic(m); setEdit((e) => ({ ...e, musicStart: m.start || 0 })); }} clip={60} title="Music for your Spark" />
       <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); setVideo(v); setEdit(emptyEdit()); setStep('edit'); }} />
     </SafeAreaView>
   );

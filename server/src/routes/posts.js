@@ -19,6 +19,7 @@ import { many, one, query } from '../db.js';
 import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
+import { REF_RE, playPath } from '../services/music.js';
 import { canViewContent, isBlockedEither, notify, relationship, userCard } from '../services/social.js';
 import { sharePostToChat } from './conversations.js';
 
@@ -41,7 +42,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
-    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.place,
+    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -56,7 +57,7 @@ export const postView = (x, meId) => {
     ...v,
     hideLikes: on(x.hide_likes),
     commentsOff: on(x.comments_off),
-    music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music' } : null,
+    music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music', start: x.music_start || 0 } : null,
     place: x.place || null,
   };
 };
@@ -154,13 +155,21 @@ r.post('/:id/music', uploadMemory('audio', 15).single('audio'), ah(async (req, r
   if (!req.file) throw badRequest('Choose a song first', 'no_audio');
   const title = z.string().trim().min(1).max(150).parse(String(req.body?.title || req.file.originalname || 'Music').replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music');
   const url = await saveFile(req.file, 'music', 'audio');
-  await query('UPDATE posts SET music_url=$2, music_title=$3 WHERE id=$1', [p.id, url, title]);
+  await query('UPDATE posts SET music_url=$2, music_title=$3, music_start=NULL WHERE id=$1', [p.id, url, title]);
+  res.json({ post: await freshView(req, p.id) });
+}));
+
+// Music from JioSaavn / Deezer / free music: { ref: 'saavn:<id>', title, start }
+r.post('/:id/music/stream', ah(async (req, res) => {
+  const p = await myPost(req);
+  const d = z.object({ ref: z.string().regex(REF_RE, 'Pick the song again'), title: z.string().trim().min(1).max(150), start: z.number().int().min(0).max(1200).default(0) }).parse(req.body || {});
+  await query('UPDATE posts SET music_url=$2, music_title=$3, music_start=$4 WHERE id=$1', [p.id, playPath(d.ref), d.title, d.start || null]);
   res.json({ post: await freshView(req, p.id) });
 }));
 
 r.delete('/:id/music', ah(async (req, res) => {
   const p = await myPost(req);
-  await query('UPDATE posts SET music_url=NULL, music_title=NULL WHERE id=$1', [p.id]);
+  await query('UPDATE posts SET music_url=NULL, music_title=NULL, music_start=NULL WHERE id=$1', [p.id]);
   res.json({ post: await freshView(req, p.id) });
 }));
 

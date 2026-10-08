@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { createAudioPlayer } from 'expo-audio';
 import { api, mediaUrl } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { confirm, notice } from '../../lib/confirm';
@@ -15,6 +16,29 @@ import { Avatar, UserRow } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
 
 const SHOW_MS = 5000;
+const MUSIC_MS = 15000; // a Moment with a song stays up for 15 seconds
+
+// One audio element for the whole viewer: once a tap has unlocked sound (iPhone), the next Moments can play too
+function useMomentMusic() {
+  const el = useRef(null);
+  const [blocked, setBlocked] = useState(false);
+  const get = () => {
+    if (!el.current) el.current = Platform.OS === 'web' ? new Audio() : createAudioPlayer(null);
+    return el.current;
+  };
+  const play = (music) => {
+    const a = get(); const url = mediaUrl(music.url); const at = music.start || 0;
+    if (Platform.OS === 'web') {
+      if (a.src !== url) a.src = url;
+      const go = () => { try { a.currentTime = at; } catch { /* not ready */ } a.play().then(() => setBlocked(false)).catch(() => setBlocked(true)); };
+      if (a.readyState >= 1) go(); else { a.onloadedmetadata = () => { a.onloadedmetadata = null; go(); }; a.load(); }
+    } else { a.replace({ uri: url }); a.seekTo(at); a.play(); }
+  };
+  const pause = () => { try { el.current?.pause(); } catch { /* gone */ } };
+  const resume = () => { try { const p = el.current?.play(); if (p?.catch) p.catch(() => setBlocked(true)); } catch { /* gone */ } };
+  useEffect(() => () => { try { el.current?.pause(); el.current?.remove?.(); } catch { /* gone */ } }, []);
+  return { play, pause, resume, blocked, setBlocked };
+}
 const EMOJIS = ['😍', '😂', '🔥', '👌🏻', '😮', '🥺'];
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 const ago = (iso) => { const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`; };
@@ -30,6 +54,7 @@ export default function MomentViewer() {
   const [viewers, setViewers] = useState(null);
   const progress = useRef(new Animated.Value(0)).current;
   const anim = useRef(null);
+  const sound = useMomentMusic();
 
   useEffect(() => {
     api(`/moments/user/${userId === 'me' ? me.id : userId}`).then((d) => {
@@ -47,16 +72,17 @@ export default function MomentViewer() {
   const paused = typing || !!viewers;
   function start() {
     anim.current?.stop();
-    anim.current = Animated.timing(progress, { toValue: 1, duration: SHOW_MS * (1 - progress.__getValue()), easing: Easing.linear, useNativeDriver: false });
+    anim.current = Animated.timing(progress, { toValue: 1, duration: (moment?.music ? MUSIC_MS : SHOW_MS) * (1 - progress.__getValue()), easing: Easing.linear, useNativeDriver: false });
     anim.current.start(({ finished }) => { if (finished) next(); });
   }
   useEffect(() => {
     if (!moment) return undefined;
     progress.setValue(0); setSentNote(null);
     if (!data.mine && !moment.seen) api(`/moments/${moment.id}/view`, { method: 'POST' }).catch(() => {});
+    if (moment.music) sound.play(moment.music); else sound.pause();
     return () => anim.current?.stop();
   }, [moment?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!moment) return; if (paused) anim.current?.stop(); else start(); }, [moment?.id, paused]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!moment) return; if (paused) { anim.current?.stop(); sound.pause(); } else { start(); if (moment.music) sound.resume(); } }, [moment?.id, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async (text) => {
     const t = (text ?? reply).trim(); if (!t) return;
@@ -109,6 +135,13 @@ export default function MomentViewer() {
               </View>
             ))}
           </View>
+          {moment.music ? (
+            <Pressable onPress={() => { sound.setBlocked(false); sound.play(moment.music); }} style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.45)', maxWidth: '85%' }}
+              accessibilityLabel={sound.blocked ? 'Tap for sound' : `Music: ${moment.music.title}`}>
+              <Ionicons name={sound.blocked ? 'volume-mute' : 'musical-notes'} size={13} color="#fff" />
+              <Text numberOfLines={1} style={{ marginLeft: 5, color: '#fff', fontFamily: fonts.semibold, fontSize: 12, flexShrink: 1 }}>{sound.blocked ? 'Tap for sound' : moment.music.title}</Text>
+            </Pressable>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
             <Pressable onPress={() => { if (!data.mine) router.replace(`/user/${data.user.username}`); }} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Avatar uri={data.user.avatarUrl} name={data.user.username} size={34} />

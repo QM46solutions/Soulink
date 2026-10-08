@@ -13,6 +13,7 @@ import { notice } from '../../lib/confirm';
 import { MOMENT_BGS, bgOf, sendMoment } from '../../lib/moments';
 import { ConversationAvatar } from '../../components/chat';
 import { GradientText } from '../../components/brand';
+import MusicPicker from '../../components/MusicPicker';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
@@ -56,6 +57,8 @@ export default function NewMoment() {
   const [chats, setChats] = useState(null);
   const [picked, setPicked] = useState({});
   const [busy, setBusy] = useState(false);
+  const [music, setMusic] = useState(null); // a song from JioSaavn / Deezer / free music
+  const [musicOpen, setMusicOpen] = useState(false);
 
   const camera = async () => {
     try {
@@ -82,13 +85,13 @@ export default function NewMoment() {
     if (!story && !ids.length) { notice('Moment', 'Add it to your Moments or pick at least one chat.'); return; }
     setBusy(true);
     try {
-      const r = await sendMoment({ photoUri: photo, text, bg, story, conversationIds: ids });
+      const r = await sendMoment({ photoUri: photo, text, bg, story, conversationIds: ids, music });
       if (r.failed?.length) notice('Some chats were skipped', r.failed.map((f) => f.reason).join('\n'));
       router.back();
     } catch (e) { notice('Not shared', e.message); } finally { setBusy(false); }
   };
 
-  const close = () => (step === 'start' ? router.back() : step === 'share' ? setStep('edit') : (setStep('start'), setPhoto(null), setText('')));
+  const close = () => (step === 'start' ? router.back() : step === 'share' ? setStep('edit') : (setStep('start'), setPhoto(null), setText(''), setMusic(null)));
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -106,6 +109,16 @@ export default function NewMoment() {
 
       {step === 'edit' ? (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, padding: space.lg }}>
+          {/* music for the Moment (plays while people watch it) */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: space.md }}>
+            <Pressable onPress={() => setMusicOpen(true)} accessibilityLabel={music ? 'Change music' : 'Add music'}
+              style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', maxWidth: '92%', height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, borderColor: hovered || music ? colors.spark : colors.border, backgroundColor: music ? 'rgba(255,107,157,0.14)' : colors.glass })}>
+              <Ionicons name="musical-notes" size={16} color={music ? colors.spark : colors.aura} />
+              <Text numberOfLines={1} style={{ marginLeft: 6, fontFamily: fonts.semibold, fontSize: 13.5, color: colors.text, flexShrink: 1 }}>{music ? music.title : 'Add music'}</Text>
+              {music ? <Pressable onPress={() => setMusic(null)} hitSlop={10} style={{ marginLeft: 8 }} accessibilityLabel="Remove music"><Ionicons name="close-circle" size={17} color={colors.muted} /></Pressable> : null}
+            </Pressable>
+          </View>
+          <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={setMusic} allowPhone={false} clip={15} title="Music for your Moment" />
           {photo ? (
             <View style={{ flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: '#000' }}>
               <Image source={{ uri: photo }} style={{ flex: 1 }} resizeMode="contain" />
