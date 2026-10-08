@@ -27,7 +27,8 @@ const ACTIVE = { comment: '#ffffff', share: '#38bdf8', offense: '#ff4d4f' };
  * shake = comment box wobbles, fly = paper plane flies off and comes back, stamp = offense slams down like a stamp.
  */
 function StateIcon({ name, on, color, size = 22, effect, tick = 0 }) {
-  const v = useRef(new Animated.Value(0)).current;
+  // rests at 1 (the end of every move = the normal icon); each use replays 0 → 1
+  const v = useRef(new Animated.Value(1)).current;
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
