@@ -1,4 +1,5 @@
 // Anonymous messages: the sender stays hidden for 7 days after the first message,
+import { recentlyActive } from '../activity.js';
 // or until the two people become a Soul Connection. Then both are told, and the
 // recipient sees exactly who it was (name + profile).
 // Privacy rule: nothing about the sender (id, name, photo) leaves the server for the
@@ -80,8 +81,8 @@ export async function usersById(ids) {
 let timer = null;
 export function startAnonTimer() {
   if (timer) return;
-  const run = () => processAnonReveals().catch((e) => console.error('anon reveal timer:', e.message));
-  run();
+  // only while people are using Soulink, so the free cloud database can pause when it's quiet
+  const run = () => { if (recentlyActive()) processAnonReveals().catch((e) => console.error('anon reveal timer:', e.message)); };
   timer = setInterval(run, 60_000);
   timer.unref?.();
 }

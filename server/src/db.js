@@ -100,9 +100,25 @@ async function run(requestFactory, text, params) {
   return normaliseRows(result);
 }
 
+// Azure SQL (free tier) pauses itself after an hour without use. The first query after that gets
+// "database not available" while it resumes (about a minute): wait and try again instead of failing.
+const TRANSIENT = new Set([40613, 40197, 40501, 49918, 49919, 49920, 4060, 10928, 10929, 4221]);
+const isTransient = (e) => TRANSIENT.has(e?.number) || TRANSIENT.has(e?.originalError?.info?.number)
+  || ['ESOCKET', 'ETIMEOUT', 'ECONNRESET', 'ECONNCLOSED', 'ENOTOPEN'].includes(e?.code)
+  || /Could not connect to SQL Server|not currently available|Connection lost|Failed to connect/i.test(e?.message || '');
+
 export async function query(text, params) {
-  const pool = await getPool();
-  return run(() => pool.request(), text, params);
+  const start = Date.now();
+  for (;;) {
+    try {
+      const pool = await getPool();
+      return await run(() => pool.request(), text, params);
+    } catch (e) {
+      if (!isTransient(e) || Date.now() - start > 75_000) throw e;
+      if (e?.code === 'ECONNCLOSED' || e?.code === 'ESOCKET' || /Could not connect/i.test(e?.message || '')) { const p = poolPromise; poolPromise = null; p?.then((x) => x.close()).catch(() => {}); }
+      await new Promise((r) => setTimeout(r, 2500));
+    }
+  }
 }
 
 export async function one(text, params) {

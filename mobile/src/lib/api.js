@@ -47,6 +47,16 @@ export async function checkAccess(code) {
   if (data.ok && try1) { access = try1; await AsyncStorage.setItem(ACCESS_KEY, try1); }
   return data;
 }
+/** Wakes the server + the free cloud database (it pauses after an hour without use). -> 'ready' | 'waking' */
+export async function wakeServer() {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const t = setTimeout(() => ctrl?.abort(), 30000);
+  try {
+    const res = await fetch(`${baseUrl}/wake`, { signal: ctrl?.signal });
+    if (!res.ok) return 'waking';
+    return (await res.json()).db === 'ready' ? 'ready' : 'waking';
+  } catch { return 'waking'; } finally { clearTimeout(t); }
+}
 export const getAccess = () => access;
 export const getToken = () => token;
 
@@ -79,7 +89,19 @@ export class ApiError extends Error {
 let onUnauthorized = () => {};
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 
-export async function api(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {
+// If the free cloud database paused while the app was open (an hour without use), the next request
+// can time out while it resumes. Then: wake it, and try that request once more (reads only).
+export async function api(path, opts = {}) {
+  try { return await apiOnce(path, opts); } catch (e) {
+    const read = !opts.method || opts.method === 'GET';
+    if (!(e.status === 503 || e.code === 'network' || e.code === 'waking') || (!read && e.code !== 'waking')) throw e;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 100000 && (await wakeServer()) !== 'ready') await new Promise((r) => setTimeout(r, 2500));
+    return apiOnce(path, opts);
+  }
+}
+
+async function apiOnce(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (access) headers['x-soulink-access'] = access;
@@ -95,7 +117,7 @@ export async function api(path, { method = 'GET', body, form, timeoutMs = 15000 
       signal: ctrl.signal,
     });
   } catch (e) {
-    throw new ApiError(0, `Can't reach the Soulink server at ${baseUrl}. Is it running, and is your phone on the same Wi-Fi?`, 'network');
+    throw new ApiError(0, /^https:/.test(baseUrl) ? 'Soulink is waking up. Give it a moment and try again.' : `Can't reach the Soulink server at ${baseUrl}. Is it running, and is your phone on the same Wi-Fi?`, 'network');
   } finally {
     clearTimeout(timer);
   }

@@ -1,4 +1,5 @@
 // Connections: shared rules used by the Connect routes, chat, and the hold timer.
+import { recentlyActive } from '../activity.js';
 import { many, one, query } from '../db.js';
 import { notify } from './social.js';
 
@@ -55,6 +56,7 @@ export async function processHolds(now = new Date()) {
 let timer = null;
 export function startHoldTimer() {
   if (timer) return;
-  timer = setInterval(() => { processHolds().catch((e) => console.error('hold timer:', e.message)); }, 60_000);
+  // only while people are using Soulink, so the free cloud database can pause when it's quiet
+  timer = setInterval(() => { if (recentlyActive()) processHolds().catch((e) => console.error('hold timer:', e.message)); }, 60_000);
   timer.unref?.();
 }

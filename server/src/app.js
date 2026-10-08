@@ -1,4 +1,6 @@
 import express from 'express';
+import { isDbReady, markActivity, waitDbReady } from './activity.js';
+import { query } from './db.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -66,7 +68,7 @@ export function createApp() {
     const ok = (v) => !!v && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(v)).digest(), want);
     app.get('/access', (req, res) => res.json({ required: true, ok: ok(req.get('x-soulink-access')) }));
     app.use((req, res, next) => {
-      if (req.path === '/health' || req.path.startsWith('/uploads/') || ok(req.get('x-soulink-access'))) return next();
+      if (req.path === '/health' || req.path === '/wake' || req.path.startsWith('/uploads/') || ok(req.get('x-soulink-access'))) return next();
       return res.status(403).json({ error: { code: 'access_code', message: 'Enter the Soulink access code' } });
     });
   } else {
@@ -85,7 +87,23 @@ export function createApp() {
   }
   app.use('/uploads', express.static(config.uploadDir, { maxAge: '7d' }));
 
-  app.get('/health', (req, res) => res.json({ ok: true, name: 'soulink', env: config.env }));
+  // /health never touches the database (used to keep the web server awake)
+  app.get('/health', (req, res) => res.json({ ok: true, name: 'soulink', env: config.env, db: isDbReady() ? 'ready' : 'starting' }));
+  // /wake: the app calls this when it opens; it wakes a paused cloud database and says when it's ready
+  app.get('/wake', async (req, res) => {
+    markActivity();
+    const t = new Promise((r) => setTimeout(() => r('waking'), 20_000));
+    const ping = waitDbReady().then(() => query('SELECT 1 AS ok')).then(() => 'ready').catch(() => 'waking');
+    res.json({ db: await Promise.race([ping, t]) });
+  });
+  // every other request counts as someone using Soulink; right after a restart it waits for the database
+  app.use(async (req, res, next) => {
+    markActivity();
+    if (isDbReady()) return next();
+    const t = new Promise((r) => setTimeout(() => r(false), 90_000));
+    if (await Promise.race([waitDbReady().then(() => true), t])) return next();
+    return res.status(503).json({ error: { code: 'waking', message: 'Soulink is waking up. Try again in a moment.' } });
+  });
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/search', searchRoutes);

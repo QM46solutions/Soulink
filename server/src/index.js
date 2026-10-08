@@ -4,27 +4,49 @@ import { config } from './config.js';
 import { createApp } from './app.js';
 import { migrate } from './migrate.js';
 import { waitForDatabase } from './db.js';
+import { markDbStarting, setDbReady } from './activity.js';
 import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
 import { startAnonTimer } from './services/anon.js';
 import { localAiStatus } from './services/referee.js';
 
-try {
-  await waitForDatabase(); // after a restart SQL Server can take a minute to accept connections
+const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
+async function startDatabase() {
+  // after a restart (or while the free cloud database is resuming) it can take a minute to accept connections
+  await waitForDatabase({ maxMs: cloud ? 10 * 60_000 : 150_000 });
   await migrate({ log: false });
-} catch (e) {
-  console.error('\n❌ Soulink could not start: there is a problem with the database.');
-  console.error(`   ${e.message}`);
-  console.error('   Check that SQL Server (SQLEXPRESS) is running and that server/.env has the right DB_ settings.');
-  console.error('   Running SETUP-SOULINK.bat again fixes most problems.\n');
-  process.exit(1);
+  setDbReady();
+}
+if (cloud) {
+  markDbStarting();
+  // cloud: open the web server straight away (the page loads fast) and get the database ready in the background
+  (async function boot() {
+    try { await startDatabase(); console.log('   Database ready'); }
+    catch (e) { console.error(`   Database not ready yet (${e.message}); trying again in 15 s`); setTimeout(boot, 15_000); }
+  })();
+} else {
+  try { await startDatabase(); } catch (e) {
+    console.error('\n❌ Soulink could not start: there is a problem with the database.');
+    console.error(`   ${e.message}`);
+    console.error('   Check that SQL Server (SQLEXPRESS) is running and that server/.env has the right DB_ settings.');
+    console.error('   Running SETUP-SOULINK.bat again fixes most problems.\n');
+    process.exit(1);
+  }
 }
 
 const server = http.createServer(createApp());
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
 startAnonTimer(); // Anonymous chats: reveal the sender after 7 days, checked every minute
 initRealtime(server);
+
+// Render's free plan puts the web server to sleep after 15 minutes without visitors, and waking it takes
+// about a minute. A tiny self-visit every 10 minutes keeps it awake. It never touches the database,
+// so the free cloud database still pauses itself when nobody is using Soulink.
+if (process.env.RENDER_EXTERNAL_URL) {
+  const url = `${process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '')}/api/health`;
+  setInterval(() => { fetch(url).catch(() => {}); }, 10 * 60_000).unref?.();
+}
 
 server.listen(config.port, '0.0.0.0', () => {
   const ips = Object.values(os.networkInterfaces()).flat()
