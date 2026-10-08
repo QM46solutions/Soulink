@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Soulink</title>
     <!-- Add to Home Screen: opens full screen like an app, dark status bar, Soulink icon -->
     <meta name="theme-color" content="#7c5cfc" />
@@ -33,29 +33,41 @@
     <div id="root"></div>
     <script>
       // iPhone: (1) Home Screen app covers the whole screen, edge to edge.
-      // (2) When the keyboard opens, the app shrinks to the space above it (so the message box sits right
-      //     on top of the keyboard instead of hiding behind it), and grows back when it closes.
+      // (2) When the keyboard opens, the app shrinks to exactly the space above it, so the message box
+      //     rises with the keyboard (like WhatsApp) instead of being hidden behind it.
       (function () {
         if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
         var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
         var vv = window.visualViewport;
-        function fit() {
+        var raf = 0;
+        function apply() {
+          raf = 0;
           var r = document.getElementById('root');
           if (!r) return;
           var full = standalone ? Math.max(window.innerHeight, Math.round(screen.height)) : window.innerHeight;
-          var keyboard = vv && (full - vv.height) > 150;
-          var h = keyboard ? Math.round(vv.height) : full;
+          var keyboard = !!vv && (full - vv.height) > 150;
+          if (keyboard) {
+            // iOS slides the whole page up to show the text box; undo that and fit the app above the keyboard
+            if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+              window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+            }
+            r.style.top = Math.max(0, Math.round(vv.offsetTop)) + 'px';
+            r.style.height = Math.round(vv.height) + 'px';
+          } else {
+            r.style.top = '0px';
+            r.style.height = full + 'px';
+          }
           r.style.bottom = 'auto';
-          r.style.height = h + 'px';
-          r.style.top = (keyboard ? Math.round(vv.offsetTop) : 0) + 'px';
-          document.documentElement.classList.toggle('sl-keyboard', !!keyboard);
-          if (!keyboard) window.scrollTo(0, 0);
+          document.documentElement.classList.toggle('sl-keyboard', keyboard);
         }
-        fit();
+        function fit() { if (!raf) raf = requestAnimationFrame(apply); }
+        apply();
         window.addEventListener('resize', fit);
+        window.addEventListener('scroll', fit, { passive: true });
         if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
         window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
-        document.addEventListener('focusout', function () { setTimeout(fit, 120); });
+        document.addEventListener('focusin', function () { setTimeout(fit, 50); setTimeout(fit, 350); setTimeout(fit, 700); });
+        document.addEventListener('focusout', function () { setTimeout(fit, 120); setTimeout(fit, 500); });
       })();
     </script>
   </body>
