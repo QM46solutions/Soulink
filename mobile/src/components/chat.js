@@ -714,7 +714,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
 
 function SendButton({ onPress, busy, label }) {
   return (
-    <Pressable onPress={onPress} disabled={busy} accessibilityLabel={label} style={{ marginLeft: 8 }}>
+    <Pressable onPress={onPress} disabled={busy} accessibilityLabel={label} style={{ marginLeft: 4 }}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.sendBtn}>
         {busy ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
       </LinearGradient>
@@ -747,12 +747,13 @@ const st = StyleSheet.create({
   dayLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dayText: { color: colors.dim, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', marginHorizontal: 10 },
 
-  composer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: space.md, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(8,7,13,0.96)' },
+  // Instagram-style: one soft filled pill (no outline, no divider line) holding camera, text and the icons
+  composer: { flexDirection: 'row', alignItems: 'flex-end', marginHorizontal: 10, marginTop: 6, marginBottom: 10, padding: 5, borderRadius: 26, backgroundColor: 'rgba(38,35,56,0.96)' },
   composerDisabled: { padding: space.lg, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border },
-  cameraBtn: { marginRight: 8, marginBottom: 3 },
+  cameraBtn: { marginRight: 2 },
   cameraGrad: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  inputWrap: { flex: 1, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border, borderRadius: 22, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
-  input: { color: colors.text, fontFamily: fonts.body, fontSize: 15, maxHeight: 120, paddingVertical: 10, outlineStyle: 'none' },
-  iconBtn: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  inputWrap: { flex: 1, paddingHorizontal: 8, minHeight: 38, justifyContent: 'center' },
+  input: { color: colors.text, fontFamily: fonts.body, fontSize: 15, maxHeight: 120, paddingVertical: 8, borderWidth: 0, backgroundColor: 'transparent', outlineStyle: 'none' },
+  iconBtn: { width: 36, height: 38, alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
 });

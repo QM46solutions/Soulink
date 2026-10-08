@@ -50,7 +50,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
 }
 
 // Screens outside the tabs still show the bottom bar; which icon is "bold" there
-const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'spark', 'create-post', 'share-post']);
+// an open conversation (chat / anonymous chat) uses the whole screen, like Instagram
+const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'spark', 'create-post', 'share-post', 'chat', 'anon']);
 const SECTION = {
   messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
   settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile',
