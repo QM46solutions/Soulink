@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
 import ProfileMoments from '../../components/ProfileMoments';
 import ShowScoreButton from '../../components/ShowScoreButton';
+import ConnectSheet from '../../components/ConnectSheet';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
@@ -29,6 +30,7 @@ export default function UserProfile() {
   const [posts, setPosts] = useState(null);
   const [anon, setAnon] = useState(null);
   const [tab, setTab] = useState('posts'); // posts | moments
+  const [connectOpen, setConnectOpen] = useState(false);
   const load = useCallback(async () => {
     try {
       const d = await api(`/users/u/${encodeURIComponent(username)}`);
@@ -92,7 +94,8 @@ export default function UserProfile() {
   };
 
   // One button for everything: Connect → Requested → (they accept) Connected → they connect back → Connections
-  const goConnect = () => { if (!needSoul()) router.push({ pathname: '/connect/[userId]', params: { userId: target.id, username: target.username } }); };
+  // Connect = a small two-step prompt on top of the profile (who they are to you → what you're hoping for)
+  const goConnect = () => { if (!needSoul()) setConnectOpen(true); };
   let connectBtn = null;
   let messageBtn = null;
   if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
@@ -153,6 +156,7 @@ export default function UserProfile() {
         title={target.username}
         options={[{ label: 'Report', onPress: () => setReporting(true) }, { label: 'Block', destructive: true, onPress: block }]}
       />
+      <ConnectSheet visible={connectOpen} onClose={() => setConnectOpen(false)} user={target} onSent={load} />
       <ReportModal visible={reporting} onClose={() => setReporting(false)} targetType="user" targetId={target.id} />
     </ScrollView>
   );

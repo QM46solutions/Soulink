@@ -70,8 +70,6 @@ export default function Connect() {
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, marginTop: space.md, textAlign: 'center' }}>Connect with {first}</Text>
         <ScorePill score={status?.soulScore} intent={intent} style={{ marginTop: space.sm }} />
       </View>
-      {/* the full Soul Score, right when you decide to connect */}
-      {match ? <View style={{ marginTop: space.lg, marginHorizontal: -space.xl }}><MatchPanel match={match} userId={userId} name={first} /></View> : null}
 
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0, textAlign: 'center' }]}>Who is {first} to you?</Text>
       <View style={{ flexDirection: 'row', gap: space.md }}>
