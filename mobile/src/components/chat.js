@@ -18,6 +18,8 @@ import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
 import { CHAT_LANGS, langName } from '../lib/languages';
 import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
+import { confirm, notice } from '../lib/confirm';
+import { AttachSheet, ContactContent, ContactPicker, DocumentContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
 
 // ---------- avatars ----------
 
@@ -205,7 +207,7 @@ function MomentRefTag({ momentRef, mine }) {
   );
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo }) {
+export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo, onVote }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
@@ -248,6 +250,14 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
         ) : null}
       </Pressable>
     );
+  } else if (message.kind === 'location' && message.location) {
+    content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><LocationContent loc={message.location} mine={mine} /></BubbleShell></Pressable>;
+  } else if (message.kind === 'contact' && message.contact) {
+    content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><ContactContent c={message.contact} mine={mine} /></BubbleShell></Pressable>;
+  } else if (message.kind === 'document' && message.document) {
+    content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><DocumentContent doc={message.document} url={message.mediaUrl} mine={mine} /></BubbleShell></Pressable>;
+  } else if (message.kind === 'poll' && message.poll) {
+    content = <Pressable onLongPress={onMenu}><BubbleShell mine={mine}><PollContent poll={message.poll} mine={mine} onVote={live && onVote ? (i) => onVote(message, i) : undefined} /></BubbleShell></Pressable>;
   } else if (message.kind === 'image') {
     content = (
       <Pressable onPress={() => { tap(); onOpenImage?.(message); }} onLongPress={onMenu}>
@@ -352,7 +362,7 @@ export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend
         ) : null}
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: 12, borderRadius: 18, backgroundColor: mine ? 'rgba(124,92,252,0.35)' : colors.card, marginBottom: space.md }}>
           <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>
-            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : '🎤 Voice message'}
+            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : message.kind === 'location' ? '📍 Location' : message.kind === 'contact' ? '👤 Contact' : message.kind === 'document' ? '📄 Document' : message.kind === 'poll' ? '📊 Poll' : '🎤 Voice message'}
           </Text>
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', minWidth: 200, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
@@ -517,8 +527,11 @@ function TranslatePreview({ result, onSend, onEdit, onCancel, sending }) {
   );
 }
 
-export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo }) {
+export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll }) {
   const insets = useSafeAreaInsets();
+  const [attach, setAttach] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
   const [text, setText] = useState('');
   const [tr, setTr] = useState(null); // { to, output } while the translator is on
   const [trSetup, setTrSetup] = useState(false);
@@ -578,6 +591,18 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
     onSendMedia({ kind: 'image', uri: a.uri, name, type });
   };
 
+  // the "+" sheet
+  const pickAttach = async (k) => {
+    if (k === 'photos') pickPhoto(false);
+    else if (k === 'contact') setContactOpen(true);
+    else if (k === 'poll') setPollOpen(true);
+    else if (k === 'document') { const f = await pickDocument(); if (f) onSendDocument?.(f); }
+    else if (k === 'location') {
+      try { const loc = await getMyLocation(); if (await confirm('Send your current location?', loc.label || 'Your location right now', { confirmText: 'Send' })) onSendLocation?.(loc); }
+      catch (e) { notice('Location', e.message); }
+    }
+  };
+
   const startRecording = async () => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
@@ -608,7 +633,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
 
   if (recording) {
     return (
-      <View style={st.composer}>
+      <View style={[st.composer, { paddingBottom: 8 + insets.bottom }]}>
         <Pressable onPress={() => finishRecording(false)} hitSlop={8} accessibilityLabel="Cancel recording" style={st.iconBtn}>
           <Ionicons name="trash-outline" size={20} color={colors.danger} />
         </Pressable>
@@ -668,19 +693,23 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
       </View>
     ) : null}
     {translatorUi}
+    {/* WhatsApp-style: + (photos, location, contact, document, poll) · pill with Soulmoji, text, translator, camera · mic / send */}
     <View style={st.composer}>
-      <Pressable onPress={() => pickPhoto(true)} hitSlop={6} accessibilityLabel="Take a photo" style={st.cameraBtn}>
-        <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.cameraGrad}>
-          <Ionicons name="camera" size={18} color="#fff" />
-        </LinearGradient>
+      <Pressable onPress={() => setAttach(true)} hitSlop={6} accessibilityLabel="Share photos, location, contact, document or poll"
+        style={({ hovered, pressed }) => [st.plusBtn, { transform: [{ rotate: attach ? '45deg' : '0deg' }, { scale: pressed ? 0.9 : hovered ? 1.08 : 1 }] }]}>
+        <Ionicons name="add" size={30} color={colors.aura} />
       </Pressable>
-      <View style={st.inputWrap}>
+      <View style={st.pill}>
+        <Pressable onPress={onSoulmoji} hitSlop={6} accessibilityLabel="Send a Soulmoji" style={st.pillIcon}>
+          <MaterialCommunityIcons name="emoticon-excited-outline" size={24} color={soulmojiOpen ? colors.spark : colors.aura} />
+        </Pressable>
         <TextInput
           value={text}
           onChangeText={change}
-          placeholder={tr ? `Type in your language…` : 'Message…'}
+          placeholder={tr ? 'Type in your language…' : 'Message'}
           placeholderTextColor={colors.dim}
           multiline
+          numberOfLines={1}
           maxLength={2000}
           style={st.input}
           // Laptop keyboard: Enter sends, Shift+Enter makes a new line (phones keep their normal keyboard)
@@ -688,36 +717,38 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
             if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault(); if (text.trim()) sendText(); }
           } : undefined}
         />
+        {onTranslateText ? (
+          <Pressable onPress={() => setTrSetup(true)} hitSlop={6} accessibilityLabel="Translate my message" style={st.pillIcon}>
+            <Ionicons name="language" size={22} color={tr ? colors.spark : colors.muted} />
+          </Pressable>
+        ) : null}
+        {!hasText ? (
+          <Pressable onPress={() => pickPhoto(true)} hitSlop={6} accessibilityLabel="Take a photo" style={st.pillIcon}>
+            <Ionicons name="camera-outline" size={23} color={colors.muted} />
+          </Pressable>
+        ) : null}
       </View>
       {hasText ? (
         <SendButton onPress={sendText} busy={trBusy} label={tr ? 'Translate' : 'Send'} />
       ) : (
-        <>
-          <Pressable onPress={startRecording} hitSlop={6} accessibilityLabel="Record a voice message" style={st.iconBtn}>
-            <Ionicons name="mic-outline" size={22} color={colors.text} />
-          </Pressable>
-          <Pressable onPress={() => pickPhoto(false)} hitSlop={6} accessibilityLabel="Send a photo from your gallery" style={st.iconBtn}>
-            <Ionicons name="image-outline" size={22} color={colors.text} />
-          </Pressable>
-          {onTranslateText ? (
-            <Pressable onPress={() => setTrSetup(true)} hitSlop={6} accessibilityLabel="Translate my message" style={st.iconBtn}>
-              <Ionicons name="language" size={22} color={tr ? colors.spark : colors.text} />
-            </Pressable>
-          ) : null}
-          {/* Soulmoji takes the place of Instagram's sticker button */}
-          <Pressable onPress={onSoulmoji} hitSlop={6} accessibilityLabel="Send a Soulmoji" style={st.iconBtn}>
-            <MaterialCommunityIcons name="emoticon-excited-outline" size={24} color={soulmojiOpen ? colors.spark : colors.aura} />
-          </Pressable>
-        </>
+        <Pressable onPress={startRecording} hitSlop={6} accessibilityLabel="Record a voice message" style={{ marginLeft: 6 }}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.sendBtn}>
+            <Ionicons name="mic" size={22} color="#fff" />
+          </LinearGradient>
+        </Pressable>
       )}
     </View>
+    <AttachSheet visible={attach} onClose={() => setAttach(false)} onPick={pickAttach}
+      only={['photos', onSendLocation && 'location', onSendContact && 'contact', onSendDocument && 'document', onSendPoll && 'poll'].filter(Boolean)} />
+    <ContactPicker visible={contactOpen} onClose={() => setContactOpen(false)} onSend={(u) => onSendContact?.(u)} />
+    <PollComposer visible={pollOpen} onClose={() => setPollOpen(false)} onSend={(p) => onSendPoll?.(p)} />
     </View>
   );
 }
 
 function SendButton({ onPress, busy, label }) {
   return (
-    <Pressable onPress={onPress} disabled={busy} accessibilityLabel={label} style={{ marginLeft: 4 }}>
+    <Pressable onPress={onPress} disabled={busy} accessibilityLabel={label} style={{ marginLeft: 6 }}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.sendBtn}>
         {busy ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
       </LinearGradient>
@@ -750,13 +781,16 @@ const st = StyleSheet.create({
   dayLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dayText: { color: colors.dim, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', marginHorizontal: 10 },
 
-  // Instagram-style: one soft filled pill (no outline, no divider line) holding camera, text and the icons
-  composer: { flexDirection: 'row', alignItems: 'flex-end', marginHorizontal: 10, marginTop: 6, marginBottom: 10, padding: 5, borderRadius: 26, backgroundColor: 'rgba(38,35,56,0.96)' },
+  // WhatsApp-style row: + · soft filled pill (no outline) · round mic / send
+  composer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 6, paddingTop: 6, paddingBottom: 8 },
+  plusBtn: { width: 40, height: 46, alignItems: 'center', justifyContent: 'center' },
+  pill: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', minHeight: 46, borderRadius: 23, paddingHorizontal: 4, backgroundColor: 'rgba(38,35,56,0.96)' },
+  pillIcon: { width: 38, height: 46, alignItems: 'center', justifyContent: 'center' },
   composerDisabled: { padding: space.lg, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border },
   cameraBtn: { marginRight: 2 },
   cameraGrad: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  inputWrap: { flex: 1, paddingHorizontal: 8, minHeight: 38, justifyContent: 'center' },
-  input: { color: colors.text, fontFamily: fonts.body, fontSize: 15, maxHeight: 120, paddingVertical: 8, borderWidth: 0, backgroundColor: 'transparent', outlineStyle: 'none' },
-  iconBtn: { width: 36, height: 38, alignItems: 'center', justifyContent: 'center' },
-  sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  inputWrap: { flex: 1, paddingHorizontal: 14, minHeight: 46, borderRadius: 23, justifyContent: 'center', backgroundColor: 'rgba(38,35,56,0.96)' },
+  input: { flex: 1, color: colors.text, fontFamily: fonts.body, fontSize: 16, lineHeight: 22, minHeight: 46, maxHeight: 120, paddingTop: 12, paddingBottom: 12, paddingHorizontal: 2, textAlignVertical: 'center', borderWidth: 0, backgroundColor: 'transparent', outlineStyle: 'none' },
+  iconBtn: { width: 40, height: 46, alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });

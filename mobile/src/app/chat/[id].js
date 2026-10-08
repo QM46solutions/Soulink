@@ -14,6 +14,7 @@ import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
 import ActionSheet from '../../components/ActionSheet';
+import GalaxyBackground from '../../components/GalaxyBackground';
 import { CHAT_LANGS, detectLanguage, langName } from '../../lib/languages';
 
 let tmpSeq = 0;
@@ -120,6 +121,11 @@ export default function Chat() {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === messageId && m.moment ? { ...m, moment: { ...m.moment, status: status === 'saved' || m.moment.mine ? status : m.moment.status } } : m)));
   });
+  useLiveEvent('message:poll', ({ conversationId, messageId, counts, total, votes }) => {
+    if (conversationId !== id) return;
+    const mineV = votes?.find((v) => String(v.userId).toLowerCase() === String(me.id).toLowerCase());
+    setMessages((cur) => cur.map((m) => (m.id === messageId && m.poll ? { ...m, poll: { ...m.poll, counts, total, myVote: mineV ? mineV.option : null } } : m)));
+  });
   useLiveEvent('message:deleted', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === message.id ? message : m)));
@@ -147,7 +153,7 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState(null);
   const [soulmojiOpen, setSoulmojiOpen] = useState(false);
   const nameOfSender = (senderId) => (senderId === me.id ? 'yourself' : (conv?.members.find((x) => x.id === senderId)?.displayName || 'them').split(' ')[0]);
-  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.kind === 'post' ? '📮 Post' : m.body);
+  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.kind === 'post' ? '📮 Post' : m.kind === 'location' ? '📍 Location' : m.kind === 'contact' ? '👤 Contact' : m.kind === 'document' ? '📄 Document' : m.kind === 'poll' ? '📊 Poll' : m.body);
 
   const sendText = async (body, retryId) => {
     const tmpId = retryId || `tmp-${++tmpSeq}`;
@@ -162,6 +168,51 @@ export default function Chat() {
     } catch (e) {
       if (e.code === 'blocked') setBlocked(true);
       setMessages((cur) => cur.map((m) => (m.id === tmpId ? { ...m, status: 'failed' } : m)));
+    }
+  };
+
+  // "+" menu: location / contact / poll go as one message; documents are uploaded
+  const sendExtra = async (kind, payload, preview) => {
+    const tmpId = `tmp-${++tmpSeq}`;
+    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind, ...preview, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
+    try {
+      const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: payload });
+      replaceTmp(tmpId, r.message);
+    } catch (e) {
+      if (e.code === 'blocked') setBlocked(true);
+      setMessages((cur) => cur.filter((m) => m.id !== tmpId));
+      notice('Not sent', e.message);
+    }
+  };
+  const sendLocation = (loc) => sendExtra('location', { location: loc }, { location: loc });
+  const sendContact = (u) => sendExtra('contact', { contact: { userId: u.id } }, { contact: { userId: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl } });
+  const sendPoll = (p) => sendExtra('poll', { poll: p }, { poll: { ...p, counts: p.options.map(() => 0), total: 0, myVote: null } });
+  const sendDocument = async (f) => {
+    const tmpId = `tmp-${++tmpSeq}`;
+    setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'document', document: { name: f.name, size: f.size }, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
+    try {
+      const form = new FormData();
+      form.append('name', f.name);
+      form.append('file', f, f.name);
+      const r = await api(`/conversations/${id}/document`, { method: 'POST', form, timeoutMs: 180000 });
+      replaceTmp(tmpId, r.message);
+    } catch (e) {
+      setMessages((cur) => cur.filter((m) => m.id !== tmpId));
+      notice('Document not sent', e.message);
+    }
+  };
+  const vote = async (m, option) => {
+    const was = m.poll;
+    const counts = [...(was.counts || was.options.map(() => 0))];
+    let myVote = option; let total = was.total || 0;
+    if (was.myVote === option) { counts[option] -= 1; myVote = null; total -= 1; } else { if (was.myVote != null) counts[was.myVote] -= 1; else total += 1; counts[option] += 1; }
+    setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, poll: { ...was, counts, total, myVote } } : x)));
+    try {
+      const r = await api(`/conversations/${id}/messages/${m.id}/vote`, { method: 'POST', body: { option } });
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, poll: { ...x.poll, counts: r.counts, total: r.total, myVote: r.myVote } } : x)));
+    } catch (e) {
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, poll: was } : x)));
+      notice('Vote not saved', e.message);
     }
   };
 
@@ -296,6 +347,7 @@ export default function Chat() {
       <View>
         {!older || !sameDay(older.createdAt, item.createdAt) ? <DaySeparator label={dayLabel(item.createdAt)} /> : null}
         <MessageBubble
+          onVote={vote}
           message={item}
           mine={mine}
           status={item.status}
@@ -321,6 +373,8 @@ export default function Chat() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      {/* the whole chat sits on a slowly moving galaxy */}
+      <GalaxyBackground />
       <FlatList
         inverted
         data={messages}
@@ -371,6 +425,10 @@ export default function Chat() {
           disabledText="You can't message this account."
           onSendText={(b) => sendText(b)}
           onSendMedia={sendMedia}
+          onSendLocation={sendLocation}
+          onSendContact={sendContact}
+          onSendDocument={sendDocument}
+          onSendPoll={sendPoll}
           onTranslateText={translateText}
           onTranslateVoice={translateVoice}
           onSendTranslated={sendTranslated}

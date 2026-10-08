@@ -81,6 +81,9 @@ export function serializeMessage(m) {
     soulmoji: !deleted && m.kind === 'soulmoji' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
     // a shared post: small preview (the post itself is checked again when it's opened)
     post: !deleted && m.kind === 'post' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
+    // "+" menu attachments: location { lat, lon, label }, contact { userId, username, displayName, avatarUrl },
+    // document { name, size }, poll { question, options[] } (votes are added in enrich)
+    ...(!deleted && ['location', 'contact', 'document', 'poll'].includes(m.kind) && m.body ? (() => { try { return { [m.kind]: JSON.parse(m.body) }; } catch { return {}; } })() : {}),
     savedAt: m.saved_at ?? null,
     // a reply to someone's Moment: small preview of that Moment
     momentRef: !deleted && m.moment_ref ? (() => { try { return JSON.parse(m.moment_ref); } catch { return null; } })() : null,
@@ -107,9 +110,23 @@ function momentFor(m, meId, opensByUser) {
 const SOULMOJI_MOODS = ['happy', 'laugh', 'love', 'sad', 'cry', 'angry', 'shocked', 'tired', 'cool', 'party', 'thinking', 'shy'];
 
 /** Adds reactions and the replied-to message preview (Instagram-style) to a list of messages. */
+// polls: counts per option + what I picked
+async function withPolls(messages, meId) {
+  const ids = messages.filter((m) => m.kind === 'poll' && m.poll).map((m) => m.id);
+  if (!ids.length) return messages;
+  const rows = await many(`SELECT message_id, user_id, option_idx FROM poll_votes WHERE message_id IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`, ids);
+  return messages.map((m) => {
+    if (m.kind !== 'poll' || !m.poll) return m;
+    const mine = rows.filter((r) => String(r.message_id).toLowerCase() === String(m.id).toLowerCase());
+    const counts = m.poll.options.map((_, i) => mine.filter((r) => Number(r.option_idx) === i).length);
+    const myVote = mine.find((r) => String(r.user_id).toLowerCase() === String(meId).toLowerCase());
+    return { ...m, poll: { ...m.poll, counts, total: mine.length, myVote: myVote ? Number(myVote.option_idx) : null } };
+  });
+}
+
 export async function enrich(messages, meId) {
   if (!messages.length) return messages;
-  const out = await enrichBase(messages, meId);
+  const out = await withPolls(await enrichBase(messages, meId), meId);
   const momentIds = out.filter((m) => m.kind === 'moment' && !m.deleted).map((m) => m.id);
   if (!momentIds.length) return out;
   const rows = await many(`SELECT message_id, user_id, opens FROM chat_moment_opens WHERE message_id IN (${momentIds.map((_, i) => `$${i + 1}`).join(',')})`, momentIds);
@@ -135,7 +152,7 @@ async function enrichBase(messages, meId) {
     return {
       ...m,
       reactions: Object.entries(counts).map(([emoji, count]) => ({ emoji, count, mine: mine.some((x) => x.emoji === emoji && x.user_id === meId) })),
-      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.kind === 'post' ? '📮 Post' : rp.body } : null,
+      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.kind === 'post' ? '📮 Post' : rp.kind === 'location' ? '📍 Location' : rp.kind === 'contact' ? '👤 Contact' : rp.kind === 'document' ? '📄 Document' : rp.kind === 'poll' ? '📊 Poll' : rp.body } : null,
     };
   });
 }
@@ -149,6 +166,10 @@ function preview(m, meId) {
   else if (m.kind === 'soulmoji') text = '✨ Soulmoji';
   else if (m.kind === 'post') text = '📮 Shared a post';
   else if (m.kind === 'moment') text = '📸 Moment';
+  else if (m.kind === 'location') text = '📍 Location';
+  else if (m.kind === 'contact') text = `👤 ${m.contact?.displayName || 'Contact'}`;
+  else if (m.kind === 'document') text = `📄 ${m.document?.name || 'Document'}`;
+  else if (m.kind === 'poll') text = `📊 ${m.poll?.question || 'Poll'}`;
   else if (m.momentRef) text = `↩︎ Moment: ${m.body}`;
   else text = m.body;
   const safe = m.kind === 'moment' ? { ...m, body: null, mediaUrl: null } : m; // a Moment's content never travels in the inbox
@@ -218,7 +239,7 @@ async function pushMessage(conv, senderId, members, kind, body) {
   if (!others.length) return;
   const s = await one('SELECT username, display_name FROM users WHERE id=$1', [senderId]);
   const who = s?.display_name || s?.username || 'Someone';
-  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : kind === 'moment' ? '📸 Sent you a Moment' : 'New message';
+  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : kind === 'moment' ? '📸 Sent you a Moment' : kind === 'location' ? '📍 Shared a location' : kind === 'contact' ? '👤 Shared a contact' : kind === 'document' ? '📄 Sent a document' : kind === 'poll' ? '📊 Started a poll' : 'New message';
   const title = conv.is_group && conv.title ? `${who} · ${conv.title}` : who;
   for (const id of others) await pushTo(id, 'messages', { title, body: what, url: `/chat/${conv.id}`, tag: `chat-${conv.id}` });
 }
@@ -414,15 +435,27 @@ r.post('/:id/messages', ah(async (req, res) => {
     body: z.string().trim().min(1, 'Write a message').max(2000).optional(),
     soulmoji: z.object({ mood: z.enum(SOULMOJI_MOODS), caption: z.string().trim().max(40).optional(), imageUrl: z.string().max(300).optional() }).optional(),
     voice: z.object({ url: z.string().max(300), durationMs: z.number().int().min(0).max(10 * 60 * 1000), text: z.string().trim().max(2000).optional() }).optional(),
+    location: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180), label: z.string().trim().max(150).optional() }).optional(),
+    contact: z.object({ userId: uuid }).optional(),
+    poll: z.object({ question: z.string().trim().min(1, 'Ask a question').max(200), options: z.array(z.string().trim().min(1).max(80)).min(2, 'Add at least 2 options').max(6) }).optional(),
     replyToId: uuid.optional(),
-  }).refine((d) => [d.body, d.soulmoji, d.voice].filter(Boolean).length === 1, 'Send a message, a Soulmoji or a voice note').parse(req.body);
+  }).refine((d) => [d.body, d.soulmoji, d.voice, d.location, d.contact, d.poll].filter(Boolean).length === 1, 'Send one thing at a time').parse(req.body);
   await assertCanSend(conv, req.user.id);
   if (data.replyToId && !(await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [data.replyToId, conv.id]))) throw badRequest('That message is not in this chat');
   if (data.soulmoji?.imageUrl && !(await ownsSoulmoji(req.user.id, data.soulmoji.imageUrl))) throw badRequest('That Soulmoji is not yours', 'not_your_soulmoji');
   if (data.soulmoji && !data.soulmoji.imageUrl && !req.user.avatar_url) throw badRequest('Take your Soulmoji selfie first', 'no_face_photo');
   // A translated voice note made by the voice translator (only your own clips can be sent)
   if (data.voice && !ownsVoiceClip(req.user.id, data.voice.url)) throw badRequest('That voice clip is not yours', 'not_your_voice');
-  const payload = data.voice
+  let contactCard = null;
+  if (data.contact) {
+    const u = await one('SELECT id, username, display_name, avatar_url FROM users WHERE id=$1', [data.contact.userId]);
+    if (!u) throw notFound('That person is not on Soulink');
+    contactCard = { userId: u.id, username: u.username, displayName: u.display_name || u.username, avatarUrl: u.avatar_url || null };
+  }
+  const payload = data.location ? { kind: 'location', body: JSON.stringify({ lat: Math.round(data.location.lat * 1e5) / 1e5, lon: Math.round(data.location.lon * 1e5) / 1e5, label: data.location.label || null }) }
+    : contactCard ? { kind: 'contact', body: JSON.stringify(contactCard) }
+    : data.poll ? { kind: 'poll', body: JSON.stringify({ question: data.poll.question, options: data.poll.options }) }
+    : data.voice
     ? { kind: 'voice', mediaUrl: data.voice.url, durationMs: data.voice.durationMs, body: data.voice.text || null }
     : data.soulmoji
     ? { kind: 'soulmoji', body: JSON.stringify({ mood: data.soulmoji.mood, caption: data.soulmoji.caption || null, faceUrl: req.user.avatar_url, imageUrl: data.soulmoji.imageUrl || null }) }
@@ -575,6 +608,36 @@ r.post('/:id/media', uploadMemory('media', 25).single('file'), ah(async (req, re
   const durationMs = kind === 'voice' ? z.coerce.number().int().min(0).max(10 * 60 * 1000).parse(req.body.durationMs ?? 0) : null;
   const body = kind === 'image' ? z.string().max(2000).optional().parse(req.body.caption) || null : null;
   res.status(201).json({ message: await postMessage(conv, req.user.id, { kind, mediaUrl: url, durationMs, body }) });
+}));
+
+// POST /conversations/:id/document (multipart file, name) → a document in the chat
+r.post('/:id/document', uploadMemory('document', 25).single('file'), ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  if (!req.file) throw badRequest('No file uploaded');
+  await assertCanSend(conv, req.user.id);
+  const url = await saveFile(req.file, 'chat', 'document');
+  const name = z.string().trim().min(1).max(150).catch('Document').parse(req.body?.name || req.file.originalname || 'Document');
+  res.status(201).json({ message: await postMessage(conv, req.user.id, { kind: 'document', mediaUrl: url, body: JSON.stringify({ name, size: req.file.size }) }) });
+}));
+
+// POST /conversations/:id/messages/:messageId/vote { option } → vote in a poll (same option again removes your vote)
+r.post('/:id/messages/:messageId/vote', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const { option } = z.object({ option: z.number().int().min(0).max(5) }).parse(req.body || {});
+  const m = await one("SELECT * FROM messages WHERE id=$1 AND conversation_id=$2 AND kind=N'poll' AND deleted_at IS NULL", [messageId, conv.id]);
+  if (!m) throw notFound('Poll not found');
+  const poll = JSON.parse(m.body);
+  if (option >= poll.options.length) throw badRequest('Pick one of the options');
+  const cur = await one('SELECT option_idx FROM poll_votes WHERE message_id=$1 AND user_id=$2', [m.id, req.user.id]);
+  if (cur && Number(cur.option_idx) === option) await query('DELETE FROM poll_votes WHERE message_id=$1 AND user_id=$2', [m.id, req.user.id]);
+  else if (cur) await query('UPDATE poll_votes SET option_idx=$3, voted_at=SYSDATETIMEOFFSET() WHERE message_id=$1 AND user_id=$2', [m.id, req.user.id, option]);
+  else await query('INSERT INTO poll_votes (message_id, user_id, option_idx) VALUES ($1, $2, $3)', [m.id, req.user.id, option]);
+  const rows = await many('SELECT user_id, option_idx FROM poll_votes WHERE message_id=$1', [m.id]);
+  const counts = poll.options.map((_, i) => rows.filter((r) => Number(r.option_idx) === i).length);
+  emitToUsers(await memberIds(conv.id), 'message:poll', { conversationId: conv.id, messageId: m.id, counts, total: rows.length, votes: rows.map((r) => ({ userId: r.user_id, option: Number(r.option_idx) })) });
+  const mineNow = rows.find((r) => String(r.user_id).toLowerCase() === String(req.user.id).toLowerCase());
+  res.json({ counts, total: rows.length, myVote: mineNow ? Number(mineNow.option_idx) : null });
 }));
 
 // POST /conversations/:id/read → "Seen"

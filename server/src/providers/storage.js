@@ -11,6 +11,13 @@ const ALLOWED = {
 };
 // Chat attachments: a photo or a voice note
 ALLOWED.media = { ...ALLOWED.image, ...ALLOWED.audio };
+// Chat documents (the "+" menu): PDFs, Office files, text, CSV, zip — never HTML/SVG/scripts
+ALLOWED.document = {
+  'application/pdf': '.pdf', 'text/plain': '.txt', 'text/csv': '.csv', 'application/zip': '.zip', 'application/x-zip-compressed': '.zip',
+  'application/msword': '.doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-powerpoint': '.ppt', 'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+};
 // Sparks: a short video (+ optional music from the phone)
 ALLOWED.video = { 'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/webm': '.webm', 'video/x-m4v': '.m4v', 'video/3gpp': '.3gp' };
 ALLOWED.spark = { ...ALLOWED.video, ...ALLOWED.audio };
@@ -42,7 +49,8 @@ export async function saveFile(file, folder, kind = 'image') {
   return url;
 }
 
-const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'video/webm', '.3gp': 'video/3gpp', '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.m4v': 'video/x-m4v', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac' };
+const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.webm': 'video/webm', '.3gp': 'video/3gpp', '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.m4v': 'video/x-m4v', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac',
+  '.pdf': 'application/pdf', '.txt': 'text/plain; charset=utf-8', '.csv': 'text/csv', '.zip': 'application/zip', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
 const diskOf = (url) => path.join(config.uploadDir, String(url).replace(/^\/uploads\//, ''));
 
 async function storeInDb(url, buffer, mimetype) {
