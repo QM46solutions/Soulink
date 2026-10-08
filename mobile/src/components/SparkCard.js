@@ -72,9 +72,11 @@ export default function SparkCard({ spark, onDeleted }) {
       </View>
 
       <View>
-        <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
+        <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
+          {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
+          {spark.stageWeek ? <Chip icon="mic" text="Open Mic" color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
           {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
           {spark.music ? <Chip icon="musical-notes" text={spark.music.title} /> : null}
         </View>

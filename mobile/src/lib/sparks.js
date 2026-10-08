@@ -56,8 +56,10 @@ export const DIETS = [['veg', '🟢 Veg'], ['nonveg', '🔴 Non-veg'], ['egg', '
 const blobOf = async (uri) => (await fetch(uri)).blob();
 
 /** Upload a new Spark: { videoUri, videoType, musicFile?, category, caption, place, details, oneTake, musicTitle } */
-export async function postSpark({ videoUri, videoType, music, category, caption, place, details, oneTake, musicTitle }) {
+export async function postSpark({ videoUri, videoType, music, category, caption, place, details, oneTake, musicTitle, castingId, stage }) {
   const form = new FormData();
+  if (castingId) form.append('castingId', castingId);
+  if (stage) form.append('stage', '1');
   form.append('category', category);
   form.append('caption', caption || '');
   if (place) form.append('place', place);

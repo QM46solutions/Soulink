@@ -53,9 +53,9 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
 
 // Screens outside the tabs still show the bottom bar; which icon is "bold" there
 // an open conversation (chat / anonymous chat) uses the whole screen, like Instagram
-const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'spark', 'create-post', 'share-post', 'chat', 'anon']);
+const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'create-post', 'share-post', 'chat', 'anon']);
 const SECTION = {
-  messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
+  spark: 'sparks', messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
   settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile',
 };
 
@@ -72,7 +72,7 @@ function RootStack() {
   const onboarded = !!user?.onboardingDone;
 
   const top = segs[0];
-  const showBar = loggedIn && onboarded && top && !NO_BAR.has(top) && !(top === 'messages' && segs[1] === 'new');
+  const showBar = loggedIn && onboarded && top && !NO_BAR.has(top) && !(top === 'messages' && segs[1] === 'new') && !(top === 'spark' && segs[1] === 'new');
   const active = SECTION[top] || null;
 
   return (
@@ -98,6 +98,11 @@ function RootStack() {
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />
         <Stack.Screen name="moment/new" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="spark/new" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="spark/casting/index" options={{ title: 'Casting Board' }} />
+        <Stack.Screen name="spark/casting/new" options={{ title: 'Post a casting call', presentation: 'modal' }} />
+        <Stack.Screen name="spark/casting/[id]" options={{ title: 'Casting call' }} />
+        <Stack.Screen name="spark/stage/index" options={{ title: 'Open Mic Stage' }} />
+        <Stack.Screen name="spark/stage/new" options={{ title: 'Add an open mic', presentation: 'modal' }} />
         <Stack.Screen name="moment/[userId]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
         <Stack.Screen name="share-post" options={{ title: 'Send in a chat', presentation: 'modal' }} />

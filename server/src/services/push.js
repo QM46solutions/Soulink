@@ -33,6 +33,8 @@ const TYPES = {
   anon_reply: ['anonymous', () => 'replied to your anonymous message.'],
   anon_revealed: ['anonymous', (m) => `was "${m?.alias || 'Anonymous'}". Now you know who wrote to you.`],
   anon_revealed_sender: ['anonymous', (m) => `can now see you were "${m?.alias || 'Anonymous'}".`],
+  casting_audition: ['likes', (m) => `auditioned for your role${m?.title ? ` "${m.title}"` : ''} 🎭`],
+  casting_pick: ['likes', (m) => `picked your audition${m?.title ? ` for "${m.title}"` : ''}! 🌟`, true],
   spark_reaction: ['likes', () => 'reacted to your Spark 🎬'],
   spark_tried: ['likes', (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`)],
   argue_invite: ['argue', (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}`],
@@ -44,7 +46,7 @@ const LINK = (type, entityId, meta) => {
   if (type.startsWith('post_') && entityId) return `/post/${entityId}`;
   if (type.startsWith('anon_') && entityId) return `/anon/${entityId}`;
   if (type.startsWith('argue_') && meta?.caseId) return `/argue/${meta.caseId}`;
-  if (type.startsWith('spark_')) return '/sparks';
+  if (type.startsWith('spark_') || type.startsWith('casting_')) return '/sparks';
   return '/activity';
 };
 

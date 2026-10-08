@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
 import { ALL_CAT, CATEGORIES } from '../../lib/sparks';
 import SparkCatBadge from '../../components/SparkCatBadge';
+import { GradBadge } from '../../components/SparkHub';
 import SparkCard from '../../components/SparkCard';
 import { GradientText } from '../../components/brand';
 import { Button, Empty, Loading } from '../../components/ui';
@@ -45,6 +46,24 @@ export default function Sparks() {
   };
   const choose = (k) => { setCat(k); setList(null); load(k); };
 
+  // Casting Board and Open Mic Stage, right above the categories
+  const Feature = ({ icon, title, text, c, to }) => (
+    <Pressable onPress={() => router.push(to)} style={({ hovered, pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 18, borderWidth: 1,
+      borderColor: hovered ? colors.aura : 'rgba(176,143,255,0.25)', backgroundColor: 'rgba(26,24,40,0.8)', transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+      <GradBadge icon={icon} size={40} colors={c} />
+      <View style={{ flex: 1, marginLeft: 10 }}>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.text }}>{title}</Text>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{text}</Text>
+      </View>
+    </Pressable>
+  );
+  const features = (
+    <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: space.md, paddingTop: space.sm }}>
+      <Feature icon="drama-masks" title="Casting Board" text="Audition for roles" c={['#7c5cfc', '#ff6b9d']} to="/spark/casting" />
+      <Feature icon="microphone-variant" title="Open Mic" text="This week's stage" c={['#f5c842', '#ff6b9d']} to="/spark/stage" />
+    </View>
+  );
+
   const chips = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingVertical: space.sm, gap: 8 }}>
       {[ALL_CAT, ...CATEGORIES].map((c) => {
@@ -64,7 +83,7 @@ export default function Sparks() {
     <FlatList
       data={list || []}
       keyExtractor={(s) => s.id}
-      ListHeaderComponent={chips}
+      ListHeaderComponent={<>{features}{chips}</>}
       renderItem={({ item }) => <SparkCard spark={item} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.6}

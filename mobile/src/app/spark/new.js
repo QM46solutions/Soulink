@@ -1,7 +1,9 @@
-// Post a Spark 🎬: 1) pick a category  2) record in Soulink (one take) or choose a video  3) the category's extras + caption.
-import { useState } from 'react';
+// Post a Spark 🎬: 1) pick a category  2) record in Soulink (clips, timer) or choose a video  3) edit in Spark Studio
+// (trim, speed, filters, text, stickers, music, cover)  4) the category's extras + caption.
+// Also used for a Casting Board audition (?casting=<id>) and for this week's Open Mic (?stage=1).
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +13,9 @@ import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChalle
 import SparkVideo from '../../components/SparkVideo';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkRecorder from '../../components/SparkRecorder';
+import SparkStudio from '../../components/SparkStudio';
+import { api } from '../../lib/api';
+import { cleanEdit, emptyEdit } from '../../lib/sparkEdit';
 import { pickAudio } from '../../components/PostMusic';
 import CityField from '../../components/CityField';
 import { colors, fonts, gradients, space } from '../../lib/theme';
@@ -53,7 +58,14 @@ function BigOption({ icon, title, text, onPress, colors: c, selected, badge }) {
 }
 
 export default function NewSpark() {
-  const [step, setStep] = useState('category'); // category | video | details
+  const params = useLocalSearchParams();
+  const castingId = typeof params.casting === 'string' ? params.casting : null;
+  const forStage = params.stage === '1';
+  const [casting, setCasting] = useState(null); // the role you're auditioning for
+  const [stage, setStage] = useState(null); // this week's Open Mic theme
+  const [step, setStep] = useState('category'); // category | video | edit | details
+  const [edit, setEdit] = useState(emptyEdit());
+  const [clipLen, setClipLen] = useState(0);
   const [category, setCategory] = useState(null);
   const [mode, setMode] = useState(null); // acting: dice | script | scene | dub
   const [dice, setDice] = useState(null);
@@ -71,20 +83,27 @@ export default function NewSpark() {
   const cat = category ? catOf(category) : null;
   const script = scriptOfWeek();
 
+  useEffect(() => {
+    if (castingId) api(`/sparks/casting/${castingId}`).then((r) => { setCasting(r.call); setCategory(r.call.category); if (r.call.category === 'acting') setMode('scene'); setStep('video'); }).catch((e) => notice('Casting', e.message));
+    if (forStage) api('/sparks/stage').then((r) => setStage(r.theme)).catch(() => {});
+  }, [castingId, forStage]);
   const pickCategory = (k) => { setCategory(k); setStep('video'); if (k === 'acting' && !mode) setMode('dice'); if (k === 'acting') setDice(rollDice()); };
   const gallery = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], videoMaxDuration: 60, quality: 0.8 });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], videoMaxDuration: 180, quality: 0.8 });
     const a = r.canceled ? null : r.assets?.[0];
     if (!a) return;
-    if (a.duration && a.duration > 61000) { notice('Too long', 'Sparks are up to 60 seconds. Trim the video and try again.'); return; }
+    if (a.duration && a.duration > 181000) { notice('Too long', 'Pick a video up to 3 minutes. You can trim it to 60 seconds next.'); return; }
     if (a.fileSize && a.fileSize > MAX_MB * 1024 * 1024) { notice('Too big', `Videos up to ${MAX_MB} MB. Tip: record in Soulink for a smaller file.`); return; }
-    setVideo({ uri: a.uri, type: a.mimeType || 'video/mp4', oneTake: false }); setStep('details');
+    setVideo({ uri: a.uri, type: a.mimeType || 'video/mp4', oneTake: false }); setEdit(emptyEdit()); setStep('edit');
   };
   const addMusic = async () => { const f = await pickAudio(); if (f) setMusic(f); };
-  const cue = category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
-    : category === 'fitness' && fit.useChallenge ? `💪 ${fitChallengeOfWeek()}` : null;
+  const castingCue = casting ? `🎭 ${casting.title}: ${casting.role}${casting.script ? `\n“${casting.script}”` : ''}` : null;
+  const stageCue = stage ? `🎤 Open Mic: ${stage.title}` : null;
+  const cue = castingCue || stageCue || (category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
+    : category === 'fitness' && fit.useChallenge ? `💪 ${fitChallengeOfWeek()}` : null);
 
-  const details = () => {
+  const details = () => ({ ...baseDetails(), ...(cleanEdit(edit, clipLen) ? { edit: cleanEdit(edit, clipLen) } : {}) });
+  const baseDetails = () => {
     if (category === 'travel') return { sound: music ? 'music' : sound };
     if (category === 'cooking') {
       const lines = (t) => t.split('\n').map((x) => x.trim()).filter(Boolean);
@@ -107,17 +126,28 @@ export default function NewSpark() {
     if (category === 'acting' && mode === 'dub' && !music) { notice('Add the audio', 'For a dub, add the dialogue or song you are acting to.'); return; }
     setBusy(true);
     try {
-      await postSpark({ videoUri: video.uri, videoType: video.type, music, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.name?.replace(/\.[a-z0-9]{2,4}$/i, '') });
-      router.replace('/sparks');
+      await postSpark({ videoUri: video.uri, videoType: video.type, music, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
+        castingId: casting?.id, stage: forStage });
+      if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage) router.replace('/spark/stage'); else router.replace('/sparks');
     } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); }
   };
-  const back = () => (step === 'category' ? router.back() : step === 'video' ? setStep('category') : (setStep('video'), setVideo(null)));
+  const back = () => (step === 'category' || (step === 'video' && casting) ? router.back() : step === 'video' ? setStep('category') : step === 'edit' ? (setStep('video'), setVideo(null), setMusic(null)) : setStep('edit'));
+
+  // Spark Studio takes the whole screen
+  if (step === 'edit' && video) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#07060c' }}>
+        <SparkStudio video={video} edit={edit} onChange={setEdit} music={music} onMusic={setMusic} cue={cue}
+          onBack={back} onNext={({ duration }) => { setClipLen(duration || 0); setStep('details'); }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg }}>
         <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back"><Ionicons name={step === 'category' ? 'close' : 'arrow-back'} size={26} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{cat ? `${cat.label} Spark` : 'New Spark'}</Text>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{casting ? 'Audition' : forStage ? 'Open Mic' : cat ? `${cat.label} Spark` : 'New Spark'}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -125,6 +155,14 @@ export default function NewSpark() {
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           {step === 'category' ? (
             <>
+              {stage ? (
+                <View style={{ padding: space.lg, borderRadius: 20, overflow: 'hidden', marginBottom: space.lg }}>
+                  <LinearGradient colors={['rgba(124,92,252,0.35)', 'rgba(255,107,157,0.25)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                  <Text style={{ fontFamily: fonts.mono, color: colors.gold, fontSize: 11, letterSpacing: 1 }}>THIS WEEK'S OPEN MIC</Text>
+                  <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 20, marginTop: 4 }}>{stage.title}</Text>
+                  <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginTop: 4 }}>{stage.line}. Pick what kind of act it is.</Text>
+                </View>
+              ) : null}
               <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, marginBottom: space.lg, textAlign: 'center' }}>What are you sharing today? Each category has its own tools.</Text>
               {CATEGORIES.map((c) => <BigOption key={c.key} badge={<SparkCatBadge cat={c} size={50} />} title={c.label} text={c.line} colors={c.colors} onPress={() => pickCategory(c.key)} />)}
             </>
@@ -132,7 +170,16 @@ export default function NewSpark() {
 
           {step === 'video' ? (
             <>
-              {category === 'acting' ? (
+              {casting ? (
+                <View style={{ padding: space.lg, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(176,143,255,0.4)', backgroundColor: colors.glass, marginBottom: space.md }}>
+                  <Text style={{ fontFamily: fonts.mono, color: colors.aura, fontSize: 11, letterSpacing: 1 }}>AUDITION · CASTING BOARD</Text>
+                  <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 19, marginTop: 4 }}>{casting.title}</Text>
+                  <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 4 }}>{casting.role}</Text>
+                  {casting.script ? <Text style={{ fontFamily: fonts.body, color: colors.text, fontSize: 15, lineHeight: 22, marginTop: 8 }}>“{casting.script}”</Text> : null}
+                  <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, marginTop: 8 }}>The lines show on screen while you record.</Text>
+                </View>
+              ) : null}
+              {category === 'acting' && !casting ? (
                 <>
                   <Label>How do you want to act?</Label>
                   <Pills value={mode} onPick={(m) => setMode(m || 'dice')} options={[['dice', '🎲 Improv Dice'], ['script', '📜 Script of the week'], ['scene', '🎬 Movie scene'], ['dub', '🎙️ Dub']]} />
@@ -171,14 +218,18 @@ export default function NewSpark() {
                 <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginBottom: space.md, lineHeight: 19 }}>Share something that happened: in your area, in India or the world. Record yourself telling it, or a clip you shot. Add the headline and a source link in the next step.</Text>
               ) : null}
               <Label>Your video · up to 60 seconds</Label>
-              {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="One take, no edits: gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} /> : null}
-              <BigOption icon="folder-open" title="Choose from your phone" text={`A video up to 60 s and ${MAX_MB} MB`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
+              {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="Record in clips with a timer · one clip gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} /> : null}
+              <BigOption icon="folder-open" title="Upload from your phone" text={`Up to 3 min and ${MAX_MB} MB · trim it to 60 s in the editor`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
+              <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: edit it in Spark Studio (trim, speed, filters, text, stickers, music, cover).</Text>
             </>
           ) : null}
 
           {step === 'details' && video ? (
             <>
-              <SparkVideo uri={video.uri} musicUri={music?.uri} local height={420} />
+              <SparkVideo uri={video.uri} musicUri={music?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
+              <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
+                <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
+              </Pressable>
               {video.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
 
               {category === 'travel' ? (
@@ -243,7 +294,7 @@ export default function NewSpark() {
 
               <Label>Caption</Label>
               <Field value={caption} onChangeText={setCaption} placeholder="Say something about it…" multiline maxLength={1000} style={{ minHeight: 70 }} />
-              {music ? <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, marginTop: 6 }}>With music added, your video plays muted under the song. Only use music you're allowed to share.</Text> : null}
+              {music ? <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, marginTop: 6 }}>The music mix (song start, music and original sound volume) is set in the editor. Only use music you're allowed to share.</Text> : null}
 
               <Pressable onPress={post} disabled={busy} style={{ marginTop: space.xl, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                 <LinearGradient colors={cat?.colors || gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -255,7 +306,7 @@ export default function NewSpark() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); setVideo(v); setStep('details'); }} />
+      <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); setVideo(v); setEdit(emptyEdit()); setStep('edit'); }} />
     </SafeAreaView>
   );
 }
