@@ -21,10 +21,32 @@
          to the very bottom (behind the home bar). iPhone Home Screen apps otherwise come out one status-bar
          height short, which left a gap under the bottom bar. */
       #root { display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+      /* Home Screen app on iPhone: the page is laid out one status-bar height shorter than the screen
+         (that left the dark strip under the bottom bar), so stretch the app by exactly that much. */
+      @media all and (display-mode: standalone) {
+        #root { bottom: auto; height: calc(100% + env(safe-area-inset-top, 0px)); }
+      }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run Soulink.</noscript>
     <div id="root"></div>
+    <script>
+      // iPhone Home Screen app: make sure the app covers the whole screen, edge to edge (portrait)
+      (function () {
+        var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+        if (!standalone || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+        function fit() {
+          var r = document.getElementById('root');
+          var full = Math.max(window.innerHeight, Math.round(screen.height));
+          if (r) { r.style.bottom = 'auto'; r.style.height = full + 'px'; }
+          document.documentElement.style.height = full + 'px';
+          document.body.style.height = full + 'px';
+        }
+        fit();
+        window.addEventListener('resize', fit);
+        window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
+      })();
+    </script>
   </body>
 </html>
