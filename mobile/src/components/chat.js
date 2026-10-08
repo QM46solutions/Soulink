@@ -545,7 +545,7 @@ function useKeyboardOpen() {
   return open;
 }
 
-export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll }) {
+export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll, privateMode }) {
   const safe = useSafeAreaInsets();
   const keyboardOpen = useKeyboardOpen();
   const insets = keyboardOpen ? { ...safe, bottom: 0 } : safe;
@@ -726,7 +726,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
         <TextInput
           value={text}
           onChangeText={change}
-          placeholder={tr ? 'Type in your language…' : 'Message'}
+          placeholder={tr ? 'Type in your language…' : privateMode ? '🔒 Private message' : 'Message'}
           placeholderTextColor={colors.dim}
           multiline
           numberOfLines={1}

@@ -105,7 +105,51 @@ export default function Chat() {
     });
   }, [navigation, conv, me.id, typingUntil]);
 
+  // ----- private chat: tap 3 times anywhere in the chat to turn it on / off -----
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const showToast = (t) => { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 2600); };
+  const taps = useRef([]);
+  const touchAt = useRef(null);
+  const lastTouch = useRef(0);
+  const togglePrivate = async () => {
+    const on = !conv?.privateMode;
+    setConv((c) => ({ ...c, privateMode: on }));
+    showToast(on ? '🔒 Private chat on' : 'Private chat off');
+    try { await api(`/conversations/${id}/private`, { method: 'POST', body: { on } }); }
+    catch (e) { setConv((c) => ({ ...c, privateMode: !on })); notice('Private chat', e.message); }
+  };
+  const countTap = (x, y) => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t.at < 650), { at: now, x, y }];
+    if (taps.current.length >= 3) {
+      const [a, , c] = taps.current.slice(-3);
+      taps.current = [];
+      if (Math.abs(a.x - c.x) < 60 && Math.abs(a.y - c.y) < 60) togglePrivate();
+    }
+  };
+  const tapHandlers = {
+    onTouchStart: (e) => { const t = e.nativeEvent; touchAt.current = { x: t.pageX, y: t.pageY, at: Date.now() }; },
+    onTouchEnd: (e) => {
+      const t = e.nativeEvent; const st = touchAt.current; lastTouch.current = Date.now();
+      if (st && Date.now() - st.at < 300 && Math.abs(t.pageX - st.x) < 10 && Math.abs(t.pageY - st.y) < 10) countTap(t.pageX, t.pageY);
+    },
+    ...(Platform.OS === 'web' ? { onClick: (e) => { if (Date.now() - lastTouch.current > 800) countTap(e.nativeEvent.pageX, e.nativeEvent.pageY); } } : {}),
+  };
+  // leaving the chat: private messages everyone has seen disappear (for both)
+  useEffect(() => () => { api(`/conversations/${id}/leave`, { method: 'POST' }).catch(() => {}); }, [id]);
+
   // ----- live updates -----
+  useLiveEvent('conversation:private', ({ conversationId, on, by }) => {
+    if (conversationId !== id) return;
+    setConv((c) => (c ? { ...c, privateMode: on } : c));
+    if (by !== me.id) showToast(on ? '🔒 Private chat turned on' : 'Private chat turned off');
+  });
+  useLiveEvent('message:vanished', ({ conversationId, ids }) => {
+    if (conversationId !== id) return;
+    const gone = new Set(ids.map((x) => String(x).toLowerCase()));
+    setMessages((cur) => cur.filter((m) => !gone.has(String(m.id).toLowerCase())));
+  });
   useLiveEvent('message:new', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => (cur.some((m) => m.id === message.id) ? cur : [message, ...cur]));
@@ -372,6 +416,15 @@ export default function Chat() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      {conv.privateMode ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(3,2,8,0.55)' }} /> : null}
+      {conv.privateMode ? (
+        <View pointerEvents="none" style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+          backgroundColor: 'rgba(124,92,252,0.22)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)' }}>
+          <Ionicons name="lock-closed" size={13} color={colors.aura} style={{ marginRight: 6 }} />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.text }}>Private chat · seen messages disappear when you leave</Text>
+        </View>
+      ) : null}
+      <View style={{ flex: 1 }} {...tapHandlers}>
       <FlatList
         inverted
         data={messages}
@@ -396,6 +449,13 @@ export default function Chat() {
         }
         contentContainerStyle={{ paddingBottom: space.sm }}
       />
+      </View>
+      {toast ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: '42%', alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(20,18,32,0.95)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.4)' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.text }}>{toast}</Text>
+          {conv.privateMode ? <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center', marginTop: 2 }}>Tap 3 times to turn it off</Text> : null}
+        </View>
+      ) : null}
       {conv.isRequest ? (
         <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(14,12,22,0.96)' }}>
           <Text style={{ color: colors.text, fontFamily: fonts.semibold, textAlign: 'center' }}>
@@ -431,6 +491,7 @@ export default function Chat() {
           onSendTranslated={sendTranslated}
           defaultTranslateTo={conv?.other?.chatLanguage || (myLang === 'en' ? 'te' : 'en')}
           onTyping={() => emit('typing', { conversationId: id })}
+          privateMode={!!conv.privateMode}
         />
         </>
       )}

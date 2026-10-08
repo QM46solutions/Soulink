@@ -84,6 +84,7 @@ export function serializeMessage(m) {
     // "+" menu attachments: location { lat, lon, label }, contact { userId, username, displayName, avatarUrl },
     // document { name, size }, poll { question, options[] } (votes are added in enrich)
     ...(!deleted && ['location', 'contact', 'document', 'poll'].includes(m.kind) && m.body ? (() => { try { return { [m.kind]: JSON.parse(m.body) }; } catch { return {}; } })() : {}),
+    vanish: !!m.vanish, // sent in private chat: disappears after it's seen
     savedAt: m.saved_at ?? null,
     // a reply to someone's Moment: small preview of that Moment
     momentRef: !deleted && m.moment_ref ? (() => { try { return JSON.parse(m.moment_ref); } catch { return null; } })() : null,
@@ -190,6 +191,7 @@ function serializeConversation(c, members, meId, lastMessage = null, unread = 0)
     members: members.map((m) => ({ ...userCard(m), role: m.role, lastReadAt: m.last_read_at })),
     myRole: mine?.role ?? null,
     isRequest: !!mine?.is_request,
+    privateMode: !!c.private_mode,
     lastMessage: preview(lastMessage, meId),
     unreadCount: unread,
     updatedAt: c.last_message_at || c.created_at,
@@ -209,10 +211,11 @@ async function memberIds(conversationId) {
 /** Inserts a message (and bumps the conversation), then pushes it to every member's phone. */
 export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null, replyToId = null, momentRef = null }) {
   const msg = await tx(async (c) => {
+    const vanish = !!conv.private_mode && kind !== 'system' ? 1 : 0; // private chat: gone once it's been seen
     const m = (await c.query(
-      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms, reply_to_id, moment_ref)
-       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [conv.id, senderId, kind, body, mediaUrl, durationMs, replyToId, momentRef ? JSON.stringify(momentRef) : null],
+      `INSERT INTO messages (conversation_id, sender_id, kind, body, media_url, duration_ms, reply_to_id, moment_ref, vanish)
+       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [conv.id, senderId, kind, body, mediaUrl, durationMs, replyToId, momentRef ? JSON.stringify(momentRef) : null, vanish],
     )).rows[0];
     await c.query('UPDATE conversations SET last_message_at = $2 WHERE id=$1', [conv.id, m.created_at]);
     if (senderId) {
@@ -287,7 +290,7 @@ r.get('/', ah(async (req, res) => {
                 AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)) AS unread
        FROM conversation_members cm
        JOIN conversations c ON c.id = cm.conversation_id
-       OUTER APPLY (SELECT TOP 1 * FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC) lm
+       OUTER APPLY (SELECT TOP 1 * FROM messages m WHERE m.conversation_id = c.id AND m.vanished_at IS NULL ORDER BY m.created_at DESC) lm
       WHERE cm.user_id = $1 AND cm.is_request = $2
         AND (c.is_group = 1 OR c.last_message_at IS NOT NULL OR c.created_by = $1)
         AND ($2 = 0 OR c.last_message_at IS NOT NULL)
@@ -424,7 +427,7 @@ r.get('/:id/messages', ah(async (req, res) => {
   const limit = z.coerce.number().int().min(1).max(100).default(30).parse(req.query.limit ?? undefined);
   const before = req.query.before ? z.string().datetime({ offset: true }).parse(req.query.before) : null;
   const rows = await many(
-    `SELECT TOP (${limit}) * FROM messages WHERE conversation_id=$1 AND ($2 IS NULL OR created_at < CAST($2 AS DATETIMEOFFSET))
+    `SELECT TOP (${limit}) * FROM messages WHERE conversation_id=$1 AND vanished_at IS NULL AND ($2 IS NULL OR created_at < CAST($2 AS DATETIMEOFFSET))
       ORDER BY created_at DESC`,
     [conv.id, before],
   );
@@ -642,6 +645,38 @@ r.post('/:id/messages/:messageId/vote', ah(async (req, res) => {
   emitToUsers(await memberIds(conv.id), 'message:poll', { conversationId: conv.id, messageId: m.id, counts, total: rows.length, votes: rows.map((r) => ({ userId: r.user_id, option: Number(r.option_idx) })) });
   const mineNow = rows.find((r) => String(r.user_id).toLowerCase() === String(req.user.id).toLowerCase());
   res.json({ counts, total: rows.length, myVote: mineNow ? Number(mineNow.option_idx) : null });
+}));
+
+// ---------- Private chat (tap 3 times in the chat) ----------
+// POST /conversations/:id/private { on } → turn private chat on/off for everyone in the chat
+r.post('/:id/private', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const { on } = z.object({ on: z.boolean() }).parse(req.body || {});
+  if (!!conv.private_mode === on) return res.json({ privateMode: on });
+  await query('UPDATE conversations SET private_mode=$2 WHERE id=$1', [conv.id, on ? 1 : 0]);
+  const who = req.user.display_name || req.user.username;
+  await systemMessage({ ...conv, private_mode: 0 }, on
+    ? `🔒 ${who} turned on private chat. Messages disappear after they're seen and you leave the chat.`
+    : `${who} turned off private chat.`);
+  emitToUsers(await memberIds(conv.id), 'conversation:private', { conversationId: conv.id, on, by: req.user.id });
+  res.json({ privateMode: on });
+}));
+
+// POST /conversations/:id/leave → I left the chat: private messages everyone has already seen disappear now
+r.post('/:id/leave', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  // (a message request isn't marked as seen just by looking at it)
+  await query('UPDATE conversation_members SET last_read_at = SYSDATETIMEOFFSET() WHERE conversation_id=$1 AND user_id=$2 AND is_request = 0', [conv.id, req.user.id]);
+  const gone = await many(
+    `UPDATE m SET m.vanished_at = SYSDATETIMEOFFSET(), m.body = NULL, m.media_url = NULL
+       OUTPUT INSERTED.id
+       FROM messages m
+      WHERE m.conversation_id = $1 AND m.vanish = 1 AND m.vanished_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM conversation_members cm
+                         WHERE cm.conversation_id = m.conversation_id AND cm.user_id <> m.sender_id
+                           AND (cm.last_read_at IS NULL OR cm.last_read_at < m.created_at))`, [conv.id]);
+  if (gone.length) emitToUsers(await memberIds(conv.id), 'message:vanished', { conversationId: conv.id, ids: gone.map((g) => g.id) });
+  res.json({ vanished: gone.length });
 }));
 
 // POST /conversations/:id/read → "Seen"
