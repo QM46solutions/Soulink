@@ -212,30 +212,70 @@ let lastBubbleTap = 0;
 export const bubbleTappedSince = (t) => lastBubbleTap >= t;
 export const isHeart = (m) => m?.kind === 'text' && !m.deleted && /^\s*(❤️|❤)\s*$/.test(m.body || '');
 
-/** Big beating heart (sent by tapping twice in the chat) */
-export function BigHeart({ size = 84, burst = false }) {
+const HEART_3D = require('../../assets/heart3d.png');
+const NDH = Platform.OS !== 'web';
+const lubDub = (v, rest) => Animated.sequence([
+  Animated.timing(v, { toValue: 1, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: NDH }),   // lub
+  Animated.timing(v, { toValue: 0.25, duration: 110, easing: Easing.in(Easing.quad), useNativeDriver: NDH }),
+  Animated.timing(v, { toValue: 0.75, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: NDH }), // dub
+  Animated.timing(v, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.quad), useNativeDriver: NDH }),
+  Animated.delay(rest),
+]);
+
+/** The 3D Soulink heart as it sits in the chat: beating softly */
+export function BigHeart({ size = 84 }) {
   const beat = useRef(new Animated.Value(0)).current;
-  const pop = useRef(new Animated.Value(burst ? 0 : 1)).current;
-  useEffect(() => {
-    const ND = Platform.OS !== 'web';
-    if (burst) Animated.spring(pop, { toValue: 1, friction: 4, tension: 120, useNativeDriver: ND }).start();
-    const a = Animated.loop(Animated.sequence([
-      Animated.timing(beat, { toValue: 1, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),   // lub
-      Animated.timing(beat, { toValue: 0.25, duration: 110, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
-      Animated.timing(beat, { toValue: 0.7, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: ND }),  // dub
-      Animated.timing(beat, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.quad), useNativeDriver: ND }),
-      Animated.delay(650),
-    ]));
-    a.start();
-    return () => a.stop();
-  }, [beat, pop, burst]);
-  const scale = Animated.multiply(pop, beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }));
+  useEffect(() => { const a = Animated.loop(lubDub(beat, 1100)); a.start(); return () => a.stop(); }, [beat]);
   return (
-    <Animated.View style={{ width: size * 1.3, height: size * 1.25, alignItems: 'center', justifyContent: 'center', transform: [{ scale }] }}>
-      <Animated.View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255,107,157,0.35)',
-        opacity: beat.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.6] }), ...(Platform.OS === 'web' ? { filter: `blur(${Math.round(size / 5)}px)` } : {}) }} />
-      <Text style={{ fontSize: size, lineHeight: size * 1.2 }}>❤️</Text>
+    <Animated.View style={{ width: size, height: size, transform: [{ scale: beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }}>
+      <Image source={HEART_3D} style={{ width: size, height: size }} contentFit="contain" />
     </Animated.View>
+  );
+}
+
+/**
+ * The heart you send by tapping twice: it pops up big in the middle of the chat, beats 3 times with a glowing
+ * ripple, then flies down to its place in the chat (right side if you sent it, left if you received it).
+ */
+export function HeartFlight({ mine, area, onLanded }) {
+  const enter = useRef(new Animated.Value(0)).current;
+  const beat = useRef(new Animated.Value(0)).current;
+  const fly = useRef(new Animated.Value(0)).current;
+  const BIG = 190;
+  useEffect(() => {
+    const a = Animated.sequence([
+      Animated.spring(enter, { toValue: 1, friction: 5, tension: 90, useNativeDriver: NDH }),
+      lubDub(beat, 160), lubDub(beat, 160), lubDub(beat, 120),
+      Animated.timing(fly, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.cubic), useNativeDriver: NDH }),
+    ]);
+    a.start(({ finished }) => { if (finished) onLanded?.(); });
+    return () => a.stop();
+  }, [enter, beat, fly]); // eslint-disable-line react-hooks/exhaustive-deps
+  const w = area?.width || 400; const h = area?.height || 700;
+  // where the heart message sits: bottom of the chat, on the sender's side
+  const tx = (mine ? 1 : -1) * (w / 2 - 66);
+  const ty = h / 2 - 80;
+  const scale = Animated.multiply(
+    Animated.multiply(enter.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }), beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] })),
+    fly.interpolate({ inputRange: [0, 1], outputRange: [1, 72 / BIG] }),
+  );
+  const ripple = (delay) => beat.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+      {/* soft dim + pink glow while it beats */}
+      <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(6,4,14,0.45)',
+        opacity: Animated.multiply(enter, fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })) }} />
+      <Animated.View style={{ alignItems: 'center', justifyContent: 'center', opacity: enter,
+        transform: [{ translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, tx] }) }, { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [0, ty] }) }, { scale }] }}>
+        {/* glowing ring that bursts out on every beat */}
+        <Animated.View style={{ position: 'absolute', width: BIG * 1.05, height: BIG * 1.05, borderRadius: BIG, borderWidth: 3, borderColor: 'rgba(255,107,157,0.75)',
+          opacity: Animated.multiply(ripple(), fly.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0], extrapolate: 'clamp' })),
+          transform: [{ scale: beat.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.45] }) }] }} />
+        <Animated.View style={{ position: 'absolute', width: BIG * 0.9, height: BIG * 0.9, borderRadius: BIG, backgroundColor: 'rgba(255,107,157,0.35)',
+          opacity: beat.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.7] }), ...(Platform.OS === 'web' ? { filter: 'blur(28px)' } : {}) }} />
+        <Image source={HEART_3D} style={{ width: BIG, height: BIG }} contentFit="contain" />
+      </Animated.View>
+    </View>
   );
 }
 

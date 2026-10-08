@@ -8,7 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { useLiveEvent, useRealtime } from '../../lib/realtime';
 import { confirm, notice } from '../../lib/confirm';
 import { dayLabel, sameDay } from '../../lib/time';
-import { BigHeart, Composer, ConversationAvatar, DaySeparator, MessageBubble, MessageMenu, TypingBubble, bubbleTappedSince, isHeart } from '../../components/chat';
+import { HeartFlight, Composer, ConversationAvatar, DaySeparator, MessageBubble, MessageMenu, TypingBubble, bubbleTappedSince, isHeart } from '../../components/chat';
 import { SoulmojiPanel } from '../../components/soulmoji';
 import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
@@ -128,9 +128,11 @@ export default function Chat() {
   };
   // 2 taps = send a big beating heart · 3 taps = private chat on/off (we wait a moment after 2 taps to see if a 3rd comes)
   const heartTimer = useRef(null);
-  const [burst, setBurst] = useState(0);
-  const playBurst = () => { setBurst(Date.now()); setTimeout(() => setBurst(0), 1900); };
-  const sendHeart = () => { playBurst(); sendText('❤️'); };
+  // the heart flies in the middle first, then lands in the chat (sent when it lands; received ones stay hidden until then)
+  const [flight, setFlight] = useState(null); // { key, mine, messageId? }
+  const [area, setArea] = useState(null);
+  const sendHeart = () => { if (!flight) setFlight({ key: Date.now(), mine: true }); };
+  const landed = () => { const f = flight; setFlight(null); if (f?.mine) sendText('❤️'); };
   const countTap = (x, y) => {
     const now = Date.now();
     taps.current = [...taps.current.filter((t) => now - t.at < 650), { at: now, x, y }];
@@ -162,7 +164,7 @@ export default function Chat() {
   useEffect(() => () => { api(`/conversations/${id}/leave`, { method: 'POST' }).catch(() => {}); }, [id]);
 
   // only this mode's messages (a message still sending is always shown)
-  const shown = useMemo(() => messages.filter((m) => String(m.id).startsWith('tmp-') || !!m.vanish === !!conv?.privateMode), [messages, conv?.privateMode]);
+  const shown = useMemo(() => messages.filter((m) => (String(m.id).startsWith('tmp-') || !!m.vanish === !!conv?.privateMode) && m.id !== flight?.messageId), [messages, conv?.privateMode, flight?.messageId]);
 
   // ----- live updates -----
   useLiveEvent('conversation:private', ({ conversationId, on, by }) => {
@@ -179,7 +181,7 @@ export default function Chat() {
   useLiveEvent('message:new', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => (cur.some((m) => m.id === message.id) ? cur : [message, ...cur]));
-    if (message.senderId !== me.id) { setTypingUntil(0); markRead(); if (isHeart(message)) playBurst(); }
+    if (message.senderId !== me.id) { setTypingUntil(0); markRead(); if (isHeart(message)) setFlight({ key: Date.now(), mine: false, messageId: message.id }); }
   });
   useLiveEvent('message:reactions', ({ conversationId, messageId, reactions }) => {
     if (conversationId !== id) return;
@@ -450,7 +452,7 @@ export default function Chat() {
           <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.text }}>Private chat · seen messages disappear when you leave</Text>
         </View>
       ) : null}
-      <View style={{ flex: 1 }} {...tapHandlers}>
+      <View style={{ flex: 1 }} {...tapHandlers} onLayout={(e) => setArea(e.nativeEvent.layout)}>
       <FlatList
         inverted
         data={shown}
@@ -476,11 +478,7 @@ export default function Chat() {
         contentContainerStyle={{ paddingBottom: space.sm }}
       />
       </View>
-      {burst ? (
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <BigHeart key={burst} size={150} burst />
-        </View>
-      ) : null}
+      {flight ? <HeartFlight key={flight.key} mine={flight.mine} area={area} onLanded={landed} /> : null}
       {toast ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: '42%', alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(20,18,32,0.95)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.4)' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.text }}>{toast}</Text>
