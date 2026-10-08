@@ -8,7 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { useLiveEvent, useRealtime } from '../../lib/realtime';
 import { confirm, notice } from '../../lib/confirm';
 import { dayLabel, sameDay } from '../../lib/time';
-import { Composer, ConversationAvatar, DaySeparator, MessageBubble, MessageMenu, TypingBubble } from '../../components/chat';
+import { BigHeart, Composer, ConversationAvatar, DaySeparator, MessageBubble, MessageMenu, TypingBubble, bubbleTappedSince, isHeart } from '../../components/chat';
 import { SoulmojiPanel } from '../../components/soulmoji';
 import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
@@ -119,13 +119,28 @@ export default function Chat() {
     try { await api(`/conversations/${id}/private`, { method: 'POST', body: { on } }); }
     catch (e) { setConv((c) => ({ ...c, privateMode: !on })); notice('Private chat', e.message); }
   };
+  // 2 taps = send a big beating heart · 3 taps = private chat on/off (we wait a moment after 2 taps to see if a 3rd comes)
+  const heartTimer = useRef(null);
+  const [burst, setBurst] = useState(0);
+  const playBurst = () => { setBurst(Date.now()); setTimeout(() => setBurst(0), 1900); };
+  const sendHeart = () => { playBurst(); sendText('❤️'); };
   const countTap = (x, y) => {
     const now = Date.now();
     taps.current = [...taps.current.filter((t) => now - t.at < 650), { at: now, x, y }];
+    clearTimeout(heartTimer.current);
+    const near = (a, c) => Math.abs(a.x - c.x) < 60 && Math.abs(a.y - c.y) < 60;
     if (taps.current.length >= 3) {
       const [a, , c] = taps.current.slice(-3);
       taps.current = [];
-      if (Math.abs(a.x - c.x) < 60 && Math.abs(a.y - c.y) < 60) togglePrivate();
+      if (near(a, c)) togglePrivate();
+    } else if (taps.current.length === 2) {
+      const [a, c] = taps.current;
+      heartTimer.current = setTimeout(() => {
+        if (taps.current.length !== 2) return;
+        taps.current = [];
+        // double-tap on a message = ❤️ reaction on that message, not a heart message
+        if (near(a, c) && !bubbleTappedSince(a.at - 50) && !blocked && !conv?.isRequest) sendHeart();
+      }, 330);
     }
   };
   const tapHandlers = {
@@ -153,7 +168,7 @@ export default function Chat() {
   useLiveEvent('message:new', ({ conversationId, message }) => {
     if (conversationId !== id) return;
     setMessages((cur) => (cur.some((m) => m.id === message.id) ? cur : [message, ...cur]));
-    if (message.senderId !== me.id) { setTypingUntil(0); markRead(); }
+    if (message.senderId !== me.id) { setTypingUntil(0); markRead(); if (isHeart(message)) playBurst(); }
   });
   useLiveEvent('message:reactions', ({ conversationId, messageId, reactions }) => {
     if (conversationId !== id) return;
@@ -450,6 +465,11 @@ export default function Chat() {
         contentContainerStyle={{ paddingBottom: space.sm }}
       />
       </View>
+      {burst ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <BigHeart key={burst} size={150} burst />
+        </View>
+      ) : null}
       {toast ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: '42%', alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(20,18,32,0.95)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.4)' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.text }}>{toast}</Text>

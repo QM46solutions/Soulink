@@ -207,6 +207,38 @@ function MomentRefTag({ momentRef, mine }) {
   );
 }
 
+// taps on a message bubble (so the chat's "tap twice for a heart" ignores double-taps on messages)
+let lastBubbleTap = 0;
+export const bubbleTappedSince = (t) => lastBubbleTap >= t;
+export const isHeart = (m) => m?.kind === 'text' && !m.deleted && /^\s*(❤️|❤)\s*$/.test(m.body || '');
+
+/** Big beating heart (sent by tapping twice in the chat) */
+export function BigHeart({ size = 84, burst = false }) {
+  const beat = useRef(new Animated.Value(0)).current;
+  const pop = useRef(new Animated.Value(burst ? 0 : 1)).current;
+  useEffect(() => {
+    const ND = Platform.OS !== 'web';
+    if (burst) Animated.spring(pop, { toValue: 1, friction: 4, tension: 120, useNativeDriver: ND }).start();
+    const a = Animated.loop(Animated.sequence([
+      Animated.timing(beat, { toValue: 1, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),   // lub
+      Animated.timing(beat, { toValue: 0.25, duration: 110, easing: Easing.in(Easing.quad), useNativeDriver: ND }),
+      Animated.timing(beat, { toValue: 0.7, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: ND }),  // dub
+      Animated.timing(beat, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.quad), useNativeDriver: ND }),
+      Animated.delay(650),
+    ]));
+    a.start();
+    return () => a.stop();
+  }, [beat, pop, burst]);
+  const scale = Animated.multiply(pop, beat.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }));
+  return (
+    <Animated.View style={{ width: size * 1.3, height: size * 1.25, alignItems: 'center', justifyContent: 'center', transform: [{ scale }] }}>
+      <Animated.View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255,107,157,0.35)',
+        opacity: beat.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.6] }), ...(Platform.OS === 'web' ? { filter: `blur(${Math.round(size / 5)}px)` } : {}) }} />
+      <Text style={{ fontSize: size, lineHeight: size * 1.2 }}>❤️</Text>
+    </Animated.View>
+  );
+}
+
 export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo, onVote }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
@@ -215,6 +247,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   // Double-tap a message to ❤️ it, like Instagram. Long-press (or the ⋯ on laptop) for more.
   const tap = () => {
     const now = Date.now();
+    lastBubbleTap = now;
     if (live && now - lastTap.current < 300) { onReact?.('❤️'); lastTap.current = 0; } else lastTap.current = now;
   };
   let content;
@@ -250,6 +283,8 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
         ) : null}
       </Pressable>
     );
+  } else if (isHeart(message)) {
+    content = <Pressable onPress={tap} onLongPress={onMenu} accessibilityLabel="Heart"><BigHeart size={72} /></Pressable>;
   } else if (message.kind === 'location' && message.location) {
     content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><LocationContent loc={message.location} mine={mine} /></BubbleShell></Pressable>;
   } else if (message.kind === 'contact' && message.contact) {
