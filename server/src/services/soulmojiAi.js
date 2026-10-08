@@ -93,8 +93,43 @@ export function detectLanguage(text) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 }
 
+// Online (cloud) version: the laptop's translation model can't run on the free server, so text is translated
+// by MyMemory's free translation service instead (no key; set TRANSLATE_EMAIL for a bigger daily allowance).
+const cloudTranslateOn = () => process.env.NODE_ENV !== 'test' && (process.env.TRANSLATE_PROVIDER || 'mymemory') !== 'off';
+export const canTranslate = () => translatorInstalled() || cloudTranslateOn();
+
+const decode = (s) => String(s || '').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+function chunks(text, max = 450) {
+  const parts = String(text).match(/[^.!?।\n]+[.!?।]*\s*|\n+/g) || [String(text)];
+  const out = []; let cur = '';
+  for (const p of parts) {
+    if ((cur + p).length > max && cur) { out.push(cur); cur = ''; }
+    if (p.length > max) { for (let i = 0; i < p.length; i += max) out.push(p.slice(i, i + max)); } else cur += p;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+async function cloudTranslate(text, from, to) {
+  const email = process.env.TRANSLATE_EMAIL ? `&de=${encodeURIComponent(process.env.TRANSLATE_EMAIL)}` : '';
+  const out = [];
+  for (const piece of chunks(text)) {
+    if (!piece.trim()) { out.push(piece); continue; }
+    const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(piece.trim())}&langpair=${from}|${to}${email}`, { signal: AbortSignal.timeout(20000) });
+    const j = await r.json().catch(() => ({}));
+    const t = j?.responseData?.translatedText;
+    if (!r.ok || Number(j?.responseStatus) !== 200 || !t || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) {
+      throw new Error(/MYMEMORY WARNING/i.test(t || '') ? "Today's free translations are used up. Try again tomorrow." : 'Translation failed. Try again.');
+    }
+    out.push(decode(t) + (/\s$/.test(piece) ? ' ' : ''));
+  }
+  return out.join('').trim();
+}
+
 export async function aiTranslate(text, from, to) {
-  if (!translatorInstalled()) throw new Error('Chat translator not installed');
+  if (!translatorInstalled()) {
+    if (cloudTranslateOn()) return cloudTranslate(text, from, to);
+    throw new Error('Chat translator not installed');
+  }
   if (!(await ensureRunning())) throw new Error('Translator did not start');
   const r = await fetch(`${BASE}/translate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

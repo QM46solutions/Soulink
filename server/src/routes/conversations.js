@@ -12,7 +12,7 @@ import { config } from '../config.js';
 import { pushTo } from '../services/push.js';
 import { connectionBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
-import { aiSpeak, aiTranscribe, aiTranslate, detectLanguage, TRANSLATE_LANGS, translatorInstalled, voiceInstalled } from '../services/soulmojiAi.js';
+import { aiSpeak, aiTranscribe, aiTranslate, canTranslate, detectLanguage, TRANSLATE_LANGS, voiceInstalled } from '../services/soulmojiAi.js';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
@@ -410,6 +410,9 @@ r.post('/group', requireSoul, ah(async (req, res) => {
 
 // ---------- one conversation ----------
 
+// GET /conversations/translator -> what the translator can do here (the online version has text only)
+r.get('/translator', (req, res) => res.json({ text: canTranslate(), voice: voiceInstalled() }));
+
 r.get('/:id', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
   res.json({ conversation: await conversationPayload(conv, req.user.id) });
@@ -477,8 +480,9 @@ r.post('/:id/messages/:messageId/translate', ah(async (req, res) => {
   if (from === to) return res.json({ text: msg.body, from, to, same: true });
   const saved = await one('SELECT text, src_lang FROM message_translations WHERE message_id=$1 AND lang=$2', [messageId, to]);
   if (saved) return res.json({ text: saved.text, from: saved.src_lang, to });
-  if (!translatorInstalled()) throw new HttpError(503, 'The chat translator works on the laptop version only for now (run INSTALL-CHAT-TRANSLATOR.bat there).', 'translator_missing');
-  const text = await aiTranslate(msg.body, from, to);
+  if (!canTranslate()) throw new HttpError(503, 'The chat translator is not available right now.', 'translator_missing');
+  let text;
+  try { text = await aiTranslate(msg.body, from, to); } catch (e) { throw new HttpError(502, e.message || 'Translation failed', 'translate_failed'); }
   await query(`IF NOT EXISTS (SELECT 1 FROM message_translations WHERE message_id=$1 AND lang=$2)
                  INSERT INTO message_translations (message_id, lang, src_lang, text) VALUES ($1, $2, $3, $4)`, [messageId, to, from, text]);
   res.json({ text, from, to });
@@ -490,8 +494,8 @@ function ownsVoiceClip(userId, url) {
   const m = /^\/uploads\/voice-tr\/([0-9a-fA-F-]{36})-[0-9a-fA-F-]{36}\.(m4a|wav)$/.exec(url || '');
   return !!m && m[1].toUpperCase() === String(userId).toUpperCase() && fsSync.existsSync(path.join(config.uploadDir, VOICE_DIR, path.basename(url)));
 }
-const translatorMissing = () => new HttpError(503, 'The chat translator works on the laptop version only for now (run INSTALL-CHAT-TRANSLATOR.bat there).', 'translator_missing');
-const voiceMissing = () => new HttpError(503, 'The voice translator works on the laptop version only for now (run INSTALL-VOICE-TRANSLATOR.bat there).', 'voice_missing');
+const translatorMissing = () => new HttpError(503, 'The chat translator is not available right now.', 'translator_missing');
+const voiceMissing = () => new HttpError(503, "Voice translation isn't on the online version yet. Type your message instead and it will be translated, or choose Text as the output.", 'voice_missing');
 
 async function makeVoiceClip(userId, text, lang) {
   const dir = path.join(config.uploadDir, VOICE_DIR);
@@ -510,8 +514,8 @@ r.post('/:id/translate-draft', ah(async (req, res) => {
   const from = detectLanguage(data.text);
   let text = data.text;
   if (from !== data.to) {
-    if (!translatorInstalled()) throw translatorMissing();
-    text = await aiTranslate(data.text, from, data.to);
+    if (!canTranslate()) throw translatorMissing();
+    try { text = await aiTranslate(data.text, from, data.to); } catch (e) { throw new HttpError(502, e.message || 'Translation failed', 'translate_failed'); }
   }
   let voice = null;
   if (data.output === 'voice') {

@@ -459,10 +459,15 @@ function OptionChip({ label, sub, active, onPress, icon, half }) {
 }
 
 /** "Translate my message": which language to send in, and as text or as a voice note. */
+// what the translator can do on this server (the online version translates text; voice needs the laptop)
+let trCaps = null;
+const loadTrCaps = () => (trCaps ? Promise.resolve(trCaps) : api('/conversations/translator').then((c) => (trCaps = c)).catch(() => ({ text: true, voice: false })));
+
 export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
   const [to, setTo] = useState(value?.to || 'en');
   const [output, setOutput] = useState(value?.output || 'text');
-  useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); } }, [visible, value]);
+  const [voiceOk, setVoiceOk] = useState(trCaps ? trCaps.voice : false);
+  useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); loadTrCaps().then((c) => { setVoiceOk(!!c.voice); if (!c.voice) setOutput('text'); }); } }, [visible, value]);
   const backdropClose = useSafeClose(visible, onClose);
   if (!visible) return null;
   const sheet = (
@@ -482,7 +487,7 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send as</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
             <OptionChip icon="text-outline" label="Text" active={output === 'text'} onPress={() => setOutput('text')} />
-            <OptionChip icon="mic-outline" label="Voice note" active={output === 'voice'} onPress={() => setOutput('voice')} />
+            {voiceOk ? <OptionChip icon="mic-outline" label="Voice note" active={output === 'voice'} onPress={() => setOutput('voice')} /> : null}
           </View>
           <Pressable onPress={() => onStart({ to, output })} style={({ hovered }) => ({ height: 46, borderRadius: 23, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', transform: [{ scale: hovered ? 1.01 : 1 }] })}>
             <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
