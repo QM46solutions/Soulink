@@ -56,7 +56,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
 const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'create-post', 'share-post', 'chat', 'anon']);
 const SECTION = {
   spark: 'sparks', messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
-  settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile',
+  settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile', shop: 'profile',
 };
 
 function RootStack() {
@@ -108,6 +108,7 @@ function RootStack() {
         <Stack.Screen name="share-post" options={{ title: 'Send in a chat', presentation: 'modal' }} />
         <Stack.Screen name="post-likes/[id]" options={{ title: '👌🏻 Likes' }} />
         <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
+        <Stack.Screen name="shop/index" options={{ title: 'Soul Shop' }} />
         <Stack.Screen name="settings/activity" options={{ title: 'Your activity' }} />
         <Stack.Screen name="settings/time" options={{ title: 'Time management' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
