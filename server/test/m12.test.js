@@ -21,6 +21,11 @@ describe('Private chat', () => {
     // a leaves before b has seen it: nothing disappears
     assert.equal((await api().post(`/conversations/${conv}/leave`).set(a.h).expect(200)).body.vanished, 0);
     assert.ok((await list(b)).some((m) => m.body === 'secret'));
+    // private view shows only private messages; the regular view never shows them
+    const priv = (await api().get(`/conversations/${conv}/messages?vanish=1`).set(b.h).expect(200)).body.messages;
+    assert.deepEqual(priv.map((m) => m.body), ['secret']);
+    const reg = (await api().get(`/conversations/${conv}/messages?vanish=0`).set(b.h).expect(200)).body.messages;
+    assert.ok(!reg.some((m) => m.body === 'secret')); assert.ok(reg.some((m) => m.body === 'normal message'));
     // b sees it and leaves: it's gone for both; the normal message stays
     await api().post(`/conversations/${conv}/read`).set(b.h).expect(200);
     assert.equal((await api().post(`/conversations/${conv}/leave`).set(b.h).expect(200)).body.vanished, 1);

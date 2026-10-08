@@ -426,8 +426,10 @@ r.get('/:id/messages', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
   const limit = z.coerce.number().int().min(1).max(100).default(30).parse(req.query.limit ?? undefined);
   const before = req.query.before ? z.string().datetime({ offset: true }).parse(req.query.before) : null;
+  // private chat shows only its own (disappearing) messages; the regular chat never shows them
+  const mode = req.query.vanish === '1' ? ' AND vanish = 1' : req.query.vanish === '0' ? ' AND vanish = 0' : '';
   const rows = await many(
-    `SELECT TOP (${limit}) * FROM messages WHERE conversation_id=$1 AND vanished_at IS NULL AND ($2 IS NULL OR created_at < CAST($2 AS DATETIMEOFFSET))
+    `SELECT TOP (${limit}) * FROM messages WHERE conversation_id=$1 AND vanished_at IS NULL${mode} AND ($2 IS NULL OR created_at < CAST($2 AS DATETIMEOFFSET))
       ORDER BY created_at DESC`,
     [conv.id, before],
   );

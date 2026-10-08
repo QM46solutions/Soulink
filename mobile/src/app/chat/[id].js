@@ -63,7 +63,8 @@ export default function Chat() {
 
   const load = useCallback(async () => {
     try {
-      const [c, m] = await Promise.all([api(`/conversations/${id}`), api(`/conversations/${id}/messages?limit=30`)]);
+      const c = await api(`/conversations/${id}`);
+      const m = await api(`/conversations/${id}/messages?limit=30&vanish=${c.conversation.privateMode ? 1 : 0}`);
       setConv(c.conversation);
       setMessages(m.messages);
       setHasMore(m.hasMore);
@@ -112,9 +113,15 @@ export default function Chat() {
   const taps = useRef([]);
   const touchAt = useRef(null);
   const lastTouch = useRef(0);
+  // private chat and the regular chat are two separate views: switching loads the other one's messages
+  const reloadFor = async (on) => {
+    try { const m = await api(`/conversations/${id}/messages?limit=30&vanish=${on ? 1 : 0}`); setMessages(m.messages); setHasMore(m.hasMore); } catch { /* keep what we have */ }
+  };
   const togglePrivate = async () => {
     const on = !conv?.privateMode;
     setConv((c) => ({ ...c, privateMode: on }));
+    setMessages((cur) => cur.filter((m) => !!m.vanish === on));
+    reloadFor(on);
     showToast(on ? '🔒 Private chat on' : 'Private chat off');
     try { await api(`/conversations/${id}/private`, { method: 'POST', body: { on } }); }
     catch (e) { setConv((c) => ({ ...c, privateMode: !on })); notice('Private chat', e.message); }
@@ -154,10 +161,14 @@ export default function Chat() {
   // leaving the chat: private messages everyone has seen disappear (for both)
   useEffect(() => () => { api(`/conversations/${id}/leave`, { method: 'POST' }).catch(() => {}); }, [id]);
 
+  // only this mode's messages (a message still sending is always shown)
+  const shown = useMemo(() => messages.filter((m) => String(m.id).startsWith('tmp-') || !!m.vanish === !!conv?.privateMode), [messages, conv?.privateMode]);
+
   // ----- live updates -----
   useLiveEvent('conversation:private', ({ conversationId, on, by }) => {
     if (conversationId !== id) return;
     setConv((c) => (c ? { ...c, privateMode: on } : c));
+    if (by !== me.id) reloadFor(on);
     if (by !== me.id) showToast(on ? '🔒 Private chat turned on' : 'Private chat turned off');
   });
   useLiveEvent('message:vanished', ({ conversationId, ids }) => {
@@ -341,7 +352,7 @@ export default function Chat() {
     loadingMore.current = true;
     try {
       const oldest = [...messages].reverse().find((m) => !String(m.id).startsWith('tmp-'));
-      const r = await api(`/conversations/${id}/messages?limit=30&before=${encodeURIComponent(oldest.createdAt)}`);
+      const r = await api(`/conversations/${id}/messages?limit=30&vanish=${conv?.privateMode ? 1 : 0}&before=${encodeURIComponent(oldest.createdAt)}`);
       setMessages((cur) => [...cur, ...r.messages.filter((m) => !cur.some((x) => x.id === m.id))]);
       setHasMore(r.hasMore);
     } finally { loadingMore.current = false; }
@@ -395,8 +406,8 @@ export default function Chat() {
   const typing = typingUntil > Date.now();
 
   const renderItem = ({ item, index }) => {
-    const older = messages[index + 1];
-    const newer = messages[index - 1];
+    const older = shown[index + 1];
+    const newer = shown[index - 1];
     const mine = item.senderId === me.id;
     // In groups, show the sender's photo on the last bubble of a run, and their name on the first.
     const lastOfRun = !newer || newer.senderId !== item.senderId || newer.kind === 'system';
@@ -442,7 +453,7 @@ export default function Chat() {
       <View style={{ flex: 1 }} {...tapHandlers}>
       <FlatList
         inverted
-        data={messages}
+        data={shown}
         keyExtractor={(m) => m.id}
         renderItem={renderItem}
         onEndReached={loadOlder}
