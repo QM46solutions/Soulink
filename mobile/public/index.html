@@ -21,53 +21,60 @@
          to the very bottom (behind the home bar). iPhone Home Screen apps otherwise come out one status-bar
          height short, which left a gap under the bottom bar. */
       #root { display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
-      /* Home Screen app on iPhone: the page is laid out one status-bar height shorter than the screen
-         (that left the dark strip under the bottom bar), so stretch the app by exactly that much. */
-      @media all and (display-mode: standalone) {
-        #root { bottom: auto; height: calc(100% + env(safe-area-inset-top, 0px)); }
-      }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run Soulink.</noscript>
     <div id="root"></div>
     <script>
-      // iPhone: (1) Home Screen app covers the whole screen, edge to edge.
-      // (2) When the keyboard opens, the app shrinks to exactly the space above it, so the message box
-      //     rises with the keyboard (like WhatsApp) instead of being hidden behind it.
+      // iPhone keyboard handling.
+      // (1) Keyboard open: the app fits exactly into the space above it, so the message box rises with it.
+      // (2) Keyboard closed: the app fills the screen again. iPhone Home Screen apps have a WebKit bug where,
+      //     after the keyboard has been open once, the page stays ~60 pt shorter (a dark band at the bottom,
+      //     bottom bar pushed off). We detect that and make the page measure itself again (display off/on).
       (function () {
         if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
-        var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
         var vv = window.visualViewport;
+        var maxH = window.innerHeight;
         var raf = 0;
+        function keyboardOpen() { return !!vv && (Math.max(maxH, window.innerHeight) - vv.height) > 150; }
+        function heal() {
+          var r = document.getElementById('root');
+          if (!r || keyboardOpen() || maxH - window.innerHeight <= 4) return;
+          r.style.display = 'none';
+          void r.offsetHeight; // re-measure the screen, no paint in between
+          r.style.display = '';
+        }
         function apply() {
           raf = 0;
           var r = document.getElementById('root');
           if (!r) return;
-          var full = standalone ? Math.max(window.innerHeight, Math.round(screen.height)) : window.innerHeight;
-          var keyboard = !!vv && (full - vv.height) > 150;
-          if (keyboard) {
-            // iOS slides the whole page up to show the text box; undo that and fit the app above the keyboard
+          if (!keyboardOpen()) maxH = Math.max(maxH, window.innerHeight);
+          if (keyboardOpen()) {
             if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
               window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
             }
             r.style.top = Math.max(0, Math.round(vv.offsetTop)) + 'px';
             r.style.height = Math.round(vv.height) + 'px';
+            r.style.bottom = 'auto';
+            document.documentElement.classList.add('sl-keyboard');
           } else {
-            r.style.top = '0px';
-            r.style.height = full + 'px';
+            // back to the normal full-screen layout (follows the real screen size)
+            r.style.top = '0px'; r.style.height = ''; r.style.bottom = '0px';
+            document.documentElement.classList.remove('sl-keyboard');
+            if (window.scrollY) window.scrollTo(0, 0);
           }
-          r.style.bottom = 'auto';
-          document.documentElement.classList.toggle('sl-keyboard', keyboard);
         }
         function fit() { if (!raf) raf = requestAnimationFrame(apply); }
+        function afterKeyboard() { fit(); setTimeout(heal, 150); setTimeout(function () { heal(); fit(); }, 600); }
         apply();
-        window.addEventListener('resize', fit);
+        window.addEventListener('resize', function () { fit(); if (!keyboardOpen()) setTimeout(heal, 150); });
         window.addEventListener('scroll', fit, { passive: true });
         if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
-        window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
+        window.addEventListener('orientationchange', function () { setTimeout(afterKeyboard, 300); });
         document.addEventListener('focusin', function () { setTimeout(fit, 50); setTimeout(fit, 350); setTimeout(fit, 700); });
-        document.addEventListener('focusout', function () { setTimeout(fit, 120); setTimeout(fit, 500); });
+        document.addEventListener('focusout', afterKeyboard);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) afterKeyboard(); });
       })();
     </script>
   </body>
