@@ -14,7 +14,6 @@ import ReportModal from '../../components/ReportModal';
 import { Button, Empty, Loading, VerifiedBadge } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
 import ActionSheet from '../../components/ActionSheet';
-import GalaxyBackground from '../../components/GalaxyBackground';
 import { CHAT_LANGS, detectLanguage, langName } from '../../lib/languages';
 
 let tmpSeq = 0;
@@ -373,8 +372,6 @@ export default function Chat() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
-      {/* the whole chat sits on a slowly moving galaxy */}
-      <GalaxyBackground />
       <FlatList
         inverted
         data={messages}

@@ -1,8 +1,9 @@
-// Animated galaxy behind an open chat: slow-drifting nebula clouds, two layers of stars that glide past
+// Animated galaxy behind the whole app: slow-drifting nebula clouds, two layers of stars that glide past
 // at different speeds (depth), and a gentle twinkle. Very slow, but you can see it move.
 import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PHONE } from '../lib/device';
 
 const ND = Platform.OS !== 'web';
 const loop = (v, ms) => Animated.loop(Animated.sequence([
@@ -50,7 +51,11 @@ function Nebula({ color, size, x, y, ms, dx, dy }) {
 }
 
 export default function GalaxyBackground() {
-  const { width: w, height: h } = useWindowDimensions();
+  const win = useWindowDimensions();
+  // in a desktop browser the app sits in a phone-sized frame, so size the sky to that frame
+  const framed = Platform.OS === 'web' && win.width >= 520;
+  const w = framed ? PHONE.width : win.width;
+  const h = framed ? PHONE.height : win.height;
   const tw = useRef(new Animated.Value(0)).current;
   useEffect(() => { const a = loop(tw, 2600); a.start(); return () => a.stop(); }, [tw]);
   return (

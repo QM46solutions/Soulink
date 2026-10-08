@@ -11,7 +11,8 @@ import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, I
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { RealtimeProvider } from '../lib/realtime';
-import { HeaderBackground, Starfield } from '../components/brand';
+import { HeaderBackground } from '../components/brand';
+import GalaxyBackground from '../components/GalaxyBackground';
 import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
 import { useUsageTracker } from '../lib/usage';
@@ -195,7 +196,8 @@ export default function RootLayout() {
 
   return (
     <PhoneFrame>
-      <Starfield />
+      {/* the whole app sits on a slowly moving galaxy */}
+      <GalaxyBackground />
       <ThemeProvider value={navTheme}>
         <StatusBar style="light" />
         <AccessGate>
