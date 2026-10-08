@@ -8,7 +8,8 @@ import { colors } from '../lib/theme';
 export default function BackButton({ onPress, toHome }) {
   const go = onPress || (() => {
     if (!toHome && router.canGoBack()) router.back();
-    else router.navigate('/');
+    else if (router.canDismiss()) { router.dismissAll(); router.navigate('/'); }
+    else router.replace('/');
   });
   return (
     <Pressable onPress={go} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back"

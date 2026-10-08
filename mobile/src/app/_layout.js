@@ -192,6 +192,9 @@ function PhoneFrame({ children }) {
   );
 }
 
+// Opening a page straight from its link (refresh, reopened app) still puts the tabs underneath it, so Home and Back work
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Syne_600SemiBold, Syne_700Bold, Syne_800ExtraBold,

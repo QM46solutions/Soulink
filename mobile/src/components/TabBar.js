@@ -115,7 +115,12 @@ export function MessagesTabButton() {
  * active: 'home' | 'search' | 'sparks' | 'messages' | 'profile' | null
  */
 export function BottomBar({ active }) {
-  const go = (path) => router.navigate(path);
+  // Screens outside the tabs sit on top of the tabs in the root stack. Close them first, then switch tab:
+  // a plain navigate('/') does nothing there, because the tabs (already on Home underneath) count as "already open".
+  const go = (path) => {
+    if (router.canDismiss()) { router.dismissAll(); router.navigate(path); }
+    else router.replace(path); // opened straight on this screen (refresh / reopened app): nothing underneath
+  };
   const items = [
     ['home', 'Home', () => go('/'), (f) => <TabIcon name="home" focused={f} />],
     ['search', 'Search', () => go('/search'), (f) => <TabIcon name="search" focused={f} />],

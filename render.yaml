@@ -48,3 +48,8 @@ services:
         sync: false
       - key: ACCESS_CODE
         sync: false
+      # optional: Microsoft Translator free tier (F0) key + region, used first by the chat translator
+      - key: AZURE_TRANSLATOR_KEY
+        sync: false
+      - key: AZURE_TRANSLATOR_REGION
+        sync: false

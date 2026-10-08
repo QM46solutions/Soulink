@@ -93,9 +93,14 @@ export function detectLanguage(text) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-// Online (cloud) version: the laptop's translation model can't run on the free server, so text is translated
-// by MyMemory's free translation service instead (no key; set TRANSLATE_EMAIL for a bigger daily allowance).
-const cloudTranslateOn = () => process.env.NODE_ENV !== 'test' && (process.env.TRANSLATE_PROVIDER || 'mymemory') !== 'off';
+// Online (cloud) version: the laptop's translation model can't run on the free server (it needs ~2.5 GB),
+// so text goes to free online translators instead, tried in this order until one answers:
+//   1. Microsoft Translator (Azure "F0" free tier: 2 million characters a month, official, never charges),
+//      only when AZURE_TRANSLATOR_KEY (+ AZURE_TRANSLATOR_REGION) are set on the server
+//   2. Google Translate's free web endpoint (no key, no daily cap for a small app; unofficial)
+//   3. MyMemory (no key; small daily allowance, bigger with TRANSLATE_EMAIL)
+// Finished translations are remembered for a while, so the same message never uses the allowance twice.
+const cloudTranslateOn = () => process.env.NODE_ENV !== 'test' && (process.env.TRANSLATE_PROVIDER || 'auto') !== 'off';
 export const canTranslate = () => translatorInstalled() || cloudTranslateOn();
 
 const decode = (s) => String(s || '').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -109,7 +114,41 @@ function chunks(text, max = 450) {
   if (cur) out.push(cur);
   return out;
 }
-async function cloudTranslate(text, from, to) {
+
+async function viaAzure(text, from, to) {
+  const key = process.env.AZURE_TRANSLATOR_KEY;
+  if (!key) return null;
+  const headers = { 'Ocp-Apim-Subscription-Key': key, 'Content-Type': 'application/json' };
+  if (process.env.AZURE_TRANSLATOR_REGION) headers['Ocp-Apim-Subscription-Region'] = process.env.AZURE_TRANSLATOR_REGION;
+  const qs = `api-version=3.0&to=${encodeURIComponent(to)}${from && from !== 'auto' ? `&from=${encodeURIComponent(from)}` : ''}`;
+  const r = await fetch(`https://api.cognitive.microsofttranslator.com/translate?${qs}`, { method: 'POST', headers, body: JSON.stringify([{ Text: text }]), signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error(`azure ${r.status}`);
+  const t = (await r.json())?.[0]?.translations?.[0]?.text;
+  if (!t) throw new Error('azure empty');
+  return t;
+}
+
+export function parseGoogle(j) {
+  // [[["translated piece","original piece",…],…],…]
+  if (!Array.isArray(j) || !Array.isArray(j[0])) return null;
+  const t = j[0].map((x) => (Array.isArray(x) && typeof x[0] === 'string' ? x[0] : '')).join('');
+  return t.trim() ? t : null;
+}
+async function viaGoogle(text, from, to) {
+  const out = [];
+  for (const piece of chunks(text, 1800)) {
+    if (!piece.trim()) { out.push(piece); continue; }
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${encodeURIComponent(from || 'auto')}&tl=${encodeURIComponent(to)}`;
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body: `q=${encodeURIComponent(piece)}`, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(`google ${r.status}`);
+    const t = parseGoogle(await r.json().catch(() => null));
+    if (!t) throw new Error('google empty');
+    out.push(t + (/\s$/.test(piece) && !/\s$/.test(t) ? ' ' : ''));
+  }
+  return out.join('').trim();
+}
+
+async function viaMyMemory(text, from, to) {
   const email = process.env.TRANSLATE_EMAIL ? `&de=${encodeURIComponent(process.env.TRANSLATE_EMAIL)}` : '';
   const out = [];
   for (const piece of chunks(text)) {
@@ -117,12 +156,33 @@ async function cloudTranslate(text, from, to) {
     const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(piece.trim())}&langpair=${from}|${to}${email}`, { signal: AbortSignal.timeout(20000) });
     const j = await r.json().catch(() => ({}));
     const t = j?.responseData?.translatedText;
-    if (!r.ok || Number(j?.responseStatus) !== 200 || !t || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) {
-      throw new Error(/MYMEMORY WARNING/i.test(t || '') ? "Today's free translations are used up. Try again tomorrow." : 'Translation failed. Try again.');
-    }
+    if (!r.ok || Number(j?.responseStatus) !== 200 || !t || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) throw new Error('mymemory limit');
     out.push(decode(t) + (/\s$/.test(piece) ? ' ' : ''));
   }
   return out.join('').trim();
+}
+
+const cache = new Map(); // "from|to|text" -> translation (newest last; oldest dropped past 3000)
+const failedUntil = {};   // provider -> time it may be tried again after failing (skip a broken one for a bit)
+async function cloudTranslate(text, from, to) {
+  const k = `${from}|${to}|${text}`;
+  if (cache.has(k)) { const v = cache.get(k); cache.delete(k); cache.set(k, v); return v; }
+  const order = { azure: viaAzure, google: viaGoogle, mymemory: viaMyMemory };
+  const wanted = (process.env.TRANSLATE_PROVIDER || 'auto').toLowerCase();
+  const names = order[wanted] ? [wanted, ...Object.keys(order).filter((n) => n !== wanted)] : Object.keys(order);
+  for (const n of names) {
+    if (failedUntil[n] > Date.now()) continue;
+    try {
+      const t = await order[n](text, from, to);
+      if (t == null) continue; // not set up (no key)
+      cache.set(k, t); if (cache.size > 3000) cache.delete(cache.keys().next().value);
+      return t;
+    } catch (e) {
+      failedUntil[n] = Date.now() + (n === 'mymemory' ? 30 * 60_000 : 2 * 60_000);
+      console.warn(`[translate] ${n} failed: ${e.message}`);
+    }
+  }
+  throw new Error('The translator is busy right now. Try again in a minute.');
 }
 
 export async function aiTranslate(text, from, to) {
