@@ -34,7 +34,7 @@ from src.utils.retargeting_utils import calc_eye_close_ratio, calc_lip_close_rat
 
 PORT = int(os.environ.get('SOULMOJI_AI_PORT', '8211'))
 GPU = torch.cuda.is_available()
-torch.set_num_threads(max(1, (os.cpu_count() or 2)))
+torch.set_num_threads(int(os.environ.get('OMP_NUM_THREADS') or 0) or max(1, (os.cpu_count() or 2)))  # cloud: use the cores we are given
 
 # ---- the expression controls (same as LivePortrait's "retargeting" sliders) ----
 def d_smile(v, d):

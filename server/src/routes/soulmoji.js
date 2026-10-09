@@ -16,7 +16,7 @@ import { uploadMemory, saveFile, ensureLocal } from '../providers/storage.js';
 import { faceDistance } from '../services/faceEngine.js';
 import { prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../services/soulmojiRender.js';
-import { aiEdit, aiInstalled, warmSoulmojiAi } from '../services/soulmojiAi.js';
+import { aiEdit, aiInstalled, wakeRemoteAi, warmSoulmojiAi } from '../services/soulmojiAi.js';
 import crypto from 'node:crypto';
 
 warmSoulmojiAi();
@@ -27,9 +27,9 @@ r.use(requireAuth);
 const SAME_PERSON = 0.6;
 const ENGINE = 2; // bump when the expression engine changes so old renders are made again
 const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || 'null'); } catch { return null; } })());
-const diskPath = (url) => path.join(config.uploadDir, url.replace(/^\/uploads\//, ''));
 
 r.get('/face', ah(async (req, res) => {
+  wakeRemoteAi(); // opening Soulmoji wakes the online AI so the first expression is quick
   res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS, ai: aiInstalled() });
 }));
 
@@ -52,6 +52,7 @@ r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' 
   const srcUrl = await saveFile({ buffer: photo, mimetype: photo === req.file.buffer && req.file.mimetype === 'image/png' ? 'image/png' : 'image/jpeg' }, 'soulmoji');
   await query('UPDATE users SET soulmoji_face_url=$2, soulmoji_points=$3, soulmoji_src_url=$4 WHERE id=$1', [req.user.id, url, f.landmarks, srcUrl]);
   res.json({ faceUrl: url });
+  renderAllInBackground({ id: req.user.id, soulmoji_face_url: url, soulmoji_src_url: srcUrl });
 }));
 
 r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1000 : 60 }), ah(async (req, res) => {
@@ -65,11 +66,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   if (cached) return res.json({ imageUrl: cached.url, mood, ai: useAi });
   if (useAi) {
     try {
-      const name = `${crypto.randomUUID()}.jpg`;
-      await fs.mkdir(path.join(config.uploadDir, 'soulmoji'), { recursive: true });
-      await aiEdit(diskPath(req.user.soulmoji_src_url), path.join(config.uploadDir, 'soulmoji', name), mood);
-      const aiUrl = `/uploads/soulmoji/${name}`;
-      await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@ai3`, aiUrl]);
+      const aiUrl = await renderWithAi(req.user, mood);
       return res.json({ imageUrl: aiUrl, mood, ai: true });
     } catch (e) {
       console.warn('Soulmoji AI failed, using the built-in engine:', e.message);
@@ -81,6 +78,38 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@${ENGINE}`, url]);
   res.json({ imageUrl: url, mood });
 }));
+
+/** One expression made by the Soulmoji AI (laptop or online), saved and remembered for this selfie. */
+const inFlight = new Map(); // "user|face|mood" -> promise, so a background render and a tap don't do the work twice
+async function renderWithAi(user, mood) {
+  const key = `${user.id}|${user.soulmoji_face_url}|${mood}`;
+  if (inFlight.has(key)) return inFlight.get(key);
+  const job = (async () => {
+    const done = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [user.id, user.soulmoji_face_url, `${mood}@ai3`]);
+    if (done) return done.url;
+    const name = `${crypto.randomUUID()}.jpg`;
+    const tmp = path.join(config.uploadDir, 'soulmoji', name);
+    await fs.mkdir(path.dirname(tmp), { recursive: true });
+    await aiEdit(await ensureLocal(user.soulmoji_src_url), tmp, mood);
+    // saveFile keeps it in the database too on the cloud host (the disk there is wiped on restart)
+    const url = await saveFile({ buffer: await fs.readFile(tmp), mimetype: 'image/jpeg' }, 'soulmoji');
+    await fs.rm(tmp, { force: true });
+    await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [user.id, user.soulmoji_face_url, `${mood}@ai3`, url]);
+    return url;
+  })().finally(() => inFlight.delete(key));
+  inFlight.set(key, job);
+  return job;
+}
+
+/** After a new selfie: make every expression in the background, so they're ready when you open Soulmoji. */
+function renderAllInBackground(user) {
+  if (!aiInstalled() || !user.soulmoji_src_url) return;
+  (async () => {
+    for (const mood of RENDER_MOODS) {
+      try { await renderWithAi(user, mood); } catch (e) { console.warn('Soulmoji AI (background):', e.message); return; }
+    }
+  })();
+}
 
 /** Used by chat: is this rendered Soulmoji image really this user's? */
 export async function ownsSoulmoji(userId, url) {

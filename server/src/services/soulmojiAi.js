@@ -16,7 +16,35 @@ let child = null;
 let starting = null;
 
 const serviceInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
-export const aiInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(WEIGHTS) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
+// Online version: the same AI runs on a free Hugging Face Space (tools/soulmoji-space), because it needs ~2 GB of
+// memory and Render's free server has 512 MB. Set SOULMOJI_AI_URL (the Space's address) + SOULMOJI_AI_TOKEN.
+const REMOTE = () => (process.env.NODE_ENV !== 'test' && process.env.SOULMOJI_AI_URL ? process.env.SOULMOJI_AI_URL.replace(/\/$/, '') : null);
+const localInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(WEIGHTS) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
+export const aiInstalled = () => !!REMOTE() || localInstalled();
+
+/** Wake the online Soulmoji AI (a free Space sleeps when unused): call when someone opens Soulmoji. */
+export function wakeRemoteAi() {
+  const url = REMOTE();
+  if (url) fetch(`${url}/health`, { signal: AbortSignal.timeout(20000) }).catch(() => {});
+}
+
+async function remoteEdit(url, srcPath, outPath, mood, recipe) {
+  const image = fs.readFileSync(srcPath).toString('base64');
+  const body = JSON.stringify({ image, mood, ...(recipe ? { recipe } : {}) });
+  // a sleeping Space takes a minute or two to wake: try for up to ~2.5 minutes
+  const until = Date.now() + 150_000;
+  for (;;) {
+    let r; let j = {};
+    try {
+      r = await fetch(`${url}/edit`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SOULMOJI_AI_TOKEN || ''}` }, body, signal: AbortSignal.timeout(120000) });
+      j = await r.json().catch(() => ({}));
+    } catch { r = null; }
+    if (r?.ok && j.ok && j.image) { fs.writeFileSync(outPath, Buffer.from(j.image, 'base64')); return { ok: true, ms: j.ms, remote: true }; }
+    if (r && r.status !== 503 && r.status < 500 && r.status !== 404) throw new Error(j.error || `Soulmoji AI said ${r.status}`);
+    if (Date.now() > until) throw new Error(j.error || 'Soulmoji AI is still waking up');
+    await new Promise((res) => setTimeout(res, 5000));
+  }
+}
 
 const scriptVersion = () => String(Math.floor(fs.statSync(path.join(DIR, 'soulmoji_ai.py')).mtimeMs / 1000));
 
@@ -61,7 +89,8 @@ async function ensureRunning() {
 
 /** Edit the expression on srcPath and write the result to outPath. Throws if the AI isn't available. */
 export async function aiEdit(srcPath, outPath, mood, recipe) {
-  if (!aiInstalled()) throw new Error('Soulmoji AI not installed');
+  if (REMOTE()) return remoteEdit(REMOTE(), srcPath, outPath, mood, recipe);
+  if (!localInstalled()) throw new Error('Soulmoji AI not installed');
   if (!(await ensureRunning())) throw new Error('Soulmoji AI did not start');
   const r = await fetch(`${BASE}/edit`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -73,7 +102,7 @@ export async function aiEdit(srcPath, outPath, mood, recipe) {
 }
 
 // Warm it up in the background when the server starts, so the first Soulmoji is quicker
-export function warmSoulmojiAi() { if (aiInstalled() || translatorInstalled()) ensureRunning().catch(() => {}); }
+export function warmSoulmojiAi() { if (REMOTE()) return wakeRemoteAi(); if (localInstalled() || translatorInstalled()) ensureRunning().catch(() => {}); }
 process.on('exit', () => { try { child?.kill(); } catch { /* already gone */ } });
 
 // ---------- chat translator (NLLB-200 model in the same local service) ----------
