@@ -1,7 +1,9 @@
 // The Argue referee. Reads every side and returns a fair, neutral verdict.
-// Order: free local AI (Ollama on this laptop) → basic rules judge if the AI isn't running.
+// Order: Groq (free key, optional) → free local AI (Ollama on this laptop) → the same model on the free
+// Hugging Face Space (online version) → basic rules judge if no AI answers.
 // Claude (paid) is used only when AI_PROVIDER=claude and a key is set. Output shape is the same for all.
 import { config } from '../config.js';
+import { remoteAi, remoteAiOn } from './soulmojiAi.js';
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
@@ -73,6 +75,31 @@ async function ollamaVerdict(topic, people) {
   return v;
 }
 
+const parse = (text, people, who) => {
+  const v = tidy(JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)), people);
+  if (!v.winnerSeats.length && !v.summary) throw new Error(`${who} gave an empty verdict`);
+  return v;
+};
+
+// ---- Groq: free API key (console.groq.com), very fast Llama models ----
+async function groqVerdict(topic, people) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({ model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile', temperature: 0.3, response_format: { type: 'json_object' },
+      messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userPrompt(topic, people) }] }),
+    signal: AbortSignal.timeout(45000),
+  });
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return parse((await res.json()).choices?.[0]?.message?.content || '', people, 'Groq');
+}
+
+// ---- online version: Llama 3.2 3B on the free Hugging Face Space (tools/soulmoji-space) ----
+async function spaceVerdict(topic, people) {
+  const r = await remoteAi('/referee', { system: SYSTEM, prompt: userPrompt(topic, people) });
+  return parse(r.text || '', people, 'Soulink AI');
+}
+
 /** Is the free local AI installed and running? (shown in the server window at start) */
 export async function localAiStatus() {
   try {
@@ -123,8 +150,14 @@ export async function judge(topic, people) {
   if (config.aiProvider === 'claude' && config.anthropicKey) {
     try { return { verdict: await claudeVerdict(topic, people), judge: 'claude' }; } catch (e) { console.error('Referee: Claude failed:', e.message); }
   }
+  if (process.env.GROQ_API_KEY && process.env.NODE_ENV !== 'test') {
+    try { return { verdict: await groqVerdict(topic, people), judge: 'ollama' }; } catch (e) { console.error('Referee: Groq failed:', e.message); }
+  }
   if (config.aiProvider !== 'basic') {
-    try { return { verdict: await ollamaVerdict(topic, people), judge: 'ollama' }; } catch (e) { console.error('Referee: free local AI not available, using the basic judge:', e.message); }
+    try { return { verdict: await ollamaVerdict(topic, people), judge: 'ollama' }; } catch (e) { console.error('Referee: free local AI not available:', e.message); }
+  }
+  if (remoteAiOn()) {
+    try { return { verdict: await spaceVerdict(topic, people), judge: 'ollama' }; } catch (e) { console.error('Referee: online AI not available, using the basic judge:', e.message); }
   }
   return { verdict: basicVerdict(topic, people), judge: 'basic' };
 }

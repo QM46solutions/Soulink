@@ -33,27 +33,6 @@ function CenterCard({ icon, live, title, text, children }) {
   );
 }
 
-// Header "+" in Soulink style: gradient orb with a soft glow. Opens a new Moment (not a profile post).
-function CreateButton({ open, onPress }) {
-  const turn = useRef(new Animated.Value(open ? 1 : 0)).current;
-  useEffect(() => { Animated.spring(turn, { toValue: open ? 1 : 0, friction: 6, useNativeDriver: Platform.OS !== 'web' }).start(); }, [open, turn]);
-  return (
-    <Pressable onPress={onPress} hitSlop={10} accessibilityLabel="Share a Moment"
-      style={({ hovered, pressed }) => ({ marginLeft: 16, transform: [{ scale: pressed ? 0.9 : hovered ? 1.14 : 1 }],
-        ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'pointer', transitionProperty: 'transform', transitionDuration: '160ms' } : {}),
-        ...(hovered && Platform.OS === 'web' ? { filter: 'drop-shadow(0 0 8px rgba(255,107,157,0.7))' } : {}) })}>
-      <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ width: 34, height: 34, borderRadius: 17, padding: 1.5, shadowColor: colors.spark, shadowOpacity: 0.6, shadowRadius: 8 }}>
-        <View style={{ flex: 1, borderRadius: 16, backgroundColor: open ? 'transparent' : 'rgba(8,7,13,0.55)', alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={{ transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '135deg'] }) }] }}>
-            <Ionicons name="add" size={22} color="#fff" />
-          </Animated.View>
-        </View>
-      </LinearGradient>
-    </Pressable>
-  );
-}
-
 export default function Home() {
   const { user } = useAuth();
   const [feed, setFeed] = useState(null);
@@ -63,7 +42,7 @@ export default function Home() {
   const navigation = useNavigation();
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (user.soulReady ? <CreateButton open={false} onPress={() => router.push('/moment/new')} /> : null),
+      // no "+" here: new Moments start from the + on your own circle in the Moments row
       headerRight: () => <NotificationBell />, // notifications live here, only on Home
     });
   }, [navigation, user.soulReady]);

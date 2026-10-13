@@ -28,22 +28,32 @@ export function wakeRemoteAi() {
   if (url) fetch(`${url}/health`, { signal: AbortSignal.timeout(20000) }).catch(() => {});
 }
 
-async function remoteEdit(url, srcPath, outPath, mood, recipe) {
-  const image = fs.readFileSync(srcPath).toString('base64');
-  const body = JSON.stringify({ image, mood, ...(recipe ? { recipe } : {}) });
-  // a sleeping Space takes a minute or two to wake: try for up to ~2.5 minutes
+/** POST to the online AI Space; a sleeping Space takes a minute or two to wake, so keep trying for ~2.5 minutes. */
+async function remotePost(route, payload) {
+  const url = REMOTE();
+  const body = JSON.stringify(payload);
   const until = Date.now() + 150_000;
   for (;;) {
     let r; let j = {};
     try {
-      r = await fetch(`${url}/edit`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SOULMOJI_AI_TOKEN || ''}` }, body, signal: AbortSignal.timeout(120000) });
+      r = await fetch(`${url}${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SOULMOJI_AI_TOKEN || ''}` }, body, signal: AbortSignal.timeout(120000) });
       j = await r.json().catch(() => ({}));
     } catch { r = null; }
-    if (r?.ok && j.ok && j.image) { fs.writeFileSync(outPath, Buffer.from(j.image, 'base64')); return { ok: true, ms: j.ms, remote: true }; }
-    if (r && r.status !== 503 && r.status < 500 && r.status !== 404) throw new Error(j.error || `Soulmoji AI said ${r.status}`);
-    if (Date.now() > until) throw new Error(j.error || 'Soulmoji AI is still waking up');
+    if (r?.ok && j.ok) return j;
+    if (r && r.status !== 503 && r.status < 500 && r.status !== 404) throw new Error(j.error || `Soulink AI said ${r.status}`);
+    if (Date.now() > until) throw new Error(j.error || 'Soulink AI is still waking up');
     await new Promise((res) => setTimeout(res, 5000));
   }
+}
+/** For other features that use the online AI Space (the Argue referee). */
+export const remoteAiOn = () => !!REMOTE();
+export const remoteAi = (route, payload) => remotePost(route, payload);
+
+async function remoteEdit(url, srcPath, outPath, mood, recipe) {
+  const j = await remotePost('/edit', { image: fs.readFileSync(srcPath).toString('base64'), mood, ...(recipe ? { recipe } : {}) });
+  if (!j.image) throw new Error('Soulmoji AI sent no photo');
+  fs.writeFileSync(outPath, Buffer.from(j.image, 'base64'));
+  return { ok: true, ms: j.ms, remote: true };
 }
 
 const scriptVersion = () => String(Math.floor(fs.statSync(path.join(DIR, 'soulmoji_ai.py')).mtimeMs / 1000));
@@ -231,12 +241,13 @@ export async function aiTranslate(text, from, to) {
 
 // ---------- voice translator (Whisper speech-to-text + MMS-TTS voices, same local service) ----------
 const MODELS = path.join(DIR, 'models');
-export const voiceInstalled = () => translatorInstalled()
+export const voiceInstalled = () => !!REMOTE() || localVoice();
+const localVoice = () => translatorInstalled()
   && fs.existsSync(path.join(MODELS, 'whisper-small', 'config.json'))
   && ['eng', 'hin', 'tel', 'ben'].every((c) => fs.existsSync(path.join(MODELS, `mms-tts-${c}`, 'config.json')));
 
 async function voiceCall(route, body, timeoutMs) {
-  if (!voiceInstalled()) throw new Error('Voice translator not installed');
+  if (!localVoice()) throw new Error('Voice translator not installed');
   if (!(await ensureRunning())) throw new Error('Voice translator did not start');
   const r = await fetch(`${BASE}${route}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
@@ -248,11 +259,19 @@ async function voiceCall(route, body, timeoutMs) {
 
 /** Voice note file -> what was said (auto-detects English / Hindi / Telugu / Bengali unless `lang` is given). */
 export async function aiTranscribe(srcPath, lang) {
+  // online: the voice models run on the same free Hugging Face Space as Soulmoji AI
+  if (REMOTE()) return (await remotePost('/transcribe', { audio: fs.readFileSync(srcPath).toString('base64'), ext: path.extname(srcPath) || '.webm', lang: lang || null })).text;
   return (await voiceCall('/transcribe', { src: srcPath, lang: lang || null }, 240000)).text;
 }
 
 /** Text -> spoken voice clip in that language. Returns { file, durationMs } (file may end .m4a or .wav). */
 export async function aiSpeak(text, lang, outPath) {
+  if (REMOTE()) {
+    const r = await remotePost('/speak', { text, lang });
+    const file = r.ext && r.ext !== path.extname(outPath) ? outPath.replace(/\.[a-z0-9]+$/i, r.ext) : outPath;
+    fs.writeFileSync(file, Buffer.from(r.audio, 'base64'));
+    return { file, durationMs: r.durationMs };
+  }
   const j = await voiceCall('/speak', { text, lang, out: outPath }, 240000);
   return { file: j.out, durationMs: j.durationMs };
 }

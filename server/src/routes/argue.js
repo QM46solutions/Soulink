@@ -11,6 +11,7 @@ import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { notify, userCard } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';
 import { judge } from '../services/referee.js';
+import { wakeRemoteAi } from '../services/soulmojiAi.js';
 import { emitToUsers } from '../realtime.js';
 
 const r = Router();
@@ -95,6 +96,7 @@ r.post('/', requireSoul, ah(async (req, res) => {
 
 // My arguments (started by me or invited)
 r.get('/', ah(async (req, res) => {
+  wakeRemoteAi(); // opening Argue wakes the online AI so the verdict comes quicker
   const rows = await many(
     `SELECT TOP 50 c.* FROM argue_cases c WHERE c.created_by=$1 OR EXISTS (SELECT 1 FROM argue_participants p WHERE p.case_id=c.id AND p.user_id=$1)
       ORDER BY c.created_at DESC`, [req.user.id],
