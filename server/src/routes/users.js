@@ -33,7 +33,7 @@ const profileSchema = z.object({
   faceDiscoverable: z.boolean().optional(),
   consentTracking: z.boolean().optional(),
   showPulse: z.boolean().optional(),
-  notifyPrefs: z.record(z.enum(['messages', 'requests', 'likes', 'comments', 'anonymous', 'argue', 'events']), z.boolean()).optional(),
+  notifyPrefs: z.partialRecord(z.enum(['messages', 'requests', 'likes', 'comments', 'anonymous', 'argue', 'events']), z.boolean()).optional(), // change one kind at a time
   college: z.string().trim().max(120).nullable().optional(),
   company: z.string().trim().max(120).nullable().optional(),
   profession: z.string().trim().max(80).nullable().optional(),

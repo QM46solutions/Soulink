@@ -14,11 +14,11 @@ const send = (from, to, body = {}) => api().post('/connections/requests').set(fr
 const notes = async (u) => (await api().get('/notifications').set(u.h).expect(200)).body.notifications;
 
 describe('Connect requests', () => {
-  test('request carries intent, note and Soul Score; receiver sees it', async () => {
+  test('request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept)', async () => {
     const [a, b] = await pair();
     const r = await send(a, b, { intent: 'dating', note: 'We met at the Hitex meetup!', knows: true }).expect(201);
     assert.equal(r.body.request.intent, 'dating');
-    assert.equal(r.body.request.note, 'We met at the Hitex meetup!');
+    assert.equal(r.body.request.note, null);
     assert.ok(r.body.request.soulScore >= 30);
     const inbox = (await api().get('/connections/requests?box=incoming').set(b.h).expect(200)).body.requests;
     assert.equal(inbox.length, 1);
@@ -33,7 +33,7 @@ describe('Connect requests', () => {
     assert.equal((await send(b, a).expect(409)).body.error.code, 'incoming_pending');
   });
 
-  test('accept (as something else) creates the connection and a chat with the note; sender is told', async () => {
+  test('accept (as something else) creates the connection and a chat; sender is told', async () => {
     const [a, b] = await pair();
     const q = (await send(a, b, { intent: 'dating', note: 'Hi from the gym!' }).expect(201)).body.request;
     const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ asIntent: 'friendship', connectBack: true }).expect(200);
@@ -43,7 +43,7 @@ describe('Connect requests', () => {
     const msgs = (await api().get(`/conversations/${acc.body.conversationId}/messages`).set(a.h).expect(200)).body.messages;
     const texts = msgs.map((m) => m.body);
     assert.ok(texts.some((t) => /connected for Friendship/.test(t)), texts.join(' | '));
-    assert.ok(texts.includes('Hi from the gym!'));
+    assert.ok(!texts.includes('Hi from the gym!'));
     const n = await notes(a);
     assert.equal(n[0].type, 'connect_accepted');
     assert.equal(n[0].meta.acceptedIntent, 'friendship');

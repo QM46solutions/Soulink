@@ -32,10 +32,10 @@ describe('Paid message', () => {
     const a = await makeUser(); const b = await makeUser();
     const info = (await api().get('/conversations/paid-message').set(a.h).expect(200)).body;
     assert.equal(info.priceInr, 500);
-    const r = (await api().post('/conversations/paid-message').set(a.h).send({ userId: b.id, body: 'Loved your Spark! Would love to connect.' }).expect(201)).body;
+    const r = (await api().post('/conversations/paid-message').set(a.h).send({ userId: b.user.id, body: 'Loved your Spark! Would love to connect.' }).expect(201)).body;
     assert.equal(r.test, true);
     const reqs = (await api().get('/conversations?box=requests').set(b.h).expect(200)).body.conversations;
     assert.ok(reqs.some((x) => x.id === r.conversation.id));
-    await api().post('/conversations/paid-message').set(a.h).send({ userId: b.id, body: 'again' }).expect(429);
+    await api().post('/conversations/paid-message').set(a.h).send({ userId: b.user.id, body: 'again' }).expect(429);
   });
 });

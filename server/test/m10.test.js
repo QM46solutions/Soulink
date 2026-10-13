@@ -58,8 +58,9 @@ describe('Sparks', () => {
   test('private accounts: only their followers see their Sparks', async () => {
     const p = await makeUser({ isPrivate: true }); const x = await makeUser();
     await post(p, { category: 'fitness', details: { type: 'yoga' } }).expect(201);
-    assert.equal((await api().get('/sparks').set(x.h).expect(200)).body.sparks.length, 0);
-    assert.equal((await api().get('/sparks').set(p.h).expect(200)).body.sparks.length, 1);
+    const theirs = (r) => r.body.sparks.filter((s) => String(s.author.id).toLowerCase() === String(p.user.id).toLowerCase()).length;
+    assert.equal(theirs(await api().get('/sparks').set(x.h).expect(200)), 0);
+    assert.equal(theirs(await api().get('/sparks').set(p.h).expect(200)), 1);
   });
 
   test('a profile post can carry a location (no Soul type tag needed)', async () => {
