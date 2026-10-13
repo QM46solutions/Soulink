@@ -8,6 +8,7 @@ import { LinkLine } from '../../components/BrandScreen';
 import { GlassCard, GradientText, MonoTag, PillTag } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
 import { FaceScanIcon, RadarIcon, ScalesIcon, SoulDnaIcon } from '../../components/LiveIcons';
+import LoginBackdrop from '../../components/LoginBackdrop';
 
 // The four pillars, same wording and colours as the pitch site
 const PILLARS = [
@@ -93,6 +94,8 @@ export default function Welcome() {
   const rise = fade.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
 
   return (
+    <View style={{ flex: 1 }}>
+    <LoginBackdrop />
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: space.xl, paddingTop: space.sm }}>
         <Pressable onPress={() => router.push('/server')} hitSlop={12} accessibilityLabel="Server settings">
@@ -122,5 +125,6 @@ export default function Welcome() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </View>
   );
 }
