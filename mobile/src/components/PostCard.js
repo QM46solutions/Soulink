@@ -1,6 +1,6 @@
 // A post in the feed or on the post screen: author, photos (arrows + dots, no swiping), caption and
 // the action row: 👌🏻 like, comment, share (in a chat or outside Soulink) and offense.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -11,6 +11,10 @@ import ActionSheet from './ActionSheet';
 import OffenseSheet from './OffenseSheet';
 import { CommentsSheet, LikesSheet } from './PostSheets';
 import { MusicChip, MusicSheet } from './PostMusic';
+import { RevealBadge, RevealCover, useCountdown } from './PostReveal';
+import PostVideo from './PostVideo';
+
+export const isVideo = (u) => /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i.test(String(u || ''));
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -88,7 +92,9 @@ function Photos({ media, onDoubleTap, burst }) {
   return (
     <View>
       <Pressable onPress={tap}>
-        <Image source={{ uri: mediaUrl(media[i]) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" transition={150} />
+        {isVideo(media[i]) ? (
+          <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#000' }}><PostVideo key={media[i]} uri={mediaUrl(media[i])} /></View>
+        ) : <Image source={{ uri: mediaUrl(media[i]) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" transition={150} />}
         {burst ? (
           <Animated.Text pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '36%', fontSize: 96,
             opacity: burst.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] }),
@@ -150,6 +156,14 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   const [commentsOff, setCommentsOff] = useState(!!post.commentsOff);
   const [music, setMusic] = useState(post.music || null);
   const [musicOpen, setMusicOpen] = useState(false);
+  // scheduled reveal: others get the blurred cover until the time, then the real photos load
+  const [view, setView] = useState({ media: post.media, reveal: post.reveal || null });
+  useEffect(() => { setView({ media: post.media, reveal: post.reveal || null }); }, [post.id, post.media, post.reveal]);
+  const refreshReveal = useCallback(() => {
+    setTimeout(async () => {
+      try { const p = (await api(`/posts/${post.id}`)).post; setView({ media: p.media, reveal: p.reveal || null }); onChanged?.(p); } catch { /* try again on next load */ }
+    }, 1500);
+  }, [post.id, onChanged]);
   useEffect(() => { setHideLikes(!!post.hideLikes); setCommentsOff(!!post.commentsOff); setMusic(post.music || null); }, [post.id, post.hideLikes, post.commentsOff, post.music]);
   const applyPost = (p) => { setHideLikes(!!p.hideLikes); setCommentsOff(!!p.commentsOff); setMusic(p.music || null); setLikes(p.likeCount); setComments(p.commentCount ?? 0); onChanged?.(p); };
   const setOption = async (body) => {
@@ -239,7 +253,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
       { label: 'About this account', onPress: () => router.push(`/user/${post.author.username}`) },
     ];
-  const textOnly = !post.media?.length;
+  const textOnly = !view.media?.length && !view.reveal;
 
   return (
     <View style={{ marginBottom: space.xl }}>
@@ -280,7 +294,12 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         <Pressable onPress={openPost} style={{ marginHorizontal: space.lg, padding: space.xl, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(176,143,255,0.35)', backgroundColor: 'rgba(124,92,252,0.1)' }}>
           <Text style={{ fontFamily: fonts.displaySemi, fontSize: 19, lineHeight: 27, color: colors.text, ...WRAP }}>{caption}</Text>
         </Pressable>
-      ) : <Photos media={post.media} onDoubleTap={() => like(true)} burst={burst} />}
+      ) : view.reveal?.locked ? <RevealCover reveal={view.reveal} onRevealed={refreshReveal} /> : (
+        <View>
+          <Photos media={view.media} onDoubleTap={() => like(true)} burst={burst} />
+          {view.reveal ? <RevealBadge reveal={view.reveal} onRevealed={refreshReveal} /> : null}
+        </View>
+      )}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, marginTop: space.sm }}>
         <Action onPress={() => like(false)} label={liked ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={likes} color={liked ? '#f2c38b' : undefined}
@@ -353,6 +372,21 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   );
 }
 
+/** A grid tile of a post that hasn't revealed yet: blurred, with a small countdown. */
+function GridLocked({ p, tall }) {
+  const c = useCountdown(p.reveal.at);
+  return (
+    <View style={{ flex: 1, borderRadius: tall ? 0 : 6, overflow: 'hidden', backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
+      {p.reveal.teaser ? (
+        <Image source={{ uri: mediaUrl(p.reveal.teaser) }} blurRadius={30} contentFit="cover"
+          style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, Platform.OS === 'web' ? { filter: 'blur(14px)', transform: [{ scale: 1.3 }] } : null]} />
+      ) : null}
+      <Ionicons name="lock-closed" size={18} color="#fff" />
+      <Text style={{ fontFamily: fonts.monoBold, fontSize: 11, color: '#fff', marginTop: 4 }}>{c.done ? 'Now' : c.text}</Text>
+    </View>
+  );
+}
+
 /** 3-column photo grid for profiles. Text posts show as a tile with their first words. */
 /** 3-column grid. tall = profile style (portrait tiles, edge to edge, like Snapchat) */
 export function PostGrid({ posts, tall }) {
@@ -360,9 +394,13 @@ export function PostGrid({ posts, tall }) {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: tall ? 0 : 2 }}>
       {posts.map((p) => (
         <Pressable key={p.id} onPress={() => router.push(`/post/${p.id}`)} style={{ width: '33.333%', aspectRatio: tall ? 0.54 : 1, padding: tall ? 1 : 2 }}>
-          {p.media?.length ? (
+          {p.reveal?.locked ? <GridLocked p={p} tall={tall} /> : p.media?.length ? (
             <View style={{ flex: 1 }}>
-              <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: tall ? 0 : 6, backgroundColor: colors.card }} contentFit="cover" />
+              {isVideo(p.media[0]) ? (
+                <View style={{ flex: 1, borderRadius: tall ? 0 : 6, overflow: 'hidden' }}><PostVideo uri={mediaUrl(p.media[0])} thumb /></View>
+              ) : <Image source={{ uri: mediaUrl(p.media[0]) }} style={{ flex: 1, borderRadius: tall ? 0 : 6, backgroundColor: colors.card }} contentFit="cover" />}
+              {isVideo(p.media[0]) ? <Ionicons name="videocam" size={14} color="#fff" style={{ position: 'absolute', top: 6, left: 6 }} /> : null}
+              {p.reveal ? <View style={{ position: 'absolute', left: 4, top: 4, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="time" size={13} color={colors.spark} /></View> : null}
               {p.media.length > 1 ? <Ionicons name="copy" size={14} color="#fff" style={{ position: 'absolute', top: 6, right: 6 }} /> : null}
               {p.suspended ? <View style={{ position: 'absolute', left: 4, bottom: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="eye-off" size={11} color={colors.spark} /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: '#fff', marginLeft: 3 }}>Suspended</Text></View> : null}
             </View>

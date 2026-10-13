@@ -1,5 +1,6 @@
-// Posts: photo posts (1-10 photos) or text-only posts, with likes and comments.
-//  POST   /posts                     multipart: photos[] (optional), caption, place?  → new post
+// Posts: photo/video posts (1-10) or text-only posts, with likes and comments.
+//  POST   /posts                     multipart: photos[] (photos or videos, optional), cover? (a frame of the video),
+//                                    caption, place?, revealAt? (ISO time: goes up now, blurred for others until then)  → new post
 //  GET    /posts/:id                 one post (same visibility as the profile)
 //  DELETE /posts/:id                 delete my post
 //  PATCH  /posts/:id                 { caption?, hideLikes?, commentsOff? } edit my post
@@ -22,6 +23,7 @@ import { uploadMemory, saveFile } from '../providers/storage.js';
 import { REF_RE, playPath } from '../services/music.js';
 import { canViewContent, isBlockedEither, notify, relationship, userCard } from '../services/social.js';
 import { sharePostToChat } from './conversations.js';
+import { makeTeaser } from '../services/teaser.js';
 
 export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
 export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
@@ -42,7 +44,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
-    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place,
+    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place, p.reveal_at, p.teaser_url,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -53,8 +55,13 @@ export const postView = (x, meId) => {
   // owner's choices: like count hidden from others; commenting off hides comments for everyone
   if (on(x.hide_likes) && !mine) v.likeCount = null;
   if (on(x.comments_off)) v.commentCount = null;
+  // scheduled reveal: until then others get only the blurred teaser (never the real photos or videos)
+  const revealAt = x.reveal_at ? new Date(x.reveal_at) : null;
+  const locked = !!revealAt && revealAt.getTime() > Date.now();
+  if (locked && !mine) v.media = [];
   return {
     ...v,
+    reveal: locked ? { at: revealAt.toISOString(), teaser: x.teaser_url || null, locked: !mine } : null,
     hideLikes: on(x.hide_likes),
     commentsOff: on(x.comments_off),
     music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music', start: x.music_start || 0 } : null,
@@ -97,13 +104,31 @@ async function loadVisible(req) {
   return x;
 }
 
-r.post('/', uploadMemory('image', 10, 10).array('photos', 10), ah(async (req, res) => {
-  const { caption, place } = z.object({ caption: z.string().max(2200).optional(), place: z.string().trim().max(150).optional() }).parse(req.body || {});
-  const files = req.files || [];
+r.post('/', uploadMemory('post', 40, 11).fields([{ name: 'photos', maxCount: 10 }, { name: 'cover', maxCount: 1 }]), ah(async (req, res) => {
+  const { caption, place, revealAt } = z.object({
+    caption: z.string().max(2200).optional(), place: z.string().trim().max(150).optional(), revealAt: z.string().datetime({ offset: true }).optional(),
+  }).parse(req.body || {});
+  const files = req.files?.photos || [];
+  const cover = req.files?.cover?.[0];
   if (!files.length && !caption?.trim()) throw badRequest('Add a photo or write something', 'empty_post');
+  let reveal = null;
+  if (revealAt) {
+    if (!files.length) throw badRequest('Add a photo or video to schedule a reveal', 'reveal_needs_media');
+    reveal = new Date(revealAt);
+    const ms = reveal.getTime() - Date.now();
+    if (ms < 60_000) throw badRequest('Pick a reveal time at least a minute from now', 'reveal_too_soon');
+    if (ms > 30 * 86400_000) throw badRequest('A reveal can be at most 30 days away', 'reveal_too_far');
+  }
   const urls = [];
-  for (const f of files) urls.push(await saveFile(f, 'posts'));
-  const p = await one('INSERT INTO posts (author_id, caption, media_urls, place) OUTPUT INSERTED.id VALUES ($1, $2, $3, $4)', [req.user.id, (caption || '').trim(), urls, place || null]);
+  for (const f of files) urls.push(await saveFile(f, 'posts', 'post'));
+  let teaserUrl = null;
+  if (reveal) {
+    const first = files.find((f) => f.mimetype.startsWith('image/')) || (cover?.mimetype.startsWith('image/') ? cover : null);
+    const t = first ? makeTeaser(first.buffer) : null;
+    if (t) teaserUrl = await saveFile({ buffer: t, mimetype: 'image/jpeg' }, 'posts');
+  }
+  const p = await one('INSERT INTO posts (author_id, caption, media_urls, place, reveal_at, teaser_url) OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6)',
+    [req.user.id, (caption || '').trim(), urls, place || null, reveal, teaserUrl]);
   const x = await one(`${SELECT} WHERE p.id = $2`, [req.user.id, p.id]);
   res.status(201).json({ post: postView(x, req.user.id) });
 }));
@@ -214,7 +239,8 @@ r.get('/:id/offenses', ah(async (req, res) => {
 r.post('/:id/share', ah(async (req, res) => {
   const x = await loadVisible(req);
   const { conversationIds } = z.object({ conversationIds: z.array(uuid).max(20).optional() }).parse(req.body || {});
-  const snapshot = { postId: x.post_id, caption: (x.caption || '').slice(0, 140), thumb: media(x.media_urls)[0] || null, author: { username: x.username, avatarUrl: x.avatar_url } };
+  const lockedNow = x.reveal_at && new Date(x.reveal_at).getTime() > Date.now();
+  const snapshot = { postId: x.post_id, caption: (x.caption || '').slice(0, 140), thumb: lockedNow ? (x.teaser_url || null) : (media(x.media_urls)[0] || null), locked: !!lockedNow, author: { username: x.username, avatarUrl: x.avatar_url } };
   const sent = [];
   for (const cid of conversationIds || []) {
     sent.push((await sharePostToChat(cid, req.user, snapshot)).id);

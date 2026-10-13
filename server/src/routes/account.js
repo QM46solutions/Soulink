@@ -29,14 +29,14 @@ r.get('/activity', ah(async (req, res) => {
   }
   if (kind === 'comments') {
     const rows = await many(
-      `SELECT TOP 100 c.id, c.body, c.created_at, c.post_id, p.caption, p.media_urls, u.id AS uid, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
+      `SELECT TOP 100 c.id, c.body, c.created_at, c.post_id, p.caption, p.media_urls, p.reveal_at, p.teaser_url, p.author_id, u.id AS uid, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
          FROM comments c JOIN posts p ON p.id = c.post_id JOIN users u ON u.id = p.author_id
         WHERE c.author_id = $1 AND c.deleted_at IS NULL AND p.deleted_at IS NULL
         ORDER BY c.created_at DESC`, [me]);
     return res.json({
       comments: rows.map((x) => {
         let mediaList = []; try { mediaList = JSON.parse(x.media_urls || '[]'); } catch { /* none */ }
-        return { id: x.id, body: x.body, createdAt: x.created_at, post: { id: x.post_id, caption: x.caption, thumb: mediaList[0] || null }, author: userCard({ ...x, id: x.uid }) };
+        return { id: x.id, body: x.body, createdAt: x.created_at, post: { id: x.post_id, caption: x.caption, thumb: (x.reveal_at && new Date(x.reveal_at) > new Date() && String(x.author_id).toLowerCase() !== String(me).toLowerCase()) ? (x.teaser_url || null) : (mediaList[0] || null) }, author: userCard({ ...x, id: x.uid }) };
       }),
     });
   }

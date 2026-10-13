@@ -174,13 +174,48 @@ export function uploadImage(path, uri, field = 'photo') {
   return uploadFile(path, { uri, name, type }, field);
 }
 
-/** New post: caption + 0-10 photos (uris from the picker/camera). Works on phone and web. */
-export async function createPost({ caption, uris = [], place }) {
+/** Browser: a JPG frame from a video (used for the blurred cover of a scheduled post). Resolves a Blob or null. */
+export function videoFrame(uri) {
+  return new Promise((resolve) => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') { resolve(null); return; }
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = uri;
+    const done = (b) => { v.removeAttribute('src'); resolve(b); };
+    v.onloadeddata = () => { try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch { done(null); } };
+    v.onseeked = () => {
+      try {
+        const c = document.createElement('canvas'); const k = Math.min(1, 480 / Math.max(v.videoWidth || 1, v.videoHeight || 1));
+        c.width = Math.max(1, Math.round(v.videoWidth * k)); c.height = Math.max(1, Math.round(v.videoHeight * k));
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob((b) => done(b), 'image/jpeg', 0.8);
+      } catch { done(null); }
+    };
+    v.onerror = () => done(null);
+    setTimeout(() => done(null), 8000);
+  });
+}
+
+/** New post: caption + 0-10 photos or videos. items: [{ uri, video?, type? }] (plain uris = photos).
+ *  revealAt (Date/ISO): the post goes up now but stays blurred for others until then. Works on phone and web. */
+export async function createPost({ caption, uris = [], items, place, revealAt }) {
+  const list = (items || uris).map((x) => (typeof x === 'string' ? { uri: x } : x));
   const form = new FormData();
   form.append('caption', caption || '');
   if (place) form.append('place', place);
-  for (let i = 0; i < uris.length; i += 1) {
-    const uri = uris[i];
+  if (revealAt) form.append('revealAt', new Date(revealAt).toISOString());
+  let cover = null;
+  for (let i = 0; i < list.length; i += 1) {
+    const { uri, video } = list[i];
+    if (video) {
+      const vtype = list[i].type || (/\.mov$/i.test(uri) ? 'video/quicktime' : /\.webm$/i.test(uri) ? 'video/webm' : 'video/mp4');
+      const vname = `video${i + 1}.${vtype.includes('quicktime') ? 'mov' : vtype.includes('webm') ? 'webm' : 'mp4'}`;
+      if (Platform.OS === 'web') {
+        const raw = await (await fetch(uri)).blob();
+        form.append('photos', new File([raw], vname, { type: raw.type || vtype }));
+        if (revealAt && !cover) cover = await videoFrame(uri);
+      } else form.append('photos', { uri, name: vname, type: vtype });
+      continue;
+    }
     const dataType = uri.startsWith('data:') ? uri.slice(5, uri.indexOf(';')) : null;
     const type = dataType || (/\.png$/i.test(uri) ? 'image/png' : /\.webp$/i.test(uri) ? 'image/webp' : 'image/jpeg');
     const name = `photo${i + 1}.${type.split('/')[1].replace('jpeg', 'jpg')}`;
@@ -192,5 +227,6 @@ export async function createPost({ caption, uris = [], place }) {
       form.append('photos', { uri, name, type });
     }
   }
-  return api('/posts', { method: 'POST', form, timeoutMs: 120000 });
+  if (cover) form.append('cover', new File([cover], 'cover.jpg', { type: 'image/jpeg' }));
+  return api('/posts', { method: 'POST', form, timeoutMs: 300000 });
 }

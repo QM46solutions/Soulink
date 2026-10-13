@@ -313,7 +313,13 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
           <Avatar uri={p.author?.avatarUrl} size={24} name={p.author?.username} />
           <Text numberOfLines={1} style={{ flex: 1, marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{p.author?.username}</Text>
         </View>
-        {p.thumb ? <Image source={{ uri: mediaUrl(p.thumb) }} style={{ width: 210, height: 210, backgroundColor: colors.void }} contentFit="cover" /> : null}
+        {p.thumb ? (
+          <View style={{ width: 210, height: 210, overflow: 'hidden', backgroundColor: colors.void, alignItems: 'center', justifyContent: 'center' }}>
+            {/* a scheduled post shared before its reveal: only the blurred cover */}
+            <Image source={{ uri: mediaUrl(p.thumb) }} blurRadius={p.locked ? 30 : 0} style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, p.locked && Platform.OS === 'web' ? { filter: 'blur(16px)', transform: [{ scale: 1.3 }] } : null]} contentFit="cover" />
+            {p.locked ? <Ionicons name="lock-closed" size={26} color="#fff" /> : null}
+          </View>
+        ) : null}
         {p.caption ? (
           <Text numberOfLines={p.thumb ? 2 : 5} style={{ padding: 8, fontFamily: p.thumb ? fonts.body : fonts.semibold, color: colors.text, fontSize: p.thumb ? 13 : 15, lineHeight: p.thumb ? 18 : 21 }}>{p.caption}</Text>
         ) : null}
