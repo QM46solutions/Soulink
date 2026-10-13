@@ -123,6 +123,7 @@ function RootStack() {
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />
         <Stack.Screen name="messages/index" options={{ title: 'Messages' }} />
         <Stack.Screen name="messages/new" options={{ title: 'New message', presentation: 'modal' }} />
+        <Stack.Screen name="messages/groups" options={{ title: 'Groups' }} />
         <Stack.Screen name="chat/[id]" options={{ title: '' }} />
         <Stack.Screen name="anon/[id]" options={{ title: '' }} />
         <Stack.Screen name="chat/info/[id]" options={{ title: 'Details' }} />

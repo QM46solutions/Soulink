@@ -60,14 +60,10 @@ export default function Messages() {
     navigation.setOptions({
       title: user.username,
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.push('/messages/new?group=1')} hitSlop={10} accessibilityLabel="New group" style={{ marginRight: 18 }}>
-            <Ionicons name="people-outline" size={25} color={colors.text} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/messages/new')} hitSlop={10} accessibilityLabel="New message">
-            <Ionicons name="create-outline" size={24} color={colors.text} />
-          </Pressable>
-        </View>
+        // one icon: your groups (with search) and New group. 1:1 chats open from a connection's profile.
+        <Pressable onPress={() => router.push('/messages/groups')} hitSlop={10} accessibilityLabel="Groups">
+          <Ionicons name="people-outline" size={25} color={colors.text} />
+        </Pressable>
       ),
     });
   }, [navigation, user.username]);
