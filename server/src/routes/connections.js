@@ -85,7 +85,8 @@ r.get('/status/:userId', ah(async (req, res) => {
 
 // Send a Connect request
 r.post('/requests', requireSoul, ah(async (req, res) => {
-  const data = z.object({ toUserId: uuid, intent, knows: z.boolean().default(false), note: z.string().trim().max(150).optional() }).parse(req.body);
+  // no note: nothing can be sent to someone before they accept (old apps may still send one; it's ignored)
+  const data = z.object({ toUserId: uuid, intent, knows: z.boolean().default(false), note: z.string().optional() }).parse(req.body);
   const me = req.user;
   const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [data.toUserId]);
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
@@ -106,7 +107,7 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   const score = await scoreBetween(me, to, data.intent);
   const q = await one(
     `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6)`,
-    [me.id, to.id, data.knows ? 1 : 0, data.intent, data.note || null, score],
+    [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score],
   );
   await notify(to.id, me.id, 'connect_request', q.id, { intent: q.intent, soulScore: score });
   res.status(201).json({ request: view(q, me.id, to) });
@@ -157,7 +158,6 @@ async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null,
   await revealBetween(x, y); // an anonymous chat between them is revealed once they're Connections
   const label = INTENTS[theIntent] || INTENTS.friendship;
   await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${soulScore ? ` · Soul Score ${soulScore}%` : ''}`);
-  if (note && noteFrom) await postMessage(conv, noteFrom, { kind: 'text', body: note });
   return conv;
 }
 

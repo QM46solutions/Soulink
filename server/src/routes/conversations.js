@@ -201,7 +201,11 @@ function serializeConversation(c, members, meId, lastMessage = null, unread = 0)
 
 async function conversationPayload(conv, meId) {
   const members = await memberRows([conv.id]);
-  return serializeConversation(conv, members, meId);
+  const out = serializeConversation(conv, members, meId);
+  // 1:1 chats only work between Connections: the app shows "Connect to chat" instead of the message box
+  if (!conv.is_group && out.other && config.connectRequired) out.canMessage = !!(await connectionBetween(meId, out.other.id));
+  else out.canMessage = true;
+  return out;
 }
 
 async function memberIds(conversationId) {
@@ -258,6 +262,10 @@ export async function assertCanSend(conv, meId) {
   // direct_key is stored in upper case, ids may come back in either case: compare case-insensitively
   const otherId = others[0] || conv.direct_key.split(':').find((id) => id.toUpperCase() !== String(meId).toUpperCase());
   if (await isBlockedEither(meId, otherId)) throw forbidden("You can't message this account", 'blocked');
+  // No messages (not even a first "hi") until you're connected. One paid message is the only exception (/paid-message).
+  if (config.connectRequired && !(await connectionBetween(meId, otherId))) {
+    throw forbidden('You can message them once you are connected. Send a Connect request first.', 'not_connected');
+  }
   // If the other person had deleted this thread, bring it back to them as a request.
   if (!others.length) {
     await query('INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, $3)', [conv.id, otherId, (await isRequestFor(otherId, meId)) ? 1 : 0]);
@@ -379,6 +387,42 @@ export async function getOrCreateDirect(me, userId) {
   }
   return conv;
 }
+
+// ---------- Premium: one paid message to someone you're not connected with (₹500 each) ----------
+export const PAID_MESSAGE_INR = 500;
+const paymentsLive = () => !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+// laptop / test builds can try the whole flow without paying; the online version needs real payments switched on
+const testPaymentsAllowed = () => config.env !== 'production' || process.env.PAID_MESSAGE_TEST === '1';
+
+// GET /conversations/paid-message → { priceInr, available, test }
+r.get('/paid-message', (req, res) => res.json({ priceInr: PAID_MESSAGE_INR, available: paymentsLive() || testPaymentsAllowed(), test: !paymentsLive() && testPaymentsAllowed() }));
+
+// POST /conversations/paid-message { userId, body, paymentRef? } → the message lands in their Requests
+r.post('/paid-message', requireSoul, ah(async (req, res) => {
+  const data = z.object({ userId: uuid, body: z.string().trim().min(1, 'Write your message').max(500), paymentRef: z.string().trim().max(120).optional() }).parse(req.body);
+  const me = req.user.id;
+  if (data.userId === me) throw badRequest("You can't message yourself");
+  const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1', [data.userId]);
+  if (!target || (await isBlockedEither(me, data.userId))) throw notFound('User not found');
+  if (await connectionBetween(me, data.userId)) throw badRequest("You're connected: just open the chat", 'already_connected');
+  const recent = await one(`SELECT TOP 1 id FROM paid_messages WHERE sender_id=$1 AND recipient_id=$2 AND created_at > DATEADD(day, -1, SYSDATETIMEOFFSET())`, [me, data.userId]);
+  if (recent) throw new HttpError(429, 'You already sent them a paid message today. Wait for them to connect.', 'paid_message_limit');
+  let status;
+  if (paymentsLive()) {
+    // TODO when Razorpay is set up: verify data.paymentRef with Razorpay before sending
+    if (!data.paymentRef) throw new HttpError(402, 'Payment needed', 'payment_required');
+    throw new HttpError(503, "Payments aren't switched on yet.", 'payments_off');
+  } else if (testPaymentsAllowed()) status = 'test';
+  else throw new HttpError(503, 'Paid messages are coming soon: payments are not switched on yet.', 'payments_off');
+
+  const conv = await getOrCreateDirect(me, data.userId);
+  // it always lands in their Requests, however they know you
+  await query('UPDATE conversation_members SET is_request=1 WHERE conversation_id=$1 AND user_id=$2', [conv.id, data.userId]);
+  const message = await postMessage(conv, me, { kind: 'text', body: data.body });
+  await query('INSERT INTO paid_messages (sender_id, recipient_id, conversation_id, message_id, amount_paise, payment_ref, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [me, data.userId, conv.id, message.id, PAID_MESSAGE_INR * 100, data.paymentRef || null, status]);
+  res.status(201).json({ conversation: await conversationPayload(await one('SELECT * FROM conversations WHERE id=$1', [conv.id]), me), message, test: status === 'test' });
+}));
 
 // POST /conversations/group { title?, userIds[] }
 r.post('/group', requireSoul, ah(async (req, res) => {

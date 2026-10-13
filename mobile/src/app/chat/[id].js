@@ -499,6 +499,16 @@ export default function Chat() {
             <Button title="Accept" small style={{ flex: 1 }} onPress={accept} />
           </View>
         </View>
+      ) : conv.canMessage === false ? (
+        // 1:1 chats only work between Connections (a paid message can arrive, but you reply by connecting)
+        <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(14,12,22,0.96)', alignItems: 'center' }}>
+          <Ionicons name="lock-closed" size={20} color={colors.aura} />
+          <Text style={{ color: colors.text, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 6 }}>You can chat once you're connected</Text>
+          <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: space.md }}>
+            Send {conv.other?.displayName || conv.other?.username || 'them'} a Connect request. Messages open when it's accepted.
+          </Text>
+          {conv.other ? <Button title="Open profile to connect" small onPress={() => router.push(`/user/${conv.other.username}`)} /> : null}
+        </View>
       ) : (
         <>
         {soulmojiOpen ? <SoulmojiPanel onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}

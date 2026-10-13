@@ -1,4 +1,5 @@
-// Send a Connect request: someone you know or someone new → what you're hoping for → optional note → send.
+// Send a Connect request: someone you know or someone new → what you're hoping for → send.
+// (No note: nothing can be sent to someone until they accept.)
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -21,7 +22,6 @@ export default function Connect() {
   const [match, setMatch] = useState(null);
   const [knows, setKnows] = useState(null);
   const [intent, setIntent] = useState(null);
-  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [sent, setSent] = useState(false);
@@ -39,7 +39,7 @@ export default function Connect() {
   const send = async () => {
     setBusy(true); setError(null);
     try {
-      await api('/connections/requests', { method: 'POST', body: { toUserId: userId, intent, knows: knows === 'known', note: note.trim() || undefined } });
+      await api('/connections/requests', { method: 'POST', body: { toUserId: userId, intent, knows: knows === 'known' } });
       setSent(true);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
@@ -84,8 +84,7 @@ export default function Connect() {
         ))}
       </View>
 
-      <Input label="Add a note (optional)" value={note} onChangeText={setNote} maxLength={150} multiline
-        placeholder={`e.g. We met at the Hitex tech meetup!`} hint={`${note.length}/150 · ${first} sees this with your request`} style={{ marginTop: space.xl }} />
+      <View style={{ height: space.xl }} />
 
       <ErrorText>{error}</ErrorText>
       <Button title={intent ? `Send ${intentOf(intent).label} request` : 'Send request'} onPress={send} loading={busy} disabled={!knows || !intent} />

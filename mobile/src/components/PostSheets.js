@@ -2,7 +2,8 @@
 //   LikesSheet    – who gave it a 👌🏻
 //   CommentsSheet – all comments + a box to add yours
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { CommentBox, CommentList, useComments } from './Comments';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
@@ -79,71 +80,30 @@ export function LikesSheet({ visible, postId, onClose }) {
 }
 
 export function CommentsSheet({ visible, postId, onClose, onCountChange, mine }) {
-  const [comments, setComments] = useState(null);
-  const [off, setOff] = useState(false); // the owner turned commenting off
-  const [text, setText] = useState('');
-  const [inputH, setInputH] = useState(44);
+  const cm = useComments(postId, { onCount: onCountChange });
+  const [replyTo, setReplyTo] = useState(null);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    if (!visible) return;
-    setComments(null); setError(null);
-    api(`/posts/${postId}/comments`).then((r) => { setOff(!!r.commentsOff); setComments(r.comments); }).catch((e) => { setError(e.message); setComments([]); });
-  }, [visible, postId]);
-
-  const send = async () => {
-    const body = text.trim();
-    if (!body || sending) return;
-    setSending(true); setText(''); setInputH(44);
-    try {
-      const r = await api(`/posts/${postId}/comments`, { method: 'POST', body: { body } });
-      setComments((c) => { const n = [...(c || []), r.comment]; onCountChange?.(n.length, true); return n; });
-    } catch (e) { setText(body); setError(e.message); } finally { setSending(false); }
+  useEffect(() => { if (visible) { setReplyTo(null); cm.load(); } }, [visible, postId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const send = async (body, parentId) => {
+    setSending(true);
+    try { await cm.add(body, parentId); setReplyTo(null); return true; } catch (e) { cm.setError(e.message); return false; } finally { setSending(false); }
   };
-  const remove = async (cid) => {
-    try {
-      await api(`/posts/${postId}/comments/${cid}`, { method: 'DELETE' });
-      setComments((c) => { const n = c.filter((x) => x.id !== cid); onCountChange?.(n.length, false); return n; });
-    } catch (e) { setError(e.message); }
-  };
-  const openUser = (u) => { onClose(); router.push(`/user/${u.username}`); };
-
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Comments" tall>
-      {!comments ? <View style={{ flex: 1, padding: space.xxl }}><ActivityIndicator color={colors.aura} /></View> : (
-        <FlatList style={{ flex: 1 }} data={comments} keyExtractor={(c) => c.id} contentContainerStyle={{ paddingVertical: space.sm, flexGrow: 1 }}
-          renderItem={({ item }) => (
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.lg, paddingVertical: space.sm }}>
-              <Pressable onPress={() => openUser(item.author)}><Avatar uri={item.author.avatarUrl} name={item.author.displayName || item.author.username} size={34} /></Pressable>
-              <View style={{ flex: 1, minWidth: 0, marginHorizontal: space.sm }}>
-                <Text style={{ fontFamily: fonts.body, color: colors.text, lineHeight: 20, ...WRAP }}>
-                  <Text onPress={() => openUser(item.author)} style={{ fontFamily: fonts.semibold }}>{item.author.username}  </Text>{item.body}
-                </Text>
-                <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, marginTop: 2 }}>{ago(item.createdAt)}</Text>
-              </View>
-              {item.canDelete ? <Pressable onPress={() => remove(item.id)} hitSlop={8} accessibilityLabel="Delete comment"><Ionicons name="trash" size={15} color={colors.dim} /></Pressable> : null}
+      {!cm.comments ? <View style={{ flex: 1, padding: space.xxl }}><ActivityIndicator color={colors.aura} /></View> : (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: space.sm, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          {cm.comments.length ? (
+            <CommentList comments={cm.comments} onReply={(comment, to) => setReplyTo({ comment, to })} like={cm.like} offense={cm.offense} remove={cm.remove} closeFirst={onClose} />
+          ) : (
+            <View style={{ alignItems: 'center', padding: space.xl }}>
+              <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 17 }}>{cm.off ? 'Commenting is turned off' : 'No comments yet'}</Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: 4, textAlign: 'center' }}>{cm.off ? (mine ? 'Turn it back on from the ⋯ menu to show comments again.' : 'The owner turned off comments on this post.') : 'Start the conversation.'}</Text>
             </View>
           )}
-          ListEmptyComponent={(
-            <View style={{ alignItems: 'center', padding: space.xl }}>
-              <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 17 }}>{off ? 'Commenting is turned off' : 'No comments yet'}</Text>
-              <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: 4, textAlign: 'center' }}>{off ? (mine ? 'Turn it back on from the ⋯ menu to show comments again.' : 'The owner turned off comments on this post.') : 'Start the conversation.'}</Text>
-            </View>
-          )} />
+        </ScrollView>
       )}
-      {error ? <Text style={{ fontFamily: fonts.body, color: colors.danger, fontSize: 13, paddingHorizontal: space.lg }}>{error}</Text> : null}
-      {off ? null : (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', padding: space.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-        <TextInput value={text} onChangeText={setText} placeholder="Add a comment…" placeholderTextColor={colors.dim} maxLength={2200} multiline
-          onContentSizeChange={(e) => setInputH(e.nativeEvent.contentSize.height + (Platform.OS === 'web' ? 0 : 24))}
-          onKeyPress={Platform.OS === 'web' ? (e) => { if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault(); send(); } } : undefined}
-          style={{ flex: 1, minWidth: 0, height: Math.min(120, Math.max(44, inputH)), borderRadius: 22, paddingHorizontal: space.lg, paddingTop: 12, paddingBottom: 12, borderWidth: 1, borderColor: colors.border,
-            backgroundColor: colors.inputBg, color: colors.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 20, outlineStyle: 'none', ...WRAP }} />
-        <Pressable onPress={send} disabled={!text.trim() || sending} hitSlop={8} style={{ marginLeft: space.sm, marginBottom: 11, opacity: text.trim() ? 1 : 0.4 }} accessibilityLabel="Post comment">
-          {sending ? <ActivityIndicator color={colors.aura} size="small" /> : <Ionicons name="send" size={22} color={colors.aura} />}
-        </Pressable>
-      </View>
-      )}
+      {cm.error ? <Text style={{ fontFamily: fonts.body, color: colors.danger, fontSize: 13, paddingHorizontal: space.lg }}>{cm.error}</Text> : null}
+      {cm.off ? null : <CommentBox onSend={send} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} sending={sending} />}
     </BottomSheet>
   );
 }

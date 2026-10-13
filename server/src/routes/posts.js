@@ -9,6 +9,9 @@
 //  POST   /posts/:id/like            like / unlike (toggle)
 //  GET    /posts/:id/comments        comments, oldest first
 //  POST   /posts/:id/comments        { body }
+//  POST   /posts/:id/comments        { body, parentId? } (a reply to a comment)
+//  POST   /posts/:id/comments/:cid/like     👌🏻 a comment (toggle)
+//  POST   /posts/:id/comments/:cid/offense  { reason? } mark a comment as offensive (toggle)
 //  DELETE /posts/:id/comments/:cid   delete my comment (or any comment on my post)
 //  GET    /posts/user/:userId        someone's posts (profile grid)
 //  POST   /posts/:id/offense         mark / unmark as offensive (toggle). More than 75 marks suspends the post:
@@ -263,36 +266,98 @@ r.get('/:id/likes', ah(async (req, res) => {
   res.json({ users: rows.map(userCard) });
 }));
 
+// ---------- comments: replies (one level), 👌🏻 likes and offense marks ----------
+const COMMENT_HIDE_AT = 10; // more than this many offense marks hides a comment (except for its writer)
+const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+
 r.get('/:id/comments', ah(async (req, res) => {
   const x = await loadVisible(req);
-  const rows = await many(
-    `SELECT c.id AS comment_id, c.body, c.created_at AS comment_at, c.author_id, u.* FROM comments c JOIN users u ON u.id = c.author_id
-      WHERE c.post_id=$1 AND c.deleted_at IS NULL ORDER BY c.created_at`, [x.post_id],
-  );
-  const postMine = String(x.author_id).toLowerCase() === String(req.user.id).toLowerCase();
+  const me = req.user.id;
   if (on(x.comments_off)) return res.json({ comments: [], commentsOff: true }); // hidden while commenting is off
+  const rows = await many(
+    `SELECT c.id AS comment_id, c.body, c.created_at AS comment_at, c.author_id, c.parent_id, c.hidden_at,
+            (SELECT COUNT(*) FROM comment_likes l WHERE l.comment_id = c.id) AS like_count,
+            CASE WHEN EXISTS (SELECT 1 FROM comment_likes l WHERE l.comment_id = c.id AND l.user_id = $2) THEN 1 ELSE 0 END AS liked,
+            (SELECT COUNT(*) FROM comment_offenses o WHERE o.comment_id = c.id) AS offense_count,
+            (SELECT TOP 1 o.reason FROM comment_offenses o WHERE o.comment_id = c.id AND o.user_id = $2) AS my_reason,
+            CASE WHEN EXISTS (SELECT 1 FROM comment_offenses o WHERE o.comment_id = c.id AND o.user_id = $2) THEN 1 ELSE 0 END AS offended,
+            u.*
+       FROM comments c JOIN users u ON u.id = c.author_id
+      WHERE c.post_id=$1 AND c.deleted_at IS NULL AND (c.hidden_at IS NULL OR c.author_id = $2)
+        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2 AND b.blocked_id=c.author_id) OR (b.blocker_id=c.author_id AND b.blocked_id=$2))
+      ORDER BY c.created_at`, [x.post_id, me],
+  );
+  const postMine = same(x.author_id, me);
+  const ids = new Set(rows.map((c) => String(c.comment_id).toLowerCase()));
   res.json({
     commentsOff: false,
     comments: rows.map((c) => ({
       id: c.comment_id, body: c.body, createdAt: c.comment_at, author: userCard(c),
-      canDelete: postMine || String(c.author_id).toLowerCase() === String(req.user.id).toLowerCase(),
+      // a reply whose comment was deleted shows as a normal comment
+      parentId: c.parent_id && ids.has(String(c.parent_id).toLowerCase()) ? c.parent_id : null,
+      likeCount: Number(c.like_count || 0), liked: !!c.liked,
+      offenseCount: Number(c.offense_count || 0), offended: !!c.offended, offenseReason: c.my_reason || null,
+      hidden: !!c.hidden_at, mine: same(c.author_id, me),
+      canDelete: postMine || same(c.author_id, me),
     })),
   });
 }));
 
 r.post('/:id/comments', ah(async (req, res) => {
   const x = await loadVisible(req);
-  const { body } = z.object({ body: z.string().trim().min(1).max(2200) }).parse(req.body);
+  const { body, parentId } = z.object({ body: z.string().trim().min(1).max(2200), parentId: uuid.optional() }).parse(req.body);
   if (on(x.comments_off)) throw forbidden('Commenting is turned off for this post', 'comments_off');
-  const c = await one('INSERT INTO comments (post_id, author_id, body) OUTPUT INSERTED.* VALUES ($1, $2, $3)', [x.post_id, req.user.id, body]);
+  let parent = null;
+  if (parentId) {
+    parent = await one('SELECT * FROM comments WHERE id=$1 AND post_id=$2 AND deleted_at IS NULL', [parentId, x.post_id]);
+    if (!parent) throw notFound('That comment was deleted');
+    if (parent.parent_id) parent = (await one('SELECT * FROM comments WHERE id=$1', [parent.parent_id])) || parent; // replies stay one level deep
+  }
+  const c = await one('INSERT INTO comments (post_id, author_id, body, parent_id) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4)', [x.post_id, req.user.id, body, parent?.id || null]);
   await notify(x.author_id, req.user.id, 'post_comment', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
-  res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), canDelete: true } });
+  if (parent && !same(parent.author_id, x.author_id)) await notify(parent.author_id, req.user.id, 'comment_reply', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
+  res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), parentId: parent?.id || null,
+    likeCount: 0, liked: false, offenseCount: 0, offended: false, offenseReason: null, hidden: false, mine: true, canDelete: true } });
+}));
+
+async function visibleComment(req) {
+  const x = await loadVisible(req);
+  const cid = uuid.parse(req.params.cid);
+  const c = await one('SELECT * FROM comments WHERE id=$1 AND post_id=$2 AND deleted_at IS NULL', [cid, x.post_id]);
+  if (!c) throw notFound('Comment not found');
+  return { x, c };
+}
+
+// 👌🏻 a comment (toggle)
+r.post('/:id/comments/:cid/like', ah(async (req, res) => {
+  const { x, c } = await visibleComment(req);
+  const had = await one('SELECT 1 AS y FROM comment_likes WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  if (had) await query('DELETE FROM comment_likes WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  else {
+    await query('INSERT INTO comment_likes (comment_id, user_id) VALUES ($1, $2)', [c.id, req.user.id]);
+    await notify(c.author_id, req.user.id, 'comment_like', x.post_id, { preview: String(c.body).slice(0, 80) }).catch(() => {});
+  }
+  const n = await one('SELECT COUNT(*) AS n FROM comment_likes WHERE comment_id=$1', [c.id]);
+  res.json({ liked: !had, likeCount: Number(n.n) });
+}));
+
+// ❗ mark a comment as offensive (toggle; same reasons as posts). More than 10 marks hides it.
+r.post('/:id/comments/:cid/offense', ah(async (req, res) => {
+  const { c } = await visibleComment(req);
+  const { reason } = z.object({ reason: z.enum(OFFENSE_REASONS).optional() }).parse(req.body || {});
+  if (same(c.author_id, req.user.id)) throw badRequest("You can't mark your own comment");
+  const had = await one('SELECT 1 AS y FROM comment_offenses WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  if (had) await query('DELETE FROM comment_offenses WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  else await query('INSERT INTO comment_offenses (comment_id, user_id, reason) VALUES ($1, $2, $3)', [c.id, req.user.id, reason || null]);
+  const n = Number((await one('SELECT COUNT(*) AS n FROM comment_offenses WHERE comment_id=$1', [c.id])).n);
+  await query(`UPDATE comments SET hidden_at = ${n > COMMENT_HIDE_AT ? 'COALESCE(hidden_at, SYSDATETIMEOFFSET())' : 'NULL'} WHERE id=$1`, [c.id]);
+  res.json({ offended: !had, offenseCount: n, hidden: n > COMMENT_HIDE_AT });
 }));
 
 r.delete('/:id/comments/:cid', ah(async (req, res) => {
   const x = await loadVisible(req);
   const cid = uuid.parse(req.params.cid);
-  const postMine = String(x.author_id).toLowerCase() === String(req.user.id).toLowerCase();
+  const postMine = same(x.author_id, req.user.id);
   const upd = await one(
     `UPDATE comments SET deleted_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND post_id=$2 AND deleted_at IS NULL ${postMine ? '' : 'AND author_id=$3'}`,
     postMine ? [cid, x.post_id] : [cid, x.post_id, req.user.id],

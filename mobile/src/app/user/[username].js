@@ -8,6 +8,7 @@ import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/Prof
 import ProfileMoments from '../../components/ProfileMoments';
 import ShowScoreButton from '../../components/ShowScoreButton';
 import ConnectSheet from '../../components/ConnectSheet';
+import PaidMessageSheet from '../../components/PaidMessageSheet';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
@@ -20,6 +21,7 @@ export default function UserProfile() {
   const { user: me } = useAuth();
   const navigation = useNavigation();
   const [data, setData] = useState(null);
+  const [paidOpen, setPaidOpen] = useState(false); // Premium: one paid message
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -115,6 +117,10 @@ export default function UserProfile() {
     if (anon?.threadId) router.push(`/anon/${anon.threadId}`);
     else router.push({ pathname: '/anon/[id]', params: { id: 'new', userId: target.id, username: target.username, name: target.displayName || target.username } });
   };
+  // Not connected: no free messages at all. Premium can send ONE message (₹500).
+  if (!rel.isMe && !conn?.connected && !conn?.blocked) {
+    messageBtn = <ProfileAction icon="diamond-outline" onPress={() => { if (!needSoul()) setPaidOpen(true); }} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />;
+  }
   const anonBtn = !rel.isMe && anon?.allowed && !conn?.connected ? (
     <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
   ) : null;
@@ -156,6 +162,7 @@ export default function UserProfile() {
         title={target.username}
         options={[{ label: 'Report', onPress: () => setReporting(true) }, { label: 'Block', destructive: true, onPress: block }]}
       />
+      <PaidMessageSheet visible={paidOpen} onClose={() => setPaidOpen(false)} user={target} />
       <ConnectSheet visible={connectOpen} onClose={() => setConnectOpen(false)} user={target} onSent={load} />
       <ReportModal visible={reporting} onClose={() => setReporting(false)} targetType="user" targetId={target.id} />
     </ScrollView>

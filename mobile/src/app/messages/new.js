@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Avatar, Button, Empty, ErrorText, Input, UserRow } from '../../components/ui';
-import { colors, fonts, space } from '../../lib/theme';
+import { colors, fonts, gradients, space } from '../../lib/theme';
 
-// Pick one person for a chat, or two or more for a group.
+// Pick one person for a chat, or two or more for a group. "New group" (or ?group=1) starts straight in group mode.
 export default function NewMessage() {
+  const params = useLocalSearchParams();
+  const navigation = useNavigation();
+  const [groupMode, setGroupMode] = useState(params.group === '1');
+  useLayoutEffect(() => { navigation.setOptions({ title: groupMode ? 'New group' : 'New message' }); }, [navigation, groupMode]);
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -26,9 +31,10 @@ export default function NewMessage() {
   }, [q, connections]);
 
   const toggle = (u) => setSelected((cur) => (cur.some((x) => x.id === u.id) ? cur.filter((x) => x.id !== u.id) : [...cur, u]));
-  const isGroup = selected.length >= 2;
+  const isGroup = groupMode || selected.length >= 2;
 
   const start = async () => {
+    if (isGroup && selected.length < 2) { setError('Pick at least 2 people for a group'); return; }
     setBusy(true); setError(null);
     try {
       const r = isGroup
@@ -42,6 +48,27 @@ export default function NewMessage() {
   return (
     <View style={{ flex: 1 }}>
       <View style={{ padding: space.lg, paddingBottom: 0 }}>
+        {groupMode ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.md }}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: space.md }}>
+              <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              <Ionicons name="people" size={26} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}><Input placeholder="Group name (optional)" value={groupName} onChangeText={setGroupName} maxLength={100} /></View>
+          </View>
+        ) : (
+          <Pressable onPress={() => setGroupMode(true)} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', padding: space.md, marginBottom: space.md, borderRadius: 16, borderWidth: 1, borderColor: hovered ? colors.aura : colors.border, backgroundColor: colors.glass })}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+              <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              <Ionicons name="people" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1, marginLeft: space.md }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>New group</Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12 }}>Chat with 2 or more of your connections</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.dim} />
+          </Pressable>
+        )}
         <Input
           placeholder="Search people"
           value={q}
@@ -63,7 +90,8 @@ export default function NewMessage() {
             ))}
           </ScrollView>
         ) : null}
-        {isGroup ? <Input label="Group name (optional)" placeholder="e.g. Weekend trek" value={groupName} onChangeText={setGroupName} maxLength={100} /> : null}
+        {isGroup && !groupMode ? <Input label="Group name (optional)" placeholder="e.g. Weekend trek" value={groupName} onChangeText={setGroupName} maxLength={100} /> : null}
+        {groupMode ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginBottom: 4 }}>{selected.length < 2 ? 'Pick at least 2 people' : `${selected.length + 1} in the group, with you`}</Text> : null}
         <ErrorText>{error}</ErrorText>
       </View>
       <FlatList
@@ -84,7 +112,7 @@ export default function NewMessage() {
       />
       {selected.length ? (
         <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <Button title={isGroup ? `Create group (${selected.length + 1})` : `Chat with ${selected[0].username}`} onPress={start} loading={busy} />
+          <Button title={isGroup ? `Create group (${selected.length + 1})` : `Chat with ${selected[0].username}`} onPress={start} loading={busy} disabled={isGroup && selected.length < 2} />
         </View>
       ) : null}
     </View>

@@ -60,9 +60,14 @@ export default function Messages() {
     navigation.setOptions({
       title: user.username,
       headerRight: () => (
-        <Pressable onPress={() => router.push('/messages/new')} hitSlop={10} accessibilityLabel="New message">
-          <Ionicons name="create-outline" size={24} color={colors.text} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.push('/messages/new?group=1')} hitSlop={10} accessibilityLabel="New group" style={{ marginRight: 18 }}>
+            <Ionicons name="people-outline" size={25} color={colors.text} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/messages/new')} hitSlop={10} accessibilityLabel="New message">
+            <Ionicons name="create-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       ),
     });
   }, [navigation, user.username]);
