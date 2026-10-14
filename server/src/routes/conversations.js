@@ -12,6 +12,7 @@ import { config } from '../config.js';
 import { pushTo } from '../services/push.js';
 import { connectionBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
+import { paymentsLive, testPaymentsAllowed } from '../lib/payments.js';
 import { aiSpeak, aiTranscribe, aiTranslate, canTranslate, detectLanguage, TRANSLATE_LANGS, voiceInstalled } from '../services/soulmojiAi.js';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -284,12 +285,13 @@ export async function sharePostToChat(conversationId, user, snapshot) {
 
 // ---------- inbox ----------
 
-// GET /conversations?box=inbox|requests
+// GET /conversations?box=inbox|requests   (?kind=group: all my groups, inbox and requests together)
 r.get('/', ah(async (req, res) => {
   const box = req.query.box === 'requests' ? 1 : 0;
+  const groupsOnly = req.query.kind === 'group' ? 1 : 0;
   const me = req.user.id;
   const rows = await many(
-    `SELECT TOP 50 c.*, cm.is_request AS my_is_request, cm.last_read_at AS my_last_read,
+    `SELECT TOP 200 c.*, cm.is_request AS my_is_request, cm.last_read_at AS my_last_read,
             lm.id AS lm_id, lm.conversation_id AS lm_conversation_id, lm.sender_id AS lm_sender_id, lm.kind AS lm_kind,
             lm.body AS lm_body, lm.media_url AS lm_media_url, lm.duration_ms AS lm_duration_ms,
             lm.created_at AS lm_created_at, lm.deleted_at AS lm_deleted_at,
@@ -299,15 +301,15 @@ r.get('/', ah(async (req, res) => {
        FROM conversation_members cm
        JOIN conversations c ON c.id = cm.conversation_id
        OUTER APPLY (SELECT TOP 1 * FROM messages m WHERE m.conversation_id = c.id AND m.vanished_at IS NULL ORDER BY m.created_at DESC) lm
-      WHERE cm.user_id = $1 AND cm.is_request = $2
+      WHERE cm.user_id = $1 AND ($3 = 1 OR cm.is_request = $2) AND ($3 = 0 OR c.is_group = 1)
         AND (c.is_group = 1 OR c.last_message_at IS NOT NULL OR c.created_by = $1)
-        AND ($2 = 0 OR c.last_message_at IS NOT NULL)
+        AND ($3 = 1 OR $2 = 0 OR c.last_message_at IS NOT NULL)
         AND (c.is_group = 1 OR NOT EXISTS (
               SELECT 1 FROM conversation_members o JOIN blocks b
                 ON (b.blocker_id = $1 AND b.blocked_id = o.user_id) OR (b.blocker_id = o.user_id AND b.blocked_id = $1)
                WHERE o.conversation_id = c.id AND o.user_id <> $1))
       ORDER BY COALESCE(c.last_message_at, c.created_at) DESC`,
-    [me, box],
+    [me, box, groupsOnly],
   );
   const members = await memberRows(rows.map((c) => c.id));
   const byConv = new Map();
@@ -390,9 +392,6 @@ export async function getOrCreateDirect(me, userId) {
 
 // ---------- Premium: one paid message to someone you're not connected with (₹500 each) ----------
 export const PAID_MESSAGE_INR = 500;
-const paymentsLive = () => !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-// laptop / test builds can try the whole flow without paying; the online version needs real payments switched on
-const testPaymentsAllowed = () => config.env !== 'production' || process.env.PAID_MESSAGE_TEST === '1';
 
 // GET /conversations/paid-message → { priceInr, available, test }
 r.get('/paid-message', (req, res) => res.json({ priceInr: PAID_MESSAGE_INR, available: paymentsLive() || testPaymentsAllowed(), test: !paymentsLive() && testPaymentsAllowed() }));

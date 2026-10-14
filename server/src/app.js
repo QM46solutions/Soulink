@@ -20,6 +20,7 @@ import conversationRoutes from './routes/conversations.js';
 import faceRoutes from './routes/face.js';
 import soulRoutes from './routes/soul.js';
 import musicRoutes from './routes/music.js';
+import adRoutes from './routes/ads.js';
 import placesRoutes from './routes/places.js';
 import feedRoutes from './routes/feed.js';
 import devRoutes from './routes/dev.js';
@@ -127,6 +128,7 @@ export function createApp() {
   app.use('/account', accountRoutes);
   app.use('/moments', momentRoutes);
   app.use('/sparks', sparkRoutes);
+  app.use('/ads', adRoutes);
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

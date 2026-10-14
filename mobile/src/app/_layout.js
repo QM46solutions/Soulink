@@ -56,7 +56,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
 const NO_BAR = new Set(['(tabs)', '(auth)', 'setup', 'moment', 'create-post', 'share-post', 'chat', 'anon']);
 const SECTION = {
   spark: 'sparks', messages: 'messages', chat: 'messages', anon: 'messages', argue: 'messages',
-  settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile', shop: 'profile',
+  settings: 'profile', 'edit-profile': 'profile', soul: 'profile', 'soul-filters': 'profile', follows: 'profile', blocked: 'profile', requests: 'profile', connections: 'profile', shop: 'profile', ads: 'profile',
 };
 
 function RootStack() {
@@ -94,6 +94,7 @@ function RootStack() {
         <Stack.Screen name="user/[username]" options={{ title: '' }} />
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
+        <Stack.Screen name="ads/index" options={{ title: 'Ads Manager' }} />
         <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />
         <Stack.Screen name="moment/new" options={{ headerShown: false, presentation: 'modal' }} />

@@ -6,6 +6,10 @@
 //  POST   /sparks/:id/tried           cooking "I tried it" / fitness "I did it", toggle
 //  POST   /sparks/:id/view            counts a view (once a day per person)
 //  DELETE /sparks/:id                 delete my Spark
+//  GET    /sparks/spread/plans        Spread around prices
+//  GET    /sparks/:id/spread          my Spark's Spread status
+//  POST   /sparks/:id/spread          { days, city: 'mine'|'all', ageMin, ageMax } show it to more people
+//  POST   /sparks/:id/spread/stop     stop spreading
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -14,6 +18,7 @@ import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { notify, userCard } from '../services/social.js';
 import { REF_RE, playPath } from '../services/music.js';
+import { paymentMode, takePayment } from '../lib/payments.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -26,12 +31,17 @@ const EDIT = z.object({
   trim: z.tuple([z.number().min(0).max(600), z.number().min(0).max(600)]).optional(),
   speed: z.enum(['0.5', '1', '1.5', '2']).optional(),
   filter: z.enum(['none', 'warm', 'cool', 'vivid', 'mono', 'vintage', 'dream', 'noir', 'fade']).optional(),
-  texts: z.array(z.object({ t: z.string().trim().min(1).max(80), x: z.number().min(0).max(1), y: z.number().min(0).max(1), color: hex, style: z.enum(['classic', 'neon', 'box', 'bold']), size: z.number().min(12).max(72) })).max(10).optional(),
+  texts: z.array(z.object({ t: z.string().trim().min(1).max(80), x: z.number().min(0).max(1), y: z.number().min(0).max(1), color: hex, style: z.enum(['classic', 'neon', 'box', 'bold']), size: z.number().min(12).max(72), from: z.number().min(0).max(600).optional(), to: z.number().min(0).max(600).optional() })).max(10).optional(),
   stickers: z.array(z.object({ e: z.string().min(1).max(16), x: z.number().min(0).max(1), y: z.number().min(0).max(1), size: z.number().min(20).max(160) })).max(15).optional(),
   musicStart: z.number().min(0).max(1200).optional(),
   musicVolume: z.number().min(0).max(1).optional(),
   videoVolume: z.number().min(0).max(1).optional(),
   cover: z.number().min(0).max(600).optional(),
+  adjust: z.object({ b: z.number().min(-1).max(1), c: z.number().min(-1).max(1), s: z.number().min(-1).max(1), w: z.number().min(-1).max(1) }).partial().optional(),
+  zoom: z.object({ s: z.number().min(1).max(3), x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+  fade: z.object({ in: z.number().min(0).max(3), out: z.number().min(0).max(3) }).partial().optional(),
+  voiceVolume: z.number().min(0).max(1).optional(),
+  voice: z.string().max(400).optional(), // set by the server from the uploaded voiceover
 }).refine((e) => !e.trim || (e.trim[1] > e.trim[0] && e.trim[1] - e.trim[0] <= 61), 'A Spark is up to 60 seconds');
 
 // what each category may carry in "details"
@@ -108,6 +118,7 @@ const view = (x, me) => ({
   mine: String(x.author_id).toLowerCase() === String(me).toLowerCase(),
   castingId: x.casting_id || null, stageWeek: x.stage_week || null,
   author: userCard({ ...x, id: x.uid }),
+  ...(x.spread_id ? { spread: true } : {}),
 });
 
 r.get('/', ah(async (req, res) => {
@@ -116,7 +127,44 @@ r.get('/', ah(async (req, res) => {
   const rows = await many(
     `${SELECT} WHERE ${VISIBLE} AND ($2 IS NULL OR s.category = $2) AND ($3 IS NULL OR s.created_at < CAST($3 AS DATETIMEOFFSET))
       ORDER BY s.created_at DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY`, [req.user.id, category || null, before]);
-  res.json({ sparks: rows.map((x) => view(x, req.user.id)), hasMore: rows.length === 20 });
+  const sparks = rows.map((x) => view(x, req.user.id));
+  // Spread around: up to 2 boosted Sparks for this viewer (their city / age), placed at about the 3rd and 9th spot
+  if (!before) try {
+    const age = req.user.birth_date ? Math.floor((Date.now() - new Date(req.user.birth_date)) / 31557600000) : null;
+    const boosted = await many(`SELECT TOP 2 sp.id AS spread_id, x.* FROM spark_spreads sp
+        CROSS APPLY (${SELECT} WHERE s.id = sp.spark_id AND ${VISIBLE}) x
+        WHERE sp.status IN (N'active', N'test') AND sp.ends_at > SYSDATETIMEOFFSET()
+          AND sp.user_id <> $1 AND ($2 IS NULL OR x.category = $2)
+          AND (sp.city IS NULL OR sp.city = $3)
+          AND ($4 IS NULL OR ($4 BETWEEN sp.age_min AND sp.age_max))
+        ORDER BY NEWID()`, [req.user.id, category || null, req.user.city || '', age]);
+    let at = 2;
+    for (const b of boosted) {
+      const v = view(b, req.user.id);
+      const i = sparks.findIndex((x) => x.id === v.id);
+      if (i >= 0) sparks.splice(i, 1);
+      sparks.splice(Math.min(at, sparks.length), 0, v); at += 6;
+      await query('UPDATE spark_spreads SET impressions = impressions + 1 WHERE id = $1', [b.spread_id]).catch(() => {});
+    }
+  } catch { /* the feed still works without boosts */ }
+  res.json({ sparks, hasMore: rows.length === 20 });
+}));
+
+// ---------- Spread around (boost a Spark) ----------
+export const SPREAD_PLANS = [
+  { days: 1, priceInr: 49, reach: '1-2K people' },
+  { days: 3, priceInr: 129, reach: '4-6K people' },
+  { days: 7, priceInr: 249, reach: '10-15K people' },
+];
+const spreadView = (sp) => sp ? ({
+  id: sp.id, days: sp.days, city: sp.city || null, ageMin: sp.age_min, ageMax: sp.age_max, priceInr: Math.round(sp.amount_paise / 100),
+  test: sp.status === 'test', live: sp.status !== 'stopped' && new Date(sp.ends_at) > new Date(),
+  startsAt: sp.starts_at, endsAt: sp.ends_at, impressions: Number(sp.impressions || 0),
+}) : null;
+
+r.get('/spread/plans', ah(async (req, res) => {
+  const mode = paymentMode();
+  res.json({ plans: SPREAD_PLANS, available: mode !== 'off', test: mode === 'test', myCity: req.user.city || null });
 }));
 
 r.get('/user/:userId', ah(async (req, res) => {
@@ -125,10 +173,11 @@ r.get('/user/:userId', ah(async (req, res) => {
   res.json({ sparks: rows.map((x) => view(x, req.user.id)) });
 }));
 
-r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', maxCount: 1 }, { name: 'music', maxCount: 1 }]), ah(async (req, res) => {
-  const video = req.files?.video?.[0]; const music = req.files?.music?.[0];
+r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', maxCount: 1 }, { name: 'music', maxCount: 1 }, { name: 'voice', maxCount: 1 }]), ah(async (req, res) => {
+  const video = req.files?.video?.[0]; const music = req.files?.music?.[0]; const voice = req.files?.voice?.[0];
   if (!video || !video.mimetype.startsWith('video/')) throw badRequest('Add a video first (up to 60 seconds)', 'no_video');
   if (music && !music.mimetype.startsWith('audio/')) throw badRequest('Music must be an audio file');
+  if (voice && !/^(audio|video)\//.test(voice.mimetype)) throw badRequest('The voiceover must be audio');
   const b = z.object({
     category: z.enum(SPARK_CATEGORIES),
     caption: z.string().trim().max(1000).default(''),
@@ -148,6 +197,8 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   }
   let details = {};
   try { details = b.details ? DETAILS[b.category].parse(JSON.parse(b.details)) : {}; } catch { throw badRequest('Some of the extra details are not right'); }
+  if (details.edit) delete details.edit.voice;
+  if (voice) details.edit = { ...(details.edit || {}), voice: await saveFile(voice, 'sparks', 'spark') };
   if (b.category === 'travel' && !b.place) throw badRequest('Add the place for a travel Spark', 'no_place');
   const videoUrl = await saveFile(video, 'sparks', 'spark');
   const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : b.musicRef ? playPath(b.musicRef) : null;
@@ -329,6 +380,46 @@ r.post('/:id/view', ah(async (req, res) => {
     await query('IF NOT EXISTS (SELECT 1 FROM spark_views WHERE spark_id=$1 AND viewer_id=$2 AND day=CAST(SYSDATETIMEOFFSET() AS DATE)) INSERT INTO spark_views (spark_id, viewer_id, day) VALUES ($1, $2, CAST(SYSDATETIMEOFFSET() AS DATE))', [x.id, req.user.id]).catch(() => {});
   }
   res.json({ ok: true });
+}));
+
+async function mySpark(req) {
+  const id = uuid.parse(req.params.id);
+  const x = await one('SELECT id, author_id FROM sparks WHERE id=$1 AND deleted_at IS NULL', [id]);
+  if (!x || String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) throw notFound('Spark not found');
+  return x;
+}
+const currentSpread = (sparkId) => one(`SELECT TOP 1 * FROM spark_spreads WHERE spark_id=$1 AND status <> N'stopped' AND ends_at > SYSDATETIMEOFFSET() ORDER BY ends_at DESC`, [sparkId]);
+
+r.get('/:id/spread', ah(async (req, res) => {
+  const x = await mySpark(req);
+  const sp = await currentSpread(x.id);
+  const views = await one('SELECT COUNT(*) AS n FROM spark_views WHERE spark_id=$1', [x.id]);
+  res.json({ spread: spreadView(sp), views: Number(views.n) });
+}));
+
+r.post('/:id/spread', requireSoul, ah(async (req, res) => {
+  const x = await mySpark(req);
+  const d = z.object({
+    days: z.union([z.literal(1), z.literal(3), z.literal(7)]),
+    city: z.enum(['mine', 'all']).default('all'),
+    ageMin: z.number().int().min(18).max(80).default(18),
+    ageMax: z.number().int().min(18).max(80).default(60),
+    paymentRef: z.string().max(120).optional(),
+  }).refine((v) => v.ageMax >= v.ageMin, 'Check the ages').parse(req.body || {});
+  if (await currentSpread(x.id)) throw badRequest('This Spark is already spreading', 'already_spreading');
+  if (d.city === 'mine' && !req.user.city) throw badRequest('Add your city in your profile first, or pick All of India', 'no_city');
+  const plan = SPREAD_PLANS.find((p) => p.days === d.days);
+  const mode = takePayment(d.paymentRef); // 'test' on the laptop: nothing is charged
+  const sp = await one(`INSERT INTO spark_spreads (spark_id, user_id, city, age_min, age_max, days, amount_paise, payment_ref, status, ends_at)
+      OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, DATEADD(DAY, $6, SYSDATETIMEOFFSET()))`,
+    [x.id, req.user.id, d.city === 'mine' ? req.user.city : null, d.ageMin, d.ageMax, d.days, plan.priceInr * 100, d.paymentRef || null, mode === 'test' ? 'test' : 'active']);
+  res.status(201).json({ spread: spreadView(sp) });
+}));
+
+r.post('/:id/spread/stop', ah(async (req, res) => {
+  const x = await mySpark(req);
+  await query(`UPDATE spark_spreads SET status = N'stopped' WHERE spark_id=$1 AND status <> N'stopped'`, [x.id]);
+  res.json({ spread: null });
 }));
 
 r.delete('/:id', ah(async (req, res) => {

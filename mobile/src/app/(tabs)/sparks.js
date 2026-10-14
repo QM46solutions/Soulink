@@ -9,6 +9,8 @@ import { ALL_CAT, CATEGORIES } from '../../lib/sparks';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import { GradBadge } from '../../components/SparkHub';
 import SparkCard from '../../components/SparkCard';
+import { SparkAd } from '../../components/AdCards';
+import { useAds, withAds } from '../../lib/ads';
 import { GradientText } from '../../components/brand';
 import { Button, Empty, Loading } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
@@ -17,6 +19,7 @@ export default function Sparks() {
   const navigation = useNavigation();
   const [cat, setCat] = useState(null); // null = all
   const [list, setList] = useState(null);
+  const ads = useAds('sparks', 4);
   const [more, setMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -81,10 +84,10 @@ export default function Sparks() {
 
   return (
     <FlatList
-      data={list || []}
-      keyExtractor={(s) => s.id}
+      data={withAds(list || [], ads, 5, 3)}
+      keyExtractor={(s) => s.key || s.id}
       ListHeaderComponent={<>{features}{chips}</>}
-      renderItem={({ item }) => <SparkCard spark={item} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}
+      renderItem={({ item }) => item.__ad ? <SparkAd ad={item.__ad} /> : <SparkCard spark={item} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.6}
       contentContainerStyle={{ paddingBottom: space.xxl, flexGrow: 1 }}

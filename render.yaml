@@ -58,3 +58,5 @@ services:
         sync: false
       - key: SOULMOJI_AI_TOKEN
         sync: false
+      - key: ADMIN_USERNAMES
+        sync: false

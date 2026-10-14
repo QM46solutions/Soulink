@@ -1,5 +1,6 @@
 import { one, many, query } from '../db.js';
 import { ageFrom } from '../lib/auth.js';
+import { isAdmin } from '../lib/payments.js';
 
 /** True if either user has blocked the other. */
 export async function isBlockedEither(a, b) {
@@ -114,5 +115,6 @@ export const meView = (u) => ({
   chatLanguage: u.chat_language || null,
   eventsNotify: !!u.events_notify,
   openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
+  isAdmin: isAdmin(u), // Soulink team: can run ads
   createdAt: u.created_at,
 });

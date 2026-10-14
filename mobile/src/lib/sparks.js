@@ -56,7 +56,7 @@ export const DIETS = [['veg', '🟢 Veg'], ['nonveg', '🔴 Non-veg'], ['egg', '
 const blobOf = async (uri) => (await fetch(uri)).blob();
 
 /** Upload a new Spark: { videoUri, videoType, musicFile?, category, caption, place, details, oneTake, musicTitle } */
-export async function postSpark({ videoUri, videoType, music, category, caption, place, details, oneTake, musicTitle, castingId, stage }) {
+export async function postSpark({ videoUri, videoType, music, voice, category, caption, place, details, oneTake, musicTitle, castingId, stage }) {
   const form = new FormData();
   if (castingId) form.append('castingId', castingId);
   if (stage) form.append('stage', '1');
@@ -73,6 +73,7 @@ export async function postSpark({ videoUri, videoType, music, category, caption,
     const type = videoType || v.type || 'video/mp4';
     form.append('video', new File([v], `spark.${type.includes('webm') ? 'webm' : type.includes('quicktime') ? 'mov' : 'mp4'}`, { type }));
     if (music) form.append('music', new File([await blobOf(music.uri)], music.name || 'music.mp3', { type: music.type || 'audio/mpeg' }));
+    if (voice) form.append('voice', new File([await blobOf(voice.uri)], voice.name || 'voice.webm', { type: voice.type || 'audio/webm' }));
   } else {
     form.append('video', { uri: videoUri, name: 'spark.mp4', type: videoType || 'video/mp4' });
     if (music) form.append('music', { uri: music.uri, name: music.name || 'music.mp3', type: music.type || 'audio/mpeg' });

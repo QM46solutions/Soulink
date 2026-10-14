@@ -13,6 +13,8 @@ import { ChoiceCard } from '../../components/Choice';
 import { Avatar, Button, ErrorText, Input, s } from '../../components/ui';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 import { LiveFrame, ScalesIcon } from '../../components/LiveIcons';
+import { ArgueAd } from '../../components/AdCards';
+import { useAds } from '../../lib/ads';
 
 function Stepper({ value, onChange, min = 2, max = 6 }) {
   const Btn = ({ icon, disabled, onPress }) => (
@@ -64,6 +66,7 @@ export default function Argue() {
   const [past, setPast] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const sponsored = useAds('argue', 1)[0];
 
   useFocusEffect(useCallback(() => {
     api('/argue').then((r) => setPast(r.cases)).catch(() => {});
@@ -103,6 +106,7 @@ export default function Argue() {
           <Stepper value={count} onChange={setCount} />
           <Button title="OK" style={{ marginTop: space.xl }} onPress={confirmCount} />
         </GlassCard>
+        {sponsored ? <ArgueAd ad={sponsored} onUse={(t) => { setTopic(t.slice(0, 150)); confirmCount(); }} /> : null}
         {past.length ? (
           <View style={{ marginTop: space.xl }}>
             <Text style={[s.label, { marginLeft: 0 }]}>Your arguments</Text>

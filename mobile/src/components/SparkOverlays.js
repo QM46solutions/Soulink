@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import { PanResponder, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { textStyleOf } from '../lib/sparkEdit';
+import { textShown, textStyleOf } from '../lib/sparkEdit';
 
 function Draggable({ x, y, box, onMove, onTap, selected, children }) {
   const start = useRef({ x, y }); const moved = useRef(false);
@@ -27,8 +27,8 @@ function Draggable({ x, y, box, onMove, onTap, selected, children }) {
   );
 }
 
-/** edit: { texts, stickers }. editable: drag + tap. */
-export default function SparkOverlays({ edit, editable, selected, onSelect, onChange }) {
+/** edit: { texts, stickers }. editable: drag + tap. time: the video's time now (texts with from / to show only then). */
+export default function SparkOverlays({ edit, editable, selected, onSelect, onChange, time }) {
   const [box, setBox] = useState(null);
   const texts = edit?.texts || []; const stickers = edit?.stickers || [];
   if (!texts.length && !stickers.length && !editable) return null;
@@ -39,6 +39,7 @@ export default function SparkOverlays({ edit, editable, selected, onSelect, onCh
     <View pointerEvents={editable ? 'box-none' : 'none'} onLayout={(e) => setBox(e.nativeEvent.layout)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
       {box ? texts.map((t, i) => {
         const sel = selected?.kind === 'texts' && selected.i === i;
+        if (!sel && !textShown(t, time)) return null;
         const node = <Text style={[textStyleOf(t.style, t.color, t.size * scale), { maxWidth: box.width * 0.9 }]}>{t.t}</Text>;
         return editable ? (
           <Draggable key={`t${i}`} x={t.x} y={t.y} box={box} selected={sel} onMove={(x, y) => set('texts', i, { x, y })} onTap={() => onSelect?.(sel ? null : { kind: 'texts', i })}>

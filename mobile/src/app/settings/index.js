@@ -66,6 +66,7 @@ export default function Settings() {
       <MenuRow icon="phone-portrait-outline" title="Device permissions" text="Camera, microphone, photos, location, notifications" onPress={go('/settings/device-permissions')} tint={['#58a0e6', '#42e8c0']} />
 
       <Section>More</Section>
+      {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: sponsored posts, Spark ads, sponsored Argue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}
       <MenuRow icon="information-circle" title="About" text="Soulink version, terms and privacy" onPress={go('/settings/about')} tint={['#b08fff', '#7c5cfc']} />
       <MenuRow icon="log-out-outline" title="Log out" danger
         onPress={async () => { if (await confirm('Log out?', undefined, { confirmText: 'Log out', destructive: true })) signOut(); }} />

@@ -72,6 +72,7 @@ export default function NewSpark() {
   const [video, setVideo] = useState(null); // { uri, type, oneTake }
   const [recording, setRecording] = useState(false);
   const [music, setMusic] = useState(null); // { uri, name, type }
+  const [voice, setVoice] = useState(null); // the voiceover recorded in the studio { uri, type, name }
   const [caption, setCaption] = useState('');
   const [place, setPlace] = useState('');
   const [sound, setSound] = useState('place');
@@ -127,18 +128,18 @@ export default function NewSpark() {
     if (category === 'acting' && mode === 'dub' && !music) { notice('Add the audio', 'For a dub, add the dialogue or song you are acting to.'); return; }
     setBusy(true);
     try {
-      await postSpark({ videoUri: video.uri, videoType: video.type, music, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
+      await postSpark({ videoUri: video.uri, videoType: video.type, music, voice, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
         castingId: casting?.id, stage: forStage });
       if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage) router.replace('/spark/stage'); else router.replace('/sparks');
     } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); }
   };
-  const back = () => (step === 'category' || (step === 'video' && casting) ? router.back() : step === 'video' ? setStep('category') : step === 'edit' ? (setStep('video'), setVideo(null), setMusic(null)) : setStep('edit'));
+  const back = () => (step === 'category' || (step === 'video' && casting) ? router.back() : step === 'video' ? setStep('category') : step === 'edit' ? (setStep('video'), setVideo(null), setMusic(null), setVoice(null)) : setStep('edit'));
 
   // Spark Studio takes the whole screen
   if (step === 'edit' && video) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#07060c' }}>
-        <SparkStudio video={video} edit={edit} onChange={setEdit} music={music} onMusic={setMusic} cue={cue}
+        <SparkStudio video={video} edit={edit} onChange={setEdit} music={music} onMusic={setMusic} voice={voice} onVoice={setVoice} cue={cue}
           onBack={back} onNext={({ duration }) => { setClipLen(duration || 0); setStep('details'); }} />
       </SafeAreaView>
     );
@@ -221,13 +222,13 @@ export default function NewSpark() {
               <Label>Your video · up to 60 seconds</Label>
               {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="Record in clips with a timer · one clip gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} /> : null}
               <BigOption icon="folder-open" title="Upload from your phone" text={`Up to 3 min and ${MAX_MB} MB · trim it to 60 s in the editor`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
-              <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: edit it in Spark Studio (trim, speed, filters, text, stickers, music, cover).</Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: edit it in Spark Studio (trim, speed, filters, adjust, crop, text, stickers, music, voiceover, fade, cover).</Text>
             </>
           ) : null}
 
           {step === 'details' && video ? (
             <>
-              <SparkVideo uri={video.uri} musicUri={music?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
+              <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
               <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
                 <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
               </Pressable>

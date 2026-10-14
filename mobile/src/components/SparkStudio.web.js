@@ -1,19 +1,20 @@
-// Spark Studio (web): edit your video like Reels before posting.
-// Trim · Speed · Filters · Text · Stickers · Music (start point + sound mix) · Cover. Nothing is re-encoded on the phone:
+// Spark Studio (web, works on the laptop and online): edit your video like Reels before posting.
+// Trim · Speed · Filters · Adjust · Crop / zoom · Text (with timing) · Stickers · Music · Voiceover · Fade · Cover. Nothing is re-encoded on the phone:
 // the edits are saved with the Spark and applied whenever it plays (fast, and the original stays sharp).
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FILTERS, SPEEDS, STICKERS, TEXT_COLORS, TEXT_STYLES, filterCss, fmt } from '../lib/sparkEdit';
+import { ADJUSTS, FILTERS, SPEEDS, STICKERS, TEXT_COLORS, TEXT_STYLES, adjustCss, fadeAt, fmt, videoCss, zoomCss } from '../lib/sparkEdit';
 import MusicPicker from './MusicPicker';
 import { RangeSlider, Slider } from './Slider';
 import SparkOverlays from './SparkOverlays';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
 const TOOLS = [
-  ['trim', 'Trim', 'content-cut'], ['speed', 'Speed', 'speedometer'], ['filter', 'Filters', 'auto-fix'], ['text', 'Text', 'format-text'],
-  ['stickers', 'Stickers', 'sticker-emoji'], ['music', 'Music', 'music-note'], ['cover', 'Cover', 'image-frame'],
+  ['trim', 'Trim', 'content-cut'], ['speed', 'Speed', 'speedometer'], ['filter', 'Filters', 'auto-fix'], ['adjust', 'Adjust', 'tune-variant'],
+  ['zoom', 'Crop', 'crop'], ['text', 'Text', 'format-text'], ['stickers', 'Stickers', 'sticker-emoji'], ['music', 'Music', 'music-note'],
+  ['voice', 'Voice', 'microphone'], ['fade', 'Fade', 'gradient-vertical'], ['cover', 'Cover', 'image-frame'],
 ];
 
 // a few still frames along the video, for the trim strip and the filter / cover previews
@@ -44,9 +45,19 @@ function Pill({ label, on, onPress }) {
 }
 const Label = ({ children }) => <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.muted, marginBottom: 8 }}>{children}</Text>;
 
-export default function SparkStudio({ video, edit, onChange, music, onMusic, onBack, onNext, cue }) {
+// a voiceover recorder (the browser's microphone)
+function pickAudioType() {
+  if (typeof MediaRecorder === 'undefined') return null;
+  for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']) if (MediaRecorder.isTypeSupported?.(t)) return t;
+  return '';
+}
+
+export default function SparkStudio({ video, edit, onChange, music, onMusic, voice, onVoice, onBack, onNext, cue }) {
   const { height: winH } = useWindowDimensions();
-  const v = useRef(null); const a = useRef(null);
+  const v = useRef(null); const a = useRef(null); const vo = useRef(null);
+  const rec = useRef(null);
+  const [recording, setRecording] = useState(false);
+  const [micError, setMicError] = useState(null);
   const [tool, setTool] = useState('trim');
   const [duration, setDuration] = useState(0);
   const [frames, setFrames] = useState([]);
@@ -60,6 +71,7 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
   const t0 = e.trim?.[0] ?? 0; const t1 = e.trim?.[1] ?? duration;
   const rate = Number(e.speed || 1);
   const musicUri = music?.uri || null;
+  const voiceUri = voice?.uri || null;
 
   useEffect(() => {
     let alive = true;
@@ -76,28 +88,75 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
   useEffect(() => {
     const el = v.current; if (!el) return;
     el.playbackRate = rate;
-    el.volume = musicUri ? (e.videoVolume ?? 0.3) : (e.videoVolume ?? 1);
-    if (a.current) a.current.volume = e.musicVolume ?? 1;
-  }, [rate, musicUri, e.videoVolume, e.musicVolume]);
-  const syncMusic = () => { if (a.current && v.current) a.current.currentTime = (e.musicStart || 0) + Math.max(0, v.current.currentTime - t0) / rate; };
-  const pause = () => { v.current?.pause(); a.current?.pause(); setPlaying(false); };
+    const k = 1 - fadeAt(e.fade, now, t0, t1);
+    el.muted = recording;
+    el.volume = Math.min(1, (musicUri || voiceUri ? (e.videoVolume ?? 0.3) : (e.videoVolume ?? 1)) * k);
+    if (a.current) a.current.volume = (e.musicVolume ?? 1) * k;
+    if (vo.current) vo.current.volume = (e.voiceVolume ?? 1) * k;
+  }, [rate, musicUri, voiceUri, e.videoVolume, e.musicVolume, e.voiceVolume, e.fade, now, recording]); // eslint-disable-line react-hooks/exhaustive-deps
+  const syncMusic = () => {
+    if (!v.current) return;
+    const rel = Math.max(0, v.current.currentTime - t0) / rate;
+    if (a.current) a.current.currentTime = (e.musicStart || 0) + rel;
+    if (vo.current) vo.current.currentTime = rel;
+  };
+  const pause = () => { v.current?.pause(); a.current?.pause(); vo.current?.pause(); setPlaying(false); };
   const play = async () => {
     const el = v.current; if (!el) return;
     if (el.currentTime < t0 || el.currentTime >= t1 - 0.05) el.currentTime = t0;
-    try { await el.play(); if (a.current) { syncMusic(); await a.current.play(); } setPlaying(true); } catch { setPlaying(false); }
+    try {
+      await el.play(); syncMusic();
+      if (a.current) await a.current.play().catch(() => {});
+      if (vo.current && !recording) await vo.current.play().catch(() => {});
+      setPlaying(true);
+    } catch { setPlaying(false); }
   };
+  const stopRecording = () => { const r = rec.current; if (r && r.state !== 'inactive') r.stop(); };
   const onTime = () => {
     const el = v.current; if (!el) return;
     setNow(el.currentTime);
-    if (el.currentTime >= t1) { el.currentTime = t0; syncMusic(); }
+    if (el.currentTime >= t1) {
+      if (recording) { stopRecording(); pause(); el.currentTime = t0; return; }
+      el.currentTime = t0; syncMusic(); vo.current?.play().catch(() => {});
+    }
   };
+  // Voiceover: the video plays (muted) from the start of the trim while you talk; it stops at the end
+  const startRecording = async () => {
+    setMicError(null);
+    const type = pickAudioType();
+    if (type == null || !navigator.mediaDevices?.getUserMedia) { setMicError("This browser can't record sound. Try Chrome or Safari."); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch { setMicError('Allow the microphone for Soulink to record a voiceover.'); return; }
+    const chunks = [];
+    const r = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    r.ondataavailable = (ev) => { if (ev.data?.size) chunks.push(ev.data); };
+    r.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      setRecording(false); rec.current = null;
+      const mime = (r.mimeType || type || 'audio/webm').split(';')[0];
+      if (!chunks.length) return;
+      const blob = new Blob(chunks, { type: mime });
+      onVoice?.({ uri: URL.createObjectURL(blob), type: mime, name: `voice.${mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm'}` });
+      if (e.videoVolume == null || e.videoVolume === 1) set({ videoVolume: 0.3 });
+    };
+    rec.current = r;
+    pause();
+    if (v.current) v.current.currentTime = t0;
+    a.current?.pause();
+    setRecording(true);
+    r.start(250);
+    try { await v.current?.play(); setPlaying(true); } catch { /* keeps recording */ }
+  };
+  useEffect(() => () => stopRecording(), []); // eslint-disable-line react-hooks/exhaustive-deps
   const seek = (t) => { pause(); if (v.current) v.current.currentTime = t; setNow(t); };
 
   const addText = () => { setSelected(null); setDraft({ t: '', color: '#ffffff', style: 'classic', size: 30 }); };
   const saveText = () => {
     const d = draft; setDraft(null);
     if (!d?.t.trim()) return;
-    const item = { t: d.t.trim().slice(0, 80), color: d.color, style: d.style, size: d.size, x: d.x ?? 0.5, y: d.y ?? 0.4 };
+    const item = { t: d.t.trim().slice(0, 80), color: d.color, style: d.style, size: d.size, x: d.x ?? 0.5, y: d.y ?? 0.4,
+      ...(d.from != null ? { from: d.from, to: d.to } : {}) };
     const texts = [...(e.texts || [])];
     if (d.i != null) texts[d.i] = item; else texts.push(item);
     set({ texts: texts.slice(0, 10) });
@@ -116,6 +175,9 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
   const tooLong = t1 - t0 > 60.5;
   const previewH = Math.min(winH * 0.56, 520);
   const previewW = previewH * 9 / 16;
+  const shade = fadeAt(e.fade, now, t0, t1);
+  const adj = e.adjust || {};
+  const zoom = e.zoom || { s: 1, x: 0.5, y: 0.5 };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#07060c' }}>
@@ -134,9 +196,17 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
         <Pressable onPress={() => { if (selected) { setSelected(null); return; } playing ? pause() : play(); }}
           style={{ width: previewW, height: previewH, borderRadius: 18, overflow: 'hidden', backgroundColor: '#000' }}>
           <video ref={v} src={video.uri} playsInline preload="auto" onLoadedMetadata={onMeta} onTimeUpdate={onTime}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: filterCss(e.filter) }} />
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
           {musicUri ? <audio ref={a} src={musicUri} preload="auto" onLoadedMetadata={(ev) => setMusicLen(ev.currentTarget.duration || 0)} /> : null}
-          <SparkOverlays edit={e} editable selected={selected} onSelect={onSelect} onChange={onChange} />
+          {voiceUri ? <audio ref={vo} src={voiceUri} preload="auto" /> : null}
+          {shade > 0.001 ? <div style={{ position: 'absolute', inset: 0, background: '#000', opacity: shade, pointerEvents: 'none' }} /> : null}
+          <SparkOverlays edit={e} editable selected={selected} onSelect={onSelect} onChange={onChange} time={playing ? now : null} />
+          {recording ? (
+            <View pointerEvents="none" style={{ position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,60,90,0.9)' }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 6 }} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>Recording your voice</Text>
+            </View>
+          ) : null}
           {!playing && !selected ? (
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
               <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="play" size={30} color="#fff" style={{ marginLeft: 3 }} /></View>
@@ -218,6 +288,21 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
               <View style={{ flexDirection: 'row', marginTop: 4 }}>{TEXT_STYLES.map((st) => <Pill key={st.key} label={st.label} on={draft.style === st.key} onPress={() => setDraft({ ...draft, style: st.key })} />)}</View>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.muted, marginTop: space.md }}>Size</Text>
               <Slider value={draft.size} min={14} max={64} onChange={(n) => setDraft({ ...draft, size: Math.round(n) })} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.sm }}>
+                <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12, color: colors.muted }}>
+                  {draft.from != null ? `On screen ${fmt(draft.from)} – ${fmt(draft.to)}` : 'On screen the whole Spark'}
+                </Text>
+                <Pill label={draft.from != null ? 'Whole Spark' : 'Set timing'} on={false}
+                  onPress={() => setDraft(draft.from != null ? { ...draft, from: undefined, to: undefined } : { ...draft, from: Math.max(t0, Math.min(now, t1 - 1)), to: Math.min(t1, Math.max(now, t0) + 3) })} />
+              </View>
+              {draft.from != null && duration ? (
+                <RangeSlider start={draft.from} end={draft.to} min={t0} max={t1} minGap={0.5} height={40}
+                  onChange={(st, en, which) => { setDraft({ ...draft, from: st, to: en }); seek(which === 'start' ? st : en); }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', opacity: 0.6 }}>
+                    {frames.map((f, i) => <img key={i} src={f} alt="" style={{ flex: 1, width: `${100 / frames.length}%`, height: '100%', objectFit: 'cover' }} />)}
+                  </View>
+                </RangeSlider>
+              ) : null}
               <View style={{ flexDirection: 'row', marginTop: space.sm, gap: 10 }}>
                 <Pressable onPress={() => setDraft(null)} style={{ flex: 1, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.semibold, color: colors.text }}>Cancel</Text></Pressable>
                 <Pressable onPress={saveText} style={{ flex: 1, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
@@ -269,6 +354,82 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, onB
               <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: 10, lineHeight: 18 }}>Pick where the song starts and mix it with your video's own sound. Only use music you're allowed to share.</Text>
             </>
           )
+        ) : null}
+
+        {tool === 'adjust' ? (
+          <>
+            {ADJUSTS.map(([k, label]) => (
+              <View key={k}>
+                <Label>{`${label} · ${adj[k] ? (adj[k] > 0 ? '+' : '') + Math.round(adj[k] * 100) : 0}`}</Label>
+                <Slider value={adj[k] || 0} min={-1} max={1} onChange={(n) => set({ adjust: { ...adj, [k]: Math.abs(n) < 0.04 ? 0 : n } })} />
+              </View>
+            ))}
+            <Pressable onPress={() => set({ adjust: { b: 0, c: 0, s: 0, w: 0 } })} style={{ alignSelf: 'flex-start', marginTop: 6 }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13 }}>Reset</Text>
+            </Pressable>
+            {frames[0] ? (
+              <View style={{ flexDirection: 'row', marginTop: space.md }}>
+                <img src={frames[Math.floor(frames.length / 2)]} alt="" style={{ width: 54, height: 84, borderRadius: 8, objectFit: 'cover', filter: videoCss({ filter: e.filter }) }} />
+                <Ionicons name="arrow-forward" size={18} color={colors.dim} style={{ alignSelf: 'center', marginHorizontal: 8 }} />
+                <img src={frames[Math.floor(frames.length / 2)]} alt="" style={{ width: 54, height: 84, borderRadius: 8, objectFit: 'cover', filter: [videoCss({ filter: e.filter }), adjustCss(adj)].filter((x) => x && x !== 'none').join(' ') || 'none' }} />
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
+        {tool === 'zoom' ? (
+          <>
+            <Label>{`Zoom · ${zoom.s.toFixed(1)}×`}</Label>
+            <Slider value={zoom.s} min={1} max={3} onChange={(n) => set({ zoom: { ...zoom, s: n < 1.03 ? 1 : n } })} />
+            <Label>Focus left ↔ right</Label>
+            <Slider value={zoom.x} min={0} max={1} onChange={(n) => set({ zoom: { ...zoom, x: n } })} />
+            <Label>Focus up ↕ down</Label>
+            <Slider value={zoom.y} min={0} max={1} onChange={(n) => set({ zoom: { ...zoom, y: n } })} />
+            <Pressable onPress={() => set({ zoom: { s: 1, x: 0.5, y: 0.5 } })} style={{ alignSelf: 'flex-start', marginTop: 6 }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13 }}>Reset</Text>
+            </Pressable>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: 8, lineHeight: 18 }}>Zoom in to crop out the edges, then move the focus to what matters. Sideways videos fill the 9:16 frame automatically.</Text>
+          </>
+        ) : null}
+
+        {tool === 'voice' ? (
+          <>
+            {recording ? (
+              <Pressable onPress={() => { stopRecording(); pause(); }} style={{ height: 54, borderRadius: 27, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
+                <Ionicons name="stop" size={20} color="#fff" /><Text style={{ marginLeft: 8, fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Stop · {fmt(Math.max(0, now - t0) / rate)}</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={startRecording} style={{ height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: colors.spark, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
+                <MaterialCommunityIcons name="microphone" size={22} color={colors.spark} />
+                <Text style={{ marginLeft: 8, fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>{voiceUri ? 'Record again' : 'Record a voiceover'}</Text>
+              </Pressable>
+            )}
+            {micError ? <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.danger, marginTop: 8 }}>{micError}</Text> : null}
+            {voiceUri && !recording ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md, marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="account-voice" size={22} color={colors.mint} />
+                  <Text style={{ flex: 1, marginLeft: 8, fontFamily: fonts.semibold, color: colors.text }}>Your voiceover</Text>
+                  <Pressable onPress={() => { pause(); onVoice?.(null); set({ voiceVolume: 1 }); }} accessibilityLabel="Remove voiceover"><Ionicons name="trash-outline" size={20} color={colors.muted} /></Pressable>
+                </View>
+                <Label>{`Voice · ${Math.round((e.voiceVolume ?? 1) * 100)}%`}</Label>
+                <Slider value={e.voiceVolume ?? 1} min={0} max={1} color={colors.mint} onChange={(n) => set({ voiceVolume: n })} />
+                <Label>{`Original sound · ${Math.round((e.videoVolume ?? 0.3) * 100)}%`}</Label>
+                <Slider value={e.videoVolume ?? 0.3} min={0} max={1} onChange={(n) => set({ videoVolume: n })} />
+              </>
+            ) : null}
+            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: 10, lineHeight: 18 }}>The video plays while you talk over it, from the start of your trim to the end. Headphones help keep it clean.</Text>
+          </>
+        ) : null}
+
+        {tool === 'fade' ? (
+          <>
+            <Label>{`Fade in · ${(e.fade?.in || 0).toFixed(1)} s`}</Label>
+            <Slider value={e.fade?.in || 0} min={0} max={3} onChange={(n) => set({ fade: { ...(e.fade || {}), in: n < 0.1 ? 0 : n } })} />
+            <Label>{`Fade out · ${(e.fade?.out || 0).toFixed(1)} s`}</Label>
+            <Slider value={e.fade?.out || 0} min={0} max={3} onChange={(n) => set({ fade: { ...(e.fade || {}), out: n < 0.1 ? 0 : n } })} />
+            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: 8, lineHeight: 18 }}>The picture and the sound fade together, from black at the start and to black at the end.</Text>
+          </>
         ) : null}
 
         {tool === 'cover' ? (

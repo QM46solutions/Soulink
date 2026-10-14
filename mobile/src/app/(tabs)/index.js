@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import PostCard from '../../components/PostCard';
+import { FeedAd } from '../../components/AdCards';
+import { useAds, withAds } from '../../lib/ads';
 import MomentsBar from '../../components/MomentsBar';
 import { AuraAvatar } from '../../components/ProfileHeader';
 import { useAuth } from '../../lib/auth';
@@ -36,6 +38,7 @@ function CenterCard({ icon, live, title, text, children }) {
 export default function Home() {
   const { user } = useAuth();
   const [feed, setFeed] = useState(null);
+  const ads = useAds('feed', 4);
   const [refreshing, setRefreshing] = useState(false);
   const first = user.displayName?.split(' ')[0] || user.username;
   const [moments, setMoments] = useState(null);
@@ -86,9 +89,9 @@ export default function Home() {
 
   return (
     <FlatList
-      data={feed.posts}
-      keyExtractor={(p) => p.id}
-      renderItem={({ item }) => <PostCard post={item} onDeleted={(pid) => setFeed((f) => ({ ...f, posts: f.posts.filter((x) => x.id !== pid) }))} />}
+      data={withAds(feed.posts, ads, 4)}
+      keyExtractor={(p) => p.key || p.id}
+      renderItem={({ item }) => item.__ad ? <FeedAd ad={item.__ad} /> : <PostCard post={item} onDeleted={(pid) => setFeed((f) => ({ ...f, posts: f.posts.filter((x) => x.id !== pid) }))} />}
       ListHeaderComponent={composer}
       contentContainerStyle={{ paddingTop: space.md, paddingBottom: space.xxl }}
       showsVerticalScrollIndicator={false}
