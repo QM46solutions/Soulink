@@ -10,6 +10,7 @@ import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { headline } from '../services/soulStore.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { placeCoords } from '../services/places.js';
+import { deleteAccount, exportAccount } from '../services/account.js';
 import {
   canViewContent, counts, isBlockedEither, meView, notify, publicProfile, relationship, userCard,
 } from '../services/social.js';
@@ -114,7 +115,10 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
     username: USERNAME,
     displayName: z.string().trim().min(1).max(50),
     birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
+    acceptTerms: z.literal(true).optional(),        // "I'm 18+ and agree to the Terms and Privacy Policy"
+    termsVersion: z.string().max(20).optional(),
   }).parse(req.body);
+  const { acceptTerms, termsVersion } = data; delete data.acceptTerms; delete data.termsVersion;
   if (config.faceRequired && !req.user.face_verified) throw badRequest('Complete the face scan first', 'face_required');
   await assertUsernameFree(data.username, req.user.id);
   if (ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
@@ -124,7 +128,29 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
     `UPDATE users SET ${sets}, onboarding_done = 1, updated_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1`,
     [req.user.id, ...entries.map(([, v]) => v)],
   );
+  if (acceptTerms) await query('UPDATE users SET terms_version=$2, terms_accepted_at=SYSDATETIMEOFFSET() WHERE id=$1', [req.user.id, termsVersion || 'v1']);
   res.json({ user: meView(user) });
+}));
+
+// Agree to a new version of the Terms / Privacy Policy
+r.post('/me/accept-terms', ah(async (req, res) => {
+  const { version } = z.object({ version: z.string().trim().min(1).max(20) }).parse(req.body || {});
+  const user = await one('UPDATE users SET terms_version=$2, terms_accepted_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1', [req.user.id, version]);
+  res.json({ user: meView(user) });
+}));
+
+// Download my data (DPDP right to access)
+r.get('/me/export', ah(async (req, res) => {
+  res.set('Content-Disposition', 'attachment; filename="soulink-my-data.json"');
+  res.json(await exportAccount(req.user.id));
+}));
+
+// Delete my account for good (DPDP right to erasure). Body: { confirm: 'DELETE' }
+r.delete('/me', ah(async (req, res) => {
+  const { confirm } = z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
+  void confirm;
+  await deleteAccount(req.user.id);
+  res.json({ ok: true, deleted: true });
 }));
 
 r.post('/me/avatar', uploadMemory('image', 8).single('photo'), ah(async (req, res) => {

@@ -15,6 +15,8 @@ import { HeaderBackground } from '../components/brand';
 import GalaxyBackground from '../components/GalaxyBackground';
 import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
+import TermsGate from '../components/TermsGate';
+import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
 import BackButton from '../components/BackButton';
 import { BottomBar, barSpace } from '../components/TabBar';
@@ -121,6 +123,7 @@ function RootStack() {
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
         <Stack.Screen name="settings/device-permissions" options={{ title: 'Device permissions' }} />
         <Stack.Screen name="settings/about" options={{ title: 'About' }} />
+        <Stack.Screen name="settings/delete-account" options={{ title: 'Delete my account' }} />
         <Stack.Screen name="blocked" options={{ title: 'Blocked contacts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />
         <Stack.Screen name="messages/index" options={{ title: 'Messages' }} />
@@ -130,8 +133,11 @@ function RootStack() {
         <Stack.Screen name="anon/[id]" options={{ title: '' }} />
         <Stack.Screen name="chat/info/[id]" options={{ title: 'Details' }} />
       </Stack.Protected>
+      {/* public: readable before and after login. Listed last so a redirect never lands here */}
+      <Stack.Screen name="legal/[doc]" options={{ title: '' }} />
     </Stack>
     {showBar ? <BottomBar active={active} /> : null}
+    {loggedIn && onboarded && user.termsVersion !== TERMS_VERSION && top !== 'legal' ? <TermsGate /> : null}
     </View>
   );
 }

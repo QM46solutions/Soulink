@@ -13,6 +13,7 @@ import { api } from '../lib/api';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { Button } from './ui';
 import { FaceScanIcon } from './LiveIcons';
+import Consent from './Consent';
 
 const SIZE = 250;
 const POSES = [
@@ -53,6 +54,7 @@ function CoachPill({ text, good }) {
 export default function FaceScan({ onVerified, alreadyVerified }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState(alreadyVerified ? 'done' : 'intro'); // intro | scanning | checking | done | failed
+  const [agreed, setAgreed] = useState(false);
   const [pose, setPose] = useState(0);
   const [shots, setShots] = useState(0);
   const [error, setError] = useState(null);
@@ -128,6 +130,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   }, [phase, cameraReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
+    if (!agreed) return;
     setError(null); setShots(0); setPose(0); setCameraReady(false); setCoach(null);
     const p = permission?.granted ? permission : await requestPermission();
     if (!p.granted) { setError('Soulink needs your camera for the face scan. Allow camera access and try again.'); setPhase('failed'); return; }
@@ -159,7 +162,8 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
             ))}
           </View>
         )}
-        <Button title={failed ? 'Try again' : 'Start face scan'} onPress={start} style={{ marginTop: space.xl }} />
+        <Consent face value={agreed} onChange={setAgreed} />
+        <Button title={failed ? 'Try again' : 'Start face scan'} onPress={start} disabled={!agreed} style={{ marginTop: space.lg }} />
       </View>
     );
   }

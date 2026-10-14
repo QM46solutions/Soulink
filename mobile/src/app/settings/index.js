@@ -10,6 +10,7 @@ import { confirm } from '../../lib/confirm';
 import { retakeSoulDna } from '../../lib/retake';
 import { MenuRow, Note, Section } from '../../components/SettingsUI';
 import { s } from '../../components/ui';
+import { downloadMyData } from '../../lib/export-data';
 
 const go = (p) => () => router.push(p);
 
@@ -64,6 +65,12 @@ export default function Settings() {
       <MenuRow icon="apps" title="App permissions" text="What Soulink may use: activity, face search, translation" onPress={go('/settings/app-permissions')} tint={['#f5c842', '#ff9a5a']} />
       <MenuRow icon="location" title="Location" text={user.hasLocation ? 'On: used for distance in Discover' : 'Off'} onPress={go('/settings/location')} tint={['#3fa9f5', '#5b46d6']} />
       <MenuRow icon="phone-portrait-outline" title="Device permissions" text="Camera, microphone, photos, location, notifications" onPress={go('/settings/device-permissions')} tint={['#58a0e6', '#42e8c0']} />
+
+      <Section>Legal & your data</Section>
+      <MenuRow icon="document-text" title="Terms & policies" text="Terms, Privacy, Guidelines, Refunds" onPress={go('/legal/terms')} tint={['#7c5cfc', '#3fa9f5']} />
+      <MenuRow icon="help-buoy" title="Grievance Officer" text="Complaints about content, your account or data" onPress={go('/legal/grievance')} tint={['#ff9a5a', '#ff6b9d']} />
+      <MenuRow icon="download" title="Download my data" text="A copy of your profile, posts, chats and more" onPress={downloadMyData} tint={['#42e8c0', '#3fa9f5']} />
+      <MenuRow icon="trash" title="Delete my account" text="Erase your account and data for good" onPress={go('/settings/delete-account')} tint={['#ff5c7a', '#8b2a3c']} />
 
       <Section>More</Section>
       {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: sponsored posts, Spark ads, sponsored Argue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}

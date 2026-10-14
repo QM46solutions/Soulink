@@ -111,6 +111,9 @@ export function SoulmojiPhoto({ imageUrl, mood = 'happy', caption, size = 176 })
         <Text style={{ fontSize: 12 }}>{m.emoji}</Text>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: '#fff', marginLeft: 4 }}>{m.label}</Text>
       </View>
+      <View style={{ position: 'absolute', right: 8, top: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: 'rgba(8,7,13,0.7)' }}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 9, color: '#fff' }}>AI</Text>
+      </View>
       {caption && caption !== m.label ? (
         <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: fonts.displayBold, fontSize: 14, color: colors.text, textAlign: 'center' }}>{caption}</Text>
       ) : null}

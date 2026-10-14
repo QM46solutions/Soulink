@@ -92,6 +92,7 @@ function Verdict({ c }) {
       ) : null}
       <Text style={{ color: colors.dim, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', marginTop: space.lg }}>
         {c.judge === 'claude' ? 'Judged by Claude AI' : c.judge === 'ollama' ? 'Judged by the free Soulink AI' : 'Quick verdict by the basic judge. Turn on the free Soulink AI for full verdicts.'}
+        {' · AI-generated opinion, not legal advice'}
       </Text>
       <Button title="New argument" style={{ marginTop: space.lg }} onPress={() => router.replace('/argue')} />
     </BrandScreen>

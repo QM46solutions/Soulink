@@ -9,6 +9,7 @@ import { initRealtime } from './realtime.js';
 import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
 import { startAnonTimer } from './services/anon.js';
+import { purgeDeletedAccounts } from './services/account.js';
 import { localAiStatus } from './services/referee.js';
 
 const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
@@ -36,6 +37,7 @@ if (cloud) {
 }
 
 const server = http.createServer(createApp());
+purgeDeletedAccounts(); setInterval(purgeDeletedAccounts, 24 * 3600_000).unref?.(); // sign-up records of deleted accounts: kept 180 days
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
 startAnonTimer(); // Anonymous chats: reveal the sender after 7 days, checked every minute
 initRealtime(server);

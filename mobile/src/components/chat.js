@@ -382,7 +382,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
                 <Ionicons name="language" size={12} color={mine ? 'rgba(255,255,255,0.8)' : colors.aura} style={{ marginRight: 4 }} />
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: mine ? 'rgba(255,255,255,0.8)' : colors.aura }}>
-                  {translation.loading ? 'Translating…' : translation.error ? 'Could not translate' : `${translation.fromName} → ${translation.toName}`}
+                  {translation.loading ? 'Translating…' : translation.error ? 'Could not translate' : `${translation.fromName} → ${translation.toName} · machine translated`}
                 </Text>
               </View>
               {translation.text ? <Text selectable={false} style={[st.text, mine && st.textMine, { fontSize: 15 }]}>{translation.text}</Text> : null}

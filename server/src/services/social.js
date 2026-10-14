@@ -116,5 +116,6 @@ export const meView = (u) => ({
   eventsNotify: !!u.events_notify,
   openTo: Array.isArray(u.open_to) ? u.open_to : (() => { try { return JSON.parse(u.open_to || '[]'); } catch { return []; } })(),
   isAdmin: isAdmin(u), // Soulink team: can run ads
+  termsVersion: u.terms_version || null, termsAcceptedAt: u.terms_accepted_at || null,
   createdAt: u.created_at,
 });

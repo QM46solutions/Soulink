@@ -2,6 +2,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import ContactEntry from '../../components/ContactEntry';
 import { BrandHeader, BrandScreen, LinkLine } from '../../components/BrandScreen';
+import { LegalLinks } from '../../components/Consent';
 
 export default function Signup() {
   const { method, value } = useLocalSearchParams();
@@ -10,6 +11,7 @@ export default function Signup() {
       <BrandHeader title="Create your account" subtitle="One real person, one profile. We'll send a code to check it's you." />
       <ContactEntry mode="signup" initialMethod={method === 'email' ? 'email' : 'phone'} initialValue={value ? String(value) : ''} />
       <LinkLine text="Already on Soulink?" link="Log in" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+      <LegalLinks style={{ marginTop: 24 }} />
     </BrandScreen>
   );
 }

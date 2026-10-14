@@ -142,7 +142,7 @@ r.post('/enroll',
       await c.query('DELETE FROM face_embeddings WHERE user_id=$1', [req.user.id]);
       await c.query('INSERT INTO face_embeddings (user_id, provider, embedding) VALUES ($1, $2, $3)', [req.user.id, 'local', embedding]);
       return (await c.query(
-        `UPDATE users SET face_verified = 1${avatarUrl ? ', avatar_url = $2' : ''}, updated_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1`,
+        `UPDATE users SET face_verified = 1, face_consent_at = COALESCE(face_consent_at, SYSDATETIMEOFFSET())${avatarUrl ? ', avatar_url = $2' : ''}, updated_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1`,
         avatarUrl ? [req.user.id, avatarUrl] : [req.user.id],
       )).rows[0];
     });

@@ -73,6 +73,11 @@ export default function MusicPicker({ visible, onClose, onPick, allowPhone = tru
   const startRef = useRef(0); startRef.current = start; // the slider keeps its first callbacks, so read the latest value here
   const pv = usePreview();
   const seq = useRef(0);
+  const [on, setOn] = useState(null); // music sources the server has turned on (unlicensed ones are off in production)
+  useEffect(() => {
+    if (!visible || on) return;
+    api('/music/sources').then((r) => { setOn(r.sources); if (!r.sources.includes(tab)) setTab(r.sources[0] || 'file'); }).catch(() => {});
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (!visible) { pv.stop(); setChosen(null); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
   // search (waits a moment after you stop typing)
@@ -106,7 +111,7 @@ export default function MusicPicker({ visible, onClose, onPick, allowPhone = tru
     onPick({ source: 'file', uri: f.uri, name: f.name, type: f.type, size: f.size, title: f.name.replace(/\.[a-z0-9]{2,4}$/i, '').slice(0, 150), start: 0 });
     onClose();
   };
-  const tabs = TABS.filter((t) => allowPhone || t.key !== 'file');
+  const tabs = TABS.filter((t) => (allowPhone || t.key !== 'file') && (t.key === 'file' || !on || on.includes(t.key)));
   const cur = TABS.find((t) => t.key === tab);
 
   return (

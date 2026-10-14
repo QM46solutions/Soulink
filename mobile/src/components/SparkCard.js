@@ -97,7 +97,7 @@ export default function SparkCard({ spark, onDeleted }) {
               <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{spark.author.displayName || spark.author.username}</Text>
               {spark.author.verified ? <VerifiedBadge /> : null}
             </View>
-            <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{spark.spread ? 'Spread' : ago(spark.createdAt)} · {spark.views} {spark.views === 1 ? 'view' : 'views'}</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{spark.spread ? 'Promoted' : ago(spark.createdAt)} · {spark.views} {spark.views === 1 ? 'view' : 'views'}</Text>
           </View>
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 3, paddingRight: 10, height: 28, borderRadius: 999, borderWidth: 1, borderColor: `${cat.colors[0]}88`, backgroundColor: `${cat.colors[0]}22` }}>
@@ -110,7 +110,7 @@ export default function SparkCard({ spark, onDeleted }) {
       <View>
         <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
-          {spark.spread ? <Chip icon="megaphone" text="Spread" color={colors.gold} /> : null}
+          {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
           {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
           {spark.stageWeek ? <Chip icon="mic" text="Open Mic" color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}

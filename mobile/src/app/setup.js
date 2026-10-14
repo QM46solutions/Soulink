@@ -15,6 +15,7 @@ import ProfessionField from '../components/ProfessionField';
 import { Button, Chip, ErrorText, Input, s } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { usePhotoPicker } from '../components/PhotoPicker';
+import { TERMS_VERSION } from '../lib/legal';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -101,7 +102,7 @@ export default function Setup() {
     try {
       await api('/users/me/complete-onboarding', {
         method: 'POST',
-        body: { username, displayName: displayName.trim(), birthDate, gender, city: city.trim() || null, profession: profession.trim(), isCreator, bio: bio.trim(), interests, isPrivate },
+        body: { username, displayName: displayName.trim(), birthDate, gender, city: city.trim() || null, profession: profession.trim(), isCreator, bio: bio.trim(), interests, isPrivate, acceptTerms: true, termsVersion: TERMS_VERSION },
       });
       let me = (await api('/users/me')).user;
       if (avatarUri) me = (await uploadImage('/users/me/avatar', avatarUri)).user;

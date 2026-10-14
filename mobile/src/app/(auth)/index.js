@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LegalLinks } from '../../components/Consent';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ContactEntry from '../../components/ContactEntry';
@@ -121,6 +122,8 @@ export default function Welcome() {
           <View style={{ marginTop: space.xxl }}>
             <ContactEntry mode="login" />
             <LinkLine text="New to Soulink?" link="Create account" onPress={() => router.push('/signup')} />
+            <LegalLinks style={{ marginTop: space.xl }} />
+            <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 6 }}>For ages 18+ · © QM46 Solutions Pvt Ltd</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
