@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 import { analyzeFaces, faceDistance, quickFaces } from '../services/faceEngine.js';
 import { meView } from '../services/social.js';
 import { openFace, sealFace } from '../lib/faceCrypto.js';
+import { faceBanned, MESSAGES } from '../services/lifecycle.js';
+import { audit } from '../services/audit.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -132,6 +134,12 @@ r.post('/enroll',
       if (hit && !match) match = o.user_id;
     }
     flog(`enroll user=${req.user.id.slice(0, 8)} compared with ${others.length} stored face(s), nearest ${nearest ? `avg=${nearest.avgD.toFixed(3)} photos=${nearest.singles.map((d) => d.toFixed(3)).join('/')} (${nearest.user.slice(0, 8)})` : 'none'}`);
+    // a person banned for breaking the rules cannot come back with a new account (policy section 13)
+    if (await faceBanned(avg, FACE.sameAccountMax)) {
+      flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED banned face`);
+      await audit(req, 'signup_blocked_banned_face');
+      throw fail(MESSAGES.banned, 'face_banned', 403);
+    }
     if (match) {
       flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face`);
       throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);

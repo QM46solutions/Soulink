@@ -16,6 +16,8 @@ async function loadUser(req) {
   const user = await one('SELECT * FROM users WHERE id = $1', [t.userId]);
   // the account was deleted (here or on another device): every device is signed out with this message
   if (!user) throw unauthorized(NO_ACCOUNT, 'no_account');
+  // paused, or waiting to be deleted: signed out until the person logs in again (which reactivates it)
+  if (user.deactivated_at) throw unauthorized(user.deactivate_reason === 'deleting' ? 'Your account will be deleted in 30 days. Log in before then to cancel.' : 'This account is paused. Log in again to reactivate it.', user.deactivate_reason === 'deleting' ? 'account_deleting' : 'account_paused');
   if ((await checkSession(t.userId, t.sid)) !== 'ok') throw unauthorized('You were logged out. Log in again to continue.', 'session_ended');
   req.sessionId = t.sid;
   return user;

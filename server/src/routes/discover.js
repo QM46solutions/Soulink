@@ -81,7 +81,7 @@ r.post('/search', ah(async (req, res) => {
   }
 
   // 1) cheap filters in SQL
-  const where = ['u.onboarding_done = 1', 'u.show_in_discover = 1', 'u.id <> $1',
+  const where = ['u.onboarding_done = 1', 'u.deactivated_at IS NULL', 'u.show_in_discover = 1', 'u.id <> $1',
     'NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$1))',
     'NOT EXISTS (SELECT 1 FROM connections c WHERE (c.user_a=u.id AND c.user_b=$1) OR (c.user_b=u.id AND c.user_a=$1))'];
   const params = [me.id];

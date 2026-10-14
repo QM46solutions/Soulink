@@ -124,6 +124,8 @@ function RootStack() {
         <Stack.Screen name="settings/device-permissions" options={{ title: 'Device permissions' }} />
         <Stack.Screen name="settings/about" options={{ title: 'About' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete my account' }} />
+        <Stack.Screen name="settings/pause-account" options={{ title: 'Pause my account' }} />
+        <Stack.Screen name="settings/restore-data" options={{ title: 'Restore my data' }} />
         <Stack.Screen name="blocked" options={{ title: 'Blocked contacts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />
         <Stack.Screen name="messages/index" options={{ title: 'Messages' }} />

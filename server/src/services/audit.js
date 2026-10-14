@@ -17,6 +17,6 @@ export async function audit(req, action, { actorId, targetUserId, detail } = {})
 
 export async function purgeAuditLog() {
   try { await query(`DELETE FROM audit_log WHERE created_at < DATEADD(DAY, -${AUDIT_KEEP_DAYS}, SYSDATETIMEOFFSET())`); } catch { /* next run */ }
-  // ended sessions are only needed for a short while ("session ended" message)
-  try { await query('DELETE FROM user_sessions WHERE revoked_at < DATEADD(DAY, -30, SYSDATETIMEOFFSET()) OR last_seen_at < DATEADD(DAY, -60, SYSDATETIMEOFFSET())'); } catch { /* next run */ }
+  // login sessions (device, IP, times) are traffic data: kept 1 year rolling (DPDP Rules Rule 8(3))
+  try { await query('DELETE FROM user_sessions WHERE revoked_at < DATEADD(DAY, -365, SYSDATETIMEOFFSET()) OR last_seen_at < DATEADD(DAY, -365, SYSDATETIMEOFFSET())'); } catch { /* next run */ }
 }

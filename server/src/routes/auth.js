@@ -8,6 +8,7 @@ import { startSession, endSession } from '../services/sessions.js';
 import { audit } from '../services/audit.js';
 import { securityLog, clientIp } from '../lib/log.js';
 import { disconnectSession } from '../realtime.js';
+import { contactBanned, reactivateOnLogin, MESSAGES } from '../services/lifecycle.js';
 import { sendOtp } from '../providers/sms.js';
 import { requireAuth } from '../middleware/auth.js';
 import { meView } from '../services/social.js';
@@ -39,6 +40,10 @@ r.post(
     const intent = z.enum(['login', 'signup']).optional().parse(req.body.intent);
     const col = channel === 'phone' ? 'phone' : 'email';
     const existing = await one(`SELECT TOP 1 id FROM users WHERE ${col}=$1`, [target]);
+    if (!existing && await contactBanned(channel === 'phone' ? { phone: target } : { email: target })) {
+      securityLog('signup_blocked_banned', { channel, ip: clientIp(req) });
+      throw new HttpError(403, MESSAGES.banned, 'banned');
+    }
     if (intent === 'login' && !existing) {
       throw notFound(channel === 'phone' ? 'No Soulink account uses this number yet.' : 'No Soulink account uses this email yet.', 'no_account');
     }
@@ -89,9 +94,10 @@ r.post(
     // Errors are returned (not thrown) so the attempt counter update is committed.
     if (result.error) { securityLog('login_failed', { channel, reason: result.error.code, ip: clientIp(req) }); throw result.error; }
 
+    const welcomeBack = await reactivateOnLogin(result.user, req); // paused or waiting to be deleted → back
     const token = await startSession(result.user.id, req);
     await audit(req, result.isNew ? 'signup' : 'login', { actorId: result.user.id, detail: channel });
-    res.json({ token, isNew: result.isNew, user: meView(result.user) });
+    res.json({ token, isNew: result.isNew, ...(welcomeBack ? { welcomeBack } : {}), user: meView(welcomeBack ? { ...result.user, deactivated_at: null } : result.user) });
   }),
 );
 

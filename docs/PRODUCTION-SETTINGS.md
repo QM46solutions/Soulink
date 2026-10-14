@@ -18,6 +18,8 @@ Put every secret in Azure Key Vault and reference it from App Service settings.
 | TESTING_MODE | false | Strict rate limits |
 | PREMIUM_FREE_TRIAL | false | |
 | CORS_ORIGINS | other websites allowed to call the API, comma separated (the app's own address is always allowed) | |
+| EXPORT_KEY | 64 random characters | Signs "Download my data" files so Restore accepts only genuine ones |
+| ADMIN_USERNAMES | Soulink team usernames, comma separated | Ads Manager, bans |
 | FACE_SEARCH | false (feature on hold) | |
 | DB_ENCRYPT / DB_TRUST_SERVER_CERT | true / false | Encrypted database connection |
 

@@ -47,7 +47,7 @@ async function addMessage(t, fromSender, text) {
 
 /** Can I send an anonymous message to this person? (used by the profile button) */
 r.get('/can/:userId', ah(async (req, res) => {
-  const to = await one('SELECT id FROM users WHERE id=$1 AND onboarding_done=1', [uuid.parse(req.params.userId)]);
+  const to = await one('SELECT id FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [uuid.parse(req.params.userId)]);
   if (!to || same(to.id, req.user.id) || (await isBlockedEither(req.user.id, to.id))) return res.json({ allowed: false });
   if (await connectionBetween(req.user.id, to.id)) return res.json({ allowed: false, reason: 'connected' });
   const t = await one('SELECT id FROM anon_threads WHERE sender_id=$1 AND recipient_id=$2', [req.user.id, to.id]);
@@ -58,7 +58,7 @@ r.get('/can/:userId', ah(async (req, res) => {
 r.post('/', requireSoul, ah(async (req, res) => {
   const data = z.object({ toUserId: uuid, body }).parse(req.body);
   const me = req.user;
-  const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [data.toUserId]);
+  const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [data.toUserId]);
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
   if (same(to.id, me.id)) throw badRequest("You can't send yourself an anonymous message");
   if (await connectionBetween(me.id, to.id)) throw conflict("You're already Soul Connected. Message them directly.", 'already_connected');

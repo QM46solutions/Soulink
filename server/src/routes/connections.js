@@ -57,7 +57,7 @@ async function loadRequest(req, who) {
 
 /** Everything the profile screen needs to show the right Connect button. */
 r.get('/status/:userId', ah(async (req, res) => {
-  const other = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [uuid.parse(req.params.userId)]);
+  const other = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [uuid.parse(req.params.userId)]);
   if (!other) throw notFound('User not found');
   const me = req.user.id;
   const conn = await connectionBetween(me, other.id);
@@ -88,7 +88,7 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   // no note: nothing can be sent to someone before they accept (old apps may still send one; it's ignored)
   const data = z.object({ toUserId: uuid, intent, knows: z.boolean().default(false), note: z.string().optional() }).parse(req.body);
   const me = req.user;
-  const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [data.toUserId]);
+  const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [data.toUserId]);
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
   if (to.id === me.id) throw badRequest("You can't connect with yourself");
   if (await connectionBetween(me.id, to.id)) throw conflict('You are already connected', 'already_connected');
@@ -189,7 +189,7 @@ r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
 
 // Connect back with someone who is connected to you → you're Connections (chat opens)
 r.post('/back/:userId', requireSoul, ah(async (req, res) => {
-  const other = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [uuid.parse(req.params.userId)]);
+  const other = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [uuid.parse(req.params.userId)]);
   if (!other || (await isBlockedEither(req.user.id, other.id))) throw notFound('User not found');
   if (!(await connectsTo(other.id, req.user.id))) throw forbidden(`${other.display_name || other.username} isn't connected to you. Send a Connect request instead.`, 'not_connected_to_you');
   const existing = await connectionBetween(req.user.id, other.id);

@@ -3,7 +3,7 @@
 // Consumer Protection (E-Commerce) Rules 2020, ASCI code). Templates until a lawyer reviews them.
 // When the text changes in a way people must agree to again, change TERMS_VERSION.
 
-export const TERMS_VERSION = '2026-10-15';
+export const TERMS_VERSION = '2026-10-16';
 
 export const LEGAL = {
   company: 'QM46 Solutions Private Limited',
@@ -12,7 +12,7 @@ export const LEGAL = {
   grievanceOfficer: 'Sai Raghava Ragishetty',
   grievanceEmail: 'Rragishetty@gmail.com',
   founder: 'Nikhil Cheedella',
-  updated: '15 October 2026',
+  updated: '16 October 2026',
 };
 
 const G = LEGAL;
@@ -57,8 +57,13 @@ export const DOCS = {
         'Soulink is an intermediary: we provide the platform and do not check every post before it appears. We are not responsible for what users post or for meetings between users. Meet new people in public places and tell a friend where you are going.',
         'Soulink is provided "as is". To the extent the law allows, our total liability to you is limited to the amount you paid us in the 12 months before the claim.',
       ]],
-      ['Ending your account', [
-        'You can delete your account at any time in Settings › Delete my account. We may close accounts that break these terms.',
+      ['Pausing, deleting and coming back', [
+        'Pause: Settings › Pause my account hides your profile and content and stops notifications. Nothing is deleted; log in again to come back.',
+        'Delete: Settings › Delete my account. Your account is hidden at once and deleted after 30 days. Log in before then to cancel. You can also choose to delete everything straight away.',
+        'Coming back: download your data before you delete. If you join again with the same phone number or email, Settings › Restore my data brings back your profile details and Soul DNA from that file. Photos, posts and chats cannot be restored.',
+      ]],
+      ['Removal for breaking the rules', [
+        'We may close accounts that break these terms or the law. If we remove an account for serious or repeated violations (for example harassment, sexual content involving anyone without consent, impersonation, fraud or threats), we keep the person\'s name, phone number, email and an encrypted face fingerprint for up to 3 years, only to stop them creating a new account. You can appeal to our Grievance Officer.',
       ]],
       ['Law and disputes', [
         'These terms are governed by the laws of India. Courts in Hyderabad, Telangana have jurisdiction. Please contact our Grievance Officer first; most problems are solved there.',
@@ -95,7 +100,10 @@ export const DOCS = {
         'Authorities, when Indian law requires it.',
       ]],
       ['How long we keep it', [
-        'While your account is open. When you delete your account, we erase your profile, face fingerprint, Soul DNA and content. We keep only basic sign-up details (username, phone or email and dates) for 180 days, as the IT Rules 2021 require, and security logs for up to one year as the DPDP Rules require, then delete them.',
+        'While your account is open, or paused. If you delete your account it is hidden at once and erased after 30 days (or straight away if you choose), unless you log in to cancel.',
+        'When the account is erased, your profile, photos, face fingerprint, Soul DNA, posts, Sparks and chats are deleted. For 1 year we keep your name, username, date of birth, city, phone number, email, the dates you joined and left, your consent records, and logs of your logins and actions (device, IP address, time). The DPDP Rules 2025 and IT Rules 2021 require this so we can answer lawful requests; it is used for nothing else and then deleted.',
+        'If your account is removed for serious or repeated rule-breaking, we keep your name, contact details and an encrypted face fingerprint for up to 3 years to stop you creating a new account.',
+        'Payment and invoice records are kept for 8 years, as tax and company law require.',
       ]],
       ['Your rights', [
         'See your data: Settings › Download my data.',

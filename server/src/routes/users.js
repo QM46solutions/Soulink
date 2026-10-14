@@ -10,12 +10,14 @@ import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { headline } from '../services/soulStore.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { placeCoords } from '../services/places.js';
-import { deleteAccount, exportAccount } from '../services/account.js';
-import { endAllSessions } from '../services/sessions.js';
+import { exportAccount } from '../services/account.js';
 import { audit } from '../services/audit.js';
-import { signOutEverywhere } from '../realtime.js';
-import { sendEmail } from '../providers/email.js';
-import { sendSmsNotice } from '../providers/sms.js';
+import { eraseAccount, pauseAccount, scheduleDeletion, MESSAGES } from '../services/lifecycle.js';
+import { verifyExport } from '../lib/exportSign.js';
+import { QUESTIONS, QUESTION_IDS, validAnswer } from '../services/soulDna.js';
+import { saveCompletedDna } from '../services/soulStore.js';
+import express from 'express';
+const QMAP = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
 import { pushTo } from '../services/push.js';
 import {
   canViewContent, counts, isBlockedEither, meView, notify, publicProfile, relationship, userCard,
@@ -156,26 +158,62 @@ r.get('/me/export', ah(async (req, res) => {
 }));
 
 // Delete my account for good (DPDP right to erasure). Body: { confirm: 'DELETE' }
+// Pause my account: hidden everywhere, data kept; logging in again brings it back.
+r.post('/me/pause', ah(async (req, res) => {
+  await pauseAccount(req.user, req);
+  res.json({ ok: true, paused: true, message: MESSAGES.paused });
+}));
+
+// Delete my account: hidden at once, erased after 30 days; logging in before then cancels. Body: { confirm: 'DELETE' }
+r.post('/me/schedule-deletion', ah(async (req, res) => {
+  z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
+  const after = await scheduleDeletion(req.user, req);
+  res.json({ ok: true, deleteAfter: after, message: MESSAGES.deleting });
+}));
+
+// Delete my account now, without the 30 days (DPDP right to erasure). Body: { confirm: 'DELETE' }
 r.delete('/me', ah(async (req, res) => {
-  const { confirm } = z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
-  void confirm;
-  const { id, email, phone, username } = req.user;
-  // 1. a last notification to the person's other phones and browsers, while their push subscriptions still exist
-  await pushTo(id, 'account', { title: 'Soulink', body: 'No user account found. This Soulink account was deleted.', tag: 'account-deleted' });
-  // 2. end every login session (this device included) and erase the account
-  await endAllSessions(id);
-  await deleteAccount(id);
-  await audit(req, 'account_deleted', { actorId: id, targetUserId: id, detail: username || null });
-  // 3. devices that are open right now are signed out with "No user account found"
-  signOutEverywhere(id, req.sessionId);
-  // 4. confirmation by email (or SMS for phone-only accounts)
-  const when = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
-  if (email) {
-    sendEmail({ to: email, subject: 'Your Soulink account has been deleted', text: `Hi${username ? ` @${username}` : ''},\n\nYour Soulink account was deleted on ${when} (IST). You have been logged out on every phone and browser.\n\nYour profile, photos, face data, Soul DNA, posts, Sparks and chats have been erased. As Indian law requires, we keep only your username, contact and sign-up dates for 180 days, then delete them too.\n\nIf you did not do this, reply to this email or write to our Grievance Officer at Rragishetty@gmail.com.\n\nSoulink · QM46 Solutions Private Limited` }).catch(() => {});
-  } else if (phone) {
-    sendSmsNotice(phone, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID').catch(() => {});
-  }
+  z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
+  // a last notification to the person's other phones and browsers, while their push subscriptions still exist
+  await pushTo(req.user.id, 'account', { title: 'Soulink', body: 'No user account found. This Soulink account was deleted.', tag: 'account-deleted' });
+  await eraseAccount(req.user, req, 'user');
   res.json({ ok: true, deleted: true });
+}));
+
+// Restore my data: a person who came back uploads their "Download my data" file.
+// Only a genuine, unchanged Soulink download whose phone or email matches this account is accepted.
+// Brings back the profile details and Soul DNA (photos, posts and chats were erased with the old account).
+r.post('/me/restore', express.json({ limit: '15mb' }), ah(async (req, res) => {
+  const file = req.body;
+  if (!verifyExport(file)) throw badRequest("This isn't a Soulink download, or it was changed. Use the file exactly as you downloaded it.", 'restore_invalid');
+  const p = file.profile || {};
+  const same = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
+  if (!same(p.phone, req.user.phone) && !same(p.email, req.user.email)) throw forbidden('This download belongs to a different phone number or email.', 'restore_not_yours');
+  const restored = [];
+  const fields = { display_name: p.display_name, bio: p.bio, city: p.city, profession: p.profession, gender: p.gender, interests: p.interests, languages: p.languages, is_creator: p.is_creator };
+  const sets = []; const vals = [req.user.id];
+  for (const [col, v] of Object.entries(fields)) {
+    if (v === undefined || v === null || v === '') continue;
+    vals.push(Array.isArray(v) || (v && typeof v === 'object') ? JSON.stringify(v) : v);
+    sets.push(`${col}=$${vals.length}`);
+  }
+  if (p.username && p.username !== req.user.username) {
+    const taken = await one('SELECT TOP 1 id FROM users WHERE username=$1 AND id<>$2', [p.username, req.user.id]);
+    if (!taken) { vals.push(p.username); sets.push(`username=$${vals.length}`); restored.push('username'); }
+  }
+  if (sets.length) { await query(`UPDATE users SET ${sets.join(', ')}, updated_at=SYSDATETIMEOFFSET() WHERE id=$1`, vals); restored.push('profile'); }
+  const answers = file.soulDna?.answers;
+  if (answers && typeof answers === 'object' && Object.keys(answers).length) {
+    const good = Object.fromEntries(Object.entries(answers).filter(([id, v]) => QMAP[id] && validAnswer(QMAP[id], v)));
+    const row = await one('SELECT user_id FROM soul_dna WHERE user_id=$1', [req.user.id]);
+    if (row) await query('UPDATE soul_dna SET answers=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(good)]);
+    else await query('INSERT INTO soul_dna (user_id, answers) VALUES ($1, $2)', [req.user.id, JSON.stringify(good)]);
+    if (QUESTION_IDS.every((id) => good[id] !== undefined)) await saveCompletedDna(req.user.id, good);
+    restored.push('soulDna');
+  }
+  await audit(req, 'data_restored', { detail: restored.join(',') || 'nothing' });
+  const user = await one('SELECT * FROM users WHERE id=$1', [req.user.id]);
+  res.json({ ok: true, restored, user: meView(user) });
 }));
 
 r.post('/me/avatar', uploadMemory('image', 8).single('photo'), ah(async (req, res) => {
@@ -232,7 +270,7 @@ r.post('/me/follow-requests/:userId/decline', ah(async (req, res) => {
 async function loadTarget(req, by = 'id') {
   const val = by === 'id' ? String(req.params.id).toLowerCase() : String(req.params.username).toLowerCase();
   if (by === 'id' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(val)) throw notFound('User not found');
-  const u = await one(`SELECT * FROM users WHERE ${by === 'id' ? 'id' : 'username'}=$1 AND onboarding_done = 1`, [val]);
+  const u = await one(`SELECT * FROM users WHERE ${by === 'id' ? 'id' : 'username'}=$1 AND onboarding_done = 1 AND (deactivated_at IS NULL OR id = $2)`, [val, req.user.id]);
   if (!u || (await isBlockedEither(req.user.id, u.id))) throw notFound('User not found');
   return u;
 }

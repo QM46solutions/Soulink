@@ -1,5 +1,6 @@
 // Step 2 of sign-in: the 6-digit code. It checks itself as soon as the 6th digit is typed (no button to press).
 // New people then go to "Create your soul profile"; returning people go straight to Home.
+import { notice } from '../../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -39,7 +40,9 @@ export default function Verify() {
     setError(null); setBusy(true);
     try {
       const r = await api('/auth/otp/verify', { method: 'POST', body: { ...(isPhone ? { phone: target } : { email: target }), code: c } });
-      await signIn(r.token, r.user); // app switches to Home or profile setup by itself
+      await signIn(r.token, r.user);
+      if (r.welcomeBack === 'deleting') notice('Welcome back', 'Your account deletion is cancelled. Everything is as you left it.');
+      else if (r.welcomeBack === 'paused') notice('Welcome back', 'Your account is active again.'); // app switches to Home or profile setup by itself
     } catch (e) { setError(e.message); setCode(''); setBusy(false); }
   };
 

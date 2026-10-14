@@ -1,5 +1,6 @@
 // Shared by the Log in and Create account screens.
 // Step 1: phone or email → Step 2: 6-digit code → signed in.
+import { notice } from '../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -103,7 +104,9 @@ export default function AuthFlow({ mode = 'login', initialMethod = 'phone' }) {
     setError(null); setBusy(true);
     try {
       const r = await api('/auth/otp/verify', { method: 'POST', body: { ...(isPhone ? { phone: target } : { email: target }), code: c } });
-      await signIn(r.token, r.user); // the app then opens Home, or profile setup for new accounts
+      await signIn(r.token, r.user);
+      if (r.welcomeBack === 'deleting') notice('Welcome back', 'Your account deletion is cancelled. Everything is as you left it.');
+      else if (r.welcomeBack === 'paused') notice('Welcome back', 'Your account is active again.'); // the app then opens Home, or profile setup for new accounts
     } catch (e) { setError(e.message); setCode(''); setBusy(false); }
   };
 

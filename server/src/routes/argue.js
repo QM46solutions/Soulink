@@ -78,7 +78,7 @@ r.post('/', requireSoul, ah(async (req, res) => {
     if (ids.length !== data.count - 1) throw badRequest(`Pick ${data.count - 1} ${data.count - 1 === 1 ? 'person' : 'people'} to invite`);
     const users = [];
     for (const id of ids) {
-      const u = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1', [id]);
+      const u = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [id]);
       if (!u) throw badRequest('Some of those people could not be found');
       if (config.connectRequired && !(await connectionBetween(me.id, u.id))) throw forbidden('You can only invite people you are connected with.', 'not_connected');
       users.push(u);

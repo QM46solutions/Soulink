@@ -358,7 +358,7 @@ r.post('/direct', requireSoul, ah(async (req, res) => {
   const { userId } = z.object({ userId: uuid }).parse(req.body);
   const me = req.user.id;
   if (userId === me) throw badRequest("You can't message yourself");
-  const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1', [userId]);
+  const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1 AND deactivated_at IS NULL', [userId]);
   if (!target || (await isBlockedEither(me, userId))) throw notFound('User not found');
   if (config.connectRequired && !(await connectionBetween(me, userId))) {
     throw forbidden('Connect first: the chat opens once they accept your request.', 'not_connected');
@@ -401,7 +401,7 @@ r.post('/paid-message', requireSoul, ah(async (req, res) => {
   const data = z.object({ userId: uuid, body: z.string().trim().min(1, 'Write your message').max(500), paymentRef: z.string().trim().max(120).optional() }).parse(req.body);
   const me = req.user.id;
   if (data.userId === me) throw badRequest("You can't message yourself");
-  const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1', [data.userId]);
+  const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1 AND deactivated_at IS NULL', [data.userId]);
   if (!target || (await isBlockedEither(me, data.userId))) throw notFound('User not found');
   if (await connectionBetween(me, data.userId)) throw badRequest("You're connected: just open the chat", 'already_connected');
   const recent = await one(`SELECT TOP 1 id FROM paid_messages WHERE sender_id=$1 AND recipient_id=$2 AND created_at > DATEADD(day, -1, SYSDATETIMEOFFSET())`, [me, data.userId]);
@@ -433,7 +433,7 @@ r.post('/group', requireSoul, ah(async (req, res) => {
   const ids = [...new Set(data.userIds.filter((id) => id !== me))];
   if (ids.length < 2) throw badRequest('Pick at least 2 people for a group');
   const ph = ids.map((_, i) => `$${i + 1}`).join(',');
-  const users = await many(`SELECT * FROM users WHERE onboarding_done = 1 AND id IN (${ph})`, ids);
+  const users = await many(`SELECT * FROM users WHERE onboarding_done = 1 AND deactivated_at IS NULL AND id IN (${ph})`, ids);
   if (users.length !== ids.length) throw badRequest('Some of those people could not be found');
   for (const id of ids) if (await isBlockedEither(me, id)) throw badRequest('Some of those people could not be found');
   if (config.connectRequired) {
@@ -791,7 +791,7 @@ r.post('/:id/members', ah(async (req, res) => {
   if (current.size + toAdd.length > MAX_GROUP_MEMBERS) throw badRequest(`Groups can have up to ${MAX_GROUP_MEMBERS} people`);
   const added = [];
   for (const id of toAdd) {
-    const u = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1', [id]);
+    const u = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1 AND deactivated_at IS NULL', [id]);
     if (!u || (await isBlockedEither(req.user.id, id))) continue;
     await query(`INSERT INTO conversation_members (conversation_id, user_id, role, is_request) VALUES ($1, $2, N'member', $3)`, [conv.id, id, (await isRequestFor(id, req.user.id)) ? 1 : 0]);
     added.push(displayName(u));

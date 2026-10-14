@@ -22,7 +22,7 @@ r.get('/users', ah(async (req, res) => {
                  ELSE 0 END AS score,
             CASE WHEN EXISTS (SELECT 1 FROM follows f WHERE f.follower_id=$5 AND f.followee_id=u.id AND f.status=N'accepted') THEN 1 ELSE 0 END AS i_follow
        FROM users u
-      WHERE u.onboarding_done = 1 AND u.id <> $5
+      WHERE u.onboarding_done = 1 AND u.deactivated_at IS NULL AND u.id <> $5
         AND (u.username LIKE $4 OR u.display_name LIKE $4
              OR ($6 = 1 AND DIFFERENCE(u.display_name, $1) = 4))
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$5 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$5))

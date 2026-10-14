@@ -14,6 +14,7 @@ r.get('/', ah(async (req, res) => {
   const rows = await many(
     `${POST_SELECT}
       WHERE p.deleted_at IS NULL AND p.is_anonymous = 0 AND (p.suspended_at IS NULL OR p.author_id = $1)
+        AND NOT EXISTS (SELECT 1 FROM users du WHERE du.id = p.author_id AND du.deactivated_at IS NOT NULL)
         AND (p.author_id = $1
           OR p.author_id IN (SELECT CASE WHEN c.user_a=$1 THEN c.user_b ELSE c.user_a END FROM connections c WHERE c.user_a=$1 OR c.user_b=$1)
           OR p.author_id IN (SELECT followee_id FROM follows WHERE follower_id=$1 AND status=N'accepted'))

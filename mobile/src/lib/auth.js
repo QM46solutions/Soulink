@@ -27,6 +27,8 @@ export function AuthProvider({ children }) {
       if (shown) return;
       if (code === 'no_account') { shown = true; notice('No user account found', 'This Soulink account was deleted, so you have been logged out on this device.'); }
       else if (code === 'session_ended') { shown = true; notice('You were logged out', 'Log in again to continue.'); }
+      else if (code === 'account_paused') { shown = true; notice('Account paused', 'This account is paused. Log in again to reactivate it.'); }
+      else if (code === 'account_deleting') { shown = true; notice('Account scheduled for deletion', 'Your account will be deleted in 30 days. Log in before then to cancel.'); }
       setTimeout(() => { shown = false; }, 3000);
     });
     (async () => {

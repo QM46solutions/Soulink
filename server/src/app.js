@@ -34,6 +34,8 @@ import pushRoutes from './routes/push.js';
 import accountRoutes from './routes/account.js';
 import momentRoutes from './routes/moments.js';
 import sparkRoutes from './routes/sparks.js';
+import adminRoutes from './routes/admin.js';
+import { securityLog, clientIp } from './lib/log.js';
 
 export function createApp() {
   const app = express();
@@ -62,6 +64,17 @@ export function createApp() {
     cb(null, { origin: !origin || origin === own || config.corsOrigins.includes(origin) });
   }));
   app.use('/face', express.json({ limit: '8mb' })); // Face ID photos are bigger than normal requests
+  app.use('/users/me/restore', express.json({ limit: '15mb' })); // a "Download my data" file
+
+  // Access log (policy section 8): who did what, for every API call, kept 1 year in Log Analytics.
+  // Method, route and status only: never bodies, query strings, codes or message text.
+  if (!config.isDev || process.env.ACCESS_LOG === 'on') {
+    app.use((req, res, next) => {
+      const t0 = Date.now();
+      res.on('finish', () => securityLog('request', { user: req.user?.id || null, method: req.method, route: `${req.baseUrl || ''}${req.route?.path || ''}` || req.path.split('?')[0].slice(0, 120), status: res.statusCode, ms: Date.now() - t0, ip: clientIp(req) }));
+      next();
+    });
+  }
   app.use(express.json({ limit: '1mb' }));
 
   if (config.env !== 'test') {
@@ -114,6 +127,7 @@ export function createApp() {
   });
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
+  app.use('/admin', adminRoutes);
   app.use('/search', searchRoutes);
   app.use('/discover', discoverRoutes);
   app.use('/posts', postRoutes);

@@ -35,6 +35,8 @@ export function RealtimeProvider({ children }) {
     socket.on('disconnect', () => setConnected(false));
     // the account was deleted on another device, or this session was ended: sign out here too
     socket.on('account:deleted', () => forceSignOut('no_account'));
+    socket.on('account:paused', () => forceSignOut('account_paused'));
+    socket.on('account:deleting', () => forceSignOut('account_deleting'));
     socket.on('connect_error', (e) => { if (e?.message === 'no_account' || e?.message === 'session_ended') forceSignOut(e.message); });
     for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:vanished', 'conversation:private', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {

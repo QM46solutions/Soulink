@@ -11,6 +11,7 @@ import { startHoldTimer } from './services/connections.js';
 import { startAnonTimer } from './services/anon.js';
 import { purgeDeletedAccounts } from './services/account.js';
 import { purgeAuditLog } from './services/audit.js';
+import { purgeExpiredBans, runScheduledDeletions } from './services/lifecycle.js';
 import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 
@@ -42,7 +43,9 @@ if (cloud) {
 
 const server = http.createServer(createApp());
 purgeDeletedAccounts(); setInterval(purgeDeletedAccounts, 24 * 3600_000).unref?.();
-purgeAuditLog(); setInterval(purgeAuditLog, 24 * 3600_000).unref?.(); // audit trail kept 365 days, ended sessions 30 // sign-up records of deleted accounts: kept 180 days
+purgeAuditLog(); setInterval(purgeAuditLog, 24 * 3600_000).unref?.(); // audit trail and login sessions kept 365 days
+const lifecycle = () => { runScheduledDeletions(); purgeExpiredBans(); };
+setTimeout(lifecycle, 60_000).unref?.(); setInterval(lifecycle, 3600_000).unref?.(); // accounts whose 30 days are over are erased // sign-up records of deleted accounts: kept 180 days
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
 startAnonTimer(); // Anonymous chats: reveal the sender after 7 days, checked every minute
 initRealtime(server);

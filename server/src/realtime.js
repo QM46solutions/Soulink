@@ -54,11 +54,12 @@ export function disconnectSession(sid) {
   if (io && sid) io.in(`session:${sid}`).disconnectSockets(true);
 }
 
-/** Account deleted: tell every other device (they show "No user account found") and close their connections. */
-export function signOutEverywhere(userId, exceptSid) {
+/** Account deleted / paused / deletion scheduled: tell every other device, then close their connections.
+ *  account:deleted → "No user account found" · account:paused · account:deleting */
+export function signOutEverywhere(userId, exceptSid, event = 'account:deleted') {
   if (!io) return;
   const room = io.to(`user:${userId}`);
-  (exceptSid ? room.except(`session:${exceptSid}`) : room).emit('account:deleted', { message: 'No user account found.' });
+  (exceptSid ? room.except(`session:${exceptSid}`) : room).emit(event, {});
   setTimeout(() => io?.in(`user:${userId}`).disconnectSockets(true), 1500).unref?.();
 }
 

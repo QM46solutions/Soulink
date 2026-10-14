@@ -79,6 +79,7 @@ r.get('/feed', ah(async (req, res) => {
        FROM moments m
        LEFT JOIN moment_views v ON v.moment_id = m.id AND v.viewer_id = $1
       WHERE m.is_story = 1 AND m.deleted_at IS NULL AND m.expires_at > SYSDATETIMEOFFSET()
+        AND NOT EXISTS (SELECT 1 FROM users du WHERE du.id = m.author_id AND du.deactivated_at IS NOT NULL)
         AND (m.author_id = $1 OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = m.author_id AND f.status = N'accepted'))
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = $1 AND b.blocked_id = m.author_id) OR (b.blocker_id = m.author_id AND b.blocked_id = $1))
       ORDER BY m.created_at ASC`, [me]);
