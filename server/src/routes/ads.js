@@ -9,6 +9,7 @@ import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { isAdmin } from '../lib/payments.js';
+import { audit } from '../services/audit.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -34,7 +35,12 @@ r.post('/:id/seen', ah(async (req, res) => { await query('UPDATE ad_campaigns SE
 r.post('/:id/click', ah(async (req, res) => { await query('UPDATE ad_campaigns SET clicks = clicks + 1 WHERE id=$1', [uuid.parse(req.params.id)]); res.json({ ok: true }); }));
 
 // ---------- admin ----------
-const admin = (req, res, next) => (isAdmin(req.user) ? next() : next(forbidden('Only the Soulink team can manage ads', 'not_admin')));
+// every admin request is written to the audit trail (policy section 4)
+const admin = (req, res, next) => {
+  if (!isAdmin(req.user)) return next(forbidden('Only the Soulink team can manage ads', 'not_admin'));
+  audit(req, 'admin_ads', { detail: `${req.method} ${req.originalUrl}`.slice(0, 200) }).catch(() => {});
+  return next();
+};
 r.get('/manage', admin, ah(async (req, res) => {
   const rows = await many('SELECT TOP 200 * FROM ad_campaigns ORDER BY created_at DESC', []);
   res.json({ ads: rows.map((a) => adView(a, true)) });

@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { analyzeFaces, faceDistance, quickFaces } from '../services/faceEngine.js';
 import { meView } from '../services/social.js';
+import { openFace, sealFace } from '../lib/faceCrypto.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -121,7 +122,8 @@ r.post('/enroll',
     let match = null;
     let nearest = null;
     for (const o of others) {
-      const stored = typeof o.embedding === 'string' ? JSON.parse(o.embedding) : o.embedding;
+      const stored = openFace(o.embedding);
+      if (!stored) continue;
       const avgD = faceDistance(avg, stored);
       const singles = mine.map((m) => faceDistance(m, stored));
       const closeShots = singles.filter((d) => d < FACE.sameShotMax).length;
@@ -136,7 +138,7 @@ r.post('/enroll',
     }
 
     const avatarUrl = useAsAvatar ? await saveFile({ buffer: bufs[0], mimetype: bufs[0][0] === 0x89 ? 'image/png' : 'image/jpeg' }, 'avatars') : null;
-    const embedding = JSON.stringify(avg.map((v) => Math.round(v * 1e6) / 1e6));
+    const embedding = sealFace(avg.map((v) => Math.round(v * 1e6) / 1e6)); // encrypted (AES-256-GCM) before it is stored
     flog(`enroll user=${req.user.id.slice(0, 8)} SAVED face`);
     const user = await tx(async (c) => {
       await c.query('DELETE FROM face_embeddings WHERE user_id=$1', [req.user.id]);

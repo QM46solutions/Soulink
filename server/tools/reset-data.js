@@ -8,7 +8,9 @@ import { config } from '../src/config.js';
 import { closePool } from '../src/db.js';
 import { dropAll, migrate } from '../src/migrate.js';
 
+import { guardScript } from './guard.js';
 if (!config.isDev) { console.error('Refusing to erase data: this is a production server.'); process.exit(1); }
+await guardScript('reset-data', { neverInProduction: true });
 
 console.log(`Erasing all data in database "${config.db.database}"...`);
 await dropAll();

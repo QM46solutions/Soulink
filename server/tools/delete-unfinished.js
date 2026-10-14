@@ -5,7 +5,9 @@
 import { config } from '../src/config.js';
 import { many, query, closePool } from '../src/db.js';
 
+import { guardScript } from './guard.js';
 if (!config.isDev) { console.error('Refusing: this is a production server.'); process.exit(1); }
+await guardScript('delete-unfinished', { neverInProduction: true });
 
 const users = await many(`SELECT id, username, display_name, phone, email, face_verified, created_at
   FROM users WHERE soul_ready = 0 ORDER BY created_at`);

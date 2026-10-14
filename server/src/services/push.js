@@ -102,7 +102,7 @@ export async function pushTo(userId, kind, { title = 'Soulink', body, url = '/',
     const l = await ready();
     if (!l) return;
     const u = await one('SELECT notify_prefs FROM users WHERE id=$1', [userId]);
-    if (!u || !prefsOf(u)[kind]) return;
+    if (!u || (kind !== 'account' && !prefsOf(u)[kind])) return; // account notices always go out
     const subs = await many('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1', [userId]);
     if (!subs.length) { console.log(`push skipped: no phone has notifications on for this person [${kind}]`); return; }
     const payload = JSON.stringify({ title, body, url, tag, badge: await badgeCount(userId) });

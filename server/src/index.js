@@ -10,6 +10,8 @@ import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
 import { startAnonTimer } from './services/anon.js';
 import { purgeDeletedAccounts } from './services/account.js';
+import { purgeAuditLog } from './services/audit.js';
+import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 
 const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
@@ -17,6 +19,8 @@ async function startDatabase() {
   // after a restart (or while the free cloud database is resuming) it can take a minute to accept connections
   await waitForDatabase({ maxMs: cloud ? 10 * 60_000 : 150_000 });
   await migrate({ log: false });
+  const sealed = await sealPlainFaces(); // face fingerprints stored before encryption: encrypt them now
+  if (sealed) console.log(`   Encrypted ${sealed} stored face fingerprint(s)`);
   setDbReady();
 }
 if (cloud) {
@@ -37,7 +41,8 @@ if (cloud) {
 }
 
 const server = http.createServer(createApp());
-purgeDeletedAccounts(); setInterval(purgeDeletedAccounts, 24 * 3600_000).unref?.(); // sign-up records of deleted accounts: kept 180 days
+purgeDeletedAccounts(); setInterval(purgeDeletedAccounts, 24 * 3600_000).unref?.();
+purgeAuditLog(); setInterval(purgeAuditLog, 24 * 3600_000).unref?.(); // audit trail kept 365 days, ended sessions 30 // sign-up records of deleted accounts: kept 180 days
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
 startAnonTimer(); // Anonymous chats: reveal the sender after 7 days, checked every minute
 initRealtime(server);

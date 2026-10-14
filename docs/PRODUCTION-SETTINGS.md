@@ -1,0 +1,28 @@
+# Production settings (Azure, Central India)
+
+The server refuses to start as a public production server (NODE_ENV=production, no ACCESS_CODE) unless these are set.
+Put every secret in Azure Key Vault and reference it from App Service settings.
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| NODE_ENV | production | |
+| JWT_SECRET | 64 random characters | Login tokens |
+| FACE_KEY | 32 random bytes, base64 (see below) | Encrypts face fingerprints (AES-256-GCM) |
+| SMS_PROVIDER | msg91 | Login codes by SMS |
+| MSG91_AUTH_KEY | from MSG91 | |
+| MSG91_OTP_TEMPLATE_ID | DLT-approved OTP template (variable `##otp##`) | |
+| MSG91_ACCOUNT_DELETED_TEMPLATE_ID | DLT-approved "account deleted" template (optional) | Notice to phone-only accounts |
+| EMAIL_PROVIDER | resend | Login codes by email, account notices |
+| RESEND_API_KEY, EMAIL_FROM | from Resend, e.g. `Soulink <no-reply@yourdomain>` | |
+| OTP_DEV_ECHO | false | Codes are never returned by the API |
+| TESTING_MODE | false | Strict rate limits |
+| PREMIUM_FREE_TRIAL | false | |
+| CORS_ORIGINS | other websites allowed to call the API, comma separated (the app's own address is always allowed) | |
+| FACE_SEARCH | false (feature on hold) | |
+| DB_ENCRYPT / DB_TRUST_SERVER_CERT | true / false | Encrypted database connection |
+
+Make a FACE_KEY (once, keep it in Key Vault; losing it means every user must redo the face scan):
+
+    node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+Never change FACE_KEY or JWT_SECRET casually: a new JWT_SECRET logs everyone out; a new FACE_KEY needs a re-encryption step.

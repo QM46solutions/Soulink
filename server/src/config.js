@@ -21,7 +21,14 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   smsProvider: process.env.SMS_PROVIDER || 'console',
-  otpDevEcho: bool(process.env.OTP_DEV_ECHO, true),
+  // Show the login code in the API reply: development and the private test preview only. Never in public production.
+  otpDevEcho: bool(process.env.OTP_DEV_ECHO, (process.env.NODE_ENV || 'development') !== 'production'),
+  emailProvider: process.env.EMAIL_PROVIDER || 'console',
+  emailFrom: process.env.EMAIL_FROM || 'Soulink <no-reply@soulink.app>',
+  // Websites allowed to call the API from a browser (comma list). The app's own address is always allowed.
+  corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  // Face search (find someone by camera) is on hold
+  faceSearch: bool(process.env.FACE_SEARCH, false),
   storage: process.env.STORAGE || 'local',
   // Cloud hosting: the built web app is served from this folder, with the API under /api (one address for everything)
   webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',
@@ -45,11 +52,25 @@ export const config = {
   premiumFreeTrial: bool(process.env.PREMIUM_FREE_TRIAL, true),
   // Testing mode (on until launch): roomy request limits so a group of testers on one Wi-Fi or the phone link
   // never gets blocked. Set TESTING_MODE=false at launch for the strict limits. ("One face, one account" is always on.)
-  testing: bool(process.env.TESTING_MODE, true),
+  testing: bool(process.env.TESTING_MODE, (process.env.NODE_ENV || 'development') !== 'production' || !!process.env.ACCESS_CODE),
   otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
   minAge: 18,
 };
 
 if (!config.isDev && config.jwtSecret === 'dev-secret-change-me') {
   throw new Error('JWT_SECRET must be set in production');
+}
+
+// Production safety switch (policy section 6): a public server (production, no private-preview access code)
+// refuses to start with any test setting left on.
+export const isPublicProduction = !config.isDev && !config.accessCode;
+if (isPublicProduction) {
+  const problems = [];
+  if (config.otpDevEcho) problems.push('OTP_DEV_ECHO must be false (login codes are sent by SMS or email only)');
+  if (config.testing) problems.push('TESTING_MODE must be false');
+  if (config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91)');
+  if (config.emailProvider === 'console') problems.push('EMAIL_PROVIDER must be a real provider (resend)');
+  if (!process.env.FACE_KEY || Buffer.from(process.env.FACE_KEY, 'base64').length !== 32) problems.push('FACE_KEY must be 32 random bytes, base64');
+  if (config.premiumFreeTrial) problems.push('PREMIUM_FREE_TRIAL must be false');
+  if (problems.length) throw new Error(`Soulink will not start in production:\n - ${problems.join('\n - ')}`);
 }

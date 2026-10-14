@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { io } from 'socket.io-client';
-import { api, getServer, getToken } from './api';
+import { api, forceSignOut, getServer, getToken } from './api';
 import { useAuth } from './auth';
 
 const RealtimeContext = createContext(null);
@@ -33,6 +33,9 @@ export function RealtimeProvider({ children }) {
     socketRef.current = socket;
     socket.on('connect', () => { setConnected(true); refreshUnread(); });
     socket.on('disconnect', () => setConnected(false));
+    // the account was deleted on another device, or this session was ended: sign out here too
+    socket.on('account:deleted', () => forceSignOut('no_account'));
+    socket.on('connect_error', (e) => { if (e?.message === 'no_account' || e?.message === 'session_ended') forceSignOut(e.message); });
     for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:vanished', 'conversation:private', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));

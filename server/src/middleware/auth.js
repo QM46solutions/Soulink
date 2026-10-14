@@ -3,17 +3,25 @@ import { config } from '../config.js';
 import { verifyToken } from '../lib/auth.js';
 import { one, query } from '../db.js';
 import { unauthorized } from '../lib/errors.js';
+import { checkSession } from '../services/sessions.js';
+
+export const NO_ACCOUNT = 'No user account found.';
 
 async function loadUser(req) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return null;
-  const id = verifyToken(token);
-  if (!id) return null;
-  return one('SELECT * FROM users WHERE id = $1', [id]);
+  const t = verifyToken(token);
+  if (!t) return null;
+  const user = await one('SELECT * FROM users WHERE id = $1', [t.userId]);
+  // the account was deleted (here or on another device): every device is signed out with this message
+  if (!user) throw unauthorized(NO_ACCOUNT, 'no_account');
+  if ((await checkSession(t.userId, t.sid)) !== 'ok') throw unauthorized('You were logged out. Log in again to continue.', 'session_ended');
+  req.sessionId = t.sid;
+  return user;
 }
 
-/** Requires a valid token. Sets req.user (full DB row). */
+/** Requires a valid token. Sets req.user (full DB row) and req.sessionId. */
 export async function requireAuth(req, res, next) {
   try {
     const user = await loadUser(req);

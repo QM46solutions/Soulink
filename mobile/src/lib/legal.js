@@ -87,11 +87,11 @@ export const DOCS = {
       ]],
       ['Your consent and choices', [
         'We ask for your consent when you sign up and separately before the face scan. You can withdraw consent at any time by deleting your account; withdrawing does not affect what was lawfully done before.',
-        'You control face search (whether others can find you by camera), Discover, private account, location and notifications in Settings.',
+        'You control Discover, private account, location, activity-based matching and notifications in Settings. Nobody can find you from a photo of your face.',
       ]],
       ['Who we share it with', [
         'Other users see what you choose to make visible (your profile, posts, Sparks). Chats are only between the people in them.',
-        'Service providers who work for us under contract: Microsoft Azure for hosting, database, storage and logs (all in India), Microsoft Translator for translation, AI services for Soulmoji and the Argue Referee, MSG91 for login codes and Razorpay for payments. AI services may process the text or photo you send them outside India; they never receive your face fingerprint and may not train on your data.',
+        'Service providers who work for us under contract: Microsoft Azure for hosting, database, storage and logs (all in India), Microsoft Translator for translation, AI services for Soulmoji and the Argue Referee, MSG91 for login codes by SMS, an email service for login codes and account notices, and Razorpay for payments. AI services may process the text or photo you send them outside India; they never receive your face fingerprint and may not train on your data.',
         'Authorities, when Indian law requires it.',
       ]],
       ['How long we keep it', [

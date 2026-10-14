@@ -88,6 +88,8 @@ export class ApiError extends Error {
 
 let onUnauthorized = () => {};
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
+/** Sign this device out (code: 'no_account' = the account was deleted, 'session_ended' = logged out). */
+export const forceSignOut = (code) => onUnauthorized(code);
 
 // If the free cloud database paused while the app was open (an hour without use), the next request
 // can time out while it resumes. Then: wake it, and try that request once more (reads only).
@@ -123,7 +125,7 @@ async function apiOnce(path, { method = 'GET', body, form, timeoutMs = 15000 } =
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401 && token) onUnauthorized();
+    if (res.status === 401 && token && path !== '/auth/logout') onUnauthorized(data?.error?.code);
     throw new ApiError(res.status, data?.error?.message || `Request failed (${res.status})`, data?.error?.code);
   }
   return data;

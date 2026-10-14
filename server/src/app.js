@@ -54,7 +54,13 @@ export function createApp() {
       return site(req, res, next);
     });
   }
-  app.use(cors());
+  // Browsers may call the API only from Soulink's own address or the CORS_ORIGINS list (policy section 6).
+  // The phone apps send no Origin and are not affected. Development allows everything (Expo, phone link).
+  app.use(config.isDev ? cors() : cors((req, cb) => {
+    const origin = req.headers.origin;
+    const own = `${req.protocol}://${req.get('host')}`;
+    cb(null, { origin: !origin || origin === own || config.corsOrigins.includes(origin) });
+  }));
   app.use('/face', express.json({ limit: '8mb' })); // Face ID photos are bigger than normal requests
   app.use(express.json({ limit: '1mb' }));
 

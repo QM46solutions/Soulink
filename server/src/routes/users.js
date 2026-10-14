@@ -11,6 +11,12 @@ import { headline } from '../services/soulStore.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { placeCoords } from '../services/places.js';
 import { deleteAccount, exportAccount } from '../services/account.js';
+import { endAllSessions } from '../services/sessions.js';
+import { audit } from '../services/audit.js';
+import { signOutEverywhere } from '../realtime.js';
+import { sendEmail } from '../providers/email.js';
+import { sendSmsNotice } from '../providers/sms.js';
+import { pushTo } from '../services/push.js';
 import {
   canViewContent, counts, isBlockedEither, meView, notify, publicProfile, relationship, userCard,
 } from '../services/social.js';
@@ -84,6 +90,7 @@ r.patch('/me', ah(async (req, res) => {
   const data = profileSchema.parse(req.body);
   if (data.username) await assertUsernameFree(data.username, req.user.id);
   if (data.birthDate && ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
+  if (data.faceDiscoverable && !config.faceSearch) throw badRequest('Finding people by face is not available right now.', 'face_search_paused');
   if (data.faceDiscoverable && !req.user.face_verified) throw badRequest('Verify your face first to be discoverable by face', 'face_not_verified');
 
   if (data.notifyPrefs) data.notifyPrefs = JSON.stringify({ ...prefsOf(req.user), ...data.notifyPrefs }); // change one kind, keep the rest
@@ -136,20 +143,38 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
 r.post('/me/accept-terms', ah(async (req, res) => {
   const { version } = z.object({ version: z.string().trim().min(1).max(20) }).parse(req.body || {});
   const user = await one('UPDATE users SET terms_version=$2, terms_accepted_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1', [req.user.id, version]);
+  await audit(req, 'terms_accepted', { detail: version });
   res.json({ user: meView(user) });
 }));
 
 // Download my data (DPDP right to access)
 r.get('/me/export', ah(async (req, res) => {
+  const data = await exportAccount(req.user.id);
+  await audit(req, 'data_export');
   res.set('Content-Disposition', 'attachment; filename="soulink-my-data.json"');
-  res.json(await exportAccount(req.user.id));
+  res.json(data);
 }));
 
 // Delete my account for good (DPDP right to erasure). Body: { confirm: 'DELETE' }
 r.delete('/me', ah(async (req, res) => {
   const { confirm } = z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
   void confirm;
-  await deleteAccount(req.user.id);
+  const { id, email, phone, username } = req.user;
+  // 1. a last notification to the person's other phones and browsers, while their push subscriptions still exist
+  await pushTo(id, 'account', { title: 'Soulink', body: 'No user account found. This Soulink account was deleted.', tag: 'account-deleted' });
+  // 2. end every login session (this device included) and erase the account
+  await endAllSessions(id);
+  await deleteAccount(id);
+  await audit(req, 'account_deleted', { actorId: id, targetUserId: id, detail: username || null });
+  // 3. devices that are open right now are signed out with "No user account found"
+  signOutEverywhere(id, req.sessionId);
+  // 4. confirmation by email (or SMS for phone-only accounts)
+  const when = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+  if (email) {
+    sendEmail({ to: email, subject: 'Your Soulink account has been deleted', text: `Hi${username ? ` @${username}` : ''},\n\nYour Soulink account was deleted on ${when} (IST). You have been logged out on every phone and browser.\n\nYour profile, photos, face data, Soul DNA, posts, Sparks and chats have been erased. As Indian law requires, we keep only your username, contact and sign-up dates for 180 days, then delete them too.\n\nIf you did not do this, reply to this email or write to our Grievance Officer at Rragishetty@gmail.com.\n\nSoulink · QM46 Solutions Private Limited` }).catch(() => {});
+  } else if (phone) {
+    sendSmsNotice(phone, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID').catch(() => {});
+  }
   res.json({ ok: true, deleted: true });
 }));
 

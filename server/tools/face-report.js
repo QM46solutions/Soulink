@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { many, closePool } from '../src/db.js';
 import { FACE } from '../src/routes/face.js';
 import { faceDistance } from '../src/services/faceEngine.js';
+import { openFace } from '../src/lib/faceCrypto.js';
+import { guardScript } from './guard.js';
+// Face fingerprints are Restricted data: this report is for the local test database only (policy sections 3 and 4)
+await guardScript('face-report', { neverInProduction: true });
 
 const out = fileURLToPath(new URL('../../face-report.txt', import.meta.url));
 const rows = await many(`
@@ -24,7 +28,7 @@ L.push(`ACCOUNTS (${rows.length})`);
 for (const r of rows) {
   L.push(`- @${r.username || '(no username yet)'}  ${r.display_name || ''}  ${r.phone || r.email || ''}  face_verified=${r.face_verified ? 'YES' : 'no'}  profile_done=${r.onboarding_done ? 'yes' : 'no'}`);
 }
-const withFace = rows.filter((r) => r.embedding).map((r) => ({ ...r, v: typeof r.embedding === "string" ? JSON.parse(r.embedding) : r.embedding }));
+const withFace = rows.filter((r) => r.embedding).map((r) => ({ ...r, v: openFace(r.embedding) })).filter((r) => r.v);
 for (const r of withFace) {
   L.push('', `FACE FINGERPRINT  @${r.username || r.phone || r.email}  (engine: ${r.provider}, saved ${new Date(r.face_at).toString()})`);
   const n = Math.sqrt(r.v.reduce((s, x) => s + x * x, 0));

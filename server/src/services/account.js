@@ -9,6 +9,7 @@ export const DELETED_KEEP_DAYS = 180;
 export async function deleteAccount(userId) {
   const u = await one('SELECT id, username, phone, email, created_at FROM users WHERE id=$1', [userId]);
   if (!u) return false;
+  await query('UPDATE user_sessions SET revoked_at = COALESCE(revoked_at, SYSDATETIMEOFFSET()) WHERE user_id=$1', [u.id]);
   await query('INSERT INTO deleted_accounts (user_id, username, phone, email, created_at) VALUES ($1, $2, $3, $4, $5)',
     [u.id, u.username, u.phone, u.email, u.created_at]);
   // every column in the database that points at users(id)

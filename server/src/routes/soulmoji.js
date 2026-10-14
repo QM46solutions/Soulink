@@ -14,6 +14,7 @@ import { ah, badRequest } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { uploadMemory, saveFile, ensureLocal } from '../providers/storage.js';
 import { faceDistance } from '../services/faceEngine.js';
+import { openFace } from '../lib/faceCrypto.js';
 import { prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../services/soulmojiRender.js';
 import { aiEdit, aiInstalled, wakeRemoteAi, warmSoulmojiAi } from '../services/soulmojiAi.js';
@@ -43,7 +44,7 @@ r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' 
   if (Math.abs(f.yaw) > 0.3) throw badRequest('Look straight at the camera for your Soulmoji selfie.', 'not_straight');
   // Only your own face: compare with your verified Face ID
   const mine = await one('SELECT embedding FROM face_embeddings WHERE user_id=$1', [req.user.id]);
-  const stored = list(mine?.embedding);
+  const stored = openFace(mine?.embedding);
   if (stored && faceDistance(f.descriptor, stored) > SAME_PERSON) {
     throw badRequest("This doesn't look like the face you verified. Soulmojis can only be made from your own face.", 'not_you');
   }

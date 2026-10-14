@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, loadSession, setToken, setUnauthorizedHandler } from './api';
+import { api, getToken, loadSession, setToken, setUnauthorizedHandler } from './api';
+import { notice } from './confirm';
 import { disablePush, resyncPush } from './push';
 
 const AuthContext = createContext(null);
@@ -8,14 +9,26 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
 
-  const signOut = useCallback(async () => {
+  // Log out ends this device's session on the server too (other devices stay logged in).
+  // { remote: false } = the server already ended it (account deleted, session ended).
+  const signOut = useCallback(async (opts) => {
+    const remote = opts?.remote !== false;
+    if (remote && getToken()) await api('/auth/logout', { method: 'POST', timeoutMs: 6000 }).catch(() => {});
     await disablePush(); // this phone stops getting this account's notifications
     await setToken(null);
     setUser(null);
   }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => { signOut(); });
+    let shown = false;
+    setUnauthorizedHandler(async (code) => {
+      if (!getToken()) return;
+      await signOut({ remote: false });
+      if (shown) return;
+      if (code === 'no_account') { shown = true; notice('No user account found', 'This Soulink account was deleted, so you have been logged out on this device.'); }
+      else if (code === 'session_ended') { shown = true; notice('You were logged out', 'Log in again to continue.'); }
+      setTimeout(() => { shown = false; }, 3000);
+    });
     (async () => {
       const { token } = await loadSession();
       if (token) {

@@ -2,11 +2,14 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
 
-export const signToken = (userId) => jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+/** A login token for one device session (sid). Logging out ends that session; deleting the account ends all of them. */
+export const signToken = (userId, sid) => jwt.sign(sid ? { sub: userId, sid } : { sub: userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
+/** Returns { userId, sid } or null. */
 export function verifyToken(token) {
   try {
-    return jwt.verify(token, config.jwtSecret).sub;
+    const p = jwt.verify(token, config.jwtSecret);
+    return { userId: p.sub, sid: p.sid || null };
   } catch {
     return null;
   }

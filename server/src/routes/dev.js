@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { many, one, query, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, forbidden } from '../lib/errors.js';
-import { signToken } from '../lib/auth.js';
+import { startSession } from '../services/sessions.js';
 import { sampleAnswers } from '../services/soulDna.js';
 import { saveCompletedDna } from '../services/soulStore.js';
 import { meView } from '../services/social.js';
@@ -55,7 +55,7 @@ r.post('/demo', ah(async (req, res) => {
   const follow = async (a, b) => query(`IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2) INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'accepted')`, [ids[a], ids[b]]);
   await follow('sai.demo', 'ananya.r'); await follow('sai.demo', 'rahul.k'); await follow('ananya.r', 'sai.demo');
   const me = await one('SELECT * FROM users WHERE id=$1', [ids['sai.demo']]);
-  res.json({ token: signToken(me.id), user: meView(me), demoUsers: DEMO.map((d) => ({ username: d.username, name: d.name, phone: d.phone.slice(3) })) });
+  res.json({ token: await startSession(me.id, req), user: meView(me), demoUsers: DEMO.map((d) => ({ username: d.username, name: d.name, phone: d.phone.slice(3) })) });
 }));
 
 // Soulmoji tuning (laptop only): render moods for the signed-in user's own Soulmoji selfie with test recipes.

@@ -29,7 +29,7 @@ export default function About() {
       <Section>In short</Section>
       <Note>Soulink is for people 18 and older. One person, one account, verified by Face ID. Be kind: content that many people find offensive is suspended, and accounts that keep breaking the rules are limited.</Note>
       <Section>Privacy</Section>
-      <Note>Your face data is used only to keep accounts real and is never shown to anyone. Your exact location is never stored. Chats are private between the people in them. You can turn notifications, Discover, face search and activity-based matching on or off any time in Settings.</Note>
+      <Note>Your face data is used only to keep accounts real and is never shown to anyone. Your exact location is never stored. Chats are private between the people in them. You can turn notifications, Discover and activity-based matching on or off any time in Settings.</Note>
     </ScrollView>
   );
 }

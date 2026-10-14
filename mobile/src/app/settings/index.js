@@ -62,7 +62,7 @@ export default function Settings() {
       <MenuRow icon="shield-checkmark" title="Account status" text="Verification, warnings and reports" onPress={go('/settings/status')} tint={['#42e8c0', '#2bb673']} />
 
       <Section>Permissions</Section>
-      <MenuRow icon="apps" title="App permissions" text="What Soulink may use: activity, face search, translation" onPress={go('/settings/app-permissions')} tint={['#f5c842', '#ff9a5a']} />
+      <MenuRow icon="apps" title="App permissions" text="What Soulink may use: activity, translation" onPress={go('/settings/app-permissions')} tint={['#f5c842', '#ff9a5a']} />
       <MenuRow icon="location" title="Location" text={user.hasLocation ? 'On: used for distance in Discover' : 'Off'} onPress={go('/settings/location')} tint={['#3fa9f5', '#5b46d6']} />
       <MenuRow icon="phone-portrait-outline" title="Device permissions" text="Camera, microphone, photos, location, notifications" onPress={go('/settings/device-permissions')} tint={['#58a0e6', '#42e8c0']} />
 
