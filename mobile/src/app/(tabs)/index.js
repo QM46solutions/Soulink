@@ -72,6 +72,7 @@ export default function Home() {
     return (
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: space.md }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
         {composer}
+        {ads[0] ? <FeedAd ad={ads[0]} /> : null}
         {feed.connections === 0 ? (
       <CenterCard icon="account-heart-outline" live={<RadarIcon size={140} />} title="No connections yet" text={`You're ${user.soulType ? `${user.soulType}. ` : ''}Now find your people: friends you know, or new souls who match your vibe.`}>
         <Button title="Make connections" onPress={() => router.push('/discover')} />

@@ -84,7 +84,7 @@ export default function Sparks() {
 
   return (
     <FlatList
-      data={withAds(list || [], ads, 5, 3)}
+      data={list?.length ? withAds(list, ads, 5, 3) : list && ads[0] ? [{ __ad: ads[0], key: 'ad-0' }] : []}
       keyExtractor={(s) => s.key || s.id}
       ListHeaderComponent={<>{features}{chips}</>}
       renderItem={({ item }) => item.__ad ? <SparkAd ad={item.__ad} /> : <SparkCard spark={item} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}

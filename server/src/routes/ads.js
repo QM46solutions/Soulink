@@ -26,7 +26,7 @@ r.get('/', ah(async (req, res) => {
   const { placement, n } = z.object({ placement: z.enum(PLACEMENTS), n: z.coerce.number().int().min(1).max(10).default(3) }).parse(req.query);
   const rows = await many(
     `SELECT TOP ${n} * FROM ad_campaigns WHERE placement=$1 AND active=1 AND starts_at <= SYSDATETIMEOFFSET() AND ends_at > SYSDATETIMEOFFSET()
-       AND (city IS NULL OR city = $2) ORDER BY NEWID()`, [placement, req.user.city || ''],
+       AND (city IS NULL OR LTRIM(RTRIM(city)) = N'' OR LOWER(LTRIM(RTRIM(city))) = LOWER(LTRIM(RTRIM($2)))) ORDER BY NEWID()`, [placement, req.user.city || ''],
   );
   res.json({ ads: rows.map((a) => adView(a)) });
 }));
