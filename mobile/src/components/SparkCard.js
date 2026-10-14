@@ -15,7 +15,7 @@ import SpreadSheet from './SpreadSheet';
 import ActionSheet from './ActionSheet';
 import OffenseSheet from './OffenseSheet';
 import { BottomSheet, CommentsSheet } from './PostSheets';
-import { ACTIVE, Action, StateIcon } from './PostCard';
+import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -132,8 +132,8 @@ export default function SparkCard({ spark, onDeleted }) {
 
       {/* the same actions as a post: like (the category's reaction), comment, share, offense — plus Spread around on your own */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, paddingHorizontal: 4 }}>
-        <Action onPress={react} label={reacted ? `Remove ${cat.react.label}` : cat.react.label} count={reactions} color={reacted ? cat.colors[0] : undefined}>
-          <Text style={{ fontSize: 22, opacity: reacted ? 1 : 0.85, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{cat.react.emoji}</Text>
+        <Action onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : undefined}>
+          <Text style={{ fontSize: 22, opacity: reacted ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Text>
         </Action>
         <Action onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
           <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} />
@@ -146,14 +146,12 @@ export default function SparkCard({ spark, onDeleted }) {
           <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
         </Action>
         <View style={{ flex: 1 }} />
-        {spark.mine ? (
-          <Pressable onPress={() => setSpreadOpen(true)} accessibilityLabel="Spread around"
+          <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'}
             style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, height: 38, borderRadius: 19, overflow: 'hidden', opacity: hovered ? 0.9 : 1 })}>
             <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <MaterialCommunityIcons name="bullhorn-variant" size={17} color="#14121f" style={{ marginRight: 6 }} />
             <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13.5 }}>Spread</Text>
           </Pressable>
-        ) : null}
       </View>
       {hasSheet || tryable || (spark.category === 'news' && d.source) ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>
@@ -186,7 +184,7 @@ export default function SparkCard({ spark, onDeleted }) {
         onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />
       <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={spark.mine} postId={spark.id} base={`/sparks/${spark.id}`} what="Spark"
         onClose={() => setReportOpen(false)} onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
-      <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title="Share this Spark"
+      <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title={spark.mine ? 'Share this Spark' : 'Spread this Spark around'}
         options={[
           { label: 'Send in a chat', onPress: () => { bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
           { label: 'Share outside Soulink', onPress: shareOutside },
