@@ -91,7 +91,7 @@ export const DOCS = {
       ]],
       ['Who we share it with', [
         'Other users see what you choose to make visible (your profile, posts, Sparks). Chats are only between the people in them.',
-        'Service providers who work for us under contract: cloud hosting and database (Render, Microsoft Azure), translation (Microsoft Translator and similar), AI processing for Soulmoji and the Argue Referee, and our payment partner. Some of them store data outside India, which the DPDP Act allows.',
+        'Service providers who work for us under contract: Microsoft Azure for hosting, database, storage and logs (all in India), Microsoft Translator for translation, AI services for Soulmoji and the Argue Referee, MSG91 for login codes and Razorpay for payments. AI services may process the text or photo you send them outside India; they never receive your face fingerprint and may not train on your data.',
         'Authorities, when Indian law requires it.',
       ]],
       ['How long we keep it', [
@@ -105,7 +105,7 @@ export const DOCS = {
         'Nominate someone to exercise these rights if you die or cannot act: write to us.',
       ]],
       ['Security', [
-        'Data is encrypted in transit, access is limited to the people who need it, and we keep logs to detect misuse. If a data breach affects you, we will tell you and the Data Protection Board as the law requires.',
+        'Your data is stored in India, encrypted in transit and at rest; face fingerprints are encrypted again with a separate key. Access is limited to the people who need it, and we keep security logs in India to detect misuse. If a data breach affects you, we will tell you and the Data Protection Board as the law requires.',
       ]],
       ['Children', [
         'Soulink is only for people 18 and older. We do not knowingly process children\'s data; if we learn we have, we delete it.',
