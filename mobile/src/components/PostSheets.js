@@ -79,8 +79,8 @@ export function LikesSheet({ visible, postId, onClose }) {
   );
 }
 
-export function CommentsSheet({ visible, postId, onClose, onCountChange, mine }) {
-  const cm = useComments(postId, { onCount: onCountChange });
+export function CommentsSheet({ visible, postId, base, onClose, onCountChange, mine }) {
+  const cm = useComments(postId, { onCount: onCountChange, base });
   const [replyTo, setReplyTo] = useState(null);
   const [sending, setSending] = useState(false);
   useEffect(() => { if (visible) { setReplyTo(null); cm.load(); } }, [visible, postId]); // eslint-disable-line react-hooks/exhaustive-deps

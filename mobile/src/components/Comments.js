@@ -24,33 +24,34 @@ export function ago(iso) {
   return `${Math.round(d / 7)}w`;
 }
 
-export function useComments(postId, { onCount } = {}) {
+export function useComments(postId, { onCount, base } = {}) {
+  const root = base || `/posts/${postId}`; // Sparks use /sparks/:id
   const [comments, setComments] = useState(null);
   const [off, setOff] = useState(false);
   const [error, setError] = useState(null);
   const load = useCallback(async () => {
-    try { const r = await api(`/posts/${postId}/comments`); setOff(!!r.commentsOff); setComments(r.comments); setError(null); }
+    try { const r = await api(`${root}/comments`); setOff(!!r.commentsOff); setComments(r.comments); setError(null); }
     catch (e) { setError(e.message); setComments([]); }
-  }, [postId]);
+  }, [root]);
   const patch = (id, ch) => setComments((list) => list.map((c) => (c.id === id ? { ...c, ...ch } : c)));
   const add = async (body, parentId) => {
-    const r = await api(`/posts/${postId}/comments`, { method: 'POST', body: { body, ...(parentId ? { parentId } : {}) } });
+    const r = await api(`${root}/comments`, { method: 'POST', body: { body, ...(parentId ? { parentId } : {}) } });
     setComments((c) => { const n = [...(c || []), r.comment]; onCount?.(n.length, true); return n; });
     return r.comment;
   };
   const remove = async (cid) => {
-    await api(`/posts/${postId}/comments/${cid}`, { method: 'DELETE' });
+    await api(`${root}/comments/${cid}`, { method: 'DELETE' });
     // its replies go too
     setComments((c) => { const n = c.filter((x) => x.id !== cid && x.parentId !== cid); onCount?.(n.length, false); return n; });
   };
   const like = async (c) => {
     patch(c.id, { liked: !c.liked, likeCount: c.likeCount + (c.liked ? -1 : 1) }); // feels instant; corrected below
-    try { const r = await api(`/posts/${postId}/comments/${c.id}/like`, { method: 'POST' }); patch(c.id, { liked: r.liked, likeCount: r.likeCount }); }
+    try { const r = await api(`${root}/comments/${c.id}/like`, { method: 'POST' }); patch(c.id, { liked: r.liked, likeCount: r.likeCount }); }
     catch (e) { patch(c.id, { liked: c.liked, likeCount: c.likeCount }); setError(e.message); }
   };
   const offense = async (c, reason) => {
     try {
-      const r = await api(`/posts/${postId}/comments/${c.id}/offense`, { method: 'POST', body: reason ? { reason } : {} });
+      const r = await api(`${root}/comments/${c.id}/offense`, { method: 'POST', body: reason ? { reason } : {} });
       patch(c.id, { offended: r.offended, offenseCount: r.offenseCount, offenseReason: r.offended ? reason || null : null });
     } catch (e) { setError(e.message); }
   };

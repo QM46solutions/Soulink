@@ -2,7 +2,7 @@
 // (📍 place for travel, recipe card + "I tried it" for cooking, the acting prompt / script, workout card + "I did it" for fitness,
 // headline + topic + source for news).
 import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,8 +11,11 @@ import { confirm, notice } from '../lib/confirm';
 import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf } from '../lib/sparks';
 import SparkVideo from './SparkVideo';
 import SparkCatBadge from './SparkCatBadge';
-import { BottomSheet } from './PostSheets';
 import SpreadSheet from './SpreadSheet';
+import ActionSheet from './ActionSheet';
+import OffenseSheet from './OffenseSheet';
+import { BottomSheet, CommentsSheet } from './PostSheets';
+import { ACTIVE, Action, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -33,6 +36,37 @@ export default function SparkCard({ spark, onDeleted }) {
   const [tried, setTried] = useState(spark.tried);
   const [recipe, setRecipe] = useState(false);
   const [spreadOpen, setSpreadOpen] = useState(false);
+  const [comments, setComments] = useState(spark.commentCount || 0);
+  const [commented, setCommented] = useState(!!spark.commented);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [offended, setOffended] = useState(!!spark.offended);
+  const [offenses, setOffenses] = useState(spark.offenseCount || 0);
+  const [myReason, setMyReason] = useState(spark.offenseReason || null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [shares, setShares] = useState(spark.shareCount || 0);
+  const [shared, setShared] = useState(!!spark.shared);
+  const [shareMenu, setShareMenu] = useState(false);
+  const [ticks, setTicks] = useState({ comment: 0, share: 0, offense: 0 });
+  const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
+  const toggleOffense = async (reason) => {
+    try {
+      const r = await api(`/sparks/${spark.id}/offense`, { method: 'POST', body: reason ? { reason } : {} });
+      setOffended(r.offended); setOffenses(r.offenseCount); setMyReason(r.offended ? reason : null);
+      if (r.offended) bump('offense');
+      if (r.suspended) setTimeout(() => onDeleted?.(spark.id), 1800);
+    } catch (e) { notice('Oops', e.message); }
+  };
+  const shareOutside = async () => {
+    const message = `${spark.author.username} on Soulink Sparks${spark.caption ? `: "${spark.caption.slice(0, 120)}"` : ''}`;
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) await navigator.share({ title: 'Soulink', text: message });
+        else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
+      } else await Share.share({ message });
+      const r = await api(`/sparks/${spark.id}/share`, { method: 'POST', body: {} });
+      setShares(r.shareCount); setShared(true); bump('share');
+    } catch { /* cancelled */ }
+  };
 
   const react = async () => {
     setReacted(!reacted); setReactions((n) => n + (reacted ? -1 : 1));
@@ -96,38 +130,67 @@ export default function SparkCard({ spark, onDeleted }) {
       ) : null}
       {spark.caption ? <Text style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 6, paddingHorizontal: 4 }}>{spark.caption}</Text> : null}
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', marginTop: 10, paddingHorizontal: 4 }}>
-        <Pressable onPress={react} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5,
-          borderColor: reacted ? cat.colors[0] : hovered ? colors.aura : colors.border, backgroundColor: reacted ? `${cat.colors[0]}26` : 'transparent', marginRight: 8 })}>
-          <Text style={{ fontSize: 17, marginRight: 6 }}>{cat.react.emoji}</Text>
-          <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{cat.react.label} · {reactions}</Text>
-        </Pressable>
-        {hasSheet ? (
-          <Pressable onPress={() => setRecipe(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border, marginRight: 8 }}>
-            <Ionicons name={spark.category === 'cooking' ? 'reader' : 'list'} size={15} color={colors.gold} style={{ marginRight: 5 }} />
-            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'cooking' ? 'Recipe' : 'Moves'}</Text>
-          </Pressable>
-        ) : null}
-        {tryable ? (
-          <Pressable onPress={tryIt} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: iTried ? colors.mint : colors.border, backgroundColor: iTried ? 'rgba(66,232,192,0.14)' : 'transparent' }}>
-            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · {tried}</Text>
-          </Pressable>
-        ) : null}
+      {/* the same actions as a post: like (the category's reaction), comment, share, offense — plus Spread around on your own */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, paddingHorizontal: 4 }}>
+        <Action onPress={react} label={reacted ? `Remove ${cat.react.label}` : cat.react.label} count={reactions} color={reacted ? cat.colors[0] : undefined}>
+          <Text style={{ fontSize: 22, opacity: reacted ? 1 : 0.85, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{cat.react.emoji}</Text>
+        </Action>
+        <Action onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
+          <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} />
+        </Action>
+        <Action onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : undefined}>
+          <StateIcon name="paper-plane" on={shared} color={ACTIVE.share} effect="fly" tick={ticks.share} />
+        </Action>
+        <Action onPress={() => setReportOpen(true)} count={offenses} color={offended ? ACTIVE.offense : undefined}
+          label={spark.mine ? `${offenses} offense marks on your Spark` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
+          <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
+        </Action>
+        <View style={{ flex: 1 }} />
         {spark.mine ? (
           <Pressable onPress={() => setSpreadOpen(true)} accessibilityLabel="Spread around"
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(245,200,66,0.55)', backgroundColor: 'rgba(245,200,66,0.1)', marginRight: 8 }}>
-            <MaterialCommunityIcons name="bullhorn-variant" size={16} color={colors.gold} style={{ marginRight: 5 }} />
-            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Spread around</Text>
-          </Pressable>
-        ) : null}
-        {spark.category === 'news' && d.source ? (
-          <Pressable onPress={() => openUrl(d.source)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: colors.border }}>
-            <Ionicons name="open-outline" size={15} color={colors.aura} style={{ marginRight: 5 }} />
-            <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Source</Text>
+            style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, height: 38, borderRadius: 19, overflow: 'hidden', opacity: hovered ? 0.9 : 1 })}>
+            <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <MaterialCommunityIcons name="bullhorn-variant" size={17} color="#14121f" style={{ marginRight: 6 }} />
+            <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13.5 }}>Spread</Text>
           </Pressable>
         ) : null}
       </View>
+      {hasSheet || tryable || (spark.category === 'news' && d.source) ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>
+          {hasSheet ? (
+            <Pressable onPress={() => setRecipe(true)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: colors.border, marginRight: 8 }}>
+              <Ionicons name={spark.category === 'cooking' ? 'reader' : 'list'} size={15} color={colors.gold} style={{ marginRight: 5 }} />
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'cooking' ? 'Recipe' : 'Moves'}</Text>
+            </Pressable>
+          ) : null}
+          {tryable ? (
+            <Pressable onPress={tryIt} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: iTried ? colors.mint : colors.border, backgroundColor: iTried ? 'rgba(66,232,192,0.14)' : 'transparent', marginRight: 8 }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · {tried}</Text>
+            </Pressable>
+          ) : null}
+          {spark.category === 'news' && d.source ? (
+            <Pressable onPress={() => openUrl(d.source)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: colors.border }}>
+              <Ionicons name="open-outline" size={15} color={colors.aura} style={{ marginRight: 5 }} />
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Source</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {comments ? (
+        <Text onPress={() => setCommentsOpen(true)} style={{ fontFamily: fonts.body, color: colors.muted, paddingHorizontal: 4, marginTop: 6, fontSize: 13 }}>
+          View {comments === 1 ? '1 comment' : `all ${comments} comments`}
+        </Text>
+      ) : null}
 
+      <CommentsSheet visible={commentsOpen} postId={spark.id} base={`/sparks/${spark.id}`} onClose={() => setCommentsOpen(false)} mine={spark.mine}
+        onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />
+      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={spark.mine} postId={spark.id} base={`/sparks/${spark.id}`} what="Spark"
+        onClose={() => setReportOpen(false)} onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
+      <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title="Share this Spark"
+        options={[
+          { label: 'Send in a chat', onPress: () => { bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
+          { label: 'Share outside Soulink', onPress: shareOutside },
+        ]} />
       {spark.mine ? <SpreadSheet visible={spreadOpen} onClose={() => setSpreadOpen(false)} spark={spark} /> : null}
       {spark.category === 'cooking' ? (
         <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title={d.dish ? `🍳 ${d.dish}` : '🍳 Recipe'}>

@@ -303,6 +303,25 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
     );
   } else if (message.kind === 'moment') {
     content = <MomentBubble message={message} mine={mine} onMenu={onMenu} />;
+  } else if (message.kind === 'post' && message.post?.sparkId) {
+    // a Spark someone shared into the chat: tap to watch it
+    const p = message.post;
+    content = (
+      <Pressable onPress={() => { tap(); router.push(`/spark/${p.sparkId}`); }} onLongPress={onMenu}
+        style={({ hovered }) => ({ width: 200, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: hovered ? colors.spark : colors.border, backgroundColor: colors.card })}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }}>
+          <Avatar uri={p.author?.avatarUrl} size={24} name={p.author?.username} />
+          <Text numberOfLines={1} style={{ flex: 1, marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{p.author?.username}</Text>
+        </View>
+        <View style={{ width: 200, height: 250, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1d1736' }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.85, backgroundColor: colors.soul }} />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,107,157,0.35)' }} />
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="play" size={28} color="#fff" style={{ marginLeft: 3 }} /></View>
+          <Text style={{ position: 'absolute', bottom: 10, left: 10, fontFamily: fonts.bold, color: '#fff', fontSize: 13 }}>🎬 Spark</Text>
+        </View>
+        {p.caption ? <Text numberOfLines={2} style={{ padding: 8, fontFamily: fonts.body, color: colors.text, fontSize: 13, lineHeight: 18 }}>{p.caption}</Text> : null}
+      </Pressable>
+    );
   } else if (message.kind === 'post' && message.post) {
     // a post someone shared into the chat: tap to open it
     const p = message.post;

@@ -38,6 +38,10 @@ const TYPES = {
   casting_audition: ['likes', (m) => `auditioned for your role${m?.title ? ` "${m.title}"` : ''} 🎭`],
   casting_pick: ['likes', (m) => `picked your audition${m?.title ? ` for "${m.title}"` : ''}! 🌟`, true],
   spark_reaction: ['likes', () => 'reacted to your Spark 🎬'],
+  spark_comment: ['comments', () => 'commented on your Spark 🎬'],
+  spark_comment_reply: ['comments', () => 'replied to your comment on a Spark.'],
+  spark_comment_like: ['likes', () => 'liked your comment 👌🏻'],
+  spark_suspended: ['likes', () => 'Your Spark was suspended after many reports. Only you can see it now.', true],
   spark_tried: ['likes', (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`)],
   argue_invite: ['argue', (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}`],
   argue_verdict: ['argue', (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''} ⚖️`, true],
@@ -46,6 +50,7 @@ const LINK = (type, entityId, meta) => {
   if (type === 'connect_request' || type === 'connect_hold_reminder') return '/activity';
   if ((type === 'connect_accepted' || type === 'connect_back') && meta?.conversationId) return `/chat/${meta.conversationId}`;
   if (type.startsWith('post_') && entityId) return `/post/${entityId}`;
+  if (type.startsWith('spark_') && entityId) return `/spark/${entityId}`;
   if (type.startsWith('anon_') && entityId) return `/anon/${entityId}`;
   if (type.startsWith('argue_') && meta?.caseId) return `/argue/${meta.caseId}`;
   if (type.startsWith('spark_') || type.startsWith('casting_')) return '/sparks';

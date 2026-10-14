@@ -6,6 +6,10 @@
 //  POST   /sparks/:id/tried           cooking "I tried it" / fitness "I did it", toggle
 //  POST   /sparks/:id/view            counts a view (once a day per person)
 //  DELETE /sparks/:id                 delete my Spark
+//  GET    /sparks/:id                 one Spark (opened from a chat or a notification)
+//  GET/POST /sparks/:id/comments      comments with replies; /:cid/like, /:cid/offense, DELETE /:cid
+//  POST   /sparks/:id/offense         mark / unmark as offensive (more than 75 marks suspends it)
+//  POST   /sparks/:id/share           { conversationIds?: [...] } send it in chats, or {} = shared outside Soulink
 //  GET    /sparks/spread/plans        Spread around prices
 //  GET    /sparks/:id/spread          my Spark's Spread status
 //  POST   /sparks/:id/spread          { days, city: 'mine'|'all', ageMin, ageMax } show it to more people
@@ -13,12 +17,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
-import { ah, badRequest, notFound } from '../lib/errors.js';
+import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { notify, userCard } from '../services/social.js';
 import { REF_RE, playPath } from '../services/music.js';
 import { paymentMode, takePayment } from '../lib/payments.js';
+import { OFFENSE_REASONS, OFFENSE_LIMIT } from './posts.js';
+import { sharePostToChat } from './conversations.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -101,10 +107,16 @@ const SELECT = `SELECT s.*,
     (SELECT COUNT(*) FROM spark_views v WHERE v.spark_id = s.id) AS views,
     CASE WHEN EXISTS (SELECT 1 FROM spark_reactions x WHERE x.spark_id = s.id AND x.user_id = $1) THEN 1 ELSE 0 END AS reacted,
     CASE WHEN EXISTS (SELECT 1 FROM spark_tried t WHERE t.spark_id = s.id AND t.user_id = $1) THEN 1 ELSE 0 END AS i_tried,
+    (SELECT COUNT(*) FROM spark_comments c WHERE c.spark_id = s.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL) AS comment_count,
+    CASE WHEN EXISTS (SELECT 1 FROM spark_comments c WHERE c.spark_id = s.id AND c.author_id = $1 AND c.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
+    (SELECT COUNT(*) FROM spark_offenses o WHERE o.spark_id = s.id) AS offense_count,
+    (SELECT TOP 1 ISNULL(o.reason, N'other') FROM spark_offenses o WHERE o.spark_id = s.id AND o.user_id = $1) AS offense_reason,
+    (SELECT COUNT(*) FROM spark_shares sh WHERE sh.spark_id = s.id) AS share_count,
+    CASE WHEN EXISTS (SELECT 1 FROM spark_shares sh WHERE sh.spark_id = s.id AND sh.user_id = $1) THEN 1 ELSE 0 END AS shared,
     u.id AS uid, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM sparks s JOIN users u ON u.id = s.author_id`;
 // Sparks are a public stage, except from private accounts (only their Connections / Followers see those) and blocked people
-const VISIBLE = `s.deleted_at IS NULL
+const VISIBLE = `s.deleted_at IS NULL AND (s.suspended_at IS NULL OR s.author_id = $1)
   AND (u.is_private = 0 OR s.author_id = $1 OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = s.author_id AND f.status = N'accepted'))
   AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = $1 AND b.blocked_id = s.author_id) OR (b.blocker_id = s.author_id AND b.blocked_id = $1))`;
 
@@ -118,6 +130,9 @@ const view = (x, me) => ({
   mine: String(x.author_id).toLowerCase() === String(me).toLowerCase(),
   castingId: x.casting_id || null, stageWeek: x.stage_week || null,
   author: userCard({ ...x, id: x.uid }),
+  commentCount: Number(x.comment_count || 0), commented: !!x.commented,
+  offenseCount: Number(x.offense_count || 0), offended: !!x.offense_reason, offenseReason: x.offense_reason || null,
+  shareCount: Number(x.share_count || 0), shared: !!x.shared, suspended: !!x.suspended_at,
   ...(x.spread_id ? { spread: true } : {}),
 });
 
@@ -420,6 +435,139 @@ r.post('/:id/spread/stop', ah(async (req, res) => {
   const x = await mySpark(req);
   await query(`UPDATE spark_spreads SET status = N'stopped' WHERE spark_id=$1 AND status <> N'stopped'`, [x.id]);
   res.json({ spread: null });
+}));
+
+// ---------- one Spark, comments, offense marks, shares (the same tools as posts) ----------
+const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+const SPARK_COMMENT_HIDE_AT = 10;
+
+r.get('/:id', ah(async (req, res) => {
+  const x = await visible(req);
+  res.json({ spark: view(x, req.user.id) });
+}));
+
+r.get('/:id/comments', ah(async (req, res) => {
+  const x = await visible(req);
+  const me = req.user.id;
+  const rows = await many(
+    `SELECT c.id AS comment_id, c.body, c.created_at AS comment_at, c.author_id, c.parent_id, c.hidden_at,
+            (SELECT COUNT(*) FROM spark_comment_likes l WHERE l.comment_id = c.id) AS like_count,
+            CASE WHEN EXISTS (SELECT 1 FROM spark_comment_likes l WHERE l.comment_id = c.id AND l.user_id = $2) THEN 1 ELSE 0 END AS liked,
+            (SELECT COUNT(*) FROM spark_comment_offenses o WHERE o.comment_id = c.id) AS offense_count,
+            (SELECT TOP 1 o.reason FROM spark_comment_offenses o WHERE o.comment_id = c.id AND o.user_id = $2) AS my_reason,
+            CASE WHEN EXISTS (SELECT 1 FROM spark_comment_offenses o WHERE o.comment_id = c.id AND o.user_id = $2) THEN 1 ELSE 0 END AS offended,
+            u.*
+       FROM spark_comments c JOIN users u ON u.id = c.author_id
+      WHERE c.spark_id=$1 AND c.deleted_at IS NULL AND (c.hidden_at IS NULL OR c.author_id = $2)
+        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2 AND b.blocked_id=c.author_id) OR (b.blocker_id=c.author_id AND b.blocked_id=$2))
+      ORDER BY c.created_at`, [x.id, me],
+  );
+  const sparkMine = same(x.author_id, me);
+  const ids = new Set(rows.map((c) => String(c.comment_id).toLowerCase()));
+  res.json({
+    commentsOff: false,
+    comments: rows.map((c) => ({
+      id: c.comment_id, body: c.body, createdAt: c.comment_at, author: userCard(c),
+      parentId: c.parent_id && ids.has(String(c.parent_id).toLowerCase()) ? c.parent_id : null,
+      likeCount: Number(c.like_count || 0), liked: !!c.liked,
+      offenseCount: Number(c.offense_count || 0), offended: !!c.offended, offenseReason: c.my_reason || null,
+      hidden: !!c.hidden_at, mine: same(c.author_id, me), canDelete: sparkMine || same(c.author_id, me),
+    })),
+  });
+}));
+
+r.post('/:id/comments', ah(async (req, res) => {
+  const x = await visible(req);
+  const { body, parentId } = z.object({ body: z.string().trim().min(1).max(2200), parentId: uuid.optional() }).parse(req.body || {});
+  let parent = null;
+  if (parentId) {
+    parent = await one('SELECT * FROM spark_comments WHERE id=$1 AND spark_id=$2 AND deleted_at IS NULL', [parentId, x.id]);
+    if (!parent) throw notFound('That comment was deleted');
+    if (parent.parent_id) parent = (await one('SELECT * FROM spark_comments WHERE id=$1', [parent.parent_id])) || parent; // replies stay one level deep
+  }
+  const c = await one('INSERT INTO spark_comments (spark_id, author_id, body, parent_id) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4)', [x.id, req.user.id, body, parent?.id || null]);
+  if (!same(x.author_id, req.user.id)) await notify(x.author_id, req.user.id, 'spark_comment', x.id, { preview: body.slice(0, 80) }).catch(() => {});
+  if (parent && !same(parent.author_id, x.author_id) && !same(parent.author_id, req.user.id)) await notify(parent.author_id, req.user.id, 'spark_comment_reply', x.id, { preview: body.slice(0, 80) }).catch(() => {});
+  res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), parentId: parent?.id || null,
+    likeCount: 0, liked: false, offenseCount: 0, offended: false, offenseReason: null, hidden: false, mine: true, canDelete: true } });
+}));
+
+async function sparkComment(req) {
+  const x = await visible(req);
+  const cid = uuid.parse(req.params.cid);
+  const c = await one('SELECT * FROM spark_comments WHERE id=$1 AND spark_id=$2 AND deleted_at IS NULL', [cid, x.id]);
+  if (!c) throw notFound('Comment not found');
+  return { x, c };
+}
+
+r.post('/:id/comments/:cid/like', ah(async (req, res) => {
+  const { x, c } = await sparkComment(req);
+  const had = await one('SELECT 1 AS y FROM spark_comment_likes WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  if (had) await query('DELETE FROM spark_comment_likes WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  else {
+    await query('INSERT INTO spark_comment_likes (comment_id, user_id) VALUES ($1, $2)', [c.id, req.user.id]);
+    if (!same(c.author_id, req.user.id)) await notify(c.author_id, req.user.id, 'spark_comment_like', x.id, { preview: String(c.body).slice(0, 80) }).catch(() => {});
+  }
+  const n = await one('SELECT COUNT(*) AS n FROM spark_comment_likes WHERE comment_id=$1', [c.id]);
+  res.json({ liked: !had, likeCount: Number(n.n) });
+}));
+
+r.post('/:id/comments/:cid/offense', ah(async (req, res) => {
+  const { c } = await sparkComment(req);
+  const { reason } = z.object({ reason: z.enum(OFFENSE_REASONS).optional() }).parse(req.body || {});
+  if (same(c.author_id, req.user.id)) throw badRequest("You can't mark your own comment");
+  const had = await one('SELECT 1 AS y FROM spark_comment_offenses WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  if (had) await query('DELETE FROM spark_comment_offenses WHERE comment_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  else await query('INSERT INTO spark_comment_offenses (comment_id, user_id, reason) VALUES ($1, $2, $3)', [c.id, req.user.id, reason || null]);
+  const n = Number((await one('SELECT COUNT(*) AS n FROM spark_comment_offenses WHERE comment_id=$1', [c.id])).n);
+  await query(`UPDATE spark_comments SET hidden_at = ${n > SPARK_COMMENT_HIDE_AT ? 'COALESCE(hidden_at, SYSDATETIMEOFFSET())' : 'NULL'} WHERE id=$1`, [c.id]);
+  res.json({ offended: !had, offenseCount: n, hidden: n > SPARK_COMMENT_HIDE_AT });
+}));
+
+r.delete('/:id/comments/:cid', ah(async (req, res) => {
+  const { x, c } = await sparkComment(req);
+  if (!same(c.author_id, req.user.id) && !same(x.author_id, req.user.id)) throw forbidden('You can only delete your own comments', 'not_yours');
+  await query('UPDATE spark_comments SET deleted_at = SYSDATETIMEOFFSET() WHERE id=$1 OR parent_id=$1', [c.id]);
+  res.json({ ok: true });
+}));
+
+// ❗ mark a Spark as offensive (toggle). More than 75 marks suspends it (only its owner still sees it).
+r.post('/:id/offense', ah(async (req, res) => {
+  const x = await visible(req);
+  if (same(x.author_id, req.user.id)) throw badRequest("You can't mark your own Spark", 'own_spark');
+  const { reason } = z.object({ reason: z.enum(OFFENSE_REASONS).optional() }).parse(req.body || {});
+  const had = await one('SELECT 1 AS y FROM spark_offenses WHERE spark_id=$1 AND user_id=$2', [x.id, req.user.id]);
+  if (had) await query('DELETE FROM spark_offenses WHERE spark_id=$1 AND user_id=$2', [x.id, req.user.id]);
+  else await query('INSERT INTO spark_offenses (spark_id, user_id, reason) VALUES ($1, $2, $3)', [x.id, req.user.id, reason || 'other']);
+  const n = Number((await one('SELECT COUNT(*) AS n FROM spark_offenses WHERE spark_id=$1', [x.id])).n);
+  let suspended = !!x.suspended_at;
+  if (!suspended && n > OFFENSE_LIMIT) {
+    const upd = await one('UPDATE sparks SET suspended_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND suspended_at IS NULL', [x.id]);
+    if (upd) { suspended = true; await notify(x.author_id, null, 'spark_suspended', x.id, { offenses: n }).catch(() => {}); }
+  }
+  res.json({ offended: !had, suspended, offenseCount: n });
+}));
+
+// Owner only: how many people marked my Spark, by reason (never who)
+r.get('/:id/offenses', ah(async (req, res) => {
+  const x = await visible(req);
+  if (!same(x.author_id, req.user.id)) throw forbidden('Only the person who posted this can see this', 'not_owner');
+  const rows = await many("SELECT ISNULL(reason, N'other') AS reason, COUNT(*) AS n FROM spark_offenses WHERE spark_id=$1 GROUP BY ISNULL(reason, N'other')", [x.id]);
+  res.json({ total: rows.reduce((a, q) => a + Number(q.n), 0), byReason: Object.fromEntries(rows.map((q) => [q.reason, Number(q.n)])), limit: OFFENSE_LIMIT, suspended: !!x.suspended_at });
+}));
+
+r.post('/:id/share', ah(async (req, res) => {
+  const x = await visible(req);
+  const { conversationIds } = z.object({ conversationIds: z.array(uuid).max(20).optional() }).parse(req.body || {});
+  const snapshot = { sparkId: x.id, category: x.category, caption: (x.caption || '').slice(0, 140), author: { username: x.username, avatarUrl: x.avatar_url } };
+  let sent = 0;
+  for (const cid of conversationIds || []) {
+    await sharePostToChat(cid, req.user, snapshot); sent += 1;
+    await query(`INSERT INTO spark_shares (spark_id, user_id, channel) VALUES ($1, $2, N'chat')`, [x.id, req.user.id]);
+  }
+  if (!conversationIds?.length) await query(`INSERT INTO spark_shares (spark_id, user_id, channel) VALUES ($1, $2, N'external')`, [x.id, req.user.id]);
+  const n = await one('SELECT COUNT(*) AS n FROM spark_shares WHERE spark_id=$1', [x.id]);
+  res.json({ ok: true, sent, shareCount: Number(n.n) });
 }));
 
 r.delete('/:id', ah(async (req, res) => {

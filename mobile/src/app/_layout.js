@@ -103,6 +103,7 @@ function RootStack() {
         <Stack.Screen name="spark/casting/new" options={{ title: 'Post a casting call', presentation: 'modal' }} />
         <Stack.Screen name="spark/casting/[id]" options={{ title: 'Casting call' }} />
         <Stack.Screen name="spark/stage/index" options={{ title: 'Open Mic Stage' }} />
+        <Stack.Screen name="spark/[id]" options={{ title: 'Spark' }} />
         <Stack.Screen name="spark/stage/new" options={{ title: 'Add an open mic', presentation: 'modal' }} />
         <Stack.Screen name="moment/[userId]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />

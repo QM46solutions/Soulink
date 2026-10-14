@@ -38,6 +38,10 @@ const TEXT = {
   like: 'liked your post.',
   post_like: 'gave your post a 👌🏻.',
   spark_reaction: 'reacted to your Spark 🎬',
+  spark_comment: 'commented on your Spark 🎬',
+  spark_comment_reply: 'replied to your comment on a Spark.',
+  spark_comment_like: 'liked your comment 👌🏻',
+  spark_suspended: 'Your Spark was suspended: more than 75 people found it offensive. Only you can see it now.',
   casting_audition: (m) => `auditioned for your role${m?.title ? ` "${m.title}"` : ''} 🎭`,
   casting_pick: (m) => `picked your audition${m?.title ? ` for "${m.title}"` : ''}! 🌟`,
   spark_tried: (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`),
@@ -124,7 +128,8 @@ export default function Activity() {
             else if ((item.type === 'connect_accepted' || item.type === 'connect_back') && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
             else if (['post_like', 'post_comment', 'comment_reply', 'comment_like', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);
-            else if (item.type.startsWith('spark_') || item.type.startsWith('casting_')) router.push('/sparks');
+            else if (item.type.startsWith('spark_') && item.entityId) router.push(`/spark/${item.entityId}`);
+            else if (item.type.startsWith('casting_')) router.push('/sparks');
             else if ((item.type === 'argue_invite' || item.type === 'argue_verdict') && item.meta?.caseId) router.push(`/argue/${item.meta.caseId}`);
             else if (item.actor) router.push(`/user/${item.actor.username}`);
           }}

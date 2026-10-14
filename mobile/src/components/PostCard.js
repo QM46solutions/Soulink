@@ -24,13 +24,13 @@ const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'a
 const ND = Platform.OS !== 'web';
 // before you use an icon it's an outline; once used it turns into the solid icon in its colour:
 // like = the 👌🏻 itself, comment = white, share = sky blue, offense = red
-const ACTIVE = { comment: '#ffffff', share: '#38bdf8', offense: '#ff4d4f' };
+export const ACTIVE = { comment: '#ffffff', share: '#38bdf8', offense: '#ff4d4f' };
 
 /**
  * Outline icon that becomes solid + coloured once you've used it, and plays its own move each time you use it:
  * shake = comment box wobbles, fly = paper plane flies off and comes back, stamp = offense slams down like a stamp.
  */
-function StateIcon({ name, on, color, size = 22, effect, tick = 0 }) {
+export function StateIcon({ name, on, color, size = 22, effect, tick = 0 }) {
   // rests at 1 (the end of every move = the normal icon); each use replays 0 → 1
   const v = useRef(new Animated.Value(1)).current;
   const first = useRef(true);
@@ -118,7 +118,7 @@ function Photos({ media, onDoubleTap, burst }) {
 }
 
 /** One action: icon with its count underneath (Instagram style). */
-function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel }) {
+export function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel }) {
   // count === null: hidden by the post's owner (like count) or commenting is off; keep the space so icons stay aligned
   const num = <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count === null ? ' ' : count || 0}</Text>;
   return (

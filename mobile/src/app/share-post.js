@@ -1,4 +1,4 @@
-// Share a post into one or more chats: tap Send next to each person / group.
+// Share a post (or a Spark, ?kind=spark) into one or more chats: tap Send next to each person / group.
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -10,7 +10,8 @@ import { Empty, ErrorText, Loading } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
 export default function SharePost() {
-  const { id } = useLocalSearchParams();
+  const { id, kind } = useLocalSearchParams();
+  const base = kind === 'spark' ? 'sparks' : 'posts';
   const { user } = useAuth();
   const [chats, setChats] = useState(null);
   const [state, setState] = useState({}); // conversation id -> 'sending' | 'sent' | error text
@@ -23,7 +24,7 @@ export default function SharePost() {
   const send = async (c) => {
     setState((s) => ({ ...s, [c.id]: 'sending' }));
     try {
-      await api(`/posts/${id}/share`, { method: 'POST', body: { conversationIds: [c.id] } });
+      await api(`/${base}/${id}/share`, { method: 'POST', body: { conversationIds: [c.id] } });
       setState((s) => ({ ...s, [c.id]: 'sent' }));
     } catch (e) { setState((s) => ({ ...s, [c.id]: e.message || 'Not sent' })); }
   };

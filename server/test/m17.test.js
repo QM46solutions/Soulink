@@ -70,3 +70,28 @@ describe('Ads', () => {
     assert.equal(me.isAdmin, true);
   });
 });
+
+describe('Spark comments, offense marks and shares', () => {
+  test('comment, reply, 👌🏻 a comment, mark a Spark, share it in a chat', async () => {
+    const a = await makeUser(); const b = await makeUser();
+    const s = (await spark(a).expect(201)).body.spark;
+    const c = (await api().post(`/sparks/${s.id}/comments`).set(b.h).send({ body: 'Brilliant!' }).expect(201)).body.comment;
+    const r = (await api().post(`/sparks/${s.id}/comments`).set(a.h).send({ body: 'Thank you', parentId: c.id }).expect(201)).body.comment;
+    assert.equal(r.parentId, c.id);
+    assert.deepEqual((await api().post(`/sparks/${s.id}/comments/${c.id}/like`).set(a.h).expect(200)).body, { liked: true, likeCount: 1 });
+    await api().post(`/sparks/${s.id}/comments/${c.id}/offense`).set(b.h).send({ reason: 'spam' }).expect(400); // own comment
+    const list = (await api().get(`/sparks/${s.id}/comments`).set(b.h).expect(200)).body.comments;
+    assert.equal(list.length, 2);
+    await api().post(`/sparks/${s.id}/offense`).set(a.h).send({}).expect(400); // own Spark
+    const o = (await api().post(`/sparks/${s.id}/offense`).set(b.h).send({ reason: 'spam' }).expect(200)).body;
+    assert.equal(o.offended, true); assert.equal(o.offenseCount, 1);
+    const one = (await api().get(`/sparks/${s.id}`).set(b.h).expect(200)).body.spark;
+    assert.equal(one.commentCount, 2); assert.equal(one.offended, true); assert.equal(one.offenseReason, 'spam');
+    const sh = (await api().post(`/sparks/${s.id}/share`).set(b.h).send({}).expect(200)).body;
+    assert.equal(sh.shareCount, 1);
+    const st = (await api().get(`/sparks/${s.id}/offenses`).set(a.h).expect(200)).body;
+    assert.equal(st.total, 1);
+    await api().delete(`/sparks/${s.id}/comments/${c.id}`).set(a.h).expect(200); // the owner can remove comments
+    assert.equal((await api().get(`/sparks/${s.id}/comments`).set(b.h).expect(200)).body.comments.length, 0);
+  });
+});
