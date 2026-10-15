@@ -12,7 +12,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { isAdmin } from '../lib/payments.js';
 import { audit } from '../services/audit.js';
 import { banAccount, BAN_DAYS } from '../services/lifecycle.js';
-import { decide, reportView, DECIDE_HOURS } from '../services/copyright.js';
+import { decide, reportView, DECIDE_HOURS, REMIND_HOURS } from '../services/copyright.js';
 
 const r = Router();
 r.use(requireAuth, (req, res, next) => {
@@ -47,7 +47,7 @@ r.post('/bans/:id/lift', ah(async (req, res) => {
 r.get('/copyright', ah(async (req, res) => {
   const { status } = z.object({ status: z.enum(['received', 'removed', 'rejected', 'restored', 'court_order', 'all']).default('received') }).parse(req.query);
   const rows = await many(`SELECT TOP 100 * FROM copyright_reports ${status === 'all' ? '' : 'WHERE status=$1'} ORDER BY created_at ${status === 'received' ? 'ASC' : 'DESC'}`, status === 'all' ? [] : [status]);
-  res.json({ decideWithinHours: DECIDE_HOURS, reports: rows.map((x) => reportView(x)) });
+  res.json({ decideWithinHours: DECIDE_HOURS, remindAfterHours: REMIND_HOURS, reports: rows.map((x) => reportView(x)) });
 }));
 
 r.post('/copyright/:id/decide', ah(async (req, res) => {

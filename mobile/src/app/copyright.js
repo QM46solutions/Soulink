@@ -35,7 +35,7 @@ export default function CopyrightReport() {
         <Stack.Screen options={{ title: 'Copyright report' }} />
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, color: colors.text, textAlign: 'center' }}>Report received</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, textAlign: 'center', marginTop: space.md, lineHeight: 21 }}>
-          Reference {done}. We review every report within 24 hours and email you the outcome. If we remove the content, the person who posted it sees your name and email so they can contact you.
+          Reference {done}. We review every report within 36 hours and email you the outcome. If we remove the content, the person who posted it sees your name and email so they can contact you.
         </Text>
         <Button title="Done" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ marginTop: space.xl }} />
       </View>

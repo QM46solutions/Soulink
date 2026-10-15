@@ -1,4 +1,4 @@
-// Soulink team: copyright reports to review (decide within 24 hours; the law allows 36).
+// Soulink team: copyright reports to review. Decide within 36 hours (Copyright Rules 2013, Rule 75); amber after 24.
 import { useCallback, useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -27,11 +27,14 @@ export default function CopyrightQueue() {
       </View>
       <ErrorText>{error}</ErrorText>
       {!d ? <Loading /> : !d.reports.length ? <Empty icon="musical-notes-outline" title="Nothing here" text={tab === 'received' ? 'No copyright reports waiting.' : 'No reports in this list.'} /> : d.reports.map((r) => {
-        const late = tab === 'received' && Date.now() - new Date(r.createdAt) > d.decideWithinHours * 3600_000;
+        const age = (Date.now() - new Date(r.createdAt)) / 3600_000;
+        const late = tab === 'received' && age > d.decideWithinHours;
+        const soon = tab === 'received' && !late && age > (d.remindAfterHours || 24);
+        const left = Math.max(0, Math.ceil(d.decideWithinHours - age));
         return (
-          <View key={r.id} style={{ borderWidth: 1, borderColor: late ? colors.danger : colors.border, borderRadius: 16, padding: space.md, marginBottom: space.md, backgroundColor: colors.glass }}>
+          <View key={r.id} style={{ borderWidth: 1, borderColor: late ? colors.danger : soon ? colors.gold : colors.border, borderRadius: 16, padding: space.md, marginBottom: space.md, backgroundColor: colors.glass }}>
             <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>{r.rightsOwner} · {r.kind === 'spark' ? 'Spark' : 'Post'}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: late ? colors.danger : colors.dim, marginTop: 2 }}>{ago(r.createdAt)}{late ? ' · past 24 hours, decide now' : ''}</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: late ? colors.danger : soon ? colors.gold : colors.dim, marginTop: 2 }}>{ago(r.createdAt)}{late ? ' · past the 36-hour limit, decide now' : tab === 'received' ? ` · ${left} h left to decide` : ''}</Text>
             <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: space.sm, lineHeight: 19 }}>
               {r.reporter.name} ({r.relationship === 'agent' ? 'agent' : 'owner'}), {r.reporter.email}{r.phone ? `, ${r.phone}` : ''}{'\n'}{r.address}{'\n\n'}Work: {r.work}
               {r.proof ? `\nProof: ${r.proof}` : ''}{r.explanation ? `\nNote: ${r.explanation}` : ''}{r.appealText ? `\n\nUploader contested: ${r.appealText}` : ''}

@@ -1,7 +1,7 @@
 // Copyright notices and takedowns. Follows Instagram/Facebook's process, within India's law:
 //  1. The rights owner (or their authorised agent) files a report: who they are, the work, where it is on Soulink,
 //     and signed statements (good faith, accuracy, an undertaking to sue within 21 days: Copyright Rules 2013 Rule 75).
-//  2. The Soulink team reviews it, within 24 hours (the law allows 36). If valid, the Spark/post is taken down and
+//  2. The Soulink team reviews it within 36 hours, the limit in Rule 75 (a reminder goes out at 24 hours). If valid, the Spark/post is taken down and
 //     viewers see "unavailable because of a copyright complaint".
 //  3. The uploader is told why, with the reporter's name and email (as Instagram does), and can contest.
 //  4. Rule 75: if the uploader contests and the reporter does not bring a court order within 21 days, it comes back.
@@ -13,7 +13,8 @@ import { sendEmail } from '../providers/email.js';
 import { pushTo } from './push.js';
 import { banAccount } from './lifecycle.js';
 
-export const DECIDE_HOURS = 24;
+export const DECIDE_HOURS = 36; // Copyright Rules 2013, Rule 75
+export const REMIND_HOURS = 24; // reminder to the team: 12 hours left
 export const RESTORE_DAYS = 21;
 export const STRIKE_DAYS = 365;
 export const BLOCK_DAYS = 7;
@@ -112,6 +113,18 @@ export async function appeal(report, text, req) {
   await audit(req, 'copyright_appeal', { detail: report.id });
   mail(report.reporter_email, 'The person you reported contested the removal', `Hi ${report.reporter_name},\n\nThe person who posted the content contested your copyright report. Their reason:\n"${text}"\n\nThe content will be restored on ${day(report.restore_after)} unless you send a court order to ${COPYRIGHT_EMAIL} before then.`);
   mail(COPYRIGHT_EMAIL, 'Copyright removal contested', `Report ${report.id} was contested. Restores on ${day(report.restore_after)} unless a court order arrives.`);
+}
+
+/** Hourly: reports still waiting after 24 hours get a reminder (12 hours left of the 36). */
+export async function remindPendingReports() {
+  try {
+    const due = await many(`SELECT id, reporter_name, content_kind, created_at FROM copyright_reports WHERE status=N'received' AND reminded_at IS NULL AND created_at < DATEADD(HOUR, -${REMIND_HOURS}, SYSDATETIMEOFFSET())`);
+    for (const r of due) {
+      await query('UPDATE copyright_reports SET reminded_at=SYSDATETIMEOFFSET() WHERE id=$1', [r.id]);
+      mail(COPYRIGHT_EMAIL, `Reminder: copyright report due in ${DECIDE_HOURS - REMIND_HOURS} hours`, `The report from ${r.reporter_name} about a ${r.content_kind} must be decided by ${new Date(new Date(r.created_at).getTime() + DECIDE_HOURS * 3600_000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST), the 36-hour limit in Rule 75.\n\nReview it in the app: Settings › Copyright reports.`);
+    }
+    return due.length;
+  } catch { return 0; }
 }
 
 /** Hourly: contested removals with no court order after 21 days come back (Rule 75). */

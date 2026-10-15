@@ -39,7 +39,7 @@ export const DOCS = {
       ]],
       ['Copyright and music', [
         'Only post music, video, photos and text you made yourself or have permission to use. Your video\'s own sound is always fine. Songs from films and record labels usually need the owner\'s licence.',
-        'Copyright owners can report a Spark or post through the "It uses my copyrighted work" option or at Report copyright. We review reports within 24 hours. If we remove your content, we tell you who complained (their name and email) and why, and you can contest it in Settings › Account status. If you contest and the owner does not send us a court order within 21 days, it is restored, as India\'s Copyright Rules 2013 provide.',
+        'Copyright owners can report a Spark or post through the "It uses my copyrighted work" option or at Report copyright. We review reports within 36 hours. If we remove your content, we tell you who complained (their name and email) and why, and you can contest it in Settings › Account status. If you contest and the owner does not send us a court order within 21 days, it is restored, as India\'s Copyright Rules 2013 provide.',
         'Each upheld removal is a copyright strike, which lasts 12 months. 1 strike is a warning, 2 strikes stop you posting for 7 days, and 3 strikes in 12 months remove your account.',
       ]],
       ['AI features', [
@@ -164,7 +164,7 @@ export const DOCS = {
         'Content showing nudity, sexual acts or impersonation of you, or a deepfake of you, is removed within 2 hours of your complaint.',
         'Tell us your username, a link or screenshot of the content, and what you want us to do.',
       ]],
-      ['Copyright', [`Copyright owners: use the "It uses my copyrighted work" option on the Spark or post, or the Report copyright page. Or email ${G.grievanceEmail}. We decide within 24 hours.`]],
+      ['Copyright', [`Copyright owners: use the "It uses my copyrighted work" option on the Spark or post, or the Report copyright page. Or email ${G.grievanceEmail}. We decide within 36 hours.`]],
       ['Not satisfied?', ['You can appeal to the Grievance Appellate Committee (gac.gov.in) for content decisions, or complain to the Data Protection Board of India about personal data.']],
     ],
   },
