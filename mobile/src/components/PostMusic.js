@@ -44,7 +44,7 @@ export function MusicChip({ music }) {
 
 /** Save a picked song on a post (after the post exists). Returns the updated post. */
 export async function saveMusicOnPost(postId, m) {
-  if (m.source === 'file') return (await uploadFile(`/posts/${postId}/music`, m, 'audio', { title: m.title || 'Music' }, 120000)).post;
+  if (m.source === 'file') return (await uploadFile(`/posts/${postId}/music`, m, 'audio', { title: m.title || 'Music', rightsConfirmed: m.rightsConfirmed ? 'true' : 'false' }, 120000)).post;
   return (await api(`/posts/${postId}/music/stream`, { method: 'POST', body: { ref: m.ref, title: m.title, start: m.start || 0 } })).post;
 }
 

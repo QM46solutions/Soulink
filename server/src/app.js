@@ -35,6 +35,7 @@ import accountRoutes from './routes/account.js';
 import momentRoutes from './routes/moments.js';
 import sparkRoutes from './routes/sparks.js';
 import adminRoutes from './routes/admin.js';
+import copyrightRoutes from './routes/copyright.js';
 import { securityLog, clientIp } from './lib/log.js';
 
 export function createApp() {
@@ -128,6 +129,7 @@ export function createApp() {
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/admin', adminRoutes);
+  app.use('/copyright', copyrightRoutes);
   app.use('/search', searchRoutes);
   app.use('/discover', discoverRoutes);
   app.use('/posts', postRoutes);

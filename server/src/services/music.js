@@ -80,7 +80,7 @@ export function freeTrack(a) {
   };
 }
 async function searchFree(q, limit) {
-  const j = await getJson(`https://api.openverse.org/v1/audio/?q=${encodeURIComponent(q || 'happy music')}&page_size=${limit}&category=music`);
+  const j = await getJson(`https://api.openverse.org/v1/audio/?q=${encodeURIComponent(q || 'happy music')}&page_size=${limit}&category=music&license_type=commercial`); // only licences that allow use in an app (CC0, BY, BY-SA)
   return (j.results || []).map(freeTrack).filter(Boolean);
 }
 async function resolveFree(id) {

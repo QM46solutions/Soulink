@@ -20,6 +20,8 @@ Put every secret in Azure Key Vault and reference it from App Service settings.
 | CORS_ORIGINS | other websites allowed to call the API, comma separated (the app's own address is always allowed) | |
 | EXPORT_KEY | 64 random characters | Signs "Download my data" files so Restore accepts only genuine ones |
 | ADMIN_USERNAMES | Soulink team usernames, comma separated | Ads Manager, bans |
+| COPYRIGHT_EMAIL | the inbox that receives copyright reports (default: Grievance Officer) | Copyright notices |
+| MUSIC_DEEZER / MUSIC_PHONE | off (until licensed) | Unlicensed music stays off |
 | FACE_SEARCH | false (feature on hold) | |
 | DB_ENCRYPT / DB_TRUST_SERVER_CERT | true / false | Encrypted database connection |
 

@@ -8,6 +8,7 @@
 //  GET    /moments/:id/viewers       who viewed my Moment
 //  POST   /moments/:id/reply         { text } reply or emoji reaction, sent to their chat
 //  DELETE /moments/:id               delete my Moment
+import { postingBlocked } from '../services/copyright.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -37,6 +38,7 @@ async function canSee(viewerId, authorId) {
 }
 
 r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (req, res) => {
+  const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
   const d = z.object({
     text: z.string().trim().max(500).optional(),
     bg: z.enum(BGS).optional(),

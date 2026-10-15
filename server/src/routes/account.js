@@ -70,9 +70,11 @@ r.get('/status', ah(async (req, res) => {
        (SELECT COUNT(*) FROM posts WHERE author_id=$1 AND deleted_at IS NULL) AS posts,
        (SELECT COUNT(*) FROM posts WHERE author_id=$1 AND deleted_at IS NULL AND suspended_at IS NOT NULL) AS suspended_posts,
        (SELECT COUNT(*) FROM post_offenses o JOIN posts p ON p.id = o.post_id WHERE p.author_id=$1 AND p.deleted_at IS NULL) AS offense_marks,
-       (SELECT COUNT(*) FROM reports WHERE target_type=N'user' AND target_id=$1) AS reports`, [me]);
+       (SELECT COUNT(*) FROM reports WHERE target_type=N'user' AND target_id=$1) AS reports,
+       (SELECT COUNT(*) FROM copyright_strikes WHERE user_id=$1 AND removed_at IS NULL AND created_at > DATEADD(DAY, -365, SYSDATETIMEOFFSET())) AS strikes`, [me]);
   const suspended = Number(n.suspended_posts || 0); const reports = Number(n.reports || 0); const marks = Number(n.offense_marks || 0);
-  const level = suspended > 0 || reports >= 5 ? 'warning' : marks > 0 || reports > 0 ? 'watch' : 'good';
+  const strikes = Number(n.strikes || 0);
+  const level = suspended > 0 || reports >= 5 || strikes > 0 ? 'warning' : marks > 0 || reports > 0 ? 'watch' : 'good';
   res.json({
     user: meView(req.user),
     level, // good | watch | warning
@@ -83,6 +85,8 @@ r.get('/status', ah(async (req, res) => {
       suspendedPosts: suspended,
       offenseMarks: marks,
       reports, // how many times people reported your account (never who)
+      copyrightStrikes: strikes,
+      postingBlockedUntil: req.user.posting_blocked_until || null,
       memberSince: req.user.created_at,
     },
   });

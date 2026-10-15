@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Overlay } from '../lib/portal';
-import { api } from '../lib/api';
+import { api, getServer } from '../lib/api';
+import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { useOpenGuard, useSafeClose } from '../lib/safeClose';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -124,6 +126,18 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
             <Ionicons name="chevron-forward" size={17} color={colors.dim} />
           </Pressable>
         ))}
+        {/^(post|spark)$/i.test(what) ? (
+          <Pressable onPress={() => {
+            const kind = /spark/i.test(what) ? 'spark' : 'post';
+            const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : getServer().replace(/\/api$/, '');
+            onClose(); router.push(`/copyright?url=${encodeURIComponent(`${origin}/${kind}/${postId}`)}`);
+          }}
+            style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: 15, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+            <Ionicons name="musical-notes-outline" size={17} color={colors.aura} style={{ marginRight: space.md }} />
+            <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 15, color: colors.aura }}>It uses my copyrighted work</Text>
+            <Ionicons name="chevron-forward" size={17} color={colors.dim} />
+          </Pressable>
+        ) : null}
       </ScrollView>
     );
   }

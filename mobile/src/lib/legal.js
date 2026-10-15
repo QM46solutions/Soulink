@@ -3,7 +3,7 @@
 // Consumer Protection (E-Commerce) Rules 2020, ASCI code). Templates until a lawyer reviews them.
 // When the text changes in a way people must agree to again, change TERMS_VERSION.
 
-export const TERMS_VERSION = '2026-10-16';
+export const TERMS_VERSION = '2026-10-17';
 
 export const LEGAL = {
   company: 'QM46 Solutions Private Limited',
@@ -12,7 +12,7 @@ export const LEGAL = {
   grievanceOfficer: 'Sai Raghava Ragishetty',
   grievanceEmail: 'Rragishetty@gmail.com',
   founder: 'Nikhil Cheedella',
-  updated: '16 October 2026',
+  updated: '17 October 2026',
 };
 
 const G = LEGAL;
@@ -36,6 +36,11 @@ export const DOCS = {
         'Impersonating any person, deepfakes or AI images of a real person without their consent, and false or misleading information presented as fact.',
         'Content that threatens the unity, integrity, defence, security or sovereignty of India, friendly relations with other countries or public order, or that infringes a patent, trademark or copyright.',
         'Malware, scraping, spam, fake engagement, or trying to get around our safety systems, including the face verification.',
+      ]],
+      ['Copyright and music', [
+        'Only post music, video, photos and text you made yourself or have permission to use. Your video\'s own sound is always fine. Songs from films and record labels usually need the owner\'s licence.',
+        'Copyright owners can report a Spark or post through the "It uses my copyrighted work" option or at Report copyright. We review reports within 24 hours. If we remove your content, we tell you who complained (their name and email) and why, and you can contest it in Settings › Account status. If you contest and the owner does not send us a court order within 21 days, it is restored, as India\'s Copyright Rules 2013 provide.',
+        'Each upheld removal is a copyright strike, which lasts 12 months. 1 strike is a warning, 2 strikes stop you posting for 7 days, and 3 strikes in 12 months remove your account.',
       ]],
       ['AI features', [
         'Soulmoji stickers, the Argue Referee verdict and chat translations are made by AI. They are labelled as AI-generated. A Referee verdict is a fun, neutral opinion, not legal, medical or financial advice.',
@@ -132,7 +137,7 @@ export const DOCS = {
       ['Be respectful', ['No harassment, bullying, threats, hate speech, or insults about religion, caste, gender, sexuality, region or disability. Respect a "no": stop messaging people who aren\'t interested.']],
       ['Keep it safe', ['No nudity or sexual content, nothing involving minors, no violence, self-harm encouragement, drugs, weapons or scams. Never share someone\'s private photos, phone number or address.']],
       ['Keep it honest', ['No false news presented as fact, no fake engagement, no spam. Mark paid partnerships as ads.']],
-      ['Respect creators', ['Post your own work. Use music only from Soulink\'s music picker or that you have the right to use.']],
+      ['Respect creators', ['Post your own work. Use music from Soulink\'s music library, your video\'s own sound, or songs you have the rights to. Copyright owners can report misuse, and 3 copyright strikes in 12 months remove an account.']],
       ['What happens if rules are broken', ['Tap ❗ to mark something offensive. Content many people mark is hidden (comments) or suspended (posts and Sparks). We remove illegal content, limit or close repeat offenders, and report serious crimes to the police.']],
     ],
   },
@@ -159,6 +164,7 @@ export const DOCS = {
         'Content showing nudity, sexual acts or impersonation of you, or a deepfake of you, is removed within 2 hours of your complaint.',
         'Tell us your username, a link or screenshot of the content, and what you want us to do.',
       ]],
+      ['Copyright', [`Copyright owners: use the "It uses my copyrighted work" option on the Spark or post, or the Report copyright page. Or email ${G.grievanceEmail}. We decide within 24 hours.`]],
       ['Not satisfied?', ['You can appeal to the Grievance Appellate Committee (gac.gov.in) for content decisions, or complain to the Data Protection Board of India about personal data.']],
     ],
   },

@@ -97,6 +97,7 @@ function RootStack() {
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="ads/index" options={{ title: 'Ads Manager' }} />
+        <Stack.Screen name="admin/copyright" options={{ title: 'Copyright reports' }} />
         <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />
         <Stack.Screen name="moment/new" options={{ headerShown: false, presentation: 'modal' }} />
@@ -137,6 +138,7 @@ function RootStack() {
       </Stack.Protected>
       {/* public: readable before and after login. Listed last so a redirect never lands here */}
       <Stack.Screen name="legal/[doc]" options={{ title: '' }} />
+      <Stack.Screen name="copyright" options={{ title: 'Report copyright' }} />
     </Stack>
     {showBar ? <BottomBar active={active} /> : null}
     {loggedIn && onboarded && user.termsVersion !== TERMS_VERSION && top !== 'legal' ? <TermsGate /> : null}

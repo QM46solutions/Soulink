@@ -12,6 +12,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { isAdmin } from '../lib/payments.js';
 import { audit } from '../services/audit.js';
 import { banAccount, BAN_DAYS } from '../services/lifecycle.js';
+import { decide, reportView, DECIDE_HOURS } from '../services/copyright.js';
 
 const r = Router();
 r.use(requireAuth, (req, res, next) => {
@@ -40,6 +41,23 @@ r.post('/bans/:id/lift', ah(async (req, res) => {
   await query('UPDATE banned_identities SET lifted_at=SYSDATETIMEOFFSET(), face_embedding=NULL WHERE id=$1 AND lifted_at IS NULL', [req.params.id]);
   await audit(req, 'ban_lifted', { detail: `${req.params.id}: ${reason}` });
   res.json({ ok: true });
+}));
+
+// ---------- copyright reports ----------
+r.get('/copyright', ah(async (req, res) => {
+  const { status } = z.object({ status: z.enum(['received', 'removed', 'rejected', 'restored', 'court_order', 'all']).default('received') }).parse(req.query);
+  const rows = await many(`SELECT TOP 100 * FROM copyright_reports ${status === 'all' ? '' : 'WHERE status=$1'} ORDER BY created_at ${status === 'received' ? 'ASC' : 'DESC'}`, status === 'all' ? [] : [status]);
+  res.json({ decideWithinHours: DECIDE_HOURS, reports: rows.map((x) => reportView(x)) });
+}));
+
+r.post('/copyright/:id/decide', ah(async (req, res) => {
+  const { action, note } = z.object({ action: z.enum(['remove', 'reject', 'restore', 'court_order']), note: z.string().trim().max(500).optional() }).parse(req.body || {});
+  const rep = await one('SELECT * FROM copyright_reports WHERE id=$1', [req.params.id]);
+  if (!rep) throw notFound('Report not found');
+  const allowed = { remove: ['received'], reject: ['received'], restore: ['removed', 'court_order'], court_order: ['removed'] }[action];
+  if (!allowed.includes(rep.status)) throw forbidden(`This report is already ${rep.status}`, 'bad_state');
+  const out = await decide(rep, action, note, req);
+  res.json({ ok: true, ...out });
 }));
 
 export default r;

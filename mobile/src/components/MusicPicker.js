@@ -3,6 +3,7 @@
 // Tap ▶ to hear a song, tap it to choose it. Full songs then let you pick which part plays.
 // onPick({ source, ref?, uri, name, title, start, cover?, type?, size? })
 //   source 'file' = a song from the phone (uri is a local file); otherwise ref = 'saavn:<id>' etc. and uri streams it.
+import { confirm } from '../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -108,10 +109,12 @@ export default function MusicPicker({ visible, onClose, onPick, allowPhone = tru
     const f = await pickAudioFile();
     if (!f) { setError(Platform.OS === 'web' ? null : 'Songs from your phone work in the web version for now.'); return; }
     if (f.size > 15 * 1024 * 1024) { setError('That file is too big (15 MB max).'); return; }
-    onPick({ source: 'file', uri: f.uri, name: f.name, type: f.type, size: f.size, title: f.name.replace(/\.[a-z0-9]{2,4}$/i, '').slice(0, 150), start: 0 });
+    // Copyright: like Instagram, only music you own or may use. Film and label songs need the owner's permission.
+    if (!(await confirm('Do you have the rights to this song?', 'Only add music you made yourself or have permission to use. Film and label songs usually need a licence; they can be removed after a copyright complaint and count as a strike.', { confirmText: 'I have the rights' }))) return;
+    onPick({ rightsConfirmed: true, source: 'file', uri: f.uri, name: f.name, type: f.type, size: f.size, title: f.name.replace(/\.[a-z0-9]{2,4}$/i, '').slice(0, 150), start: 0 });
     onClose();
   };
-  const tabs = TABS.filter((t) => (allowPhone || t.key !== 'file') && (t.key === 'file' || !on || on.includes(t.key)));
+  const tabs = TABS.filter((t) => (allowPhone || t.key !== 'file') && (!on || on.includes(t.key)));
   const cur = TABS.find((t) => t.key === tab);
 
   return (

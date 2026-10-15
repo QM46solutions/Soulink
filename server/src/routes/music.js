@@ -13,14 +13,18 @@ const r = Router();
 // JioSaavn songs come through an unofficial API without a licence. It stays on for testing on the laptop, but is
 // OFF in the online (production) version unless MUSIC_SAAVN=on, to avoid copyright problems (Copyright Act 1957).
 export const saavnOn = () => (process.env.MUSIC_SAAVN === 'on' || (process.env.MUSIC_SAAVN !== 'off' && (process.env.NODE_ENV || 'development') !== 'production'));
-const sourcesOn = () => MUSIC_SOURCES.filter((x) => x !== 'saavn' || saavnOn());
+// Deezer's free API is not licensed for commercial apps: off in production unless MUSIC_DEEZER=on.
+export const deezerOn = () => (process.env.MUSIC_DEEZER === 'on' || (process.env.MUSIC_DEEZER !== 'off' && (process.env.NODE_ENV || 'development') !== 'production'));
+// Songs uploaded from the phone are almost always someone else's music: off in production unless MUSIC_PHONE=on.
+export const phoneMusicOn = () => (process.env.MUSIC_PHONE === 'on' || (process.env.MUSIC_PHONE !== 'off' && (process.env.NODE_ENV || 'development') !== 'production'));
+const sourcesOn = () => MUSIC_SOURCES.filter((x) => (x !== 'saavn' || saavnOn()) && (x !== 'deezer' || deezerOn()));
 
-r.get('/sources', (req, res) => res.json({ sources: sourcesOn() }));
+r.get('/sources', (req, res) => res.json({ sources: [...sourcesOn(), ...(phoneMusicOn() ? ['file'] : [])], originalAudio: true }));
 
 r.get('/play/:ref', ah(async (req, res) => {
   const ref = String(req.params.ref || '');
   if (!REF_RE.test(ref)) throw new HttpError(404, 'No such song', 'no_song');
-  if (ref.startsWith('saavn:') && !saavnOn()) throw new HttpError(404, "This song isn't available on Soulink anymore", 'song_unavailable');
+  if ((ref.startsWith('saavn:') && !saavnOn()) || (ref.startsWith('deezer:') && !deezerOn())) throw new HttpError(404, "This song isn't available on Soulink anymore", 'song_unavailable');
   let url = null;
   try { url = await streamUrl(ref); } catch { /* source not answering */ }
   if (!url) throw new HttpError(404, "This song isn't available right now", 'song_unavailable');

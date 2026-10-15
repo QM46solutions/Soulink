@@ -2,7 +2,7 @@
 import { ScrollView, Text, View } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { DOCS, DOC_KEYS, LEGAL } from '../../lib/legal';
-import { Chip, s } from '../../components/ui';
+import { Button, Chip, s } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
 
 export default function LegalDoc() {
@@ -23,6 +23,7 @@ export default function LegalDoc() {
           {paras.map((p) => <Text key={p} style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, lineHeight: 21, marginBottom: space.sm }}>{p}</Text>)}
         </View>
       ))}
+      {key === 'grievance' ? <Button title="Report a copyright problem" variant="ghost" icon="musical-notes-outline" onPress={() => router.push('/copyright')} style={{ marginTop: space.lg }} /> : null}
     </ScrollView>
   );
 }

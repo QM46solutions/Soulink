@@ -16,14 +16,14 @@ export function LegalLinks({ style }) {
   );
 }
 
-export default function Consent({ value, onChange, face }) {
+export default function Consent({ value, onChange, face, statement }) {
   return (
     <Pressable onPress={() => onChange(!value)} accessibilityRole="checkbox" accessibilityState={{ checked: value }}
       style={{ flexDirection: 'row', alignItems: 'flex-start', padding: space.md, borderRadius: 16, borderWidth: 1, borderColor: value ? colors.soul : colors.border, backgroundColor: colors.glass, marginTop: space.lg }}>
       <Ionicons name={value ? 'checkbox' : 'square-outline'} size={22} color={value ? colors.soul : colors.muted} style={{ marginRight: space.md, marginTop: 1 }} />
       <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.text, lineHeight: 19 }}>
-        I am 18 or older and I agree to the <L to="terms">Terms of Use</L>, <L to="privacy">Privacy Policy</L> and <L to="guidelines">Community Guidelines</L>.
-        {face ? ' I consent to Soulink making a face fingerprint from this scan to verify I am a real, single person. I can delete it any time by deleting my account.' : ''}
+        {statement || <>I am 18 or older and I agree to the <L to="terms">Terms of Use</L>, <L to="privacy">Privacy Policy</L> and <L to="guidelines">Community Guidelines</L>.
+        {face ? ' I consent to Soulink making a face fingerprint from this scan to verify I am a real, single person. I can delete it any time by deleting my account.' : ''}</>}
       </Text>
     </Pressable>
   );

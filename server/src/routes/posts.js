@@ -17,6 +17,8 @@
 //  POST   /posts/:id/offense         mark / unmark as offensive (toggle). More than 75 marks suspends the post:
 //                                    hidden from everyone except its owner.
 //  POST   /posts/:id/share           { conversationIds?: [...] } send it in chats, or {} = shared outside Soulink
+import { postingBlocked, UNAVAILABLE } from '../services/copyright.js';
+import { phoneMusicOn } from './music.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -47,7 +49,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
-    p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place, p.reveal_at, p.teaser_url,
+    p.suspended_reason, p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place, p.reveal_at, p.teaser_url,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
 
@@ -99,7 +101,7 @@ async function loadVisible(req) {
   const x = await one(`${SELECT} WHERE p.id = $2 AND p.deleted_at IS NULL`, [req.user.id, id]);
   if (!x) throw notFound('Post not found');
   if (String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
-    if (x.suspended_at) throw notFound('This post was suspended after many people found it offensive', 'post_suspended');
+    if (x.suspended_at) throw x.suspended_reason === 'copyright' ? notFound(UNAVAILABLE, 'copyright_removed') : notFound('This post was suspended after many people found it offensive', 'post_suspended');
     if (await isBlockedEither(req.user.id, x.author_id)) throw notFound('Post not found');
     const author = await one('SELECT * FROM users WHERE id=$1', [x.author_id]);
     if (!canViewContent(author, await relationship(req.user.id, author.id))) throw forbidden('This account is private', 'private_account');
@@ -108,6 +110,7 @@ async function loadVisible(req) {
 }
 
 r.post('/', uploadMemory('post', 40, 11).fields([{ name: 'photos', maxCount: 10 }, { name: 'cover', maxCount: 1 }]), ah(async (req, res) => {
+  const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
   const { caption, place, revealAt } = z.object({
     caption: z.string().max(2200).optional(), place: z.string().trim().max(150).optional(), revealAt: z.string().datetime({ offset: true }).optional(),
   }).parse(req.body || {});
@@ -179,6 +182,8 @@ r.patch('/:id', ah(async (req, res) => {
 
 // Music: a song/audio from your phone (up to 15 MB); the post plays its first 30 seconds
 r.post('/:id/music', uploadMemory('audio', 15).single('audio'), ah(async (req, res) => {
+  if (!phoneMusicOn()) throw forbidden("Songs from your phone can't be added. Use the music library instead.", 'music_upload_off');
+  if (String(req.body?.rightsConfirmed) !== 'true') throw badRequest('Confirm you own this song or have permission to use it', 'rights_not_confirmed');
   const p = await myPost(req);
   if (!req.file) throw badRequest('Choose a song first', 'no_audio');
   const title = z.string().trim().min(1).max(150).parse(String(req.body?.title || req.file.originalname || 'Music').replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music');

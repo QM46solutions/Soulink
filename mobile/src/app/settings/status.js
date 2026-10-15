@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { InfoRow, Note, Section } from '../../components/SettingsUI';
 import { Loading, s } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
+import CopyrightNotices from '../../components/CopyrightNotices';
 
 const LEVEL = {
   good: { icon: 'shield-checkmark', color: colors.mint, title: 'Your account is in good standing', text: "No problems. Thanks for keeping Soulink kind." },
@@ -40,6 +41,7 @@ export default function AccountStatus() {
       <InfoRow icon="alert-circle" title="Offense marks on your posts" value={String(c.offenseMarks)} color={c.offenseMarks ? colors.gold : colors.mint} />
       <InfoRow icon="flag" title="Times your account was reported" value={String(c.reports)} color={c.reports ? colors.gold : colors.mint} />
       <Note>Soulink never tells you who reported or marked something, and never tells them you know.</Note>
+      <CopyrightNotices />
     </ScrollView>
   );
 }

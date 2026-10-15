@@ -14,6 +14,8 @@
 //  GET    /sparks/:id/spread          my Spark's Spread status
 //  POST   /sparks/:id/spread          { days, city: 'mine'|'all', ageMin, ageMax } show it to more people
 //  POST   /sparks/:id/spread/stop     stop spreading
+import { postingBlocked, UNAVAILABLE } from '../services/copyright.js';
+import { phoneMusicOn } from './music.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -192,6 +194,9 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   const video = req.files?.video?.[0]; const music = req.files?.music?.[0]; const voice = req.files?.voice?.[0];
   if (!video || !video.mimetype.startsWith('video/')) throw badRequest('Add a video first (up to 60 seconds)', 'no_video');
   if (music && !music.mimetype.startsWith('audio/')) throw badRequest('Music must be an audio file');
+  const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
+  if (music && !phoneMusicOn()) throw forbidden("Songs from your phone can't be added. Use the music library or your video's original sound.", 'music_upload_off');
+  if (music && String(req.body?.rightsConfirmed) !== 'true') throw badRequest('Confirm you own this song or have permission to use it', 'rights_not_confirmed');
   if (voice && !/^(audio|video)\//.test(voice.mimetype)) throw badRequest('The voiceover must be audio');
   const b = z.object({
     category: z.enum(SPARK_CATEGORIES),
@@ -362,7 +367,10 @@ r.delete('/stage/spots/:id', ah(async (req, res) => {
 async function visible(req) {
   const id = uuid.parse(req.params.id);
   const x = await one(`${SELECT} WHERE ${VISIBLE} AND s.id = $2`, [req.user.id, id]);
-  if (!x) throw notFound('Spark not found');
+  if (!x) {
+    const gone = await one("SELECT TOP 1 1 AS x FROM sparks WHERE id=$1 AND suspended_reason=N'copyright' AND deleted_at IS NULL", [id]);
+    throw gone ? notFound(UNAVAILABLE, 'copyright_removed') : notFound('Spark not found');
+  }
   return x;
 }
 

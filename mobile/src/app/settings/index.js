@@ -75,6 +75,7 @@ export default function Settings() {
       <MenuRow icon="trash" title="Delete my account" text="Deleted after 30 days; log in before then to cancel" onPress={go('/settings/delete-account')} tint={['#ff5c7a', '#8b2a3c']} />
 
       <Section>More</Section>
+      {user.isAdmin ? <MenuRow icon="musical-notes" title="Copyright reports" text="Soulink team: review within 24 hours" onPress={go('/admin/copyright')} tint={['#ff6b9d', '#7c5cfc']} /> : null}
       {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: sponsored posts, Spark ads, sponsored Argue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}
       <MenuRow icon="information-circle" title="About" text="Soulink version, terms and privacy" onPress={go('/settings/about')} tint={['#b08fff', '#7c5cfc']} />
       <MenuRow icon="log-out-outline" title="Log out" danger
