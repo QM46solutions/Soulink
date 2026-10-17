@@ -6,7 +6,7 @@ GO
 ALTER TABLE users ADD posting_blocked_until DATETIMEOFFSET NULL; -- second copyright strike: no new posts for 7 days
 GO
 CREATE TABLE copyright_reports (
-  id               UNIQUEIDENTIFIER NOT NULL CONSTRAINT pk_copyright_reports PRIMARY KEY CONSTRAINT df_cr_id DEFAULT NEWID(),
+  id               UNIQUEIDENTIFIER NOT NULL CONSTRAINT pk_copyright_reports PRIMARY KEY CONSTRAINT df_cpr_id DEFAULT NEWID(),
   -- who is complaining (shared with the uploader, as Instagram does)
   reporter_name    NVARCHAR(120) NOT NULL,
   reporter_email   NVARCHAR(254) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE copyright_reports (
   suit_undertaking BIT NOT NULL,                           -- will file an infringement suit within 21 days (Rule 75)
   signature        NVARCHAR(120) NOT NULL,
   -- handling
-  status           NVARCHAR(20) NOT NULL CONSTRAINT df_cr_status DEFAULT N'received', -- received | removed | rejected | restored | court_order
+  status           NVARCHAR(20) NOT NULL CONSTRAINT df_cpr_status DEFAULT N'received', -- received | removed | rejected | restored | court_order
   decided_at       DATETIMEOFFSET NULL,
   decided_by       UNIQUEIDENTIFIER NULL,
   decision_note    NVARCHAR(500) NULL,
@@ -36,17 +36,17 @@ CREATE TABLE copyright_reports (
   appeal_text      NVARCHAR(1000) NULL,
   appealed_at      DATETIMEOFFSET NULL,
   court_order_at   DATETIMEOFFSET NULL,
-  created_at       DATETIMEOFFSET NOT NULL CONSTRAINT df_cr_created DEFAULT SYSDATETIMEOFFSET()
+  created_at       DATETIMEOFFSET NOT NULL CONSTRAINT df_cpr_created DEFAULT SYSDATETIMEOFFSET()
 );
 GO
-CREATE INDEX ix_cr_status ON copyright_reports (status, created_at);
+CREATE INDEX ix_cpr_status ON copyright_reports (status, created_at);
 GO
 CREATE TABLE copyright_strikes (
-  id         UNIQUEIDENTIFIER NOT NULL CONSTRAINT pk_copyright_strikes PRIMARY KEY CONSTRAINT df_cs_id DEFAULT NEWID(),
+  id         UNIQUEIDENTIFIER NOT NULL CONSTRAINT pk_copyright_strikes PRIMARY KEY CONSTRAINT df_cps_id DEFAULT NEWID(),
   user_id    UNIQUEIDENTIFIER NOT NULL,
   report_id  UNIQUEIDENTIFIER NOT NULL,
-  created_at DATETIMEOFFSET NOT NULL CONSTRAINT df_cs_created DEFAULT SYSDATETIMEOFFSET(),
+  created_at DATETIMEOFFSET NOT NULL CONSTRAINT df_cps_created DEFAULT SYSDATETIMEOFFSET(),
   removed_at DATETIMEOFFSET NULL                           -- appeal accepted / content restored
 );
 GO
-CREATE INDEX ix_cs_user ON copyright_strikes (user_id, created_at);
+CREATE INDEX ix_cps_user ON copyright_strikes (user_id, created_at);
