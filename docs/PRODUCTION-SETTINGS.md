@@ -22,6 +22,7 @@ Put every secret in Azure Key Vault and reference it from App Service settings.
 | ADMIN_USERNAMES | Soulink team usernames, comma separated | Ads Manager, bans |
 | COPYRIGHT_EMAIL | the inbox that receives copyright reports (default: Grievance Officer) | Copyright notices |
 | MUSIC_DEEZER / MUSIC_PHONE | off (until licensed) | Unlicensed music stays off |
+| SOULMOJI_ENGINE | builtin (default; same on laptop and cloud). Set `ai` only with a working SOULMOJI_AI_URL | Soulmoji |
 | FACE_SEARCH | false (feature on hold) | |
 | DB_ENCRYPT / DB_TRUST_SERVER_CERT | true / false | Encrypted database connection |
 

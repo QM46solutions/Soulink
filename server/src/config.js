@@ -29,6 +29,9 @@ export const config = {
   corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
   // Face search (find someone by camera) is on hold
   faceSearch: bool(process.env.FACE_SEARCH, false),
+  // Soulmoji engine. 'builtin' (default) = Soulink's own engine, the SAME on the laptop and in the cloud:
+  // free, fast, nothing else to keep running. 'ai' = LivePortrait (laptop install or SOULMOJI_AI_URL), opt-in only.
+  soulmojiEngine: process.env.SOULMOJI_ENGINE === 'ai' ? 'ai' : 'builtin',
   storage: process.env.STORAGE || 'local',
   // Cloud hosting: the built web app is served from this folder, with the API under /api (one address for everything)
   webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',

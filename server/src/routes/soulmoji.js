@@ -20,7 +20,9 @@ import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../se
 import { aiEdit, aiInstalled, wakeRemoteAi, warmSoulmojiAi } from '../services/soulmojiAi.js';
 import crypto from 'node:crypto';
 
-warmSoulmojiAi();
+// Soulmoji uses the built-in engine everywhere unless SOULMOJI_ENGINE=ai: laptop and cloud give the same result
+const aiOn = () => config.soulmojiEngine === 'ai' && aiInstalled();
+if (config.soulmojiEngine === 'ai') warmSoulmojiAi();
 
 const r = Router();
 r.use(requireAuth);
@@ -30,8 +32,8 @@ const ENGINE = 2; // bump when the expression engine changes so old renders are 
 const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || 'null'); } catch { return null; } })());
 
 r.get('/face', ah(async (req, res) => {
-  wakeRemoteAi(); // opening Soulmoji wakes the online AI so the first expression is quick
-  res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS, ai: aiInstalled() });
+  if (aiOn()) wakeRemoteAi(); // opening Soulmoji wakes the online AI so the first expression is quick
+  res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS, ai: aiOn(), engine: aiOn() ? 'ai' : 'builtin' });
 }));
 
 r.post('/face', rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : 30 }), uploadMemory('image', 12).single('photo'), ah(async (req, res) => {
@@ -61,7 +63,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   const faceUrl = req.user.soulmoji_face_url;
   const points = list(req.user.soulmoji_points);
   if (!faceUrl || !points) throw badRequest('Take your Soulmoji selfie first', 'no_soulmoji_face');
-  const useAi = aiInstalled() && req.user.soulmoji_src_url;
+  const useAi = aiOn() && req.user.soulmoji_src_url;
   const engine = useAi ? 'ai3' : ENGINE;
   const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${engine}`]);
   if (cached) return res.json({ imageUrl: cached.url, mood, ai: useAi });
@@ -104,7 +106,7 @@ async function renderWithAi(user, mood) {
 
 /** After a new selfie: make every expression in the background, so they're ready when you open Soulmoji. */
 function renderAllInBackground(user) {
-  if (!aiInstalled() || !user.soulmoji_src_url) return;
+  if (!aiOn() || !user.soulmoji_src_url) return;
   (async () => {
     for (const mood of RENDER_MOODS) {
       try { await renderWithAi(user, mood); } catch (e) { console.warn('Soulmoji AI (background):', e.message); return; }
