@@ -1,6 +1,6 @@
 # Soulink online (free): open it on your phone anytime, laptop can be off
 
-One https address serves everything (the app + its server), for example `https://soulink.onrender.com`.
+One https address serves everything (the app + its server), for example `https://soulink-xvbd.onrender.com`.
 Friends need the **access code** you choose (asked once per phone). The login code (OTP) is shown on
 screen and filled in automatically, the same as on the laptop, because there is no paid SMS yet.
 
@@ -53,7 +53,7 @@ screen and filled in automatically, the same as on the laptop, because there is 
    the blueprint itself tells Render to run the ready-built **deploy** branch.
 3. Render reads `render.yaml` and asks for 5 values: `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `ACCESS_CODE`
    (the same ones you typed in SETUP-CLOUD; it prints them for you). **Apply**.
-4. First start takes 5-8 minutes. Render > **soulink** shows your address, e.g. `https://soulink.onrender.com`.
+4. First start takes 5-8 minutes. Render > **soulink** shows your address, e.g. `https://soulink-xvbd.onrender.com`.
    **Logs** should end with "Soulink server running".
 
 ### 4. Bring your current accounts and photos (optional)

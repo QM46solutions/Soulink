@@ -72,6 +72,7 @@ export function createApp() {
   if (!config.isDev || process.env.ACCESS_LOG === 'on') {
     app.use((req, res, next) => {
       const t0 = Date.now();
+      if (req.path === '/health' || req.path === '/wake') return next(); // Render checks /health every 5 seconds: not user activity
       res.on('finish', () => securityLog('request', { user: req.user?.id || null, method: req.method, route: `${req.baseUrl || ''}${req.route?.path || ''}` || req.path.split('?')[0].slice(0, 120), status: res.statusCode, ms: Date.now() - t0, ip: clientIp(req) }));
       next();
     });
