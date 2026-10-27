@@ -90,13 +90,13 @@ describe('Onboarding & profile', () => {
     assert.equal(r3.body.available, true);
   });
 
-  test('update profile fields; face discoverable requires verification', async () => {
+  test('update profile fields; finding people by face is on hold', async () => {
     const a = await makeUser();
     const r = await api().patch('/users/me').set(a.h).send({ bio: 'Hello', city: 'Hyderabad', interests: ['cricket', 'music'] }).expect(200);
     assert.equal(r.body.user.city, 'Hyderabad');
     assert.deepEqual(r.body.user.interests, ['cricket', 'music']);
     const f = await api().patch('/users/me').set(a.h).send({ faceDiscoverable: true }).expect(400);
-    assert.equal(f.body.error.code, 'face_not_verified');
+    assert.equal(f.body.error.code, 'face_search_paused');
     await api().patch('/users/me').set(a.h).send({ unknownField: 1 }).expect(400);
   });
 

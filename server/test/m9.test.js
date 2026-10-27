@@ -95,7 +95,7 @@ describe('Post menu: edit, hide like count, turn off commenting, music, delete',
     const a = await makeUser();
     const p = await textPost(a);
     const mp3 = Buffer.from([0xff, 0xfb, 0x90, 0x00, ...new Array(64).fill(0)]);
-    const r = await api().post(`/posts/${p.id}/music`).set(a.h).field('title', 'Samajavaragamana').attach('audio', mp3, { filename: 'song.mp3', contentType: 'audio/mpeg' }).expect(200);
+    const r = await api().post(`/posts/${p.id}/music`).set(a.h).field('title', 'Samajavaragamana').field('rightsConfirmed', 'true').attach('audio', mp3, { filename: 'song.mp3', contentType: 'audio/mpeg' }).expect(200);
     assert.equal(r.body.post.music.title, 'Samajavaragamana');
     assert.ok(r.body.post.music.url.startsWith('/uploads/music/'));
     const gone = await api().delete(`/posts/${p.id}/music`).set(a.h).expect(200);

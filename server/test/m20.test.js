@@ -8,6 +8,7 @@ before(resetDb);
 after(() => closePool());
 
 async function login(phone) {
+  await query('DELETE FROM otp_codes WHERE target=$1', [phone]); // skip the 30-second resend wait between test logins
   const r = await api().post('/auth/otp/request').send({ phone }).expect(200);
   const v = await api().post('/auth/otp/verify').send({ phone, code: r.body.devCode }).expect(200);
   return { body: v.body, h: { Authorization: `Bearer ${v.body.token}` } };
@@ -82,6 +83,7 @@ describe('Bans', () => {
     const bans = (await api().get('/admin/bans').set(admin.h).expect(200)).body.bans;
     assert.equal(bans[0].username, bad.user.username);
     await api().post(`/admin/bans/${bans[0].id}/lift`).set(admin.h).send({ reason: 'Appeal accepted by Grievance Officer' }).expect(200);
+    await query('DELETE FROM otp_codes WHERE target=$1', [bad.user.phone]);
     await api().post('/auth/otp/request').send({ phone: bad.user.phone }).expect(200);
   });
 });

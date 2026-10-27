@@ -9,6 +9,7 @@ after(() => closePool());
 
 // a second login on another device for the same account
 async function secondDevice(phone) {
+  await query('DELETE FROM otp_codes WHERE target=$1', [phone]); // skip the 30-second resend wait between test logins
   const r = await api().post('/auth/otp/request').send({ phone }).expect(200);
   const v = await api().post('/auth/otp/verify').send({ phone, code: r.body.devCode }).expect(200);
   return { Authorization: `Bearer ${v.body.token}` };
