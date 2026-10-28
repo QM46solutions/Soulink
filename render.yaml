@@ -53,6 +53,11 @@ services:
         sync: false
       - key: AZURE_TRANSLATOR_REGION
         sync: false
+      # Voice translator: Azure AI Speech free tier (F0): key + region (centralindia)
+      - key: AZURE_SPEECH_KEY
+        sync: false
+      - key: AZURE_SPEECH_REGION
+        value: centralindia
       # Soulmoji AI on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md): its address + the shared secret.
       # With both set, SOULMOJI_ENGINE=ai makes benchmark-quality Soulmojis; without them it stays on the built-in engine.
       - key: SOULMOJI_ENGINE

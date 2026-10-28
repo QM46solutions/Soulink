@@ -23,9 +23,10 @@ Internal work list. Not for pitch decks.
 - DLT templates for SMS notices: MSG91_DELETION_SCHEDULED_TEMPLATE_ID, MSG91_ACCOUNT_DELETED_TEMPLATE_ID
 - Face search (find someone by photo or live camera): ON HOLD — revisit once the app is stable; needs a legal review first. Switched off in app and server (FACE_SEARCH=false)
 - Anonymous messages: decide gating
-- Voice translator and Argue referee AI in the cloud (today laptop only; the Azure container does Soulmoji only)
+- Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Voice translator in the cloud: Azure AI Speech free tier (fast transcription + Indian neural voices)
 - Soulmoji AI in the cloud: Azure Container Apps, scale to zero (soulmoji-cloud/AZURE-SETUP.md)
 - Built-in Soulmoji engine refined (no stickers; lids, wink, gaze, head tilt)
 - Production guard on COPY-DATA-TO-CLOUD (reason required, logged; legal records never replaced). SETUP-CLOUD only saves settings and tests the connection, so it needs no guard

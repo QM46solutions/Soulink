@@ -539,11 +539,11 @@ r.post('/:id/messages/:messageId/translate', ah(async (req, res) => {
 // ---------- Translator in the message box: write or speak in your language, send in theirs ----------
 const VOICE_DIR = 'voice-tr';
 function ownsVoiceClip(userId, url) {
-  const m = /^\/uploads\/voice-tr\/([0-9a-fA-F-]{36})-[0-9a-fA-F-]{36}\.(m4a|wav)$/.exec(url || '');
+  const m = /^\/uploads\/voice-tr\/([0-9a-fA-F-]{36})-[0-9a-fA-F-]{36}\.(m4a|wav|mp3)$/.exec(url || '');
   return !!m && m[1].toUpperCase() === String(userId).toUpperCase() && fsSync.existsSync(path.join(config.uploadDir, VOICE_DIR, path.basename(url)));
 }
 const translatorMissing = () => new HttpError(503, 'The chat translator is not available right now.', 'translator_missing');
-const voiceMissing = () => new HttpError(503, "Voice translation isn't on the online version yet. Type your message instead and it will be translated, or choose Text as the output.", 'voice_missing');
+const voiceMissing = () => new HttpError(503, "Voice translation isn't available right now. Type your message instead and it will be translated, or choose Text as the output.", 'voice_missing');
 
 async function makeVoiceClip(userId, text, lang) {
   const dir = path.join(config.uploadDir, VOICE_DIR);

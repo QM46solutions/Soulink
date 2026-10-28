@@ -17,7 +17,8 @@ screen and filled in automatically, the same as on the laptop, because there is 
 - The free database offer itself needs no credit card, but creating a new Azure account may ask for one to confirm who you are (not charged). Render and GitHub need no card.
 - Soulmoji AI faces run on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md); the app shows the built-in
   version first and swaps in the AI one when it's ready.
-- Runs on the laptop only for now: the voice translator and the free AI referee (online the basic Argue judge is used).
+- The voice translator uses Azure AI Speech (free tier F0, resource `soulink-speech`); chat text translation uses Microsoft Translator (free tier).
+- Runs on the laptop only for now: the free AI referee for Argue (online the basic Argue judge is used).
 
 ---
 

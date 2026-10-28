@@ -245,9 +245,60 @@ export async function aiTranslate(text, from, to) {
   return j.text;
 }
 
-// ---------- voice translator (Whisper speech-to-text + MMS-TTS voices, same local service) ----------
+// ---------- voice translator ----------
+// Cloud (and laptop too, when AZURE_SPEECH_KEY is set): Azure AI Speech, free tier F0 (a few hours of voice notes
+// understood and ~0.5 million characters spoken a month): fast transcription + Indian neural voices.
+// Otherwise the laptop's own models (Whisper speech-to-text + MMS-TTS voices, in the local service).
+const SPEECH_KEY = () => (process.env.NODE_ENV === 'test' ? '' : process.env.AZURE_SPEECH_KEY || '');
+const SPEECH_REGION = () => (process.env.AZURE_SPEECH_REGION || 'centralindia').toLowerCase().replace(/\s+/g, '');
+const azureVoiceOn = () => !!SPEECH_KEY();
+const LOCALE = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN', bn: 'bn-IN' };
+const NEURAL_VOICE = { en: 'en-IN-NeerjaNeural', hi: 'hi-IN-SwaraNeural', te: 'te-IN-ShrutiNeural', bn: 'bn-IN-TanishaaNeural' };
+const AUDIO_TYPE = { '.webm': 'audio/webm', '.m4a': 'audio/mp4', '.mp4': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.3gp': 'audio/3gpp', '.amr': 'audio/amr' };
+const xml = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+/** Azure fast transcription: one request, any common voice-note format, language detected among our four. */
+export async function azureTranscribe(srcPath, lang) {
+  const form = new FormData();
+  const type = AUDIO_TYPE[path.extname(srcPath).toLowerCase()] || 'application/octet-stream';
+  form.append('audio', new Blob([fs.readFileSync(srcPath)], { type }), path.basename(srcPath));
+  form.append('definition', JSON.stringify({ locales: lang && LOCALE[lang] ? [LOCALE[lang]] : Object.values(LOCALE), profanityFilterMode: 'None' }));
+  for (let attempt = 0; ; attempt += 1) {
+    const r = await fetch(`https://${SPEECH_REGION()}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2024-11-15`, {
+      method: 'POST', headers: { 'Ocp-Apim-Subscription-Key': SPEECH_KEY() }, body: form, signal: AbortSignal.timeout(90000),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      return (j.combinedPhrases || []).map((p) => p.text).join(' ').trim();
+    }
+    const detail = (await r.text().catch(() => '')).slice(0, 300);
+    if (attempt < 2 && (r.status === 429 || r.status >= 500)) { await new Promise((res) => setTimeout(res, 2000 * (attempt + 1))); continue; }
+    console.warn(`[voice] Azure transcription ${r.status}: ${detail}`);
+    throw new Error(r.status === 429 ? 'The voice translator is busy. Try again in a minute.' : "Couldn't understand this voice note. Try again.");
+  }
+}
+
+/** Azure neural voice (MP3). Returns { file, durationMs }. */
+export async function azureSpeak(text, lang, outPath) {
+  const loc = LOCALE[lang] || LOCALE.en;
+  const ssml = `<speak version="1.0" xml:lang="${loc}"><voice name="${NEURAL_VOICE[lang] || NEURAL_VOICE.en}">${xml(text)}</voice></speak>`;
+  const r = await fetch(`https://${SPEECH_REGION()}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+    method: 'POST',
+    headers: { 'Ocp-Apim-Subscription-Key': SPEECH_KEY(), 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3', 'User-Agent': 'soulink' },
+    body: ssml, signal: AbortSignal.timeout(60000),
+  });
+  if (!r.ok) {
+    console.warn(`[voice] Azure speech ${r.status}: ${(await r.text().catch(() => '')).slice(0, 300)}`);
+    throw new Error(r.status === 429 ? 'The voice translator is busy. Try again in a minute.' : "Couldn't make the voice clip. Try again.");
+  }
+  const buf = Buffer.from(await r.arrayBuffer());
+  const file = outPath.replace(/\.[a-z0-9]+$/i, '.mp3');
+  fs.writeFileSync(file, buf);
+  return { file, durationMs: Math.round((buf.length * 8) / 48) }; // 48 kbit/s constant bit rate
+}
+
 const MODELS = path.join(DIR, 'models');
-export const voiceInstalled = () => remoteHas('voice') || localVoice();
+export const voiceInstalled = () => azureVoiceOn() || remoteHas('voice') || localVoice();
 const localVoice = () => translatorInstalled()
   && fs.existsSync(path.join(MODELS, 'whisper-small', 'config.json'))
   && ['eng', 'hin', 'tel', 'ben'].every((c) => fs.existsSync(path.join(MODELS, `mms-tts-${c}`, 'config.json')));
@@ -265,13 +316,15 @@ async function voiceCall(route, body, timeoutMs) {
 
 /** Voice note file -> what was said (auto-detects English / Hindi / Telugu / Bengali unless `lang` is given). */
 export async function aiTranscribe(srcPath, lang) {
-  // online: the voice models run on the same free Hugging Face Space as Soulmoji AI
+  if (azureVoiceOn()) return azureTranscribe(srcPath, lang);
+  // older setup: the voice models on the all-in-one AI Space
   if (remoteHas('voice')) return (await remotePost('/transcribe', { audio: fs.readFileSync(srcPath).toString('base64'), ext: path.extname(srcPath) || '.webm', lang: lang || null })).text;
   return (await voiceCall('/transcribe', { src: srcPath, lang: lang || null }, 240000)).text;
 }
 
-/** Text -> spoken voice clip in that language. Returns { file, durationMs } (file may end .m4a or .wav). */
+/** Text -> spoken voice clip in that language. Returns { file, durationMs } (file may end .m4a, .wav or .mp3). */
 export async function aiSpeak(text, lang, outPath) {
+  if (azureVoiceOn()) return azureSpeak(text, lang, outPath);
   if (remoteHas('voice')) {
     const r = await remotePost('/speak', { text, lang });
     const file = r.ext && r.ext !== path.extname(outPath) ? outPath.replace(/\.[a-z0-9]+$/i, r.ext) : outPath;
