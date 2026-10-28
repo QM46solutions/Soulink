@@ -4,6 +4,14 @@ process.env.DB_NAME = process.env.TEST_DB_NAME || 'soulink_test';
 process.env.OTP_DEV_ECHO = 'true';
 process.env.ANTHROPIC_API_KEY = ''; // tests always use the basic referee (no AI calls)
 process.env.AI_PROVIDER = 'basic';
+// Tests never touch the real uploads folder (server/uploads): their photos, voice notes and Soulmojis go to a
+// temporary folder that is emptied at the start of each test file.
+import os from 'node:os';
+import nodePath from 'node:path';
+import nodeFs from 'node:fs';
+process.env.UPLOAD_DIR = nodePath.join(os.tmpdir(), 'soulink-test-uploads');
+nodeFs.rmSync(process.env.UPLOAD_DIR, { recursive: true, force: true });
+nodeFs.mkdirSync(process.env.UPLOAD_DIR, { recursive: true });
 
 const { query, closePool, waitForDatabase } = await import('../src/db.js');
 const { migrate, dropAll } = await import('../src/migrate.js');

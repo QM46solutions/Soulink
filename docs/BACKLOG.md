@@ -15,18 +15,19 @@ Internal work list. Not for pitch decks.
 - First brand partners for ads
 
 ## Product
-- Music licences (IPRS/PPL, or a licensed music API) before turning on film/label songs, Deezer or phone song uploads in production (MUSIC_DEEZER, MUSIC_PHONE)
+- Music licences (IPRS/PPL, or a licensed music API) before turning on film/label songs, JioSaavn, Deezer or phone song uploads in production (MUSIC_DEEZER, MUSIC_PHONE)
 - Copyright: a "Copy link" option on every Spark and post if missing, so owners can paste the link in the report form
-- Run `npm test` in server (m21 covers copyright reports, removal, contest, 21-day restore, strikes)
 - Admin screen for bans (the server part is done: POST /admin/users/:username/ban, GET /admin/bans, POST /admin/bans/:id/lift)
 - Restore photos and posts too: include media files in Download my data (a ZIP), then restore them
 - Restore on the phone apps (file picker); today restore works in the browser
 - DLT templates for SMS notices: MSG91_DELETION_SCHEDULED_TEMPLATE_ID, MSG91_ACCOUNT_DELETED_TEMPLATE_ID
-- Run `npm test` in server (m20 covers pause, 30-day deletion, restore, bans)
 - Face search (find someone by photo or live camera): ON HOLD — revisit once the app is stable; needs a legal review first. Switched off in app and server (FACE_SEARCH=false)
-- Admin scripts COPY-DATA-TO-CLOUD and SETUP-CLOUD: add the same production guard when the Azure move happens
-- Run `npm test` in server (m19 covers sessions, deletion, audit, face encryption)
 - Anonymous messages: decide gating
-- Hugging Face Space for the AI features
-- Run the server tests for the latest features (m17, m18)
-- Music licences before turning JioSaavn back on
+- Voice translator and Argue referee AI in the cloud (today laptop only; the Azure container does Soulmoji only)
+
+## Done (recently)
+- Soulmoji AI in the cloud: Azure Container Apps, scale to zero (soulmoji-cloud/AZURE-SETUP.md)
+- Built-in Soulmoji engine refined (no stickers; lids, wink, gaze, head tilt)
+- Production guard on COPY-DATA-TO-CLOUD (reason required, logged; legal records never replaced). SETUP-CLOUD only saves settings and tests the connection, so it needs no guard
+- Tests use their own temporary uploads folder (they used to write into, and wipe, server/uploads/soulmoji)
+- All server tests passing (m1–m22)

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const bool = (v, d = false) => (v === undefined || v === '' ? d : ['1', 'true', 'yes'].includes(String(v).toLowerCase()));
 
@@ -37,7 +38,8 @@ export const config = {
   webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',
   // Private preview: everyone must type this code once before using the app (empty = no code)
   accessCode: process.env.ACCESS_CODE || '',
-  uploadDir: process.env.UPLOAD_DIR || fileURLToPath(new URL('../uploads/', import.meta.url)),
+  // (tests always use their own temporary folder, see test/helpers.js; never the real uploads)
+  uploadDir: process.env.UPLOAD_DIR || (process.env.NODE_ENV === 'test' ? `${tmpdir()}/soulink-test-uploads/` : fileURLToPath(new URL('../uploads/', import.meta.url))),
   // Argue referee AI: local = free Ollama on this laptop (falls back to the basic judge), claude = Claude API (paid), basic = rules only
   aiProvider: process.env.AI_PROVIDER || 'local',
   ollamaUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',

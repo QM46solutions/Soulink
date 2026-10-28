@@ -13,6 +13,19 @@ const local = dotenv.parse(fs.readFileSync(path.join(root, '.env')));
 const cloudFile = path.join(root, 'cloud.env');
 if (!fs.existsSync(cloudFile)) { console.error('\n  No cloud settings yet. Run SETUP-CLOUD.bat first.\n'); process.exit(1); }
 const cloud = dotenv.parse(fs.readFileSync(cloudFile));
+
+// Production guard (Information Security Policy, section 4): the cloud database is the LIVE one, with real
+// people's accounts. Replacing it needs a written reason, which is kept in the cloud's audit_log.
+const ri = process.argv.indexOf('--production-reason');
+const reason = ri > 0 ? String(process.argv[ri + 1] || '').trim() : '';
+if (reason.length < 10) {
+  console.error('\n  Refusing: this would REPLACE the live cloud database with the data on this laptop.');
+  console.error('  If this is really needed, run COPY-DATA-TO-CLOUD.bat again and give the reason (at least 10 characters).');
+  console.error('  Tip: Azure keeps 7 days of restore points (Azure portal > SQL database > Restore) in case it goes wrong.\n');
+  process.exit(1);
+}
+// Records the law or our policy says we must keep are never replaced from the laptop: the cloud's own copy stays.
+const KEEP = new Set(['audit_log', 'deleted_accounts', 'banned_identities', 'copyright_reports', 'copyright_strikes', 'app_secrets']);
 const bool = (v, d) => (v === undefined || v === '' ? d : ['1', 'true', 'yes'].includes(String(v).toLowerCase()));
 const cfg = (e, encryptDefault) => ({
   server: e.DB_SERVER || 'localhost', port: Number(e.DB_PORT || 1433), database: e.DB_NAME, user: e.DB_USER, password: e.DB_PASSWORD,
@@ -35,7 +48,12 @@ const src = await new sql.ConnectionPool(cfg(local, false)).connect();
 const dst = await new sql.ConnectionPool(cfg(cloud, true)).connect();
 const tablesOf = async (p) => (await p.request().query(`SELECT t.name FROM sys.tables t WHERE t.is_ms_shipped = 0 AND t.name NOT IN ('schema_migrations', 'stored_files')`)).recordset.map((r) => r.name);
 const srcTables = new Set(await tablesOf(src));
-const tables = (await tablesOf(dst)).filter((t) => srcTables.has(t));
+const tables = (await tablesOf(dst)).filter((t) => srcTables.has(t) && !KEEP.has(t));
+const live = (await dst.request().query('SELECT COUNT(*) AS n FROM users')).recordset[0].n;
+console.log(`  The cloud has ${live} accounts now; they will be replaced by this laptop's. Kept as they are: ${[...KEEP].join(', ')}.`);
+await dst.request().input('d', sql.NVarChar(1000), reason.slice(0, 1000))
+  .query("INSERT INTO audit_log (actor_id, action, detail) VALUES (NULL, 'script:copy-to-cloud', @d)");
+console.log(`  Logged in the cloud audit_log: copy-to-cloud — ${reason}`);
 
 console.log(`  Copying ${tables.length} tables...`);
 for (const t of tables) await dst.request().query(`ALTER TABLE [${t}] NOCHECK CONSTRAINT ALL`);

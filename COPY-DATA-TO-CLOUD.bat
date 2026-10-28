@@ -6,5 +6,8 @@ echo.
 echo  This REPLACES everything in the cloud database with the data on this laptop.
 set /p OK=Type YES to continue: 
 if /I not "%OK%"=="YES" ( echo  Cancelled. & pause & exit /b )
-node tools\copy-to-cloud.js
+echo.
+echo  The cloud database is the LIVE one. Say why you are replacing it (kept in the audit log):
+set /p REASON=Reason: 
+node tools\copy-to-cloud.js --production-reason "%REASON%"
 pause
