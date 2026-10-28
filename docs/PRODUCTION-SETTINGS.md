@@ -22,7 +22,10 @@ Put every secret in Azure Key Vault and reference it from App Service settings.
 | ADMIN_USERNAMES | Soulink team usernames, comma separated | Ads Manager, bans |
 | COPYRIGHT_EMAIL | the inbox that receives copyright reports (default: Grievance Officer) | Copyright notices |
 | MUSIC_DEEZER / MUSIC_PHONE | off (until licensed) | Unlicensed music stays off |
-| SOULMOJI_ENGINE | builtin (default; same on laptop and cloud). Set `ai` only with a working SOULMOJI_AI_URL | Soulmoji |
+| SOULMOJI_ENGINE | `ai` on Render (benchmark-quality Soulmojis from the Azure AI). Without a working SOULMOJI_AI_URL it falls back to the built-in engine | Soulmoji |
+| SOULMOJI_AI_URL | `https://<app>.centralindia.azurecontainerapps.io` from soulmoji-cloud/AZURE-SETUP.md | Soulmoji |
+| SOULMOJI_AI_TOKEN | the secret printed by the Azure setup (same value is stored in Azure) | Soulmoji |
+| SOULMOJI_AI_FEATURES | `edit` (the Azure container does only Soulmoji; voice translator and Argue referee stay as they are) | Soulmoji |
 | FACE_SEARCH | false (feature on hold) | |
 | DB_ENCRYPT / DB_TRUST_SERVER_CERT | true / false | Encrypted database connection |
 

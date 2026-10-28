@@ -15,8 +15,9 @@ screen and filled in automatically, the same as on the laptop, because there is 
 - Azure's free database gives 100,000 compute-seconds a month. Pick "auto-pause until next month" so it never bills you.
   It also sleeps when idle and takes up to a minute to wake.
 - The free database offer itself needs no credit card, but creating a new Azure account may ask for one to confirm who you are (not charged). Render and GitHub need no card.
-- Runs on the laptop only for now: Soulmoji AI faces, the chat/voice translator, and the free AI referee
-  (online they fall back to the built-in Soulmoji engine and the basic Argue judge).
+- Soulmoji AI faces run on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md); the app shows the built-in
+  version first and swaps in the AI one when it's ready.
+- Runs on the laptop only for now: the voice translator and the free AI referee (online the basic Argue judge is used).
 
 ---
 

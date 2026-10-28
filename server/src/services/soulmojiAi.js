@@ -16,27 +16,32 @@ let child = null;
 let starting = null;
 
 const serviceInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
-// Online version: the same AI runs on a free Hugging Face Space (tools/soulmoji-space), because it needs ~2 GB of
-// memory and Render's free server has 512 MB. Set SOULMOJI_AI_URL (the Space's address) + SOULMOJI_AI_TOKEN.
+// Online version: the same AI runs in the cloud (Azure Container Apps, soulmoji-cloud/; or the older Hugging Face
+// Space, tools/soulmoji-space), because it needs ~2 GB of memory and Render's free server has 512 MB.
+// Set SOULMOJI_AI_URL (its address) + SOULMOJI_AI_TOKEN (+ SOULMOJI_AI_FEATURES, see below).
 const REMOTE = () => (process.env.NODE_ENV !== 'test' && process.env.SOULMOJI_AI_URL ? process.env.SOULMOJI_AI_URL.replace(/\/$/, '') : null);
+// What the online AI offers. The Azure container (soulmoji-cloud/) does only Soulmoji: set
+// SOULMOJI_AI_FEATURES=edit there. Unset = everything (the older all-in-one Space: edit, voice, referee).
+const remoteHas = (feature) => !!REMOTE() && (process.env.SOULMOJI_AI_FEATURES || 'edit,voice,referee').split(',').map((x) => x.trim()).includes(feature);
 const localInstalled = () => process.env.NODE_ENV !== 'test' && fs.existsSync(PY) && fs.existsSync(WEIGHTS) && fs.existsSync(path.join(DIR, 'soulmoji_ai.py'));
-export const aiInstalled = () => !!REMOTE() || localInstalled();
+export const aiInstalled = () => remoteHas('edit') || localInstalled();
 
-/** Wake the online Soulmoji AI (a free Space sleeps when unused): call when someone opens Soulmoji. */
+/** Wake the online Soulmoji AI (it scales to zero when unused): call when someone opens Soulmoji. */
 export function wakeRemoteAi() {
   const url = REMOTE();
   if (url) fetch(`${url}/health`, { signal: AbortSignal.timeout(20000) }).catch(() => {});
 }
 
-/** POST to the online AI Space; a sleeping Space takes a minute or two to wake, so keep trying for ~2.5 minutes. */
+/** POST to the online AI; when it has scaled to zero it takes 1-3 minutes to start (download + load the models),
+ *  so keep trying for up to 6 minutes. */
 async function remotePost(route, payload) {
   const url = REMOTE();
   const body = JSON.stringify(payload);
-  const until = Date.now() + 150_000;
+  const until = Date.now() + 360_000;
   for (;;) {
     let r; let j = {};
     try {
-      r = await fetch(`${url}${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SOULMOJI_AI_TOKEN || ''}` }, body, signal: AbortSignal.timeout(120000) });
+      r = await fetch(`${url}${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SOULMOJI_AI_TOKEN || ''}` }, body, signal: AbortSignal.timeout(300000) });
       j = await r.json().catch(() => ({}));
     } catch { r = null; }
     if (r?.ok && j.ok) return j;
@@ -46,7 +51,7 @@ async function remotePost(route, payload) {
   }
 }
 /** For other features that use the online AI Space (the Argue referee). */
-export const remoteAiOn = () => !!REMOTE();
+export const remoteAiOn = () => remoteHas('referee');
 export const remoteAi = (route, payload) => remotePost(route, payload);
 
 async function remoteEdit(url, srcPath, outPath, mood, recipe) {
@@ -99,7 +104,7 @@ async function ensureRunning() {
 
 /** Edit the expression on srcPath and write the result to outPath. Throws if the AI isn't available. */
 export async function aiEdit(srcPath, outPath, mood, recipe) {
-  if (REMOTE()) return remoteEdit(REMOTE(), srcPath, outPath, mood, recipe);
+  if (remoteHas('edit')) return remoteEdit(REMOTE(), srcPath, outPath, mood, recipe);
   if (!localInstalled()) throw new Error('Soulmoji AI not installed');
   if (!(await ensureRunning())) throw new Error('Soulmoji AI did not start');
   const r = await fetch(`${BASE}/edit`, {
@@ -112,7 +117,8 @@ export async function aiEdit(srcPath, outPath, mood, recipe) {
 }
 
 // Warm it up in the background when the server starts, so the first Soulmoji is quicker
-export function warmSoulmojiAi() { if (REMOTE()) return wakeRemoteAi(); if (localInstalled() || translatorInstalled()) ensureRunning().catch(() => {}); }
+// (the cloud AI is not woken here: it costs money while awake, so it's only woken when a Soulmoji is needed)
+export function warmSoulmojiAi() { if (remoteHas('edit')) return; if (localInstalled() || translatorInstalled()) ensureRunning().catch(() => {}); }
 process.on('exit', () => { try { child?.kill(); } catch { /* already gone */ } });
 
 // ---------- chat translator (NLLB-200 model in the same local service) ----------
@@ -241,7 +247,7 @@ export async function aiTranslate(text, from, to) {
 
 // ---------- voice translator (Whisper speech-to-text + MMS-TTS voices, same local service) ----------
 const MODELS = path.join(DIR, 'models');
-export const voiceInstalled = () => !!REMOTE() || localVoice();
+export const voiceInstalled = () => remoteHas('voice') || localVoice();
 const localVoice = () => translatorInstalled()
   && fs.existsSync(path.join(MODELS, 'whisper-small', 'config.json'))
   && ['eng', 'hin', 'tel', 'ben'].every((c) => fs.existsSync(path.join(MODELS, `mms-tts-${c}`, 'config.json')));
@@ -260,13 +266,13 @@ async function voiceCall(route, body, timeoutMs) {
 /** Voice note file -> what was said (auto-detects English / Hindi / Telugu / Bengali unless `lang` is given). */
 export async function aiTranscribe(srcPath, lang) {
   // online: the voice models run on the same free Hugging Face Space as Soulmoji AI
-  if (REMOTE()) return (await remotePost('/transcribe', { audio: fs.readFileSync(srcPath).toString('base64'), ext: path.extname(srcPath) || '.webm', lang: lang || null })).text;
+  if (remoteHas('voice')) return (await remotePost('/transcribe', { audio: fs.readFileSync(srcPath).toString('base64'), ext: path.extname(srcPath) || '.webm', lang: lang || null })).text;
   return (await voiceCall('/transcribe', { src: srcPath, lang: lang || null }, 240000)).text;
 }
 
 /** Text -> spoken voice clip in that language. Returns { file, durationMs } (file may end .m4a or .wav). */
 export async function aiSpeak(text, lang, outPath) {
-  if (REMOTE()) {
+  if (remoteHas('voice')) {
     const r = await remotePost('/speak', { text, lang });
     const file = r.ext && r.ext !== path.extname(outPath) ? outPath.replace(/\.[a-z0-9]+$/i, r.ext) : outPath;
     fs.writeFileSync(file, Buffer.from(r.audio, 'base64'));

@@ -53,7 +53,12 @@ services:
         sync: false
       - key: AZURE_TRANSLATOR_REGION
         sync: false
-      # Soulmoji AI on a free Hugging Face Space (tools/soulmoji-space): its address + the shared secret
+      # Soulmoji AI on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md): its address + the shared secret.
+      # With both set, SOULMOJI_ENGINE=ai makes benchmark-quality Soulmojis; without them it stays on the built-in engine.
+      - key: SOULMOJI_ENGINE
+        value: ai
+      - key: SOULMOJI_AI_FEATURES
+        value: edit
       - key: SOULMOJI_AI_URL
         sync: false
       - key: SOULMOJI_AI_TOKEN

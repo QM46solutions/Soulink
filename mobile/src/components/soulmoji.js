@@ -128,10 +128,11 @@ export function SoulmojiPhoto({ imageUrl, mood = 'happy', caption, size = 176 })
  */
 export function SoulmojiPanel({ onSend, onClose }) {
   const [face, setFace] = useState(undefined); // undefined = loading, null = no selfie yet
-  const [ai, setAi] = useState(false);       // true when the laptop's Soulmoji AI is installed
+  const [ai, setAi] = useState(false);       // true when the Soulmoji AI (laptop or cloud) is on
   const [text, setText] = useState('');
   const [picked, setPicked] = useState(null);
   const [renders, setRenders] = useState({}); // mood -> imageUrl
+  const waiting = useRef({});                 // mood -> true while the AI version is still being made
   const [busy, setBusy] = useState(null);     // 'upload' | 'render'
   const [error, setError] = useState(null);
   const mood = picked || detectMood(text);
@@ -142,14 +143,24 @@ export function SoulmojiPanel({ onSend, onClose }) {
 
   // Render the chosen mood on your photo (the server keeps a copy, so each mood is made once)
   useEffect(() => {
-    if (!face || renders[mood]) return undefined;
+    if (!face || (renders[mood] && !waiting.current[mood])) return undefined;
     let live = true;
-    setBusy('render'); setError(null);
-    api('/soulmoji/render', { method: 'POST', body: { mood }, timeoutMs: 200000 })
-      .then((r) => { if (live) setRenders((c) => ({ ...c, [mood]: r.imageUrl })); })
-      .catch((e) => { if (live) setError(e.message); })
-      .finally(() => { if (live) setBusy(null); });
-    return () => { live = false; };
+    if (!renders[mood]) setBusy('render');
+    setError(null);
+    let timer = null;
+    // With the cloud AI on, the quick built-in version comes first (pending: true) and the AI version
+    // replaces it when ready: ask again every few seconds, for up to ~3 minutes (the AI may be waking up).
+    const ask = (tries) => api('/soulmoji/render', { method: 'POST', body: { mood }, timeoutMs: 200000 })
+      .then((r) => {
+        if (!live) return;
+        setRenders((c) => ({ ...c, [mood]: r.imageUrl }));
+        setBusy(null);
+        waiting.current[mood] = !!r.pending;
+        if (r.pending && tries < 30) timer = setTimeout(() => ask(tries + 1), 6000);
+      })
+      .catch((e) => { if (live && tries === 0) { setError(e.message); setBusy(null); } });
+    ask(0);
+    return () => { live = false; clearTimeout(timer); };
   }, [face, mood]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const takeSelfie = async (fromGallery) => {

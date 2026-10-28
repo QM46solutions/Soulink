@@ -2,7 +2,9 @@
 //  GET  /soulmoji/face           → { faceUrl } (null until you take your Soulmoji selfie)
 //  POST /soulmoji/face           multipart photo → checks it is one clear face AND the same person as your
 //                                 verified Face ID, crops it and saves it as your Soulmoji face
-//  POST /soulmoji/render {mood}  → { imageUrl }: the same photo with the expression changed (cached per mood)
+//  POST /soulmoji/render {mood}  → { imageUrl, ai, pending }: the same photo with the expression changed (cached per
+//                                 mood). With the cloud AI on, the built-in version comes back at once with pending:true
+//                                 while the AI makes its version; asking again returns the AI one once it's ready.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Router } from 'express';
@@ -17,7 +19,7 @@ import { faceDistance } from '../services/faceEngine.js';
 import { openFace } from '../lib/faceCrypto.js';
 import { prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../services/soulmojiRender.js';
-import { aiEdit, aiInstalled, wakeRemoteAi, warmSoulmojiAi } from '../services/soulmojiAi.js';
+import { aiEdit, aiInstalled, warmSoulmojiAi } from '../services/soulmojiAi.js';
 import crypto from 'node:crypto';
 
 // Soulmoji uses the built-in engine everywhere unless SOULMOJI_ENGINE=ai: laptop and cloud give the same result
@@ -28,11 +30,16 @@ const r = Router();
 r.use(requireAuth);
 
 const SAME_PERSON = 0.6;
-const ENGINE = 2; // bump when the expression engine changes so old renders are made again
+const ENGINE = 3; // bump when the expression engine changes so old renders are made again
 const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || 'null'); } catch { return null; } })());
 
 r.get('/face', ah(async (req, res) => {
-  if (aiOn()) wakeRemoteAi(); // opening Soulmoji wakes the online AI so the first expression is quick
+  // opening Soulmoji: if some AI expressions of this selfie are still missing, make them now in the background
+  // (this also wakes the cloud AI). Once all are made, opening Soulmoji doesn't wake it: it costs nothing.
+  if (aiOn() && req.user.soulmoji_face_url && req.user.soulmoji_src_url) {
+    const made = await one("SELECT COUNT(*) AS n FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood LIKE '%@ai3'", [req.user.id, req.user.soulmoji_face_url]);
+    if (Number(made?.n || 0) < RENDER_MOODS.length) renderAllInBackground(req.user);
+  }
   res.json({ faceUrl: req.user.soulmoji_face_url || null, moods: RENDER_MOODS, ai: aiOn(), engine: aiOn() ? 'ai' : 'builtin' });
 }));
 
@@ -64,25 +71,31 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   const points = list(req.user.soulmoji_points);
   if (!faceUrl || !points) throw badRequest('Take your Soulmoji selfie first', 'no_soulmoji_face');
   const useAi = aiOn() && req.user.soulmoji_src_url;
-  const engine = useAi ? 'ai3' : ENGINE;
-  const cached = await one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${engine}`]);
-  if (cached) return res.json({ imageUrl: cached.url, mood, ai: useAi });
+  const find = (tag) => one('SELECT TOP 1 url FROM soulmoji_renders WHERE user_id=$1 AND face_url=$2 AND mood=$3 ORDER BY created_at DESC', [req.user.id, faceUrl, `${mood}@${tag}`]);
+  let pending = false;
   if (useAi) {
-    try {
-      const aiUrl = await renderWithAi(req.user, mood);
-      return res.json({ imageUrl: aiUrl, mood, ai: true });
-    } catch (e) {
-      console.warn('Soulmoji AI failed, using the built-in engine:', e.message);
+    const done = await find('ai3');
+    if (done) return res.json({ imageUrl: done.url, mood, ai: true });
+    // the AI version is made in the background (it can take a minute when the cloud AI is waking up);
+    // meanwhile the built-in one is shown at once and the app asks again until the AI one is ready
+    const key = `${req.user.id}|${faceUrl}|${mood}`;
+    if (aiFailed.get(key) > Date.now()) pending = false;
+    else {
+      pending = true;
+      renderWithAi(req.user, mood).catch((e) => { aiFailed.set(key, Date.now() + 10 * 60_000); console.warn('Soulmoji AI failed, the built-in one stays:', e.message); });
     }
   }
+  const cached = await find(ENGINE);
+  if (cached) return res.json({ imageUrl: cached.url, mood, ai: false, pending });
   const img = decode(await fs.readFile(await ensureLocal(faceUrl)));
   const out = renderMood(img, points, mood);
   const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 95)), mimetype: 'image/jpeg' }, 'soulmoji');
   await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@${ENGINE}`, url]);
-  res.json({ imageUrl: url, mood });
+  res.json({ imageUrl: url, mood, ai: false, pending });
 }));
 
 /** One expression made by the Soulmoji AI (laptop or online), saved and remembered for this selfie. */
+const aiFailed = new Map(); // "user|face|mood" -> time to try the AI again after it failed (no face found, AI down)
 const inFlight = new Map(); // "user|face|mood" -> promise, so a background render and a tap don't do the work twice
 async function renderWithAi(user, mood) {
   const key = `${user.id}|${user.soulmoji_face_url}|${mood}`;
@@ -105,13 +118,17 @@ async function renderWithAi(user, mood) {
 }
 
 /** After a new selfie: make every expression in the background, so they're ready when you open Soulmoji. */
+const allRunning = new Set(); // "user|face" while its 12 moods are being made
 function renderAllInBackground(user) {
   if (!aiOn() || !user.soulmoji_src_url) return;
+  const key = `${user.id}|${user.soulmoji_face_url}`;
+  if (allRunning.has(key)) return;
+  allRunning.add(key);
   (async () => {
     for (const mood of RENDER_MOODS) {
       try { await renderWithAi(user, mood); } catch (e) { console.warn('Soulmoji AI (background):', e.message); return; }
     }
-  })();
+  })().finally(() => allRunning.delete(key));
 }
 
 /** Used by chat: is this rendered Soulmoji image really this user's? */
