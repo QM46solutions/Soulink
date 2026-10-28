@@ -17,6 +17,7 @@
 //  POST   /posts/:id/offense         mark / unmark as offensive (toggle). More than 75 marks suspends the post:
 //                                    hidden from everyone except its owner.
 //  POST   /posts/:id/share           { conversationIds?: [...] } send it in chats, or {} = shared outside Soulink
+import { track } from '../services/signals.js';
 import { postingBlocked, UNAVAILABLE } from '../services/copyright.js';
 import { phoneMusicOn } from './music.js';
 import { Router } from 'express';
@@ -213,6 +214,7 @@ r.post('/:id/like', ah(async (req, res) => {
   else {
     await query('INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)', [x.post_id, req.user.id]);
     await notify(x.author_id, req.user.id, 'post_like', x.post_id).catch(() => {});
+    track(req.user, 'like', x.caption); // what you're into (only with your consent)
   }
   const n = await one('SELECT COUNT(*) AS n FROM post_likes WHERE post_id=$1', [x.post_id]);
   const hidden = on(x.hide_likes) && String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase();

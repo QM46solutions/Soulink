@@ -1,4 +1,4 @@
-// Build 1: Soul DNA (v2 sectioned quiz, predicted compatibility), connecting rules, home feed, place search.
+// Build 1: Soul DNA (v4 mind model: scenarios, predicted compatibility), connecting rules, home feed, place search.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, resetDb, makeUser, closePool, makeDna, sampleAnswers, query } from './helpers.js';
@@ -10,16 +10,21 @@ after(() => closePool());
 const takeQuiz = (u, k = 0) => makeDna(u, k);
 
 describe('Soul DNA', () => {
-  test('one quiz in sections, no scoring weights sent to the phone', async () => {
+  test('scenarios in layers, each with "anything else", and no scoring sent to the phone', async () => {
     const u = await makeUser();
     const r = await api().get('/soul/dna').set(u.h).expect(200);
-    assert.ok(r.body.total >= 60, `got ${r.body.total} questions`);
+    assert.ok(r.body.total >= 30, `got ${r.body.total} scenarios`);
     assert.equal(r.body.questions.length, r.body.total);
-    assert.ok(r.body.sections.length >= 10);
-    const types = new Set(r.body.questions.map((q) => q.type));
-    for (const t of ['choice', 'forced', 'scale', 'rank']) assert.ok(types.has(t), `has ${t} questions`);
-    assert.equal(JSON.stringify(r.body.questions).includes('"axes"'), false);
+    assert.ok(r.body.sections.length >= 9);
+    assert.ok(r.body.questions.every((q) => q.type === 'choice' && q.allowOther && q.options.length >= 3));
+    const raw = JSON.stringify(r.body.questions);
+    assert.equal(raw.includes('"set"') || raw.includes('intent_') || raw.includes('r_fight'), false);
     assert.equal(r.body.completed, false);
+    // a typed "anything else" answer and gut-reaction timing are accepted
+    const [q1, q2] = r.body.questions;
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: -1, t: 'I would call my mom first', ms: 4200 }, [q2.id]: { o: 1, ms: 1800, ch: 1 } } }).expect(200);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: 9 } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: -1, t: '' } } }).expect(400);
   });
 
   test('progress is saved and resumable; finishing gives a Soul type', async () => {
@@ -35,7 +40,8 @@ describe('Soul DNA', () => {
     const r = await takeQuiz(u);
     assert.equal(r.body.user.soulReady, true);
     assert.ok(r.body.soul.type.startsWith('The '));
-    assert.ok(r.body.me.dims.length >= 10);
+    assert.ok(r.body.me.dims.length >= 9);
+    assert.ok(r.body.me.summary.length >= 3, 'how you think, in words');
     const me = await api().get('/soul/dna/me').set(u.h).expect(200);
     assert.equal(me.body.ready, true);
   });
@@ -77,9 +83,9 @@ describe('Soul DNA', () => {
   test('invalid answers are rejected', async () => {
     const u = await makeUser();
     const q = (await api().get('/soul/dna').set(u.h)).body.questions;
-    const scale = q.find((x) => x.type === 'scale'); const rank = q.find((x) => x.type === 'rank');
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [scale.id]: 9 } }).expect(400);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [rank.id]: ['x'] } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q[0].id]: 9 } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q[0].id]: ['x'] } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q[0].id]: { o: 1, ms: -5 } } }).expect(400);
     await api().put('/soul/dna/answers').set(u.h).send({ answers: { nope: 1 } }).expect(400);
   });
 

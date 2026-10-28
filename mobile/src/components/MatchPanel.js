@@ -66,11 +66,16 @@ function WhySheet({ visible, onClose, userId, relation, name }) {
             <View style={{ marginTop: space.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: space.lg }}>
               <Ionicons name="lock-closed" size={22} color={colors.aura} />
               <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15, marginTop: space.sm }}>See the full breakdown</Text>
-              <Line>Strong areas, friction points and all 12 dimensions are part of Premium.</Line>
+              <Line>How your minds meet, your simulated life together, give and take, and every area are part of Premium.</Line>
             </View>
           ) : (
             <>
+              {d.reactLine ? (<><H>How your minds meet</H><Line color={colors.text}>{d.reactLine}</Line></>) : null}
+              {d.story?.length ? (<><H>Your life together, simulated</H>{d.story.map((x) => <Line key={x.text} color={x.good ? colors.mint : '#ffb86b'}>{x.good ? '✓' : '!'}  {x.text}</Line>)}</>) : null}
+              {d.leads?.length ? (<><H>Give and take</H>{d.leads.map((x) => <Line key={x.area} color={x.who === 'clash' ? '#ff8a8a' : colors.text}>{x.who === 'clash' ? '⚠️' : '⚖️'}  {x.text}</Line>)}</>) : null}
+              {d.them?.length ? (<><H>How {name || 'they'} think{name ? 's' : ''}</H>{d.them.map((x) => <Line key={x}>•  {x}</Line>)}</>) : null}
               {d.dealbreakers?.length ? (<><H>Talk about this early</H>{d.dealbreakers.map((x) => <Line key={x} color="#ff8a8a">⚠️  You see {x} very differently</Line>)}</>) : null}
+              {d.watch?.length ? (<><H>Worth watching</H>{d.watch.map((x) => <Line key={x} color="#f5c842">•  One of you may find {x} hard</Line>)}</>) : null}
               {d.strengths?.length ? (<><H>Strong areas</H>{d.strengths.map((x) => <Line key={x.key} color={colors.text}>{x.emoji}  {x.label} · {x.score}%</Line>)}</>) : null}
               {d.friction?.length ? (<><H>Possible friction</H>{d.friction.map((x) => <Line key={x.key} color={colors.text}>{x.emoji}  {x.label} · {x.score}%</Line>)}</>) : null}
               <H>Every dimension</H>
@@ -83,10 +88,10 @@ function WhySheet({ visible, onClose, userId, relation, name }) {
                   <Bar value={x.score} color={tone(x.score)} />
                 </View>
               ))}
-              <Line color={colors.dim}>Natural fit ({d.natural ?? '–'}%) is how alike you are: values, goals, nature, lifestyle. Relationship fit ({d.relationship ?? '–'}%) is how well you'd handle feelings, talks, fights and growing together.</Line>
+              <Line color={colors.dim}>Natural fit ({d.natural ?? '–'}%) is vibe, interests, values, what you want and how you decide. Relationship fit ({d.relationship ?? '–'}%) is how you'd handle fights, making up, give and take, trust and understanding each other.{d.sure != null ? ` Soul DNA is ${d.sure}% sure about this match; it gets surer when you both answer a few questions while connecting.` : ''}</Line>
             </>
           )}
-          <Line color={colors.dim}>Based only on both Soul DNA quizzes. Your chats and meetups are private and never used.</Line>
+          <Line color={colors.dim}>Predicted from both Soul DNAs (and what you're both into on Soulink, if you allowed it). Your chats and meetups are private and never used.</Line>
         </ScrollView>
       )}
     </BottomSheet>

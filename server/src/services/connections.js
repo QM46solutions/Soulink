@@ -12,7 +12,14 @@ export const INTENTS = {
   networking: { label: 'Networking', emoji: '💼' },
   vibing: { label: 'Just vibing', emoji: '✨' },
   unsure: { label: 'Not sure yet', emoji: '🤔' },
+  // someone you already know (asked first when connecting: family, friend, colleague or other)
+  family: { label: 'Family', emoji: '👨‍👩‍👧', known: true },
+  known_friend: { label: 'Friend', emoji: '🫂', known: true },
+  colleague: { label: 'Colleague', emoji: '🧑‍💼', known: true },
+  known_other: { label: 'Someone I know', emoji: '🙂', known: true },
 };
+/** Someone you already know → the intent the request carries */
+export const KNOWN_AS = { family: 'family', friend: 'known_friend', colleague: 'colleague', other: 'known_other' };
 export const INTENT_KEYS = Object.keys(INTENTS);
 export const HOLD_DAYS = [1, 3, 7, 14, 30];
 export const COOLDOWN = { rejectedDays: 30, suspendedDays: 7 };

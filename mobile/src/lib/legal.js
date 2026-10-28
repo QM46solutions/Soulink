@@ -3,7 +3,7 @@
 // Consumer Protection (E-Commerce) Rules 2020, ASCI code). Templates until a lawyer reviews them.
 // When the text changes in a way people must agree to again, change TERMS_VERSION.
 
-export const TERMS_VERSION = '2026-10-17';
+export const TERMS_VERSION = '2026-10-28';
 
 export const LEGAL = {
   company: 'QM46 Solutions Private Limited',
@@ -84,7 +84,8 @@ export const DOCS = {
       ['What we collect', [
         'Account: phone number or email, username, name, date of birth, gender (optional), city, profession, bio, interests and profile photo.',
         'Face scan: during sign-up the camera checks that you are a real person. We keep only a face fingerprint (a list of numbers), not the scan photos, unless you choose to use the photo as your profile picture.',
-        'Soul DNA: your answers to the personality quiz, used to work out compatibility (Soul Score).',
+        'Soul DNA: your answers to real-life scenarios (including anything you type under "Anything else" and how long you took to answer), turned into a picture of how you think, act and react. It is used only to work out compatibility (Soul Score) and to describe your match in words. It never guesses your health, religion, caste or sexuality.',
+        'What you are into on Soulink (only if you switch on Settings › Permissions › Use my activity for Soul DNA): the topics of posts and Sparks you like, react to or watch, and of your searches, kept for 90 days. Nothing from other apps, websites or your phone.',
         'What you share: posts, Moments, Sparks, comments, messages, voice notes and Argue cases.',
         'Usage: likes, views, who you connect with, approximate location if you allow it (rounded to about 1 km, never your exact location), device and log data for security.',
       ]],

@@ -1,9 +1,10 @@
-// Soul DNA: one quiz for everyone, in sections (values, goals, emotions, communication, conflict, nature,
-// lifestyle, family, money, love, growth). Every answer is saved as you go, so you can stop and continue later.
-// Question kinds: pick one, this-or-that, agree scale, and "put in order" (tap in order — no dragging).
-// Ends with your Soul DNA: Soul type, your spectrum, strengths, priorities and things to reflect on.
+// Soul DNA v4: real-life scenarios that show how you think, act and react. Everyone gets their own mix
+// (and a few more if Soul DNA is still unsure about something). Each scenario has "Anything else…" to type your own.
+// How quickly you answer is noted too: a quick gut answer counts a little more than a long hesitation.
+// Every answer is saved as you go, so you can stop and continue later.
+// Ends with your Soul DNA: how you think (in words), give and take, your spectrum and what wins for you.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { retakeSoulDna } from '../lib/retake';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -95,6 +96,8 @@ function RankQ({ q, value, onDone }) {
   );
 }
 
+const optOf = (x) => (x && typeof x === 'object' ? x.o : x);
+
 const Kicker = ({ children }) => (
   <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.aura, textTransform: 'uppercase', marginBottom: space.md }}>{children}</Text>
 );
@@ -133,11 +136,32 @@ export function DnaResult({ type, tagline, me, labels, onDone, onRetake }) {
         <Text style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: colors.muted, textAlign: 'center', marginTop: space.sm, paddingHorizontal: space.md }}>{tagline}</Text>
       </Animated.View>
 
-      {me?.priorities?.length ? (
+      {me?.summary?.length ? (
         <GlassCard style={{ marginTop: space.xl }}>
-          <Kicker>What matters most to you</Kicker>
+          <Kicker>How you think</Kicker>
+          {me.summary.map((t) => <Text key={t} style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: colors.text, marginBottom: 8 }}>• {t}</Text>)}
+        </GlassCard>
+      ) : null}
+
+      {me?.priorities?.length ? (
+        <GlassCard style={{ marginTop: space.lg }}>
+          <Kicker>What wins when things clash</Kicker>
           {me.priorities.slice(0, 3).map((k, i) => (
-            <Text key={k} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.text, marginBottom: 6 }}>{i + 1}.  {labels[k] || k}</Text>
+            <Text key={k} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.text, marginBottom: 6, textTransform: 'capitalize' }}>{i + 1}.  {labels[k] || k}</Text>
+          ))}
+        </GlassCard>
+      ) : null}
+
+      {me?.giveTake?.length ? (
+        <GlassCard style={{ marginTop: space.lg }}>
+          <Kicker>Give and take</Kicker>
+          {me.giveTake.map((g) => (
+            <View key={g.key} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.text, textTransform: 'capitalize' }}>{g.label}</Text>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: g.stance === 'lead' ? colors.gold : g.stance === 'bend' ? colors.mint : colors.aura }}>
+                {g.stance === 'lead' ? 'You hold firm' : g.stance === 'bend' ? 'You bend easily' : 'Depends'}
+              </Text>
+            </View>
           ))}
         </GlassCard>
       ) : null}
@@ -149,7 +173,7 @@ export function DnaResult({ type, tagline, me, labels, onDone, onRetake }) {
 
       {dims.length ? (
         <GlassCard style={{ marginTop: space.lg }}>
-          <Kicker>How you are in relationships</Kicker>
+          <Kicker>How well Soul DNA knows you{me?.completeness != null ? ` · ${me.completeness}%` : ''}</Kicker>
           {dims.map((d) => (
             <View key={d.key} style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -175,7 +199,7 @@ export function DnaResult({ type, tagline, me, labels, onDone, onRetake }) {
       ) : null}
 
       <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.dim, textAlign: 'center', marginTop: space.xl }}>
-        Match scores are predicted from Soul DNA. Your chats and meetups stay private and are never used.
+        Match scores are predicted from your Soul DNA (and, if you allow it, what you're into on Soulink). Your chats and meetups stay private and are never used. Soul DNA gets sharper when you answer a few quick questions while connecting with someone.
       </Text>
       {onDone ? <Button title="Start connecting" style={{ marginTop: space.lg }} onPress={onDone} /> : null}
       {onRetake ? <Button variant="ghost" title="Retake Soul DNA 💎" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
@@ -196,6 +220,11 @@ export default function SoulQuiz() {
   const fade = useRef(new Animated.Value(1)).current;
   const pending = useRef({});
   const timer = useRef(null);
+  const shownAt = useRef(Date.now());   // gut-reaction timing: when this scenario appeared
+  const changes = useRef({});           // how many times an answer was changed
+  const addedRef = useRef(0);           // scenarios Soul DNA added because it was still unsure
+  const [other, setOther] = useState(null); // "Anything else…" text being typed (null = closed)
+  useEffect(() => { shownAt.current = Date.now(); setOther(null); }, [i, phase]);
 
   useEffect(() => {
     (async () => {
@@ -222,7 +251,13 @@ export default function SoulQuiz() {
   const flush = async () => {
     const batch = pending.current; pending.current = {};
     if (!Object.keys(batch).length) return;
-    try { await api('/soul/dna/answers', { method: 'PUT', body: { answers: batch } }); }
+    try {
+      const r = await api('/soul/dna/answers', { method: 'PUT', body: { answers: batch } });
+      if (r.added?.length) {
+        addedRef.current += r.added.length;
+        setData((d) => ({ ...d, questions: [...d.questions, ...r.added.filter((n) => !d.questions.some((q) => q.id === n.id))], total: r.total }));
+      }
+    }
     catch (e) {
       if (e.code === 'premium_required') { setError(e.message); return; } // finished Soul DNA can only be changed with Premium
       pending.current = { ...batch, ...pending.current }; setError('Could not save, will retry…');
@@ -239,6 +274,10 @@ export default function SoulQuiz() {
     try {
       clearTimeout(timer.current); await flush();
       if (Object.keys(pending.current).length) throw new Error('Could not save your answers. Check the connection and try again.');
+      if (addedRef.current) { // Soul DNA wants a few more answers first
+        const from = qs.length; addedRef.current = 0;
+        setPhase('quiz'); setI(from); return;
+      }
       const r = await api('/soul/dna/complete', { method: 'POST' });
       setUser(r.user);
       setResult({ type: r.soul.type, tagline: r.soul.tagline, me: r.me, fresh: true });
@@ -253,11 +292,13 @@ export default function SoulQuiz() {
       Animated.timing(fade, { toValue: 1, duration: 190, useNativeDriver: true }).start();
     });
   };
-  const answer = (v, instant) => {
+  const answer = (v, instant, text) => {
     const q = qs[i];
     if (chosen !== null) return;
-    setAnswers((a) => ({ ...a, [q.id]: v }));
-    queue(q.id, v);
+    if (answers[q.id] !== undefined) changes.current[q.id] = (changes.current[q.id] || 0) + 1;
+    const value = { o: v, ms: Date.now() - shownAt.current, ...(text ? { t: text } : {}), ...(changes.current[q.id] ? { ch: changes.current[q.id] } : {}) };
+    setAnswers((a) => ({ ...a, [q.id]: value }));
+    queue(q.id, value);
     if (instant) { go(i + 1); return; }
     setChosen(v);
     setTimeout(() => go(i + 1), 240);
@@ -286,8 +327,8 @@ export default function SoulQuiz() {
       <BrandScreen back onBack={back}>
         <BrandHeader size={36} title={retake ? 'Retake your Soul DNA' : user?.soulType && !user?.soulReady ? 'Soul DNA got smarter' : 'Create your Soul DNA'}
           subtitle={user?.soulType && !user?.soulReady
-            ? 'We rebuilt Soul DNA to understand you much deeper. Please take the new version to see your matches again.'
-            : 'Your values, nature, thinking and loyalty. About 10 minutes. No right answers.'} />
+            ? 'Soul DNA now learns how you think, act and react, through real-life situations. Please take the new version (about 8 minutes) to see your matches again.'
+            : 'Real-life situations that show how you think, act and react. About 8 minutes. No right answers: go with your gut.'} />
         {error ? <ErrorText>{error}</ErrorText> : null}
         <GlassCard>
           {sections.map((s) => {
@@ -342,11 +383,23 @@ export default function SoulQuiz() {
           {q.type === 'forced' ? q.options.map((label, idx) => (
             <View key={label}>
               {idx === 1 ? <Text style={{ textAlign: 'center', fontFamily: fonts.mono, fontSize: 11, color: colors.dim, marginBottom: 10 }}>OR</Text> : null}
-              <Option label={label} chosen={(chosen ?? current) === idx} onPress={() => answer(idx)} />
+              <Option label={label} chosen={optOf(chosen ?? current) === idx} onPress={() => answer(idx)} />
             </View>
           )) : null}
           {q.type === 'choice' ? q.options.map((label, idx) => (
-            <Option key={label} label={label} chosen={(chosen ?? current) === idx} onPress={() => answer(idx)} />
+            <Option key={label} label={label} chosen={optOf(chosen ?? current) === idx} onPress={() => answer(idx)} />
+          )) : null}
+          {q.allowOther ? (other === null ? (
+            <Option label={optOf(current) === -1 ? `Anything else: “${current.t}”` : 'Anything else… (type your own)'} chosen={optOf(current) === -1} dim={optOf(current) !== -1} onPress={() => setOther(optOf(current) === -1 ? current.t : '')} />
+          ) : (
+            <View style={{ marginBottom: 10 }}>
+              <TextInput value={other} onChangeText={setOther} autoFocus maxLength={300} multiline placeholder="What would you do?" placeholderTextColor={colors.dim}
+                style={{ minHeight: 52, borderRadius: 18, borderWidth: 1.5, borderColor: colors.aura, paddingHorizontal: 18, paddingVertical: 12, color: colors.text, fontFamily: fonts.medium, fontSize: 15.5, backgroundColor: colors.inputBg }} />
+              <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                <Button small variant="ghost" title="Cancel" onPress={() => setOther(null)} style={{ flex: 1, marginRight: space.sm }} />
+                <Button small title="Save" disabled={!other.trim()} onPress={() => answer(-1, true, other.trim())} style={{ flex: 2 }} />
+              </View>
+            </View>
           )) : null}
           {current !== undefined && q.type !== 'rank' && i + 1 < qs.length ? (
             <Button small variant="ghost" title="Next" style={{ marginTop: space.md }} onPress={() => go(i + 1)} />

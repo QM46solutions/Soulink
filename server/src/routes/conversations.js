@@ -548,7 +548,10 @@ const voiceMissing = () => new HttpError(503, "Voice translation isn't available
 async function makeVoiceClip(userId, text, lang) {
   const dir = path.join(config.uploadDir, VOICE_DIR);
   await fs.mkdir(dir, { recursive: true });
-  const { file, durationMs } = await aiSpeak(text, lang, path.join(dir, `${String(userId).toUpperCase()}-${crypto.randomUUID()}.m4a`));
+  let clip;
+  try { clip = await aiSpeak(text, lang, path.join(dir, `${String(userId).toUpperCase()}-${crypto.randomUUID()}.m4a`)); }
+  catch (e) { throw new HttpError(502, e.message || "Couldn't make the voice clip. Try again.", 'voice_failed'); }
+  const { file, durationMs } = clip;
   const url = `/uploads/${VOICE_DIR}/${path.basename(file)}`;
   await persistFile(url);
   return { url, durationMs };
@@ -585,7 +588,9 @@ r.post('/:id/voice-translate', uploadMemory('media', 25).single('file'), ah(asyn
   const tmp = path.join(dir, `${crypto.randomUUID()}${path.extname(req.file.originalname || '') || '.webm'}`);
   await fs.writeFile(tmp, req.file.buffer);
   let original;
-  try { original = await aiTranscribe(tmp); } finally { fs.unlink(tmp).catch(() => {}); }
+  try { original = await aiTranscribe(tmp); }
+  catch (e) { throw new HttpError(502, e.message || "Couldn't understand this voice note. Try again.", 'voice_failed'); }
+  finally { fs.unlink(tmp).catch(() => {}); }
   if (!original) throw badRequest("Couldn't hear anything. Try again a little closer to the mic.", 'no_speech');
   const from = detectLanguage(original);
   const text = from === to ? original : await aiTranslate(original, from, to);

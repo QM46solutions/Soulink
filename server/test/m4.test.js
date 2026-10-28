@@ -14,12 +14,27 @@ const send = (from, to, body = {}) => api().post('/connections/requests').set(fr
 const notes = async (u) => (await api().get('/notifications').set(u.h).expect(200)).body.notifications;
 
 describe('Connect requests', () => {
+  test('asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for)', async () => {
+    const [a, b] = await pair();
+    const known = await send(a, b, { intent: undefined, knows: true, knownAs: 'colleague' }).expect(201);
+    assert.equal(known.body.request.intent, 'colleague');
+    assert.equal(known.body.request.knownAs, 'colleague');
+    const [c, d] = await pair();
+    await send(c, d, { intent: undefined, knows: false }).expect(400);           // new person: say what you hope for
+    await send(c, d, { intent: 'family', knows: false }).expect(400);            // "family" is only for people you know
+    await send(c, d, { intent: undefined, knows: true, knownAs: 'cousin' }).expect(400);
+    const fresh = await send(c, d, { intent: 'life_partner', knows: false }).expect(201);
+    assert.equal(fresh.body.request.knownAs, null);
+    const pq = await api().get(`/soul/pair/${d.user.id}?intent=life_partner`).set(c.h).expect(200);
+    assert.ok(Array.isArray(pq.body.questions) && pq.body.questions.length <= 3);
+  });
+
   test('request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept)', async () => {
     const [a, b] = await pair();
     const r = await send(a, b, { intent: 'dating', note: 'We met at the Hitex meetup!', knows: true }).expect(201);
     assert.equal(r.body.request.intent, 'dating');
     assert.equal(r.body.request.note, null);
-    assert.ok(r.body.request.soulScore >= 30);
+    assert.ok(Number.isInteger(r.body.request.soulScore) && r.body.request.soulScore >= 1 && r.body.request.soulScore <= 99);
     const inbox = (await api().get('/connections/requests?box=incoming').set(b.h).expect(200)).body.requests;
     assert.equal(inbox.length, 1);
     assert.equal(inbox[0].user.id, a.user.id);

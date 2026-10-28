@@ -11,7 +11,7 @@ import { ageFrom } from '../lib/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { userCard } from '../services/social.js';
 import { SOUL_TYPES, TRAITS } from '../services/soulQuiz.js';
-import { compatAll } from '../services/soulDna.js';
+import { compatAll, relationOf } from '../services/soulDna.js';
 import { loadDna } from '../services/soulStore.js';
 import { distanceKm, placeCoords } from '../services/places.js';
 import { INTENT_KEYS } from '../services/connections.js';
@@ -127,8 +127,13 @@ r.post('/search', ah(async (req, res) => {
       ...(() => {
         const other = mine ? dnaMap.get(String(u.id).toLowerCase()) : null;
         if (!other) return { score: null, bestRelation: null };
+        // Score only what both people are actually open to (and what the viewer filtered on), not the best of
+        // every relation type: someone open only to friendship is never shown as a strong dating match.
+        const theirsOpen = new Set(list(u.open_to).map(relationOf));
+        const wanted = [...new Set((f.intents?.length ? f.intents : list(me.open_to)).map(relationOf))].filter((rel) => theirsOpen.has(rel));
+        if (!wanted.length) return { score: null, bestRelation: null };
         const all = compatAll(mine, other);
-        const [bestRelation, best] = Object.entries(all).sort((x, y) => y[1].overall - x[1].overall)[0];
+        const [bestRelation, best] = Object.entries(all).filter(([rel]) => wanted.includes(rel)).sort((x, y) => y[1].overall - x[1].overall)[0];
         return { score: best.overall, bestRelation, bestLabel: best.label, bestEmoji: best.emoji };
       })(),
     };

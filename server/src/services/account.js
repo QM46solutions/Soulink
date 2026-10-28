@@ -2,7 +2,10 @@
 // Deleting removes the person and everything linked to them: face fingerprint, Soul DNA, posts, Sparks, comments,
 // likes, chats they're in. Only the sign-up details (username, phone / email, dates) are kept for 180 days in
 // deleted_accounts, as the IT Rules 2021 ask, then purged.
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { many, one, query } from '../db.js';
+import { config } from '../config.js';
 import { signExport } from '../lib/exportSign.js';
 
 // Identity record kept after erasure: 1 year rolling (DPDP Rules Rule 8(3); covers IT Rules' 180 days)
@@ -15,6 +18,7 @@ export async function deleteAccount(userId, reason = 'user') {
   await query(`INSERT INTO deleted_accounts (user_id, username, phone, email, created_at, display_name, birth_date, city, terms_version, terms_accepted_at, face_consent_at, reason)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [u.id, u.username, u.phone, u.email, u.created_at, u.display_name, u.birth_date, u.city, u.terms_version, u.terms_accepted_at, u.face_consent_at, reason]);
+  await purgeUserFiles(u.id);
   // every column in the database that points at users(id)
   const fks = await many(`SELECT OBJECT_NAME(fkc.parent_object_id) AS tbl, c.name AS col, c.is_nullable AS nullable
     FROM sys.foreign_key_columns fkc
@@ -80,3 +84,32 @@ export async function exportAccount(userId) {
     profile, soulDna, posts, sparks, comments, sparkComments, connectionsYouMade: connections, messagesYouSent: messages,
   });
 }
+
+/**
+ * The person's photos, voice notes, Soulmojis, Sparks... : every '/uploads/...' file named in their own rows
+ * (any column ending in "url", or called "url", in a table that points at them) is removed from the server's
+ * disk and from the database copy (stored_files), so erasing an account really erases their pictures too.
+ */
+export async function purgeUserFiles(userId) {
+  const cols = await many(`SELECT DISTINCT OBJECT_NAME(fkc.parent_object_id) AS tbl, uc.name AS col, c.name AS urlcol
+    FROM sys.foreign_key_columns fkc
+    JOIN sys.columns uc ON uc.object_id = fkc.parent_object_id AND uc.column_id = fkc.parent_column_id
+    JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND (c.name LIKE '%[_]url' OR c.name = 'url')
+    WHERE fkc.referenced_object_id = OBJECT_ID('users')`);
+  const urls = new Set();
+  const own = await one('SELECT * FROM users WHERE id=$1', [userId]);
+  for (const [k, v] of Object.entries(own || {})) if (/_url$/.test(k) && typeof v === 'string') urls.add(v);
+  for (const { tbl, col, urlcol } of cols) {
+    const rows = await many(`SELECT [${urlcol}] AS u FROM [${tbl}] WHERE [${col}] = $1 AND [${urlcol}] LIKE '/uploads/%'`, [userId]).catch(() => []);
+    for (const r of rows) urls.add(r.u);
+  }
+  let n = 0;
+  for (const url of urls) {
+    if (typeof url !== 'string' || !url.startsWith('/uploads/') || url.includes('..')) continue;
+    await query('DELETE FROM stored_files WHERE path=$1', [url]).catch(() => {});
+    await fs.rm(path.join(config.uploadDir, url.replace(/^\/uploads\//, '')), { force: true }).catch(() => {});
+    n += 1;
+  }
+  return n;
+}
+

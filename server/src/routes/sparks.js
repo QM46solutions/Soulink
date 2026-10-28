@@ -14,6 +14,7 @@
 //  GET    /sparks/:id/spread          my Spark's Spread status
 //  POST   /sparks/:id/spread          { days, city: 'mine'|'all', ageMin, ageMax } show it to more people
 //  POST   /sparks/:id/spread/stop     stop spreading
+import { sparkTopic, track } from '../services/signals.js';
 import { postingBlocked, UNAVAILABLE } from '../services/copyright.js';
 import { phoneMusicOn } from './music.js';
 import { Router } from 'express';
@@ -380,6 +381,7 @@ r.post('/:id/react', ah(async (req, res) => {
   else {
     await query('INSERT INTO spark_reactions (spark_id, user_id) VALUES ($1, $2)', [x.id, req.user.id]);
     await notify(x.author_id, req.user.id, 'spark_reaction', x.id, { category: x.category }).catch(() => {});
+    track(req.user, 'react', x.caption, [sparkTopic(x.category)]); // what you're into (only with your consent)
   }
   const n = await one('SELECT COUNT(*) AS n FROM spark_reactions WHERE spark_id=$1', [x.id]);
   res.json({ reacted: !x.reacted, reactions: Number(n.n) });
@@ -401,6 +403,7 @@ r.post('/:id/view', ah(async (req, res) => {
   const x = await visible(req);
   if (String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
     await query('IF NOT EXISTS (SELECT 1 FROM spark_views WHERE spark_id=$1 AND viewer_id=$2 AND day=CAST(SYSDATETIMEOFFSET() AS DATE)) INSERT INTO spark_views (spark_id, viewer_id, day) VALUES ($1, $2, CAST(SYSDATETIMEOFFSET() AS DATE))', [x.id, req.user.id]).catch(() => {});
+    track(req.user, 'view', x.caption, [sparkTopic(x.category)]);
   }
   res.json({ ok: true });
 }));

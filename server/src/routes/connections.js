@@ -7,7 +7,7 @@ import { many, one, query, tx } from '../db.js';
 import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, meView, notify, userCard } from '../services/social.js';
-import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, connectionBetween, pairOf } from '../services/connections.js';
+import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, connectionBetween, pairOf } from '../services/connections.js';
 import { directKey, postMessage, systemMessage } from './conversations.js';
 import { revealBetween } from '../services/anon.js';
 import { scoreFor } from '../services/soulStore.js';
@@ -32,6 +32,7 @@ function view(q, meId, other) {
     direction: q.from_id === meId ? 'outgoing' : 'incoming',
     user: other ? userCard(other) : null,
     knows: !!q.knows,
+    knownAs: q.known_as || null,
     intent: q.intent,
     intentLabel: INTENTS[q.intent]?.label,
     acceptedIntent: q.accepted_intent,
@@ -86,7 +87,11 @@ r.get('/status/:userId', ah(async (req, res) => {
 // Send a Connect request
 r.post('/requests', requireSoul, ah(async (req, res) => {
   // no note: nothing can be sent to someone before they accept (old apps may still send one; it's ignored)
-  const data = z.object({ toUserId: uuid, intent, knows: z.boolean().default(false), note: z.string().optional() }).parse(req.body);
+  // First: do you already know them? Known → family / friend / colleague / other. New → what you're hoping for.
+  const data = z.object({ toUserId: uuid, intent: intent.optional(), knows: z.boolean().default(false), knownAs: z.enum(Object.keys(KNOWN_AS)).optional(), note: z.string().optional() })
+    .refine((d) => (d.knows ? !!(d.knownAs || d.intent) : !!d.intent && !INTENTS[d.intent].known), { message: 'Say who they are to you, or what you are hoping for' })
+    .parse(req.body);
+  if (data.knows && data.knownAs) data.intent = KNOWN_AS[data.knownAs];
   const me = req.user;
   const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [data.toUserId]);
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
@@ -106,8 +111,8 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
 
   const score = await scoreBetween(me, to, data.intent);
   const q = await one(
-    `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6)`,
-    [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score],
+    `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score, known_as) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score, data.knows ? data.knownAs || null : null],
   );
   await notify(to.id, me.id, 'connect_request', q.id, { intent: q.intent, soulScore: score });
   res.status(201).json({ request: view(q, me.id, to) });

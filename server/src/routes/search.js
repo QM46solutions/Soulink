@@ -1,3 +1,4 @@
+import { track } from '../services/signals.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, query } from '../db.js';
@@ -32,6 +33,7 @@ r.get('/users', ah(async (req, res) => {
   // Behaviour signal for Soul DNA (only with consent)
   if (req.user.consent_tracking && q.length >= 3) {
     query(`INSERT INTO behavior_events (user_id, type, meta) VALUES ($1,'search',$2)`, [req.user.id, { q }]).catch(() => {});
+    track(req.user, 'search', q);
   }
   res.json({ users: rows.map((u) => ({ ...userCard(u), youFollow: u.i_follow === 1 })) });
 }));

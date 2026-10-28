@@ -10,7 +10,7 @@ import { BrandHeader } from '../../components/BrandScreen';
 import { GlassCard } from '../../components/brand';
 import { IntentChip, ScorePill } from '../../components/Choice';
 import { Avatar, Button, Empty, ErrorText, VerifiedBadge } from '../../components/ui';
-import { HOLDS, INTENTS, fmtDate, intentOf } from '../../lib/intents';
+import { HOLDS, INTENTS, KNOWN, fmtDate, intentOf } from '../../lib/intents';
 import { colors, fonts, radius, space } from '../../lib/theme';
 
 function Tabs({ value, onChange, counts }) {
@@ -81,9 +81,13 @@ function Incoming({ r, onDone }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: space.md, gap: 6 }}>
         <ScorePill score={r.soulScore} intent={r.acceptedIntent || r.intent} />
         <View style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 12 }}>{r.knows ? 'Says you know each other' : 'Someone new'}</Text>
+          <Text style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 12 }}>{r.knows ? (r.knownAs ? `Knows you · ${intentOf(r.intent).label}` : 'Says you know each other') : 'Someone new'}</Text>
         </View>
       </View>
+      {!r.knows ? (
+        <Button small variant="ghost" icon="sparkles-outline" title="Answer 2-3 quick questions for a truer match" style={{ marginTop: space.sm }}
+          onPress={() => router.push({ pathname: '/soul-pair', params: { userId: r.user.id, name: first } })} />
+      ) : null}
       {r.note ? (
         <View style={{ marginTop: space.md, padding: space.md, borderRadius: 16, backgroundColor: 'rgba(124,92,252,0.08)', borderLeftWidth: 3, borderLeftColor: colors.aura }}>
           <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 }}>"{r.note}"</Text>
@@ -100,7 +104,7 @@ function Incoming({ r, onDone }) {
         <View style={{ marginTop: space.md }}>
           <Text style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginBottom: 4 }}>Accept as…</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
-            {INTENTS.filter((i) => i.key !== r.intent).map((i) => <IntentChip key={i.key} intent={i} onPress={() => accept(i.key)} />)}
+            {[...INTENTS, ...(r.knows ? KNOWN.map((k) => intentOf(k.intent)) : [])].filter((i) => i.key !== r.intent).map((i) => <IntentChip key={i.key} intent={i} onPress={() => accept(i.key)} />)}
           </View>
           <Button title="Back" variant="ghost" onPress={() => setMode(null)} />
         </View>

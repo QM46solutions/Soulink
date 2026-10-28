@@ -52,6 +52,10 @@ const { sampleAnswers } = await import('../src/services/soulDna.js');
 export { sampleAnswers };
 /** Answers every Soul DNA question (k picks a different "person") and completes it. */
 export async function makeDna(u, k = 0) {
-  await api().put('/soul/dna/answers').set(u.h).send({ answers: sampleAnswers(k) }).expect(200);
+  // answer this person's own scenarios (and any extra ones Soul DNA adds), then finish
+  const all = sampleAnswers(k);
+  const d = (await api().get('/soul/dna').set(u.h).expect(200)).body;
+  let r = await api().put('/soul/dna/answers').set(u.h).send({ answers: Object.fromEntries(d.questions.map((q) => [q.id, all[q.id]])) }).expect(200);
+  while (r.body.added?.length) r = await api().put('/soul/dna/answers').set(u.h).send({ answers: Object.fromEntries(r.body.added.map((q) => [q.id, all[q.id]])) }).expect(200);
   return api().post('/soul/dna/complete').set(u.h).expect(200);
 }

@@ -7,7 +7,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { clientKey } from '../lib/clientKey.js';
 import { z } from 'zod';
-import { many, tx } from '../db.js';
+import { many, one, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, HttpError } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -19,6 +19,7 @@ import { meView } from '../services/social.js';
 import { openFace, sealFace } from '../lib/faceCrypto.js';
 import { faceBanned, MESSAGES } from '../services/lifecycle.js';
 import { audit } from '../services/audit.js';
+import { deleteAccount } from '../services/account.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -39,7 +40,17 @@ export const FACE = {
 
 // Every check is written to server/face-debug.log so problems on real cameras can be diagnosed
 const LOG = fileURLToPath(new URL('../../face-debug.log', import.meta.url));
-const flog = (line) => { if (config.env !== 'test') fs.appendFile(LOG, `${new Date().toISOString()} ${line}\n`, () => {}); };
+const flog = (line) => {
+  if (config.env === 'test') return;
+  fs.appendFile(LOG, `${new Date().toISOString()} ${line}\n`, () => {});
+  if (!config.isDev) console.log(`[face] ${line}`); // the cloud's disk is wiped on restart: keep it in the server log too
+};
+// "phone number ending 4321" / "email ra•••@gmail.com": enough for the person to know which account it is
+function accountHint(u) {
+  if (u?.phone) return `the phone number ending ${String(u.phone).slice(-4)}`;
+  if (u?.email) { const [name, dom] = String(u.email).split('@'); return `the email ${name.slice(0, 2)}•••@${dom || ''}`; }
+  return u?.username ? `@${u.username}` : 'another login';
+}
 flog('face rules loaded (v5: duplicate = average < 0.5 or 2 photos < 0.46)');
 
 const frame = z.string().min(500, 'Photo missing').max(4_000_000, 'Photo too large');
@@ -141,8 +152,23 @@ r.post('/enroll',
       throw fail(MESSAGES.banned, 'face_banned', 403);
     }
     if (match) {
-      flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face`);
-      throw fail('This face is already linked to another Soulink account. One person, one profile.', 'face_taken', 409);
+      const other = await one('SELECT id, username, phone, email, onboarding_done, deactivated_at, deactivate_reason, delete_after FROM users WHERE id=$1', [match]);
+      if (other && !other.onboarding_done && !other.deactivated_at) {
+        // The same person's own earlier sign-up that was never finished (the app was closed, the scan timed out,
+        // they started again with another number...). It has no profile yet: remove it and carry on with this one.
+        flog(`enroll user=${req.user.id.slice(0, 8)} replaced own unfinished sign-up ${String(other.id).slice(0, 8)}`);
+        await deleteAccount(other.id, 'unfinished_signup_same_face');
+        await audit(req, 'unfinished_signup_replaced', { targetUserId: other.id });
+      } else {
+        flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED duplicate face (${other?.deactivated_at ? other.deactivate_reason : 'active'} account)`);
+        const where = accountHint(other);
+        if (other?.deactivate_reason === 'deleting') {
+          const when = other.delete_after ? new Date(other.delete_after).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long' }) : 'soon';
+          throw fail(`Your face is linked to a Soulink account that is being deleted (${where}). Log in with it to cancel the deletion, or create a new account after ${when}.`, 'face_taken_deleting', 409);
+        }
+        if (other?.deactivated_at) throw fail(`Your face is linked to a paused Soulink account (${where}). Log in with it to switch it back on. One person, one profile.`, 'face_taken_paused', 409);
+        throw fail(`Your face already has a Soulink account (${where}). Log in with that instead. One person, one profile.`, 'face_taken', 409);
+      }
     }
 
     const avatarUrl = useAsAvatar ? await saveFile({ buffer: bufs[0], mimetype: bufs[0][0] === 0x89 ? 'image/png' : 'image/jpeg' }, 'avatars') : null;

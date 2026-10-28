@@ -117,7 +117,19 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           }
         }
         setPhase('checking');
-        const r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar: false }, timeoutMs: 90000 });
+        let r;
+        try {
+          r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar: false }, timeoutMs: 150000 });
+        } catch (e) {
+          // The server can be slow (or the connection drop) while it checks the scan. It may still have finished:
+          // ask once before calling it a failure, so a good scan is never thrown away.
+          if (e.status === 0 || e.status >= 500) {
+            const me = await api('/users/me', { timeoutMs: 20000 }).catch(() => null);
+            if (me?.user?.verified) { r = me; } else {
+              throw new Error("The check took too long on our side. Your scan was fine: tap Try again.");
+            }
+          } else throw e;
+        }
         if (!alive.current) return;
         setPhase('done');
         onVerified?.(r.user);

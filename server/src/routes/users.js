@@ -14,7 +14,7 @@ import { exportAccount } from '../services/account.js';
 import { audit } from '../services/audit.js';
 import { eraseAccount, pauseAccount, scheduleDeletion, MESSAGES } from '../services/lifecycle.js';
 import { verifyExport } from '../lib/exportSign.js';
-import { QUESTIONS, QUESTION_IDS, validAnswer } from '../services/soulDna.js';
+import { QUESTIONS, isComplete, validAnswer } from '../services/soulDna.js';
 import { saveCompletedDna } from '../services/soulStore.js';
 import express from 'express';
 const QMAP = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
@@ -208,7 +208,7 @@ r.post('/me/restore', express.json({ limit: '15mb' }), ah(async (req, res) => {
     const row = await one('SELECT user_id FROM soul_dna WHERE user_id=$1', [req.user.id]);
     if (row) await query('UPDATE soul_dna SET answers=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(good)]);
     else await query('INSERT INTO soul_dna (user_id, answers) VALUES ($1, $2)', [req.user.id, JSON.stringify(good)]);
-    if (QUESTION_IDS.every((id) => good[id] !== undefined)) await saveCompletedDna(req.user.id, good);
+    if (isComplete(good)) await saveCompletedDna(req.user.id, good);
     restored.push('soulDna');
   }
   await audit(req, 'data_restored', { detail: restored.join(',') || 'nothing' });

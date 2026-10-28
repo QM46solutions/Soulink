@@ -18,7 +18,7 @@ export default function AppPermissions() {
     <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: 40 }}>
       <ErrorText>{error}</ErrorText>
       <Section>Soulink may</Section>
-      <Toggle title="Use my activity for Soul DNA" text="Searches, likes and time spent on profiles help improve your matches. Never shared with anyone." value={user.settings.consentTracking} onChange={(v) => update({ consentTracking: v })} />
+      <Toggle title="Use my activity for Soul DNA" text="What you like, react to, watch and search for on Soulink (topics only, like cricket or travel) helps Soul DNA understand what you are into. Nothing from other apps, websites or your phone. Never shared with anyone." value={user.settings.consentTracking} onChange={(v) => update({ consentTracking: v })} />
       <MenuRow icon="language" title="Translate my chats" text={user.chatLanguage ? `Into ${CHAT_LANGS.find((l) => l.key === user.chatLanguage)?.native}` : 'Off'} onPress={() => setLangOpen(true)} tint={['#58a0e6', '#7c5cfc']} />
       <ActionSheet visible={langOpen} onClose={() => setLangOpen(false)} title="Translate chat messages into"
         options={CHAT_LANGS.map((l) => ({ label: `${l.native}${l.native !== l.label ? `  ·  ${l.label}` : ''}${user.chatLanguage === l.key ? '  ✓' : ''}`, onPress: () => setChatLanguage(l.key) }))} />
