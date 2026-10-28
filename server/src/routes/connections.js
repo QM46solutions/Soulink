@@ -7,9 +7,8 @@ import { many, one, query, tx } from '../db.js';
 import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, meView, notify, userCard } from '../services/social.js';
-import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, connectionBetween, pairOf } from '../services/connections.js';
-import { directKey, postMessage, systemMessage } from './conversations.js';
-import { revealBetween } from '../services/anon.js';
+import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, closeHeldChat, connectionBetween, pairOf } from '../services/connections.js';
+import { directKey, getOrCreateDirect, postMessage, systemMessage } from './conversations.js';
 import { scoreFor } from '../services/soulStore.js';
 
 const r = Router();
@@ -42,6 +41,8 @@ function view(q, meId, other) {
     holdDays: q.hold_days,
     holdUntil: q.hold_until,
     canExtend: q.status === 'held' && !q.hold_extended,
+    decideBy: q.status === 'held' ? q.hold_decide_until || null : null, // the hold is over: accept or reject by then
+    autoRejected: !!q.auto_rejected,
     createdAt: q.created_at,
     respondedAt: q.responded_at,
   };
@@ -132,7 +133,13 @@ r.get('/requests', ah(async (req, res) => {
       ORDER BY CASE q.status WHEN N'pending' THEN 0 ELSE 1 END, q.created_at DESC`,
     [me],
   );
-  res.json({ requests: rows.map((x) => view(x, me, { ...x, id: x.u_id })) });
+  const out = rows.map((x) => view(x, me, { ...x, id: x.u_id }));
+  // a held request has a chat (in Messages › Requests) while the hold lasts
+  for (const v of out) {
+    if (v.status !== 'held') continue;
+    v.conversationId = (await one('SELECT id FROM conversations WHERE direct_key=$1', [directKey(me, v.user.id)]))?.id || null;
+  }
+  res.json({ requests: out });
 }));
 
 // ---------- the Connect model ----------
@@ -156,11 +163,10 @@ async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null,
     for (const uid of [x, y]) {
       await c.query(`IF NOT EXISTS (SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2)
                        INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, 0)
-                     ELSE UPDATE conversation_members SET is_request=0 WHERE conversation_id=$1 AND user_id=$2`, [cv.id, uid]);
+                     ELSE UPDATE conversation_members SET is_request=0, hidden_at=NULL WHERE conversation_id=$1 AND user_id=$2`, [cv.id, uid]);
     }
     return cv;
   });
-  await revealBetween(x, y); // an anonymous chat between them is revealed once they're Connections
   const label = INTENTS[theIntent] || INTENTS.friendship;
   await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${soulScore ? ` · Soul Score ${soulScore}%` : ''}`);
   return conv;
@@ -172,7 +178,10 @@ async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null,
 r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
   const q = await loadRequest(req, 'to');
   if (!['pending', 'held'].includes(q.status)) throw conflict('This request is no longer open', 'closed');
-  const { asIntent, connectBack } = z.object({ asIntent: intent.optional(), connectBack: z.boolean().optional() }).parse(req.body || {});
+  const body = z.object({ asIntent: intent.optional(), connectBack: z.boolean().optional() }).parse(req.body || {});
+  const { asIntent } = body;
+  // a held request already has a chat going: accepting it makes you Connections and the chat moves to Chats
+  const connectBack = body.connectBack || q.status === 'held';
   const finalIntent = asIntent || q.intent;
   const from = await one('SELECT * FROM users WHERE id=$1', [q.from_id]);
   if (await isBlockedEither(q.from_id, q.to_id)) throw notFound('User not found');
@@ -221,9 +230,25 @@ r.post('/requests/:id/reject', ah(async (req, res) => {
   const q = await loadRequest(req, 'to');
   const upd = await one(`UPDATE connection_requests SET status=N'rejected', responded_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1 AND status IN (N'pending', N'held')`, [q.id]);
   if (!upd) throw conflict('This request is no longer open', 'closed');
+  if (q.status === 'held') await closeHeldChat(q.from_id, q.to_id); // the chat they had during the hold is hidden (kept, never shown)
   await notify(q.from_id, q.to_id, 'connect_rejected', q.id, { intent: q.intent });
   res.json({ ok: true });
 }));
+
+const dayText = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+/** On hold = you two can chat until the hold ends. The chat sits in Messages › Requests for both of you. */
+async function openHeldChat(q, holdUntil, extended) {
+  const conv = await getOrCreateDirect(q.to_id, q.from_id);
+  for (const uid of [q.from_id, q.to_id]) {
+    await query(`IF NOT EXISTS (SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2)
+                   INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, 1)
+                 ELSE UPDATE conversation_members SET is_request=1, hidden_at=NULL WHERE conversation_id=$1 AND user_id=$2`, [conv.id, uid]);
+  }
+  await systemMessage(conv, extended
+    ? `The hold was extended to ${dayText(holdUntil)}. You can keep chatting here until then.`
+    : `Request on hold until ${dayText(holdUntil)}. You can chat here until then.`);
+  return conv;
+}
 
 // Hold for 1, 3, 7, 14 or 30 days. "Extend once" uses the same call on a held request.
 r.post('/requests/:id/hold', ah(async (req, res) => {
@@ -238,11 +263,13 @@ r.post('/requests/:id/hold', ah(async (req, res) => {
   } else if (q.status === 'held') {
     if (q.hold_extended) throw conflict('You can extend a hold only once', 'hold_extended');
     upd = await one(
-      `UPDATE connection_requests SET hold_days=$2, hold_until=DATEADD(DAY, $2, hold_until), hold_reminded=0, hold_extended=1
+      `UPDATE connection_requests SET hold_days=$2, hold_until=DATEADD(DAY, $2, CASE WHEN hold_until > SYSDATETIMEOFFSET() THEN hold_until ELSE SYSDATETIMEOFFSET() END),
+         hold_reminded=0, hold_decide_until=NULL, hold_extended=1
          OUTPUT INSERTED.* WHERE id=$1 AND status=N'held'`, [q.id, days],
     );
   }
   if (!upd) throw conflict('This request is no longer open', 'closed');
+  await openHeldChat(q, upd.hold_until, q.status === 'held');
   await notify(q.from_id, q.to_id, q.status === 'held' ? 'connect_hold_extended' : 'connect_held', q.id, { intent: q.intent, days, holdUntil: upd.hold_until });
   res.json({ ok: true, holdUntil: upd.hold_until });
 }));
@@ -252,6 +279,7 @@ r.post('/requests/:id/withdraw', ah(async (req, res) => {
   const q = await loadRequest(req, 'from');
   const upd = await one(`UPDATE connection_requests SET status=N'withdrawn', responded_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1 AND status IN (N'pending', N'held')`, [q.id]);
   if (!upd) throw conflict('This request is no longer open', 'closed');
+  if (q.status === 'held') await closeHeldChat(q.from_id, q.to_id);
   res.json({ ok: true });
 }));
 

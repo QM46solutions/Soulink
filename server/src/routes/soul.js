@@ -31,12 +31,12 @@ async function myRow(userId) {
 }
 /** My personal list of scenarios (made once, then grown a little when the model needs more). */
 async function myPlan(userId, row) {
-  let plan = parse(row?.plan, null);
+  let plan = parse(row?.scenario_plan, null);
   if (Array.isArray(plan) && plan.length) return plan.filter((id) => QUESTION_IDS.includes(id));
   // tests: everyone gets every scenario, so results are predictable
   plan = config.env === 'test' ? [...QUESTION_IDS] : corePlan(`${userId}:${row?.updated_at ? new Date(row.updated_at).getTime() : 0}`);
-  if (row) await query('UPDATE soul_dna SET plan=$2 WHERE user_id=$1', [userId, JSON.stringify(plan)]);
-  else await query("INSERT INTO soul_dna (user_id, answers, plan) VALUES ($1, N'{}', $2)", [userId, JSON.stringify(plan)]);
+  if (row) await query('UPDATE soul_dna SET scenario_plan=$2 WHERE user_id=$1', [userId, JSON.stringify(plan)]);
+  else await query("INSERT INTO soul_dna (user_id, answers, scenario_plan) VALUES ($1, N'{}', $2)", [userId, JSON.stringify(plan)]);
   return plan;
 }
 
@@ -57,7 +57,7 @@ r.post('/dna/retake', ah(async (req, res) => {
   if (!row?.completed_at) return res.json({ ok: true, fresh: true }); // never finished one: nothing to retake, just take it
   if (retakeLocked(req, row)) throw premiumRetake();
   const plan = config.env === 'test' ? [...QUESTION_IDS] : corePlan(`${req.user.id}:${Date.now()}`); // a fresh mix of scenarios
-  await query("UPDATE soul_dna SET answers=N'{}', plan=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1", [req.user.id, JSON.stringify(plan)]);
+  await query("UPDATE soul_dna SET answers=N'{}', scenario_plan=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1", [req.user.id, JSON.stringify(plan)]);
   res.json({ ok: true });
 }));
 
@@ -74,7 +74,7 @@ r.put('/dna/answers', ah(async (req, res) => {
   let added = [];
   if (plan.every((id) => merged[id] !== undefined)) added = extendPlan(plan, merged);
   const newPlan = [...plan, ...added];
-  await query('UPDATE soul_dna SET answers=$2, plan=$3, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(merged), JSON.stringify(newPlan)]);
+  await query('UPDATE soul_dna SET answers=$2, scenario_plan=$3, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(merged), JSON.stringify(newPlan)]);
   res.json({ answered: newPlan.filter((id) => merged[id] !== undefined).length, total: newPlan.length, added: added.length ? publicQuestions(added) : [] });
 }));
 

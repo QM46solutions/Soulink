@@ -18,6 +18,36 @@ import { CHAT_LANGS, detectLanguage, langName } from '../../lib/languages';
 
 let tmpSeq = 0;
 
+const shortDay = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+/** A chat while a Connect request is on hold: how long it lasts, and (for the person who held it) Accept / Reject. */
+function HeldBar({ held, name, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const act = async (what) => {
+    if (what === 'reject' && !(await confirm(`Reject ${name}'s request?`, 'This chat will be hidden for both of you.', { confirmText: 'Reject', destructive: true }))) return;
+    setBusy(true);
+    try { await api(`/connections/requests/${held.requestId}/${what}`, { method: 'POST', body: {} }); onChanged(what === 'reject'); }
+    catch (e) { notice('Oops', e.message); } finally { setBusy(false); }
+  };
+  const over = !!held.decideBy;
+  const line = held.iHeld
+    ? (over ? `Your hold on ${name}'s request is over. Accept or reject by ${shortDay(held.decideBy)}, or it's rejected automatically.` : `You put ${name}'s request on hold. You can chat until ${shortDay(held.until)}.`)
+    : (over ? `The hold is over. Waiting for ${name} to accept or reject.` : `${name} put your request on hold. You can chat until ${shortDay(held.until)}.`);
+  return (
+    <View style={{ paddingHorizontal: space.lg, paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(245,200,66,0.07)' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Ionicons name="pause-circle" size={16} color={colors.gold} style={{ marginRight: 6 }} />
+        <Text style={{ flex: 1, color: colors.text, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 17 }}>{line}</Text>
+      </View>
+      {held.iHeld ? (
+        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
+          <Button title="Reject" variant="secondary" small style={{ flex: 1 }} disabled={busy} onPress={() => act('reject')} />
+          <Button title="Accept" small style={{ flex: 1 }} loading={busy} onPress={() => act('accept')} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function Chat() {
   const { id } = useLocalSearchParams();
   const { user: me, setUser } = useAuth();
@@ -57,7 +87,7 @@ export default function Chat() {
   const loadingMore = useRef(false);
 
   const markRead = useCallback((c = conv) => {
-    if (!c || c.isRequest) return; // Requests: sender isn't told you've seen it until you accept
+    if (!c || (c.isRequest && !c.held)) return; // a paid message: the sender isn't told you've seen it until you accept (a chat during a hold is a normal chat)
     api(`/conversations/${id}/read`, { method: 'POST' }).then(refreshUnread).catch(() => {});
   }, [conv, id, refreshUnread]);
 
@@ -148,7 +178,7 @@ export default function Chat() {
         if (taps.current.length !== 2) return;
         taps.current = [];
         // double-tap on a message = ❤️ reaction on that message, not a heart message
-        if (near(a, c) && !bubbleTappedSince(a.at - 50) && !blocked && !conv?.isRequest) sendHeart();
+        if (near(a, c) && !bubbleTappedSince(a.at - 50) && !blocked && (!conv?.isRequest || conv?.held)) sendHeart();
       }, 330);
     }
   };
@@ -235,7 +265,7 @@ export default function Chat() {
     try {
       const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { body, ...(reply ? { replyToId: reply.id } : {}) } });
       replaceTmp(tmpId, r.message);
-      if (conv?.isRequest) setConv((c) => ({ ...c, isRequest: false }));
+      if (conv?.isRequest && !conv?.held) setConv((c) => ({ ...c, isRequest: false }));
     } catch (e) {
       if (e.code === 'blocked') setBlocked(true);
       setMessages((cur) => cur.map((m) => (m.id === tmpId ? { ...m, status: 'failed' } : m)));
@@ -485,10 +515,10 @@ export default function Chat() {
           {conv.privateMode ? <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center', marginTop: 2 }}>Tap 3 times to turn it off</Text> : null}
         </View>
       ) : null}
-      {conv.isRequest ? (
+      {conv.isRequest && !conv.held ? (
         <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: 'rgba(14,12,22,0.96)' }}>
           <Text style={{ color: colors.text, fontFamily: fonts.semibold, textAlign: 'center' }}>
-            {conv.isGroup ? 'You were added to this group by someone you don’t follow.' : `${conv.other?.displayName || conv.other?.username} wants to send you a message.`}
+            {conv.isGroup ? 'You were added to this group by someone you don’t follow.' : `${conv.other?.displayName || conv.other?.username} sent you a paid message.`}
           </Text>
           <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', marginTop: 4, marginBottom: space.md }}>
             They won't know you've seen it until you accept.
@@ -511,6 +541,7 @@ export default function Chat() {
         </View>
       ) : (
         <>
+        {conv.held ? <HeldBar held={conv.held} name={conv.other?.displayName?.split(' ')[0] || conv.other?.username} onChanged={(gone) => (gone ? router.back() : load())} /> : null}
         {soulmojiOpen ? <SoulmojiPanel onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}
         <Composer
           replyTo={replyTo ? { name: nameOfSender(replyTo.senderId), text: previewOf(replyTo) } : null}

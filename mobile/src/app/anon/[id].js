@@ -1,5 +1,5 @@
-// Anonymous chat. "new" = writing to someone for the first time (from their profile).
-// The person who receives it sees only an alias until 7 days pass or they Soul Connect.
+// Anonymous chat, only between Connections. "new" = writing anonymously to a connection (from their profile).
+// First you choose how long you stay hidden; the person who receives it sees only an alias until then.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -14,6 +14,31 @@ import { MaskAvatar, revealIn, threadTitle } from '../../components/anon';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 
 const MAX = 500;
+// how long you stay anonymous (hours), the same choices as the server
+const REVEAL = [[1, '1 hour'], [6, '6 hours'], [24, '1 day'], [72, '3 days'], [168, '7 days'], [336, '14 days'], [720, '30 days']];
+const revealLabel = (h) => (REVEAL.find(([x]) => x === h)?.[1] || `${Math.round(h / 24)} days`);
+
+/** "Till when should I stay anonymous?" — asked before the first anonymous message. */
+function RevealPicker({ value, onChange }) {
+  return (
+    <View style={{ marginHorizontal: space.lg, marginTop: space.md, padding: space.md, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}>
+      <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 14 }}>How long should you stay anonymous?</Text>
+      <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, marginTop: 2, marginBottom: space.sm }}>After this, they see it was you.</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {REVEAL.map(([h, label]) => {
+          const on = value === h;
+          return (
+            <Pressable key={h} onPress={() => onChange(h)} accessibilityRole="button" accessibilityState={{ selected: on }}
+              style={({ hovered }) => ({ paddingHorizontal: 12, height: 32, borderRadius: 999, justifyContent: 'center', borderWidth: 1.5,
+                borderColor: on ? colors.soul : hovered ? colors.aura : colors.border, backgroundColor: on ? 'rgba(124,92,252,0.25)' : 'transparent' })}>
+              <Text style={{ fontFamily: on ? fonts.semibold : fonts.medium, fontSize: 13, color: on ? colors.text : colors.muted }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 const clock = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 function Banner({ icon, color = colors.aura, children }) {
@@ -25,14 +50,14 @@ function Banner({ icon, color = colors.aura, children }) {
   );
 }
 
-/** Shown to the receiver once the 7 days are over (or they connected): who it really was. */
+/** Shown to the receiver once the anonymous time is over: who it really was. */
 function RevealCard({ thread }) {
   const u = thread.other;
   if (!u) return null;
   return (
     <View style={{ marginHorizontal: space.lg, marginTop: space.md, padding: space.lg, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(66,232,192,0.45)', backgroundColor: 'rgba(66,232,192,0.08)', alignItems: 'center' }}>
       <Text style={{ fontFamily: fonts.medium, color: colors.mint, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-        {thread.revealReason === 'connected' ? 'Revealed · you Soul Connected' : 'Revealed · 7 days are up'}
+        {thread.revealReason === 'connected' ? 'Revealed · you Soul Connected' : "Revealed · their anonymous time is up"}
       </Text>
       <View style={{ marginTop: space.md }}><Avatar uri={u.avatarUrl} size={64} name={u.displayName || u.username} /></View>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.sm }}>
@@ -47,7 +72,7 @@ function RevealCard({ thread }) {
         {thread.connected && thread.conversationId ? (
           <Pressable onPress={() => router.push(`/chat/${thread.conversationId}`)} style={{ paddingHorizontal: 16, height: 34, borderRadius: 10, overflow: 'hidden', justifyContent: 'center' }}>
             <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <Text style={{ fontFamily: fonts.semibold, color: '#fff', fontSize: 14 }}>Open Soul chat</Text>
+            <Text style={{ fontFamily: fonts.semibold, color: '#fff', fontSize: 14 }}>Open chat</Text>
           </Pressable>
         ) : null}
       </View>
@@ -81,6 +106,7 @@ export default function AnonChat() {
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [revealHours, setRevealHours] = useState(168);
   const [menu, setMenu] = useState(false);
   const [, tick] = useState(0);
   const listRef = useRef(null);
@@ -121,7 +147,7 @@ export default function AnonChat() {
     setSending(true);
     try {
       if (isNew) {
-        const r = await api('/anon', { method: 'POST', body: { toUserId: userId, body } });
+        const r = await api('/anon', { method: 'POST', body: { toUserId: userId, body, revealHours } });
         setText('');
         router.replace(`/anon/${r.threadId}`);
         return;
@@ -134,7 +160,7 @@ export default function AnonChat() {
   };
 
   const closeChat = async () => {
-    if (!(await confirm('Close this chat?', "They won't be able to send you anything more. You'll still see who it was after the 7 days.", { confirmText: 'Close chat', destructive: true }))) return;
+    if (!(await confirm('Close this chat?', "They won't be able to send you anything more. You'll still see who it was when their time is up.", { confirmText: 'Close chat', destructive: true }))) return;
     try { await api(`/anon/${id}/close`, { method: 'POST' }); router.back(); } catch (e) { notice('Oops', e.message); }
   };
   const hideChat = async () => {
@@ -148,11 +174,16 @@ export default function AnonChat() {
   const blocked = isSender && thread?.closed;
   let banner = null;
   if (isNew) {
-    banner = <Banner icon="eye-off-outline">{`${name || username} won't see your name. They see a secret name instead. After 7 days your name and profile are shown to them, or earlier if you two Soul Connect.`}</Banner>;
+    banner = (
+      <>
+        <Banner icon="eye-off-outline">{`${name || username} won't see your name: they see a secret name instead. After ${revealLabel(revealHours)} your name and profile are shown to them.`}</Banner>
+        <RevealPicker value={revealHours} onChange={setRevealHours} />
+      </>
+    );
   } else if (!thread.revealed && isSender) {
-    banner = <Banner icon="eye-off-outline">{`You're "${thread.alias}". Your name is shown to ${title} in ${revealIn(thread.revealAt)}, or as soon as you Soul Connect.`}</Banner>;
+    banner = <Banner icon="eye-off-outline">{`You're "${thread.alias}". Your name is shown to ${title} in ${revealIn(thread.revealAt)}.`}</Banner>;
   } else if (!thread.revealed) {
-    banner = <Banner icon="sparkles-outline">{`Someone sent you this anonymously. You'll see who it is in ${revealIn(thread.revealAt)}, or as soon as you two Soul Connect.`}</Banner>;
+    banner = <Banner icon="sparkles-outline">{`One of your connections sent you this anonymously. You'll see who it is in ${revealIn(thread.revealAt)}.`}</Banner>;
   } else if (isSender) {
     banner = <Banner icon="eye-outline" color={colors.mint}>{`${title} can now see it was you.`}</Banner>;
   }

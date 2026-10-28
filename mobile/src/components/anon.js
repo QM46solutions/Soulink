@@ -1,4 +1,4 @@
-// Anonymous messages: the masked avatar, inbox row and "reveals in" countdown.
+// Anonymous messages (between Connections, shown in Chats): the masked avatar, inbox row and "reveals in" countdown.
 import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

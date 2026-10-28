@@ -38,10 +38,10 @@ export function RealtimeProvider({ children }) {
     socket.on('account:paused', () => forceSignOut('account_paused'));
     socket.on('account:deleting', () => forceSignOut('account_deleting'));
     socket.on('connect_error', (e) => { if (e?.message === 'no_account' || e?.message === 'session_ended') forceSignOut(e.message); });
-    for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:vanished', 'conversation:private', 'typing', 'read', 'anon:update', 'notification:new']) {
+    for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:vanished', 'conversation:private', 'conversation:hidden', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));
-        if (event === 'message:new' || event === 'read' || event === 'anon:update' || event === 'notification:new') refreshUnread();
+        if (event === 'message:new' || event === 'read' || event === 'anon:update' || event === 'conversation:hidden' || event === 'notification:new') refreshUnread();
       });
     }
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshUnread(); });

@@ -19,11 +19,12 @@ const TYPES = {
   connect_request: ['requests', (m) => `wants to connect for ${intent(m?.intent)}`],
   connect_accepted: ['requests', (m) => (m?.mutual ? "accepted your request. You're Connections now, say hi!" : 'accepted your request.')],
   connect_back: ['requests', () => "connected back with you. You're Connections now!"],
-  connect_rejected: ['requests', () => 'declined your connect request.'],
-  connect_held: ['requests', () => 'put your connect request on hold.'],
+  connect_rejected: ['requests', (m) => (m?.auto ? "didn't decide on your request after the hold, so it was closed." : 'declined your connect request.')],
+  connect_held: ['requests', () => 'put your connect request on hold. You can chat with them until it ends.'],
   connect_hold_extended: ['requests', () => 'extended the hold on your request.'],
   connect_hold_reminder: ['requests', () => ': your hold on their request ends soon.'],
   connect_suspended: ['requests', () => "didn't answer in time. Your request was suspended."],
+  connect_hold_decide: ['requests', () => "is still on your hold list. Accept or reject? If you don't answer within 24 hours, it's rejected automatically.", true],
   follow: ['requests', () => 'connected to you.'],
   follow_request: ['requests', () => 'wants to connect with you.'],
   post_like: ['likes', () => 'gave your post a 👌🏻'],
@@ -31,7 +32,7 @@ const TYPES = {
   comment_reply: ['comments', () => 'replied to your comment.'],
   comment_like: ['likes', () => 'liked your comment 👌🏻'],
   post_suspended: ['likes', () => 'Your post was suspended after many reports. Only you can see it now.', true],
-  anon_message: ['anonymous', () => 'Someone sent you an anonymous message 👀', true],
+  anon_message: ['anonymous', () => 'One of your connections sent you an anonymous message 👀', true],
   anon_reply: ['anonymous', () => 'replied to your anonymous message.'],
   anon_revealed: ['anonymous', (m) => `was "${m?.alias || 'Anonymous'}". Now you know who wrote to you.`],
   anon_revealed_sender: ['anonymous', (m) => `can now see you were "${m?.alias || 'Anonymous'}".`],
@@ -47,7 +48,7 @@ const TYPES = {
   argue_verdict: ['argue', (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''} ⚖️`, true],
 };
 const LINK = (type, entityId, meta) => {
-  if (type === 'connect_request' || type === 'connect_hold_reminder') return '/activity';
+  if (type === 'connect_request' || type === 'connect_hold_reminder' || type === 'connect_hold_decide') return '/activity';
   if ((type === 'connect_accepted' || type === 'connect_back') && meta?.conversationId) return `/chat/${meta.conversationId}`;
   if (type.startsWith('post_') && entityId) return `/post/${entityId}`;
   if (type.startsWith('spark_') && entityId) return `/spark/${entityId}`;

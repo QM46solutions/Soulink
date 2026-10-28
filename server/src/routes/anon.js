@@ -6,7 +6,7 @@ import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js'
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, notify } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';
-import { LIMITS, REVEAL_DAYS, processAnonReveals, randomAlias, threadView, usersById } from '../services/anon.js';
+import { CONNECTED_SQL, LIMITS, REVEAL_DAYS, REVEAL_HOURS, processAnonReveals, randomAlias, threadView, usersById } from '../services/anon.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -37,7 +37,7 @@ async function addMessage(t, fromSender, text) {
   );
   if (fromSender) {
     // Recipient is told "someone" wrote: no actor, so nothing about the sender leaks
-    await notify(t.recipient_id, null, 'anon_message', t.id, { alias: t.alias });
+    await notify(t.recipient_id, null, 'anon_message', t.id, { alias: t.alias, revealAt: t.reveal_at });
   } else {
     await notify(t.sender_id, t.recipient_id, 'anon_reply', t.id, { alias: t.alias });
   }
@@ -45,38 +45,45 @@ async function addMessage(t, fromSender, text) {
   return m;
 }
 
-/** Can I send an anonymous message to this person? (used by the profile button) */
+const notConnected = () => forbidden('You can send anonymous messages only to your Connections.', 'not_connected');
+/** My hidden thread to them that isn't revealed yet (a new one can start after a reveal). */
+const openThread = (me, to) => one('SELECT TOP 1 * FROM anon_threads WHERE sender_id=$1 AND recipient_id=$2 AND revealed_at IS NULL ORDER BY created_at DESC', [me, to]);
+
+/** Can I send an anonymous message to this person? Only to my Connections. (used by the profile button) */
 r.get('/can/:userId', ah(async (req, res) => {
   const to = await one('SELECT id FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [uuid.parse(req.params.userId)]);
   if (!to || same(to.id, req.user.id) || (await isBlockedEither(req.user.id, to.id))) return res.json({ allowed: false });
-  if (await connectionBetween(req.user.id, to.id)) return res.json({ allowed: false, reason: 'connected' });
-  const t = await one('SELECT id FROM anon_threads WHERE sender_id=$1 AND recipient_id=$2', [req.user.id, to.id]);
-  res.json({ allowed: true, threadId: t?.id || null, revealDays: REVEAL_DAYS });
+  if (!(await connectionBetween(req.user.id, to.id))) return res.json({ allowed: false, reason: 'not_connected' });
+  const t = await openThread(req.user.id, to.id);
+  res.json({ allowed: true, threadId: t?.id || null, revealHours: REVEAL_HOURS, defaultHours: REVEAL_DAYS * 24 });
 }));
 
-// Start (or continue) an anonymous chat with someone
+// Start (or continue) an anonymous chat with one of my Connections. revealHours: how long I stay hidden.
 r.post('/', requireSoul, ah(async (req, res) => {
-  const data = z.object({ toUserId: uuid, body }).parse(req.body);
+  const data = z.object({
+    toUserId: uuid, body,
+    revealHours: z.number().int().refine((h) => REVEAL_HOURS.includes(h), 'Choose how long you stay anonymous').default(REVEAL_DAYS * 24),
+  }).parse(req.body);
   const me = req.user;
   const to = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done=1 AND deactivated_at IS NULL', [data.toUserId]);
   if (!to || (await isBlockedEither(me.id, to.id))) throw notFound('User not found');
   if (same(to.id, me.id)) throw badRequest("You can't send yourself an anonymous message");
-  if (await connectionBetween(me.id, to.id)) throw conflict("You're already Soul Connected. Message them directly.", 'already_connected');
+  if (!(await connectionBetween(me.id, to.id))) throw notConnected();
 
-  let t = await one('SELECT * FROM anon_threads WHERE sender_id=$1 AND recipient_id=$2', [me.id, to.id]);
+  let t = await openThread(me.id, to.id);
   if (t) {
     if (t.hidden_by_recipient) throw forbidden("They closed this anonymous chat. You can't send more messages.", 'anon_closed');
   } else {
     const recent = await one(`SELECT COUNT(*) AS n FROM anon_threads WHERE sender_id=$1 AND created_at > DATEADD(HOUR, -24, SYSDATETIMEOFFSET())`, [me.id]);
     if (Number(recent?.n || 0) >= LIMITS.newThreadsPerDay) throw forbidden(`You can start ${LIMITS.newThreadsPerDay} anonymous chats a day. Try again tomorrow.`, 'anon_limit');
     t = await one(
-      `INSERT INTO anon_threads (sender_id, recipient_id, alias, reveal_at) OUTPUT INSERTED.* VALUES ($1, $2, $3, DATEADD(DAY, ${REVEAL_DAYS}, SYSDATETIMEOFFSET()))`,
-      [me.id, to.id, randomAlias()],
+      `INSERT INTO anon_threads (sender_id, recipient_id, alias, reveal_hours, reveal_at) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, DATEADD(HOUR, $4, SYSDATETIMEOFFSET()))`,
+      [me.id, to.id, randomAlias(), data.revealHours],
     );
   }
   await guardUnanswered(t);
   await addMessage(t, true, data.body);
-  res.status(201).json({ threadId: t.id });
+  res.status(201).json({ threadId: t.id, revealAt: t.reveal_at });
 }));
 
 /** Until they reply, the sender can send only a few messages (stops spamming someone anonymously). */
@@ -97,6 +104,7 @@ r.get('/', ah(async (req, res) => {
   const rows = await many(
     `${THREAD_SELECT}
       WHERE ((t.sender_id=$1 AND t.hidden_by_sender=0) OR (t.recipient_id=$1 AND t.hidden_by_recipient=0))
+        AND ${CONNECTED_SQL}
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=t.sender_id AND b.blocked_id=t.recipient_id) OR (b.blocker_id=t.recipient_id AND b.blocked_id=t.sender_id))
       ORDER BY t.last_message_at DESC`, [me],
   );
@@ -128,12 +136,13 @@ r.post('/:id/messages', ah(async (req, res) => {
   const { t, isSender } = await loadThread(req);
   const text = z.object({ body }).parse(req.body).body;
   if (t.hidden_by_recipient && isSender) throw forbidden("They closed this anonymous chat. You can't send more messages.", 'anon_closed');
+  if (!(await connectionBetween(t.sender_id, t.recipient_id))) throw notConnected();
   if (isSender) await guardUnanswered(t);
   const m = await addMessage(t, isSender, text);
   res.status(201).json({ message: { id: m.id, body: m.body, mine: true, createdAt: m.created_at } });
 }));
 
-// Recipient: close the chat. The sender can't send anything more; their name is still shown after 7 days.
+// Recipient: close the chat. The sender can't send anything more; their name is still shown when the time is up.
 r.post('/:id/close', ah(async (req, res) => {
   const { t, isSender } = await loadThread(req);
   if (isSender) throw forbidden('Only the person who received it can close it');

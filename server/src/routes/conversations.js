@@ -10,7 +10,7 @@ import { isBlockedEither, userCard } from '../services/social.js';
 import { emitToUsers } from '../realtime.js';
 import { config } from '../config.js';
 import { pushTo } from '../services/push.js';
-import { connectionBetween } from '../services/connections.js';
+import { connectionBetween, heldBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
 import { paymentsLive, testPaymentsAllowed } from '../lib/payments.js';
 import { aiSpeak, aiTranscribe, aiTranslate, canTranslate, detectLanguage, TRANSLATE_LANGS, voiceInstalled } from '../services/soulmojiAi.js';
@@ -49,7 +49,7 @@ async function loadConversation(req) {
   const id = uuid.parse(req.params.id);
   const conv = await one('SELECT * FROM conversations WHERE id=$1', [id]);
   const me = conv && (await membership(id, req.user.id));
-  if (!conv || !me) throw notFound('Conversation not found');
+  if (!conv || !me || me.hidden_at) throw notFound('Conversation not found'); // hidden = a held chat that ended without a connection
   return { conv, me };
 }
 
@@ -200,12 +200,23 @@ function serializeConversation(c, members, meId, lastMessage = null, unread = 0)
   };
 }
 
+/** A held Connect request between me and them, as the chat shows it (null if none). */
+export async function heldInfo(meId, otherId) {
+  const h = await heldBetween(meId, otherId);
+  if (!h) return null;
+  return { requestId: h.id, until: h.hold_until, decideBy: h.hold_decide_until || null, iHeld: String(h.to_id).toLowerCase() === String(meId).toLowerCase(), canExtend: !h.hold_extended };
+}
+
 async function conversationPayload(conv, meId) {
   const members = await memberRows([conv.id]);
   const out = serializeConversation(conv, members, meId);
-  // 1:1 chats only work between Connections: the app shows "Connect to chat" instead of the message box
-  if (!conv.is_group && out.other && config.connectRequired) out.canMessage = !!(await connectionBetween(meId, out.other.id));
-  else out.canMessage = true;
+  // 1:1 chats only work between Connections, or while a Connect request is on hold (that chat sits in Requests).
+  // Otherwise the app shows "Connect to chat" instead of the message box.
+  out.held = null;
+  if (!conv.is_group && out.other && config.connectRequired) {
+    out.canMessage = !!(await connectionBetween(meId, out.other.id));
+    if (!out.canMessage) { out.held = await heldInfo(meId, out.other.id); out.canMessage = !!out.held; }
+  } else out.canMessage = true;
   return out;
 }
 
@@ -215,6 +226,12 @@ async function memberIds(conversationId) {
 
 /** Inserts a message (and bumps the conversation), then pushes it to every member's phone. */
 export async function postMessage(conv, senderId, { kind, body = null, mediaUrl = null, durationMs = null, replyToId = null, momentRef = null }) {
+  // replying moves a chat out of Requests, but only between Connections (a held chat or a paid message stays a request)
+  let clearRequest = true;
+  if (config.connectRequired && senderId && !conv.is_group && conv.direct_key) {
+    const otherId = conv.direct_key.split(':').find((id) => id.toUpperCase() !== String(senderId).toUpperCase());
+    if (otherId && !(await connectionBetween(senderId, otherId))) clearRequest = false;
+  }
   const msg = await tx(async (c) => {
     const vanish = !!conv.private_mode && kind !== 'system' ? 1 : 0; // private chat: gone once it's been seen
     const m = (await c.query(
@@ -225,7 +242,7 @@ export async function postMessage(conv, senderId, { kind, body = null, mediaUrl 
     await c.query('UPDATE conversations SET last_message_at = $2 WHERE id=$1', [conv.id, m.created_at]);
     if (senderId) {
       // Sending a message marks the thread as read for me, and replying to a request accepts it.
-      await c.query('UPDATE conversation_members SET last_read_at = $3, is_request = 0 WHERE conversation_id=$1 AND user_id=$2', [conv.id, senderId, m.created_at]);
+      await c.query(`UPDATE conversation_members SET last_read_at = $3${clearRequest ? ', is_request = 0' : ''} WHERE conversation_id=$1 AND user_id=$2`, [conv.id, senderId, m.created_at]);
     }
     return m;
   });
@@ -263,8 +280,9 @@ export async function assertCanSend(conv, meId) {
   // direct_key is stored in upper case, ids may come back in either case: compare case-insensitively
   const otherId = others[0] || conv.direct_key.split(':').find((id) => id.toUpperCase() !== String(meId).toUpperCase());
   if (await isBlockedEither(meId, otherId)) throw forbidden("You can't message this account", 'blocked');
-  // No messages (not even a first "hi") until you're connected. One paid message is the only exception (/paid-message).
-  if (config.connectRequired && !(await connectionBetween(meId, otherId))) {
+  // No messages (not even a first "hi") until you're connected. Exceptions: one paid message (/paid-message), and a
+  // Connect request on hold: the two can chat until the hold ends (that chat stays in Requests).
+  if (config.connectRequired && !(await connectionBetween(meId, otherId)) && !(await heldBetween(meId, otherId))) {
     throw forbidden('You can message them once you are connected. Send a Connect request first.', 'not_connected');
   }
   // If the other person had deleted this thread, bring it back to them as a request.
@@ -297,11 +315,13 @@ r.get('/', ah(async (req, res) => {
             lm.created_at AS lm_created_at, lm.deleted_at AS lm_deleted_at,
             (SELECT COUNT(*) FROM messages m
               WHERE m.conversation_id = c.id AND m.kind <> N'system' AND m.sender_id <> $1
+                AND (c.history_from IS NULL OR m.created_at > c.history_from)
                 AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)) AS unread
        FROM conversation_members cm
        JOIN conversations c ON c.id = cm.conversation_id
-       OUTER APPLY (SELECT TOP 1 * FROM messages m WHERE m.conversation_id = c.id AND m.vanished_at IS NULL ORDER BY m.created_at DESC) lm
-      WHERE cm.user_id = $1 AND ($3 = 1 OR cm.is_request = $2) AND ($3 = 0 OR c.is_group = 1)
+       OUTER APPLY (SELECT TOP 1 * FROM messages m WHERE m.conversation_id = c.id AND m.vanished_at IS NULL
+                     AND (c.history_from IS NULL OR m.created_at > c.history_from) ORDER BY m.created_at DESC) lm
+      WHERE cm.user_id = $1 AND cm.hidden_at IS NULL AND ($3 = 1 OR cm.is_request = $2) AND ($3 = 0 OR c.is_group = 1)
         AND (c.is_group = 1 OR c.last_message_at IS NOT NULL OR c.created_by = $1)
         AND ($3 = 1 OR $2 = 0 OR c.last_message_at IS NOT NULL)
         AND (c.is_group = 1 OR NOT EXISTS (
@@ -324,9 +344,18 @@ r.get('/', ah(async (req, res) => {
     }) : null;
     return serializeConversation(c, byConv.get(c.id) || [], me, lm, c.unread);
   });
+  // Requests are only ever (1) a paid message from someone you're not connected with, or (2) a chat while a
+  // Connect request is on hold. Tell the app which is which.
+  if (box === 1) {
+    for (const cv of conversations) {
+      if (cv.isGroup || !cv.other) continue;
+      cv.held = await heldInfo(me, cv.other.id);
+      if (!cv.held) cv.paid = !!(await one('SELECT TOP 1 1 AS x FROM paid_messages WHERE conversation_id=$1', [cv.id]));
+    }
+  }
   const requests = box === 0
     ? (await one(`SELECT COUNT(*) AS n FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
-                   WHERE cm.user_id=$1 AND cm.is_request = 1 AND c.last_message_at IS NOT NULL`, [me])).n
+                   WHERE cm.user_id=$1 AND cm.is_request = 1 AND cm.hidden_at IS NULL AND c.last_message_at IS NOT NULL`, [me])).n
     : conversations.length;
   res.json({ conversations, requestCount: requests });
 }));
@@ -336,13 +365,14 @@ r.get('/unread', ah(async (req, res) => {
   const row = await one(
     `SELECT
        (SELECT COUNT(*) FROM conversation_members cm
-         WHERE cm.user_id = $1 AND cm.is_request = 0
+         WHERE cm.user_id = $1 AND cm.is_request = 0 AND cm.hidden_at IS NULL
            AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = cm.conversation_id AND m.kind <> N'system'
                         AND m.sender_id <> $1 AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at))) AS chats,
        (SELECT COUNT(*) FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
-         WHERE cm.user_id = $1 AND cm.is_request = 1 AND c.last_message_at IS NOT NULL) AS requests,
+         WHERE cm.user_id = $1 AND cm.is_request = 1 AND cm.hidden_at IS NULL AND c.last_message_at IS NOT NULL) AS requests,
        (SELECT COUNT(*) FROM anon_threads t
          WHERE ((t.sender_id = $1 AND t.hidden_by_sender = 0) OR (t.recipient_id = $1 AND t.hidden_by_recipient = 0))
+           AND EXISTS (SELECT 1 FROM connections cx WHERE (cx.user_a = t.sender_id AND cx.user_b = t.recipient_id) OR (cx.user_a = t.recipient_id AND cx.user_b = t.sender_id))
            AND EXISTS (SELECT 1 FROM anon_messages am WHERE am.thread_id = t.id
                         AND am.from_sender = CASE WHEN t.sender_id = $1 THEN 0 ELSE 1 END
                         AND am.created_at > ISNULL(CASE WHEN t.sender_id = $1 THEN t.sender_read_at ELSE t.recipient_read_at END, '1900-01-01'))) AS anon`,
@@ -360,7 +390,7 @@ r.post('/direct', requireSoul, ah(async (req, res) => {
   if (userId === me) throw badRequest("You can't message yourself");
   const target = await one('SELECT * FROM users WHERE id=$1 AND onboarding_done = 1 AND deactivated_at IS NULL', [userId]);
   if (!target || (await isBlockedEither(me, userId))) throw notFound('User not found');
-  if (config.connectRequired && !(await connectionBetween(me, userId))) {
+  if (config.connectRequired && !(await connectionBetween(me, userId)) && !(await heldBetween(me, userId))) {
     throw forbidden('Connect first: the chat opens once they accept your request.', 'not_connected');
   }
 
@@ -415,7 +445,8 @@ r.post('/paid-message', requireSoul, ah(async (req, res) => {
   else throw new HttpError(503, 'Paid messages are coming soon: payments are not switched on yet.', 'payments_off');
 
   const conv = await getOrCreateDirect(me, data.userId);
-  // it always lands in their Requests, however they know you
+  // it always lands in their Requests, however they know you (and brings back a chat that was hidden earlier)
+  await query('UPDATE conversation_members SET hidden_at=NULL WHERE conversation_id=$1', [conv.id]);
   await query('UPDATE conversation_members SET is_request=1 WHERE conversation_id=$1 AND user_id=$2', [conv.id, data.userId]);
   const message = await postMessage(conv, me, { kind: 'text', body: data.body });
   await query('INSERT INTO paid_messages (sender_id, recipient_id, conversation_id, message_id, amount_paise, payment_ref, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -473,8 +504,9 @@ r.get('/:id/messages', ah(async (req, res) => {
   const mode = req.query.vanish === '1' ? ' AND vanish = 1' : req.query.vanish === '0' ? ' AND vanish = 0' : '';
   const rows = await many(
     `SELECT TOP (${limit}) * FROM messages WHERE conversation_id=$1 AND vanished_at IS NULL${mode} AND ($2 IS NULL OR created_at < CAST($2 AS DATETIMEOFFSET))
+        AND ($3 IS NULL OR created_at > CAST($3 AS DATETIMEOFFSET))
       ORDER BY created_at DESC`,
-    [conv.id, before],
+    [conv.id, before, conv.history_from ? new Date(conv.history_from).toISOString() : null],
   );
   res.json({ messages: await enrich(rows.map(serializeMessage), req.user.id), hasMore: rows.length === limit });
 }));
@@ -756,6 +788,11 @@ r.delete('/:id/messages/:messageId', ah(async (req, res) => {
 
 r.post('/:id/accept', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
+  // a chat during a hold moves to Chats only when the Connect request itself is accepted
+  if (!conv.is_group && conv.direct_key) {
+    const otherId = conv.direct_key.split(':').find((id) => id.toUpperCase() !== String(req.user.id).toUpperCase());
+    if (otherId && (await heldBetween(req.user.id, otherId))) throw badRequest('Accept or reject their Connect request to move this chat', 'held_request');
+  }
   await query('UPDATE conversation_members SET is_request = 0 WHERE conversation_id=$1 AND user_id=$2', [conv.id, req.user.id]);
   res.json({ conversation: await conversationPayload(conv, req.user.id) });
 }));

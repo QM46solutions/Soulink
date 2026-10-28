@@ -111,17 +111,20 @@ export default function UserProfile() {
   else if (conn?.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
   else connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
 
-  // Anonymous message: hidden for 7 days or until they Soul Connect (not offered once connected)
+  // Anonymous message: only to your Connections. You choose how long you stay hidden; then they see it was you.
   const goAnon = () => {
     if (needSoul()) return;
     if (anon?.threadId) router.push(`/anon/${anon.threadId}`);
     else router.push({ pathname: '/anon/[id]', params: { id: 'new', userId: target.id, username: target.username, name: target.displayName || target.username } });
   };
   // Not connected: no free messages at all. Premium can send ONE message (₹500).
-  if (!rel.isMe && !conn?.connected && !conn?.blocked) {
+  // A Connect request on hold: you two can chat until the hold ends (the chat is in Messages › Requests).
+  if (!rel.isMe && !conn?.connected && conn?.request?.status === 'held') {
+    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={openChat} />;
+  } else if (!rel.isMe && !conn?.connected && !conn?.blocked) {
     messageBtn = <ProfileAction icon="diamond-outline" onPress={() => { if (!needSoul()) setPaidOpen(true); }} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />;
   }
-  const anonBtn = !rel.isMe && anon?.allowed && !conn?.connected ? (
+  const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? (
     <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
   ) : null;
 

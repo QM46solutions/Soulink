@@ -29,6 +29,7 @@ Internal work list. Not for pitch decks.
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Chat rules: only Chats and Requests tabs; Chats filters (All / Unread / Groups / Anonymous); anonymous messages only to Connections with a chosen hidden time (1 h to 30 days); Requests = a paid message, or a chat while a Connect request is on hold; at the end of a hold the receiver gets 24 h to accept or reject, then it's rejected automatically and the chat is hidden (kept in the database)
 - Soul DNA v4: a model of how each person thinks, acts and reacts (64 real-life scenarios in 9 layers, each person gets their own adaptive set, "Anything else" typed answers, gut-reaction timing), a different logic per relation type, the life-partner simulation (24 situations), give and take, "how they think" in words
 - Connect asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for), plus 2-3 optional questions for the pair
 - What people are into on Soulink (likes, reactions, views, searches → topics), only with the Soul DNA activity switch on

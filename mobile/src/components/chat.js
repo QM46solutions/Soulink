@@ -41,7 +41,7 @@ export function ConversationAvatar({ conversation, size = 52 }) {
 
 // ---------- inbox row ----------
 
-export const ConversationRow = memo(function ConversationRow({ conversation, onPress, onLongPress }) {
+export const ConversationRow = memo(function ConversationRow({ conversation, onPress, onLongPress, tag }) {
   const unread = conversation.unreadCount > 0;
   const lm = conversation.lastMessage;
   return (
@@ -56,6 +56,7 @@ export const ConversationRow = memo(function ConversationRow({ conversation, onP
           {lm ? `${lm.text}` : conversation.isGroup ? `${conversation.members.length} members` : 'Say hi 👋'}
           {lm ? <Text style={{ color: colors.dim }}>{`  ·  ${ago(lm.createdAt)}`}</Text> : null}
         </Text>
+        {tag ? <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11, color: tag.color || colors.gold, marginTop: 3 }}>{tag.text}</Text> : null}
       </View>
       {unread ? (
         <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.unread}>

@@ -1,5 +1,5 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
-import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import ActionSheet from '../../components/ActionSheet';
 import { confirm } from '../../lib/confirm';
 import { Empty, ErrorText, Loading } from '../../components/ui';
 import { colors, fonts, gradients, radius, space } from '../../lib/theme';
+import { fmtDate } from '../../lib/intents';
 
 function Tab({ label, count, active, onPress }) {
   return (
@@ -44,13 +45,52 @@ function ArgueButton() {
   );
 }
 
-// Inbox: Chats and message Requests (from people who don't follow you)
+// Filters on Chats (like Instagram): everything, only unread, only groups, only anonymous ones
+const FILTERS = [['all', 'All'], ['unread', 'Unread'], ['groups', 'Groups'], ['anon', 'Anonymous']];
+function FilterChips({ value, onChange, counts }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.lg, paddingVertical: space.md, gap: 8 }}>
+      {FILTERS.map(([k, label]) => {
+        const on = value === k;
+        return (
+          <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="button" accessibilityState={{ selected: on }}
+            style={({ hovered }) => ({ paddingHorizontal: 14, height: 32, borderRadius: radius.pill, justifyContent: 'center', borderWidth: 1,
+              borderColor: on ? colors.soul : hovered ? colors.aura : colors.border, backgroundColor: on ? 'rgba(124,92,252,0.25)' : 'transparent' })}>
+            <Text style={{ fontFamily: on ? fonts.semibold : fonts.medium, fontSize: 13, color: on ? colors.text : colors.muted }}>
+              {label}{counts[k] ? ` ${counts[k]}` : ''}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const timeOf = (item) => new Date(item.kind === 'anon'
+  ? item.thread.lastMessage?.createdAt || item.thread.createdAt
+  : item.conv.updatedAt || item.conv.createdAt).getTime();
+const isUnread = (item) => (item.kind === 'anon' ? !!item.thread.unread : item.conv.unreadCount > 0);
+
+/** What a request is: a chat while their Connect request is on hold, or one paid message. */
+function requestTag(c) {
+  if (c.held) {
+    if (c.held.decideBy) return { text: c.held.iHeld ? 'Hold is over · accept or reject now' : 'Hold is over · waiting for their answer', color: colors.spark };
+    return { text: `${c.held.iHeld ? 'You put them on hold' : 'On hold'} · chat until ${fmtDate(c.held.until)}` };
+  }
+  if (c.paid) return { text: 'Paid message', color: colors.aura };
+  return null;
+}
+
+// Inbox: Chats (connections, groups, and anonymous messages between connections) and Requests
+// (only a paid message, or a chat while a Connect request is on hold).
 export default function Messages() {
   const { user } = useAuth();
   const { refreshUnread } = useRealtime();
   const navigation = useNavigation();
   const [box, setBox] = useState('inbox');
-  const [data, setData] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [chats, setChats] = useState(null);
+  const [requests, setRequests] = useState(null);
   const [requestCount, setRequestCount] = useState(0);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,25 +108,47 @@ export default function Messages() {
     });
   }, [navigation, user.username]);
 
-  const [anonUnread, setAnonUnread] = useState(0);
   const load = useCallback(async (which = box) => {
     try {
-      api('/anon').then((a) => { setAnonUnread(a.unread); if (which === 'anon') setData(a.threads); }).catch(() => {});
-      if (which === 'anon') { setError(null); return; }
-      const r = await api(`/conversations?box=${which}`);
-      setData(r.conversations.map((c) => ({ ...c, meId: user.id })));
-      if (which === 'inbox') setRequestCount(r.requestCount);
-      else setRequestCount(r.conversations.length);
+      if (which === 'requests') {
+        const r = await api('/conversations?box=requests');
+        setRequests(r.conversations.map((c) => ({ ...c, meId: user.id })));
+        setRequestCount(r.conversations.length);
+      } else {
+        const [r, a] = await Promise.all([api('/conversations?box=inbox'), api('/anon').catch(() => ({ threads: [] }))]);
+        const items = [
+          ...r.conversations.map((c) => ({ kind: 'conv', id: `c:${c.id}`, conv: { ...c, meId: user.id } })),
+          ...a.threads.map((t) => ({ kind: 'anon', id: `a:${t.id}`, thread: t })),
+        ].sort((x, y) => timeOf(y) - timeOf(x));
+        setChats(items);
+        setRequestCount(r.requestCount);
+      }
       setError(null);
-    } catch (e) { setError(e.message); setData((d) => d || []); }
+    } catch (e) {
+      setError(e.message);
+      if (which === 'requests') setRequests((d) => d || []); else setChats((d) => d || []);
+    }
   }, [box, user.id]);
 
   useFocusEffect(useCallback(() => { load(); refreshUnread(); }, [load, refreshUnread]));
   useLiveEvent('message:new', () => load());
   useLiveEvent('message:deleted', () => load());
   useLiveEvent('anon:update', () => load());
+  useLiveEvent('conversation:hidden', () => load());
 
-  const switchBox = (b) => { setBox(b); setData(null); load(b); };
+  const switchBox = (b) => { setBox(b); load(b); };
+
+  const counts = useMemo(() => {
+    const list = chats || [];
+    return {
+      unread: list.filter(isUnread).length,
+      groups: list.filter((i) => i.kind === 'conv' && i.conv.isGroup).length,
+      anon: list.filter((i) => i.kind === 'anon').length,
+    };
+  }, [chats]);
+  const shownChats = useMemo(() => (chats || []).filter((i) => (
+    filter === 'unread' ? isUnread(i) : filter === 'groups' ? i.kind === 'conv' && i.conv.isGroup : filter === 'anon' ? i.kind === 'anon' : true
+  )), [chats, filter]);
 
   const deleteChat = async (c) => {
     if (!(await confirm(c.isRequest ? 'Delete this request?' : 'Delete this chat?', "It's removed from your inbox. If they message you again, it comes back.", { confirmText: 'Delete', destructive: true }))) return;
@@ -94,46 +156,56 @@ export default function Messages() {
     load();
   };
 
+  const data = box === 'requests' ? requests : chats ? shownChats : null;
+  const emptyChats = filter === 'unread'
+    ? <Empty icon="checkmark-done-outline" title="All caught up" text="No unread messages." />
+    : filter === 'groups'
+      ? <Empty icon="people-outline" title="No groups yet" text="Tap the people icon at the top to start a group with your connections." />
+      : filter === 'anon'
+        ? <Empty icon="eye-off-outline" title="No anonymous messages" text="You can send an anonymous message to any of your connections from their profile (the eye button). You choose how long you stay hidden; then they see it was you." />
+        : (
+          <Empty icon="paper-plane-outline" title="No messages yet" text="Chats open with your connections. Send a Connect request from someone's profile to start.">
+            <Pressable onPress={() => router.push('/messages/new')} style={{ marginTop: space.lg, borderWidth: 1, borderColor: colors.soul, borderRadius: radius.pill, paddingHorizontal: 18, paddingVertical: 10 }}>
+              <Text style={{ color: colors.aura, fontFamily: fonts.semibold }}>Send a message</Text>
+            </Pressable>
+          </Empty>
+        );
+
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginHorizontal: space.lg }}>
-        <Tab label="Chats" active={box === 'inbox'} onPress={() => switchBox('inbox')} />
+        <Tab label="Chats" count={counts.unread} active={box === 'inbox'} onPress={() => switchBox('inbox')} />
         <Tab label="Requests" count={requestCount} active={box === 'requests'} onPress={() => switchBox('requests')} />
-        <Tab label="Anonymous" count={anonUnread} active={box === 'anon'} onPress={() => switchBox('anon')} />
       </View>
-      {box === 'anon' && data?.length ? (
+      {box === 'inbox' ? <View><FilterChips value={filter} onChange={setFilter} counts={counts} /></View> : null}
+      {box === 'requests' && requests?.length ? (
         <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', padding: space.md, lineHeight: 17 }}>
-          Names stay hidden for 7 days, or until you two Soul Connect.
-        </Text>
-      ) : null}
-      {box === 'requests' && data?.length ? (
-        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', padding: space.md, lineHeight: 17 }}>
-          Messages from people you don't follow. They won't know you've seen them until you accept.
+          A paid message from someone you're not connected with, or a chat while a Connect request is on hold. Once the request is accepted, the chat moves to Chats.
         </Text>
       ) : null}
       <ErrorText>{error}</ErrorText>
       {!data ? <Loading /> : (
         <FlatList
           data={data}
-          keyExtractor={(c) => c.id}
-          renderItem={({ item }) => (box === 'anon' ? <AnonRow thread={item} onPress={() => router.push(`/anon/${item.id}`)} /> : (
-            <ConversationRow
-              conversation={item}
-              onPress={() => router.push(`/chat/${item.id}`)}
-              onLongPress={!item.isGroup ? () => setMenuFor(item) : undefined}
-            />
-          ))}
+          keyExtractor={(i) => i.id}
+          renderItem={({ item }) => {
+            if (box === 'requests') {
+              return <ConversationRow conversation={item} tag={requestTag(item)} onPress={() => router.push(`/chat/${item.id}`)} onLongPress={!item.isGroup && !item.held ? () => setMenuFor(item) : undefined} />;
+            }
+            if (item.kind === 'anon') return <AnonRow thread={item.thread} onPress={() => router.push(`/anon/${item.thread.id}`)} />;
+            return (
+              <ConversationRow
+                conversation={item.conv}
+                onPress={() => router.push(`/chat/${item.conv.id}`)}
+                onLongPress={!item.conv.isGroup ? () => setMenuFor(item.conv) : undefined}
+              />
+            );
+          }}
           refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
-          contentContainerStyle={{ paddingTop: space.sm, paddingBottom: 130, flexGrow: 1 }}
-          ListEmptyComponent={box === 'inbox' ? (
-            <Empty icon="paper-plane-outline" title="No messages yet" text="Start a chat with someone you know, or create a group.">
-              <Pressable onPress={() => router.push('/messages/new')} style={{ marginTop: space.lg, borderWidth: 1, borderColor: colors.soul, borderRadius: radius.pill, paddingHorizontal: 18, paddingVertical: 10 }}>
-                <Text style={{ color: colors.aura, fontFamily: fonts.semibold }}>Send a message</Text>
-              </Pressable>
-            </Empty>
-          ) : box === 'anon' ? (
-            <Empty icon="eye-off-outline" title="No anonymous messages" text="Send someone an anonymous message from their profile (the eye button). Your name is shown to them after 7 days, or as soon as you Soul Connect." />
-          ) : <Empty icon="mail-unread-outline" title="No message requests" text="When someone you don't follow messages you, it shows up here." />}
+          contentContainerStyle={{ paddingTop: space.xs, paddingBottom: 130, flexGrow: 1 }}
+          ListEmptyComponent={box === 'inbox' ? emptyChats : (
+            <Empty icon="mail-unread-outline" title="No requests" text="Requests are a paid message from someone you're not connected with, or a chat while you've put someone's Connect request on hold (or they put yours)." />
+          )}
         />
       )}
       <ActionSheet

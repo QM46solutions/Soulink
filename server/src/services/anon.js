@@ -1,20 +1,22 @@
-// Anonymous messages: the sender stays hidden for 7 days after the first message,
+// Anonymous messages, only between Connections (never to people you aren't connected with).
+// The sender chooses how long they stay hidden (1 hour to 30 days, 7 days by default). When the time is up both
+// are told, and the recipient sees exactly who it was (name + profile).
 import { recentlyActive } from '../activity.js';
-// or until the two people become a Soul Connection. Then both are told, and the
-// recipient sees exactly who it was (name + profile).
 // Privacy rule: nothing about the sender (id, name, photo) leaves the server for the
 // recipient before the reveal: not in lists, messages, notifications or realtime events.
 import { many, one } from '../db.js';
 import { notify, userCard } from './social.js';
 
-export const REVEAL_DAYS = 7;
+export const REVEAL_DAYS = 7; // the default
+/** How long the sender can stay hidden, in hours: 1 h, 6 h, 1 day, 3 days, 7 days, 14 days, 30 days */
+export const REVEAL_HOURS = [1, 6, 24, 72, 168, 336, 720];
 export const LIMITS = { newThreadsPerDay: 5, unansweredMessages: 3, bodyMax: 500 };
 
 const ADJ = ['Mystery', 'Secret', 'Hidden', 'Quiet', 'Masked', 'Silent', 'Shy', 'Midnight', 'Velvet', 'Cosmic'];
 const NOUN = ['Soul', 'Comet', 'Star', 'Moon', 'Spark', 'Owl', 'Echo', 'Aura', 'Nova', 'Wave'];
 export const randomAlias = () => `${ADJ[Math.floor(Math.random() * ADJ.length)]} ${NOUN[Math.floor(Math.random() * NOUN.length)]}`;
 
-const CONNECTED_SQL = `EXISTS (SELECT 1 FROM connections c WHERE (c.user_a=t.sender_id AND c.user_b=t.recipient_id) OR (c.user_a=t.recipient_id AND c.user_b=t.sender_id))`;
+export const CONNECTED_SQL = `EXISTS (SELECT 1 FROM connections c WHERE (c.user_a=t.sender_id AND c.user_b=t.recipient_id) OR (c.user_a=t.recipient_id AND c.user_b=t.sender_id))`;
 
 async function reveal(t, reason) {
   const upd = await one(
@@ -27,23 +29,12 @@ async function reveal(t, reason) {
   return true;
 }
 
-/** Reveals every thread whose 7 days are over, or whose two people are now connected. */
+/** Reveals every thread whose hidden time (chosen by the sender) is over. */
 export async function processAnonReveals(now = new Date()) {
-  const due = await many(
-    `SELECT t.*, CASE WHEN ${CONNECTED_SQL} THEN 1 ELSE 0 END AS is_connected FROM anon_threads t
-      WHERE t.revealed_at IS NULL AND (t.reveal_at <= $1 OR ${CONNECTED_SQL})`, [now],
-  );
+  const due = await many(`SELECT t.* FROM anon_threads t WHERE t.revealed_at IS NULL AND t.reveal_at <= $1`, [now]);
   let revealed = 0;
-  for (const t of due) if (await reveal(t, t.is_connected ? 'connected' : 'time')) revealed += 1;
+  for (const t of due) if (await reveal(t, 'time')) revealed += 1;
   return { revealed };
-}
-
-/** Called when two people connect: any anonymous chat between them is revealed straight away. */
-export async function revealBetween(a, b) {
-  const rows = await many(
-    `SELECT * FROM anon_threads WHERE revealed_at IS NULL AND ((sender_id=$1 AND recipient_id=$2) OR (sender_id=$2 AND recipient_id=$1))`, [a, b],
-  );
-  for (const t of rows) await reveal(t, 'connected');
 }
 
 /** A thread as one of its two people sees it. Sender details only after the reveal. */
@@ -59,6 +50,7 @@ export function threadView(t, meId, users = {}) {
     alias: t.alias,
     revealed,
     revealAt: t.reveal_at,
+    revealHours: t.reveal_hours ?? REVEAL_DAYS * 24,
     revealedAt: t.revealed_at,
     revealReason: t.reveal_reason,
     // The person on the other side: always known to the sender; to the recipient only after the reveal

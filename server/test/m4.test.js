@@ -11,6 +11,7 @@ after(() => closePool());
 const quiz = (u, k = 0) => makeDna(u, k);
 async function pair() { const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1); return [a, b]; }
 const send = (from, to, body = {}) => api().post('/connections/requests').set(from.h).send({ toUserId: to.user.id, intent: 'friendship', ...body });
+const strict = (fn) => async () => { const was = config.connectRequired; config.connectRequired = true; try { await fn(); } finally { config.connectRequired = was; } };
 const notes = async (u) => (await api().get('/notifications').set(u.h).expect(200)).body.notifications;
 
 describe('Connect requests', () => {
@@ -76,7 +77,7 @@ describe('Connect requests', () => {
     assert.ok(s.cooldownUntil);
   });
 
-  test('hold: sender told the length; extend once; reminder before the end; auto-suspend after', async () => {
+  test('hold: sender told the length; extend once; when it ends the receiver is asked; no answer = rejected', strict(async () => {
     const [a, b] = await pair();
     const q = (await send(a, b).expect(201)).body.request;
     await api().post(`/connections/requests/${q.id}/hold`).set(b.h).send({ days: 2 }).expect(400);
@@ -87,18 +88,77 @@ describe('Connect requests', () => {
     await api().post(`/connections/requests/${q.id}/hold`).set(b.h).send({ days: 1 }).expect(200);
     assert.equal((await notes(a))[0].type, 'connect_hold_extended');
     assert.equal((await api().post(`/connections/requests/${q.id}/hold`).set(b.h).send({ days: 1 }).expect(409)).body.error.code, 'hold_extended');
-    // 10 hours left → reminder to the receiver
-    await query("UPDATE connection_requests SET hold_until = DATEADD(HOUR, 10, SYSDATETIMEOFFSET()), hold_days = 3 WHERE id=$1", [q.id]);
-    let done = await processHolds();
-    assert.ok(done.reminded >= 1);
-    assert.equal((await notes(b))[0].type, 'connect_hold_reminder');
-    // time's up → suspended, sender told, 7-day wait
+    // the hold is over → the receiver is asked to accept or reject (24 hours)
     await query("UPDATE connection_requests SET hold_until = DATEADD(MINUTE, -1, SYSDATETIMEOFFSET()) WHERE id=$1", [q.id]);
+    let done = await processHolds();
+    assert.ok(done.asked >= 1);
+    assert.equal((await notes(b))[0].type, 'connect_hold_decide');
+    const inbox = (await api().get('/connections/requests?box=incoming').set(b.h).expect(200)).body.requests;
+    assert.ok(inbox[0].decideBy);
+    // they can still chat while deciding
+    const conv = (await api().get('/conversations?box=requests').set(a.h).expect(200)).body.conversations[0];
+    await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ body: 'any news?' }).expect(201);
+    // no answer in time → rejected automatically, sender told, chat hidden from both
+    await query("UPDATE connection_requests SET hold_decide_until = DATEADD(MINUTE, -1, SYSDATETIMEOFFSET()) WHERE id=$1", [q.id]);
     done = await processHolds();
-    assert.ok(done.suspended >= 1);
-    assert.equal((await notes(a))[0].type, 'connect_suspended');
+    assert.ok(done.rejected >= 1);
+    const n = (await notes(a))[0];
+    assert.equal(n.type, 'connect_rejected');
+    assert.equal(n.meta.auto, true);
+    for (const u of [a, b]) {
+      for (const box of ['inbox', 'requests']) assert.equal((await api().get(`/conversations?box=${box}`).set(u.h).expect(200)).body.conversations.length, 0);
+      await api().get(`/conversations/${conv.id}`).set(u.h).expect(404);
+    }
+    const kept = (await query('SELECT COUNT(*) AS n FROM messages WHERE conversation_id=$1', [conv.id])).rows[0].n;
+    assert.ok(Number(kept) >= 1); // stored, never shown
     assert.equal((await send(a, b).expect(403)).body.error.code, 'cooldown');
-  });
+  }));
+
+  test('on hold: both can chat, in Requests; accept → Connections and the chat moves to Chats', strict(async () => {
+    const [a, b] = await pair();
+    const q = (await send(a, b).expect(201)).body.request;
+    await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(403); // not before the hold
+    await api().post(`/connections/requests/${q.id}/hold`).set(b.h).send({ days: 7 }).expect(200);
+    const forA = (await api().get('/conversations?box=requests').set(a.h).expect(200)).body.conversations;
+    const forB = (await api().get('/conversations?box=requests').set(b.h).expect(200)).body.conversations;
+    assert.equal(forA.length, 1);
+    assert.equal(forB.length, 1);
+    assert.equal(forB[0].held.iHeld, true);
+    assert.equal(forA[0].held.iHeld, false);
+    const id = forA[0].id;
+    assert.equal((await api().get(`/conversations/${id}`).set(a.h).expect(200)).body.conversation.canMessage, true);
+    await api().post(`/conversations/${id}/messages`).set(a.h).send({ body: 'hi!' }).expect(201);
+    await api().post(`/conversations/${id}/messages`).set(b.h).send({ body: 'hello' }).expect(201);
+    // replying doesn't move it out of Requests; only accepting the Connect request does
+    assert.equal((await api().get('/conversations?box=inbox').set(b.h).expect(200)).body.conversations.length, 0);
+    await api().post(`/conversations/${id}/accept`).set(b.h).expect(400);
+    const inc = (await api().get('/connections/requests?box=incoming').set(b.h).expect(200)).body.requests[0];
+    assert.equal(inc.conversationId, id);
+    const acc = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({}).expect(200)).body;
+    assert.equal(acc.mutual, true);
+    for (const u of [a, b]) {
+      const chats = (await api().get('/conversations?box=inbox').set(u.h).expect(200)).body.conversations;
+      assert.equal(chats.length, 1);
+      assert.equal(chats[0].id, id);
+      assert.equal((await api().get('/conversations?box=requests').set(u.h).expect(200)).body.conversations.length, 0);
+    }
+    const msgs = (await api().get(`/conversations/${id}/messages`).set(a.h).expect(200)).body.messages.map((m) => m.body);
+    assert.ok(msgs.includes('hi!') && msgs.includes('hello'));
+  }));
+
+  test('on hold, then rejected: the chat is hidden for both (kept in the database)', strict(async () => {
+    const [a, b] = await pair();
+    const q = (await send(a, b).expect(201)).body.request;
+    await api().post(`/connections/requests/${q.id}/hold`).set(b.h).send({ days: 3 }).expect(200);
+    const id = (await api().get('/conversations?box=requests').set(a.h).expect(200)).body.conversations[0].id;
+    await api().post(`/conversations/${id}/messages`).set(a.h).send({ body: 'please?' }).expect(201);
+    await api().post(`/connections/requests/${q.id}/reject`).set(b.h).expect(200);
+    for (const u of [a, b]) {
+      assert.equal((await api().get('/conversations?box=requests').set(u.h).expect(200)).body.conversations.length, 0);
+      await api().get(`/conversations/${id}`).set(u.h).expect(404);
+    }
+    await api().post(`/conversations/${id}/messages`).set(a.h).send({ body: 'hello?' }).expect(404);
+  }));
 
   test('receiver can still accept during a hold; sender can withdraw', async () => {
     const [a, b] = await pair();

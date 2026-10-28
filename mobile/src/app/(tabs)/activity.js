@@ -18,14 +18,15 @@ const CONNECT_TEXT = {
     ? (m?.acceptedIntent ? `accepted your request as ${intentLabel(m.acceptedIntent)}. You're Connections now, say hi!` : "accepted your request. You're Connections now, say hi!")
     : `accepted your request${m?.acceptedIntent ? ` as ${intentLabel(m.acceptedIntent)}` : ''}. You're connected to them.`),
   connect_back: () => "connected back with you. You're Connections now, say hi!",
-  connect_rejected: () => 'rejected your connect request.',
-  connect_held: (m) => `put your connect request on hold for ${holdText(m?.days)}.`,
+  connect_rejected: (m) => (m?.auto ? "didn't decide on your request after the hold, so it was closed. Your chat with them is hidden." : 'rejected your connect request.'),
+  connect_held: (m) => `put your connect request on hold for ${holdText(m?.days)}. You can chat with them until then (Messages › Requests).`,
   connect_hold_extended: (m) => `extended the hold on your request by ${holdText(m?.days)}.`,
   connect_hold_reminder: () => "'s request: your hold ends soon. Changed your mind?",
   connect_suspended: () => "didn't answer in time. Your connect request was suspended.",
-  anon_message: (m) => `Someone sent you an anonymous message${m?.alias ? ` as "${m.alias}"` : ''}. You'll see who in 7 days.`,
+  connect_hold_decide: () => "is still on your hold list. Accept or reject? If you don't answer within 24 hours, it's rejected automatically.",
+  anon_message: (m) => `One of your connections sent you an anonymous message${m?.alias ? ` as "${m.alias}"` : ''}. You'll see who when their time is up.`,
   anon_reply: () => 'replied to your anonymous message.',
-  anon_revealed: (m) => `was "${m?.alias || 'Anonymous'}". ${m?.reason === 'connected' ? "You Soul Connected, so now you know who wrote to you." : 'The 7 days are up: now you know who wrote to you.'}`,
+  anon_revealed: (m) => `was "${m?.alias || 'Anonymous'}". Their anonymous time is up: now you know who wrote to you.`,
   anon_revealed_sender: (m) => `can now see you were "${m?.alias || 'Anonymous'}".`,
   argue_invite: (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}. Give your side!`,
   argue_verdict: (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''}. Tap to see who's right.`,
@@ -124,7 +125,7 @@ export default function Activity() {
       renderItem={({ item }) => (
         <Pressable
           onPress={() => {
-            if (item.type === 'connect_request' || item.type === 'connect_hold_reminder') setTab('requests');
+            if (item.type === 'connect_request' || item.type === 'connect_hold_reminder' || item.type === 'connect_hold_decide') setTab('requests');
             else if ((item.type === 'connect_accepted' || item.type === 'connect_back') && item.meta?.conversationId) router.push(`/chat/${item.meta.conversationId}`);
             else if (['post_like', 'post_comment', 'comment_reply', 'comment_like', 'post_suspended'].includes(item.type) && item.entityId) router.push(`/post/${item.entityId}`);
             else if (item.type.startsWith('anon_') && item.entityId) router.push(`/anon/${item.entityId}`);

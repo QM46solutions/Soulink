@@ -71,7 +71,7 @@ function Incoming({ r, onDone }) {
   });
   const hold = (days) => run(async () => { await api(`/connections/requests/${r.id}/hold`, { method: 'POST', body: { days } }); setMode(null); setBusy(false); onDone(); });
   const reject = async () => {
-    if (!(await confirm(`Reject ${first}'s request?`, `${first} will be told it was rejected and can't ask again for 30 days.`, { confirmText: 'Reject', destructive: true }))) return;
+    if (!(await confirm(`Reject ${first}'s request?`, `${first} will be told it was rejected and can't ask again for 30 days.${r.status === 'held' ? ' Your chat with them is hidden.' : ''}`, { confirmText: 'Reject', destructive: true }))) return;
     run(async () => { await api(`/connections/requests/${r.id}/reject`, { method: 'POST' }); onDone(); });
   };
 
@@ -94,9 +94,14 @@ function Incoming({ r, onDone }) {
         </View>
       ) : null}
       {r.status === 'held' ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: space.md }}>
-          <Ionicons name="pause-circle" size={16} color={colors.gold} style={{ marginRight: 6 }} />
-          <Text style={{ color: colors.gold, fontFamily: fonts.semibold, fontSize: 13 }}>On hold until {fmtDate(r.holdUntil)}</Text>
+        <View style={{ alignItems: 'center', marginTop: space.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="pause-circle" size={16} color={r.decideBy ? colors.spark : colors.gold} style={{ marginRight: 6 }} />
+            <Text style={{ color: r.decideBy ? colors.spark : colors.gold, fontFamily: fonts.semibold, fontSize: 13, textAlign: 'center', flexShrink: 1 }}>
+              {r.decideBy ? `Hold is over: accept or reject by ${fmtDate(r.decideBy)}, or it's rejected automatically` : `On hold until ${fmtDate(r.holdUntil)} · you can chat until then`}
+            </Text>
+          </View>
+          {r.conversationId ? <Button small variant="ghost" icon="chatbubble-outline" title="Open chat" style={{ marginTop: 4 }} onPress={() => router.push(`/chat/${r.conversationId}`)} /> : null}
         </View>
       ) : null}
 
@@ -111,7 +116,7 @@ function Incoming({ r, onDone }) {
       ) : mode === 'hold' ? (
         <View style={{ marginTop: space.md }}>
           <Text style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginBottom: 4 }}>
-            {r.status === 'held' ? 'Extend the hold by… (only once)' : `How long do you want to hold? ${first} will be told.`}
+            {r.status === 'held' ? 'Extend the hold by… (only once)' : `How long do you want to hold? ${first} will be told, and you two can chat until it ends.`}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
             {HOLDS.map((h) => (
@@ -151,9 +156,10 @@ function Outgoing({ r, onDone }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: space.md }}>
         <Ionicons name={r.status === 'held' ? 'pause-circle' : 'time-outline'} size={16} color={r.status === 'held' ? colors.gold : colors.muted} style={{ marginRight: 6 }} />
         <Text style={{ color: r.status === 'held' ? colors.gold : colors.muted, fontFamily: fonts.semibold, fontSize: 13 }}>
-          {r.status === 'held' ? `On hold until ${fmtDate(r.holdUntil)}` : 'Waiting for an answer'}
+          {r.status === 'held' ? (r.decideBy ? 'Hold is over · waiting for their answer' : `On hold until ${fmtDate(r.holdUntil)} · you can chat until then`) : 'Waiting for an answer'}
         </Text>
       </View>
+      {r.status === 'held' && r.conversationId ? <Button small variant="ghost" icon="chatbubble-outline" title="Open chat" style={{ marginTop: 4 }} onPress={() => router.push(`/chat/${r.conversationId}`)} /> : null}
       <Button title="Withdraw request" variant="secondary" style={{ marginTop: space.md, height: 48 }} onPress={withdraw} loading={busy} />
     </GlassCard>
   );
