@@ -10,6 +10,7 @@ import { initFaceEngine } from './services/faceEngine.js';
 import { startHoldTimer } from './services/connections.js';
 import { startAnonTimer } from './services/anon.js';
 import { scheduleNext } from './services/dueTimer.js';
+import { purgeUnfinishedSignups } from './services/signupCleanup.js';
 import { purgeDeletedAccounts } from './services/account.js';
 import { purgeAuditLog } from './services/audit.js';
 import { purgeExpiredBans, runScheduledDeletions } from './services/lifecycle.js';
@@ -30,7 +31,7 @@ if (cloud) {
   markDbStarting();
   // cloud: open the web server straight away (the page loads fast) and get the database ready in the background
   (async function boot() {
-    try { await startDatabase(); console.log('   Database ready'); scheduleNext().catch(() => {}); }
+    try { await startDatabase(); console.log('   Database ready'); scheduleNext().catch(() => {}); purgeUnfinishedSignups().catch(() => {}); }
     catch (e) { console.error(`   Database not ready yet (${e.message}); trying again in 15 s`); setTimeout(boot, 15_000); }
   })();
 } else {
@@ -47,7 +48,7 @@ const server = http.createServer(createApp());
 // Background jobs (30-day deletions, purges, copyright restores and reminders) run only while people are using
 // Soulink, at most once an hour. The free Azure database pauses itself when nobody uses it; a job that woke it
 // every hour would keep it awake all month and use up the free allowance in days.
-const jobs = () => { runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); purgeDeletedAccounts(); purgeAuditLog(); };
+const jobs = () => { purgeUnfinishedSignups().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); purgeDeletedAccounts(); purgeAuditLog(); };
 let lastJobs = 0;
 setInterval(() => { if (recentlyActive(10 * 60_000) && isDbReady() && Date.now() - lastJobs > 3600_000) { lastJobs = Date.now(); jobs(); } }, 60_000).unref?.();
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute

@@ -4,6 +4,7 @@ import { verifyToken } from '../lib/auth.js';
 import { one, query } from '../db.js';
 import { unauthorized } from '../lib/errors.js';
 import { checkSession } from '../services/sessions.js';
+import { expireSignup, isExpiredSignup, isRealMember } from '../services/signupCleanup.js';
 
 export const NO_ACCOUNT = 'No user account found.';
 
@@ -16,6 +17,11 @@ async function loadUser(req) {
   const user = await one('SELECT * FROM users WHERE id = $1', [t.userId]);
   // the account was deleted (here or on another device): every device is signed out with this message
   if (!user) throw unauthorized(NO_ACCOUNT, 'no_account');
+  // a sign-up left unfinished for more than an hour is cleared: they start again as a new user
+  if (isExpiredSignup(user) && !(await isRealMember(user.id))) {
+    await expireSignup(user);
+    throw unauthorized("Your sign-up wasn't finished within an hour, so it was cleared. Please start again.", 'signup_expired');
+  }
   // paused, or waiting to be deleted: signed out until the person logs in again (which reactivates it)
   if (user.deactivated_at) throw unauthorized(user.deactivate_reason === 'deleting' ? 'Your account will be deleted in 30 days. Log in before then to cancel.' : 'This account is paused. Log in again to reactivate it.', user.deactivate_reason === 'deleting' ? 'account_deleting' : 'account_paused');
   if ((await checkSession(t.userId, t.sid)) !== 'ok') throw unauthorized('You were logged out. Log in again to continue.', 'session_ended');

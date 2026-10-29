@@ -12,6 +12,7 @@ import { contactBanned, reactivateOnLogin, MESSAGES } from '../services/lifecycl
 import { sendOtp } from '../providers/sms.js';
 import { requireAuth } from '../middleware/auth.js';
 import { meView } from '../services/social.js';
+import { expireSignup, isExpiredSignup, isRealMember } from '../services/signupCleanup.js';
 
 const r = Router();
 
@@ -94,6 +95,14 @@ r.post(
     // Errors are returned (not thrown) so the attempt counter update is committed.
     if (result.error) { securityLog('login_failed', { channel, reason: result.error.code, ip: clientIp(req) }); throw result.error; }
 
+    // came back more than an hour after leaving a sign-up unfinished: that half-made account is cleared and they
+    // start again as a brand-new user
+    if (!result.isNew && isExpiredSignup(result.user) && !(await isRealMember(result.user.id))) {
+      await expireSignup(result.user);
+      const col = channel === 'phone' ? 'phone' : 'email';
+      result.user = await one(`INSERT INTO users (${col}) OUTPUT INSERTED.* VALUES ($1)`, [target]);
+      result.isNew = true;
+    }
     const welcomeBack = await reactivateOnLogin(result.user, req); // paused or waiting to be deleted → back
     const token = await startSession(result.user.id, req);
     await audit(req, result.isNew ? 'signup' : 'login', { actorId: result.user.id, detail: channel });
