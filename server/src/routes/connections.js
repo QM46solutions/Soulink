@@ -10,6 +10,7 @@ import { isBlockedEither, meView, notify, userCard } from '../services/social.js
 import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, closeHeldChat, connectionBetween, pairOf } from '../services/connections.js';
 import { directKey, getOrCreateDirect, postMessage, systemMessage } from './conversations.js';
 import { scoreFor } from '../services/soulStore.js';
+import { nudgeDueTimer } from '../services/dueTimer.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -270,6 +271,7 @@ r.post('/requests/:id/hold', ah(async (req, res) => {
   }
   if (!upd) throw conflict('This request is no longer open', 'closed');
   await openHeldChat(q, upd.hold_until, q.status === 'held');
+  nudgeDueTimer(); // the end of the hold is a due time
   await notify(q.from_id, q.to_id, q.status === 'held' ? 'connect_hold_extended' : 'connect_held', q.id, { intent: q.intent, days, holdUntil: upd.hold_until });
   res.json({ ok: true, holdUntil: upd.hold_until });
 }));

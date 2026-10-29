@@ -109,6 +109,7 @@ export function createApp() {
     });
   }
   app.use('/uploads', express.static(config.uploadDir, { maxAge: '7d' }));
+  app.use('/uploads', (req, res) => res.status(404).json({ error: { code: 'not_found', message: 'File not found' } })); // a missing file is a 404, not a sign-in error
 
   // /health never touches the database (used to keep the web server awake)
   app.get('/health', (req, res) => res.json({ ok: true, name: 'soulink', env: config.env, db: isDbReady() ? 'ready' : 'starting' }));

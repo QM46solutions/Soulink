@@ -67,7 +67,7 @@ export function corePlan(seedKey) {
   const rnd = seeded(seedKey);
   const plan = [];
   for (const { key } of LAYERS) plan.push(...shuffle(SCENARIOS.filter((s) => s.layer === key), rnd).slice(0, QUOTA[key]).map((s) => s.id));
-  return shuffle(plan, rnd); // layers mixed, so it feels like a story, not a form
+  return plan; // one part at a time (in random order inside each part): jumping between parts felt confusing
 }
 
 /** How much a scenario would teach us, given what we're unsure about (sum of uncertainty on the traits it touches). */

@@ -26,9 +26,11 @@ Internal work list. Not for pitch decks.
 - Soul DNA: re-tune the score spread (CALIBRATION in server/src/services/mind/match.js) from real users' answers once there are ~50; learn from outcomes (accepted requests, long chats, ratings after chatting)
 - Soul DNA: grow the scenario bank from the typed "Anything else" answers (they are kept in soul_dna.answers)
 - YouTube linking for interests (needs Google's app review); Spotify once Soulink is big enough for their API
+- Hosting for 100+ active users: Render free (0.1 CPU, sleeps) and the Azure SQL free offer (100,000 vCore-seconds a month) will run out; move to Render Starter and a paid Azure SQL tier before a wider launch
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Face sign-up: duplicate-face limits set from real measurements (same person avg 0.20-0.29, different people 0.41+): block below 0.36, flag 0.36-0.42 for review; sign-up face checks run one at a time. Soul DNA quiz goes one part at a time and can't skip questions on a double tap
 - Chat rules: only Chats and Requests tabs; Chats filters (All / Unread / Groups / Anonymous); anonymous messages only to Connections with a chosen hidden time (1 h to 30 days); Requests = a paid message, or a chat while a Connect request is on hold; at the end of a hold the receiver gets 24 h to accept or reject, then it's rejected automatically and the chat is hidden (kept in the database)
 - Soul DNA v4: a model of how each person thinks, acts and reacts (64 real-life scenarios in 9 layers, each person gets their own adaptive set, "Anything else" typed answers, gut-reaction timing), a different logic per relation type, the life-partner simulation (24 situations), give and take, "how they think" in words
 - Connect asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for), plus 2-3 optional questions for the pair

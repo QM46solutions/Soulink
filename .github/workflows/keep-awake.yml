@@ -1,0 +1,14 @@
+# Backup for the server's own 10-minute self-visit: GitHub visits Soulink's /api/health every 10 minutes so
+# Render's free plan never puts it to sleep (notifications and timers keep working at night too).
+# /api/health never touches the database, so the free Azure database still pauses when nobody uses Soulink.
+name: Keep Soulink awake
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: curl -fsS --max-time 90 https://soulink-xvbd.onrender.com/api/health || true

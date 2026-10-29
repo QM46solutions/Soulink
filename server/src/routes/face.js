@@ -25,9 +25,21 @@ const r = Router();
 r.use(requireAuth);
 
 // Tuned for real phone cameras and laptop webcams (2026-09-29, after the first real-camera test)
+// Face sign-ups run one after another (each takes ~12 s on the cloud server); the rest wait their turn.
+let faceQueue = Promise.resolve();
+function oneAtATime(fn) {
+  const run = faceQueue.then(fn, fn);
+  faceQueue = run.catch(() => {});
+  return run;
+}
+
 export const FACE = {
-  sameAccountMax: 0.5,  // average of the 3 new photos closer than this to a stored face = same person → blocked
-  sameShotMax: 0.46,    // ...or at least 2 of the 3 single photos closer than this → blocked
+  // Measured on real sign-ups (server/face-debug.log + cloud logs): the same person scanning again lands at
+  // avg 0.20-0.29 (single photos 0.28-0.46); different people at avg 0.41-0.63. The old 0.5 blocked real new
+  // people (avg 0.479 and 0.500 on 28 Oct), and it would block more and more as Soulink grows.
+  sameAccountMax: 0.36, // average of the 3 new photos closer than this to a stored face = same person → blocked
+  sameShotMax: 0.40,    // ...or at least 2 of the 3 single photos closer than this → blocked
+  reviewMax: 0.42,      // closer than this but not blocked: allowed, and flagged for the Soulink team to check
   samePersonMax: 0.6,   // the 3 photos must be at least this close to each other
   straightMaxYaw: 0.18, // live check: looking straight
   turnMinYaw: 0.22,     // live check: head turned
@@ -107,7 +119,8 @@ r.post('/enroll',
     const bufs = frames.map(toBuffer);
     const t0 = Date.now();
     const found = [];
-    for (const b of bufs) found.push(await analyzeFaces(b)); // one at a time: keeps memory low
+    // one photo at a time, and one sign-up at a time: keeps the small cloud server's memory safe when many sign up together
+    await oneAtATime(async () => { for (const b of bufs) found.push(await analyzeFaces(b)); });
     const names = ['first', 'second', 'third'];
     found.forEach((f, i) => flog(`enroll user=${req.user.id.slice(0, 8)} photo${i + 1} faces=${f.length} ${f.map((x) => `yaw=${x.yaw.toFixed(2)} score=${x.score.toFixed(2)}`).join(' ')}`));
     for (let i = 0; i < 3; i += 1) {
@@ -150,6 +163,11 @@ r.post('/enroll',
       flog(`enroll user=${req.user.id.slice(0, 8)} BLOCKED banned face`);
       await audit(req, 'signup_blocked_banned_face');
       throw fail(MESSAGES.banned, 'face_banned', 403);
+    }
+    if (!match && nearest && nearest.avgD < FACE.reviewMax) {
+      // very close but not clearly the same person (twins, siblings, a look-alike): let them in, and tell the team
+      flog(`enroll user=${req.user.id.slice(0, 8)} allowed, flagged for review (close to ${nearest.user.slice(0, 8)})`);
+      await audit(req, 'face_possible_duplicate', { targetUserId: nearest.user, avg: Math.round(nearest.avgD * 1000) / 1000 });
     }
     if (match) {
       const other = await one('SELECT id, username, phone, email, onboarding_done, deactivated_at, deactivate_reason, delete_after FROM users WHERE id=$1', [match]);

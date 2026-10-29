@@ -6,6 +6,7 @@ import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js'
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, notify } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';
+import { nudgeDueTimer } from '../services/dueTimer.js';
 import { CONNECTED_SQL, LIMITS, REVEAL_DAYS, REVEAL_HOURS, processAnonReveals, randomAlias, threadView, usersById } from '../services/anon.js';
 
 const r = Router();
@@ -80,6 +81,7 @@ r.post('/', requireSoul, ah(async (req, res) => {
       `INSERT INTO anon_threads (sender_id, recipient_id, alias, reveal_hours, reveal_at) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, DATEADD(HOUR, $4, SYSDATETIMEOFFSET()))`,
       [me.id, to.id, randomAlias(), data.revealHours],
     );
+    nudgeDueTimer(); // the reveal is a due time
   }
   await guardUnanswered(t);
   await addMessage(t, true, data.body);

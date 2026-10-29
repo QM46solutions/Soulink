@@ -97,6 +97,12 @@ function RankQ({ q, value, onDone }) {
 }
 
 const optOf = (x) => (x && typeof x === 'object' ? x.o : x);
+/** One part at a time: questions grouped by section, in the sections' order (order inside a section kept).
+ *  Older plans mixed the parts together, which made the screen jump between categories. */
+const bySection = (questions, sections) => {
+  const rank = Object.fromEntries(sections.map((s, n) => [s.key, n]));
+  return questions.map((q, n) => ({ q, n })).sort((a, b) => ((rank[a.q.section] ?? 99) - (rank[b.q.section] ?? 99)) || a.n - b.n).map((x) => x.q);
+};
 
 const Kicker = ({ children }) => (
   <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.aura, textTransform: 'uppercase', marginBottom: space.md }}>{children}</Text>
@@ -219,6 +225,7 @@ export default function SoulQuiz() {
   const [error, setError] = useState(null);
   const fade = useRef(new Animated.Value(1)).current;
   const pending = useRef({});
+  const moving = useRef(false);         // a move to the next question is under way: ignore extra taps
   const timer = useRef(null);
   const shownAt = useRef(Date.now());   // gut-reaction timing: when this scenario appeared
   const changes = useRef({});           // how many times an answer was changed
@@ -230,7 +237,7 @@ export default function SoulQuiz() {
     (async () => {
       try {
         const d = await api('/soul/dna');
-        setData(d); setAnswers(d.answers || {});
+        setData({ ...d, questions: bySection(d.questions || [], d.sections || []) }); setAnswers(d.answers || {});
         if (d.completed && user?.soulReady && !retake) {
           const m = await api('/soul/dna/me');
           if (m.ready) { setResult({ type: m.type, tagline: m.tagline, me: m.me }); setPhase('result'); return; }
@@ -286,15 +293,18 @@ export default function SoulQuiz() {
   };
 
   const go = (next) => {
+    if (moving.current) return; // a double tap (or Next + an answer) must not skip a question
+    moving.current = true;
     Animated.timing(fade, { toValue: 0, duration: 130, useNativeDriver: true }).start(() => {
       setChosen(null);
       if (next >= qs.length) finish(); else setI(next);
+      moving.current = false;
       Animated.timing(fade, { toValue: 1, duration: 190, useNativeDriver: true }).start();
     });
   };
   const answer = (v, instant, text) => {
     const q = qs[i];
-    if (chosen !== null) return;
+    if (!q || chosen !== null || moving.current) return;
     if (answers[q.id] !== undefined) changes.current[q.id] = (changes.current[q.id] || 0) + 1;
     const value = { o: v, ms: Date.now() - shownAt.current, ...(text ? { t: text } : {}), ...(changes.current[q.id] ? { ch: changes.current[q.id] } : {}) };
     setAnswers((a) => ({ ...a, [q.id]: value }));
@@ -305,7 +315,7 @@ export default function SoulQuiz() {
   };
 
   const back = () => {
-    if (phase === 'quiz') { if (i > 0) setI(i - 1); else setPhase('intro'); return; }
+    if (phase === 'quiz') { if (moving.current) return; setChosen(null); if (i > 0) setI(i - 1); else setPhase('intro'); return; }
     flush(); router.canGoBack() ? router.back() : router.replace('/');
   };
 
@@ -365,14 +375,17 @@ export default function SoulQuiz() {
   const sec = sections.find((s) => s.key === q?.section);
   const secIdx = sections.indexOf(sec);
   const current = answers[q?.id];
+  const inSec = qs.filter((x) => x.section === q?.section);
+  const posInSec = inSec.indexOf(q) + 1;
   return (
     <BrandScreen back onBack={back} center={false}
       right={<><Bar value={answeredCount / qs.length} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{qs.length}</Text></>}>
       <View style={{ alignItems: 'center', marginTop: space.lg, marginBottom: space.lg }}>
         <Text style={{ fontSize: 30 }}>{sec?.emoji}</Text>
         <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.aura, textTransform: 'uppercase', marginTop: 6 }}>
-          {sec?.title} · {secIdx + 1} of {sections.length}
+          {sec?.title} · {posInSec} of {inSec.length}
         </Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.dim, marginTop: 2 }}>Part {secIdx + 1} of {sections.length}</Text>
       </View>
       {error ? <ErrorText>{error}</ErrorText> : null}
       {q ? (
@@ -401,7 +414,7 @@ export default function SoulQuiz() {
               </View>
             </View>
           )) : null}
-          {current !== undefined && q.type !== 'rank' && i + 1 < qs.length ? (
+          {current !== undefined && chosen === null && q.type !== 'rank' && i + 1 < qs.length ? (
             <Button small variant="ghost" title="Next" style={{ marginTop: space.md }} onPress={() => go(i + 1)} />
           ) : null}
           {i + 1 >= qs.length && answeredCount >= qs.length ? <Button title="See my Soul DNA" style={{ marginTop: space.lg }} onPress={finish} /> : null}
