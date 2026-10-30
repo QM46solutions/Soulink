@@ -98,7 +98,7 @@ describe('Chat extras', () => {
     const m = (await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ soulmoji: { mood: 'laugh', caption: 'LOL' } }).expect(201)).body.message;
     assert.equal(m.kind, 'soulmoji');
     assert.equal(m.soulmoji.mood, 'laugh');
-    assert.equal(m.soulmoji.faceUrl, '/uploads/avatars/test.jpg');
+    assert.equal(m.soulmoji.faceUrl.split('?')[0], '/uploads/avatars/test.jpg'); // (sent as a private, signed link)
     await api().post(`/conversations/${conv.id}/messages`).set(a.h).send({ soulmoji: { mood: 'banana' } }).expect(400);
   });
 });

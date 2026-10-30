@@ -213,6 +213,8 @@ async function conversationPayload(conv, meId) {
   // 1:1 chats only work between Connections, or while a Connect request is on hold (that chat sits in Requests).
   // Otherwise the app shows "Connect to chat" instead of the message box.
   out.held = null;
+  // the group's invite link: only its admins see it
+  if (conv.is_group && out.myRole === 'admin') out.inviteCode = conv.invite_code || null;
   if (!conv.is_group && out.other && config.connectRequired) {
     out.canMessage = !!(await connectionBetween(meId, out.other.id));
     if (!out.canMessage) { out.held = await heldInfo(meId, out.other.id); out.canMessage = !!out.held; }
@@ -489,6 +491,35 @@ r.post('/group', requireSoul, ah(async (req, res) => {
 
 // GET /conversations/translator -> what the translator can do here (the online version has text only)
 r.get('/translator', (req, res) => res.json({ text: canTranslate(), voice: voiceInstalled() }));
+
+// ---------- group invite links (the ONLY thing from Messages that can be shared) ----------
+// The link shows the group's name, photo and member count, never messages; joining needs a login.
+const inviteCode = () => crypto.randomBytes(12).toString('base64url').slice(0, 16);
+const memberCount = async (id) => Number((await one('SELECT COUNT(*) AS n FROM conversation_members WHERE conversation_id=$1', [id]))?.n || 0);
+
+// GET /conversations/invite/:code -> { group: { id, title, avatarUrl, members, joined } }
+r.get('/invite/:code', ah(async (req, res) => {
+  const code = z.string().regex(/^[A-Za-z0-9_-]{8,24}$/).parse(req.params.code);
+  const c = await one('SELECT * FROM conversations WHERE invite_code=$1 AND is_group=1', [code]);
+  if (!c) throw notFound('This invite link is not valid any more. Ask the group for a new one.', 'invite_invalid');
+  res.json({ group: { id: c.id, title: c.title || 'Group', avatarUrl: c.avatar_url || null, members: await memberCount(c.id), joined: !!(await membership(c.id, req.user.id)) } });
+}));
+
+// POST /conversations/invite/:code/join -> { conversation }
+r.post('/invite/:code/join', requireSoul, ah(async (req, res) => {
+  const code = z.string().regex(/^[A-Za-z0-9_-]{8,24}$/).parse(req.params.code);
+  const c = await one('SELECT * FROM conversations WHERE invite_code=$1 AND is_group=1', [code]);
+  if (!c) throw notFound('This invite link is not valid any more. Ask the group for a new one.', 'invite_invalid');
+  const mine = await membership(c.id, req.user.id);
+  if (!mine) {
+    if ((await memberCount(c.id)) >= MAX_GROUP_MEMBERS) throw badRequest(`This group is full (${MAX_GROUP_MEMBERS} people)`, 'group_full');
+    const admins = (await many("SELECT user_id FROM conversation_members WHERE conversation_id=$1 AND role=N'admin'", [c.id])).map((x) => x.user_id);
+    for (const a of admins) if (await isBlockedEither(req.user.id, a)) throw notFound('This invite link is not valid any more.', 'invite_invalid');
+    await query("INSERT INTO conversation_members (conversation_id, user_id, role, is_request) VALUES ($1, $2, N'member', 0)", [c.id, req.user.id]);
+    await systemMessage(c, `${displayName(req.user)} joined using the invite link`);
+  } else if (mine.hidden_at) await query('UPDATE conversation_members SET hidden_at=NULL WHERE conversation_id=$1 AND user_id=$2', [c.id, req.user.id]);
+  res.json({ conversation: await conversationPayload(await one('SELECT * FROM conversations WHERE id=$1', [c.id]), req.user.id) });
+}));
 
 r.get('/:id', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
@@ -841,6 +872,21 @@ r.post('/:id/members', ah(async (req, res) => {
   if (added.length) await systemMessage(conv, `${displayName(req.user)} added ${added.join(', ')}`);
   const fresh = await one('SELECT * FROM conversations WHERE id=$1', [conv.id]);
   res.json({ conversation: await conversationPayload(fresh, req.user.id) });
+}));
+
+// Group admins: make (or reset) the invite link, or turn it off. POST -> { inviteCode }   DELETE -> { inviteCode: null }
+r.post('/:id/invite', ah(async (req, res) => {
+  const { conv, me } = await loadConversation(req);
+  await requireGroup(conv); await requireAdmin(me);
+  const code = inviteCode();
+  await query('UPDATE conversations SET invite_code=$2 WHERE id=$1', [conv.id, code]);
+  res.json({ inviteCode: code });
+}));
+r.delete('/:id/invite', ah(async (req, res) => {
+  const { conv, me } = await loadConversation(req);
+  await requireGroup(conv); await requireAdmin(me);
+  await query('UPDATE conversations SET invite_code=NULL WHERE id=$1', [conv.id]);
+  res.json({ inviteCode: null });
 }));
 
 // DELETE /conversations/:id/members/:userId  ("me" = leave the group)

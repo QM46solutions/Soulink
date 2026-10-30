@@ -234,3 +234,7 @@ export async function createPost({ caption, uris = [], items, place, revealAt })
   if (cover) form.append('cover', new File([cover], 'cover.jpg', { type: 'image/jpeg' }));
   return api('/posts', { method: 'POST', form, timeoutMs: 300000 });
 }
+
+/** The address people open a shared link on (the hosted web app). */
+export const shareBase = () => (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.port !== '8081'
+  ? window.location.origin : baseUrl.replace(/\/api$/, ''));

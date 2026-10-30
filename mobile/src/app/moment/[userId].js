@@ -14,6 +14,7 @@ import { bgOf } from '../../lib/moments';
 import { BottomSheet } from '../../components/PostSheets';
 import { Avatar, UserRow } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
+import Watermark from '../../components/Watermark';
 
 const SHOW_MS = 5000;
 const MUSIC_MS = 15000; // a Moment with a song stays up for 15 seconds
@@ -108,6 +109,7 @@ export default function MomentViewer() {
       {moment.mediaUrl ? (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
           <Image source={{ uri: mediaUrl(moment.mediaUrl) }} style={{ flex: 1 }} resizeMode="contain" />
+          <Watermark />
           {moment.text ? (
             <View style={{ position: 'absolute', left: 16, right: 16, bottom: 130, alignItems: 'center' }}>
               <Text style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff', fontFamily: fonts.semibold, fontSize: 16, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, overflow: 'hidden', textAlign: 'center', ...WRAP }}>{moment.text}</Text>

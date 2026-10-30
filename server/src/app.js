@@ -21,6 +21,8 @@ import faceRoutes from './routes/face.js';
 import soulRoutes from './routes/soul.js';
 import musicRoutes from './routes/music.js';
 import adRoutes from './routes/ads.js';
+import shareRoutes from './routes/share.js';
+import { checkSigned, signDeep, stripDeep } from './lib/fileLinks.js';
 import placesRoutes from './routes/places.js';
 import feedRoutes from './routes/feed.js';
 import devRoutes from './routes/dev.js';
@@ -79,6 +81,14 @@ export function createApp() {
     });
   }
   app.use(express.json({ limit: '1mb' }));
+  // Private file links: every /uploads/... path the server sends gets a signature for this viewer (lib/fileLinks.js);
+  // links the app sends back lose theirs, so the server always compares plain paths
+  app.use((req, res, next) => {
+    if (req.body && typeof req.body === 'object') stripDeep(req.body);
+    const json = res.json.bind(res);
+    res.json = (body) => json(signDeep(body, req.user?.id || null));
+    next();
+  });
 
   if (config.env !== 'test') {
     // Limits count per phone, not per laptop: through the phone link every phone arrives via this laptop
@@ -92,7 +102,7 @@ export function createApp() {
     const ok = (v) => !!v && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(v)).digest(), want);
     app.get('/access', (req, res) => res.json({ required: true, ok: ok(req.get('x-soulink-access')) }));
     app.use((req, res, next) => {
-      if (req.path === '/health' || req.path === '/wake' || req.path === '/push/renew' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || ok(req.get('x-soulink-access'))) return next();
+      if (req.path === '/health' || req.path === '/wake' || req.path === '/push/renew' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || req.path.startsWith('/share/') || ok(req.get('x-soulink-access'))) return next();
       return res.status(403).json({ error: { code: 'access_code', message: 'Enter the Soulink access code' } });
     });
   } else {
@@ -109,7 +119,14 @@ export function createApp() {
       next();
     });
   }
-  app.use('/uploads', express.static(config.uploadDir, { maxAge: '7d' }));
+  // nothing under /uploads opens without a valid signed link (ad pictures excepted)
+  app.use('/uploads', (req, res, next) => {
+    let p;
+    try { p = `/uploads${decodeURIComponent(req.path)}`; } catch { return res.status(400).end(); }
+    if (checkSigned(p, req.query.t)) return next();
+    return res.status(403).json({ error: { code: 'link_expired', message: 'Log in to Soulink to see this' } });
+  });
+  app.use('/uploads', express.static(config.uploadDir, { maxAge: '1h', setHeaders: (res) => res.setHeader('Cache-Control', 'private, max-age=3600') }));
   app.use('/uploads', (req, res) => res.status(404).json({ error: { code: 'not_found', message: 'File not found' } })); // a missing file is a 404, not a sign-in error
 
   // /health never touches the database (used to keep the web server awake)
@@ -154,6 +171,7 @@ export function createApp() {
   app.use('/moments', momentRoutes);
   app.use('/sparks', sparkRoutes);
   app.use('/ads', adRoutes);
+  app.use('/share', shareRoutes); // a shared post / Spark: a 15-second preview for people without an account
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

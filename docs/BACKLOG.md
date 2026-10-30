@@ -28,9 +28,12 @@ Internal work list. Not for pitch decks.
 - YouTube linking for interests (needs Google's app review); Spotify once Soulink is big enough for their API
 - Hosting for 100+ active users: Render free (0.1 CPU, sleeps) and the Azure SQL free offer (100,000 vCore-seconds a month) will run out; move to Render Starter and a paid Azure SQL tier before a wider launch
 - Music licence for film/label songs (Saregama, T-Series, Zee, Tips…, or an aggregator like Feed.fm): then switch MUSIC_SAAVN on; the picker already supports it
+- SECURITY: login codes are shown on screen online (OTP_DEV_ECHO=true, SMS_PROVIDER=console). Anyone with the access code + a phone number can log in as that person. Fix later (decided): send the one-time passcode by SMS or WhatsApp (provider still to choose), then set OTP_DEV_ECHO=false
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Private files: every photo, video, voice note, document and selfie opens only through a signed link that expires (1-2 h), for people allowed to see it; ad pictures stay public. Shared posts / Sparks: 15-second preview without an account, then log in. Group invite links (admins: create, reset, turn off); nothing else from chats can be shared. Watermark with the viewer's @username, no save / long-press / download on media, media blur when the app goes to the background
+- Separate face key (FACE_KEY): faces locked with the old key are re-locked with it at start-up (MAKE-FACE-KEY.bat makes the key)
 - Ads dashboard: each ad has a customer, budget and price per 1,000 views (stops when used up); customer sees My ads (spent, left, paid, views, people reached, taps, day by day, advice); Ads Manager shows revenue (booked, earned, received, to collect, boosts)
 - Music picker like Instagram: For you (popular on Soulink + moods), Recently used, Saved, mood chips; free (Creative Commons) music online
 - Open Mic is now "speak your mind": video or voice only, 6 topics, newest / most heard, its own tab (not the main feed); open mic events kept below. Casting calls have requirements (age, gender, languages, location, pay)

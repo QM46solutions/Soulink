@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, Text, View } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, Share, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../../../lib/api';
+import { api, shareBase } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { confirm, notice } from '../../../lib/confirm';
 import { ConversationAvatar } from '../../../components/chat';
@@ -49,6 +49,24 @@ export default function ChatInfo() {
 
   if (!conv) return error ? <ErrorText>{error}</ErrorText> : <Loading />;
   const isAdmin = conv.myRole === 'admin';
+  const inviteUrl = (code) => `${shareBase()}/join/${code}`;
+  const shareInvite = async (code = conv.inviteCode) => {
+    const message = `Join "${conv.title}" on Soulink: ${inviteUrl(code)}`;
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) await navigator.share({ title: 'Soulink', text: message });
+        else { await navigator.clipboard.writeText(inviteUrl(code)); notice('Link copied', 'Anyone with the link can ask to join after logging in. They see only the group name and photo.'); }
+      } else await Share.share({ message });
+    } catch { /* cancelled */ }
+  };
+  const makeInvite = async () => {
+    if (conv.inviteCode && !(await confirm('Reset the invite link?', 'The old link stops working.', { confirmText: 'Reset' }))) return;
+    try { const r = await api(`/conversations/${id}/invite`, { method: 'POST' }); setConv((c) => ({ ...c, inviteCode: r.inviteCode })); shareInvite(r.inviteCode); } catch (e) { notice('Invite link', e.message); }
+  };
+  const stopInvite = async () => {
+    if (!(await confirm('Turn off the invite link?', 'Nobody can join with it any more.', { confirmText: 'Turn off', destructive: true }))) return;
+    try { await api(`/conversations/${id}/invite`, { method: 'DELETE' }); setConv((c) => ({ ...c, inviteCode: null })); } catch (e) { notice('Invite link', e.message); }
+  };
 
   const rename = async () => {
     try { const r = await api(`/conversations/${id}`, { method: 'PATCH', body: { title } }); setConv(r.conversation); setRenaming(false); } catch (e) { notice('Could not rename', e.message); }
@@ -85,6 +103,16 @@ export default function ChatInfo() {
         <>
           {isAdmin ? <Row icon="create-outline" label="Change group name" onPress={() => setRenaming(true)} /> : null}
           {isAdmin ? <Row icon="person-add-outline" label="Add people" onPress={() => setAdding(true)} /> : null}
+          {isAdmin ? (
+            // the group's invite link: the only thing from a chat that can be shared (no messages, ever)
+            conv.inviteCode ? (
+              <>
+                <Row icon="link-outline" label="Share invite link" onPress={shareInvite} />
+                <Row icon="refresh-outline" label="Reset invite link (old one stops working)" onPress={makeInvite} />
+                <Row icon="close-circle-outline" label="Turn off invite link" onPress={stopInvite} />
+              </>
+            ) : <Row icon="link-outline" label="Create an invite link" onPress={makeInvite} />
+          ) : null}
           <Text style={{ color: colors.dim, fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm }}>Members</Text>
         </>
       ) : (

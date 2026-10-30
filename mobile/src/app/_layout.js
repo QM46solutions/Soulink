@@ -15,6 +15,7 @@ import { HeaderBackground } from '../components/brand';
 import GalaxyBackground from '../components/GalaxyBackground';
 import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
+import SharePreview, { sharedLinkTarget } from '../components/SharePreview';
 import TermsGate from '../components/TermsGate';
 import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
@@ -49,8 +50,25 @@ export const headerStyle = {
 if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getElementById('soulink-web-css')) {
   const css = document.createElement('style');
   css.id = 'soulink-web-css';
-  css.textContent = '*{scrollbar-width:none}*::-webkit-scrollbar{display:none}';
+  css.textContent = '*{scrollbar-width:none}*::-webkit-scrollbar{display:none}'
+    // photos and videos can be seen, not saved: no long-press "Save image", no dragging them out, no selecting them
+    + 'img,video{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}'
+    // when Soulink goes to the background (app switcher, screen recorder start) photos and videos blur
+    + 'html.sl-away img,html.sl-away video{filter:blur(28px)!important}';
   document.head.appendChild(css);
+  const isMedia = (t) => t && (t.tagName === 'IMG' || t.tagName === 'VIDEO' || (t.style && t.style.backgroundImage));
+  document.addEventListener('contextmenu', (e) => { if (isMedia(e.target) || e.target?.closest?.('[data-media]')) e.preventDefault(); }, true);
+  document.addEventListener('dragstart', (e) => { if (isMedia(e.target)) e.preventDefault(); }, true);
+  const away = () => document.documentElement.classList.toggle('sl-away', document.visibilityState === 'hidden');
+  document.addEventListener('visibilitychange', away);
+  window.addEventListener('pagehide', () => document.documentElement.classList.add('sl-away'));
+  window.addEventListener('pageshow', () => document.documentElement.classList.remove('sl-away'));
+  // every video: no download button, no picture-in-picture
+  new MutationObserver(() => {
+    for (const v of document.querySelectorAll('video:not([data-sl])')) {
+      v.setAttribute('data-sl', '1'); v.setAttribute('controlslist', 'nodownload noremoteplayback noplaybackrate'); v.disablePictureInPicture = true;
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
 }
 
 // Screens outside the tabs still show the bottom bar; which icon is "bold" there
@@ -137,6 +155,7 @@ function RootStack() {
         <Stack.Screen name="chat/[id]" options={{ title: '' }} />
         <Stack.Screen name="anon/[id]" options={{ title: '' }} />
         <Stack.Screen name="chat/info/[id]" options={{ title: 'Details' }} />
+        <Stack.Screen name="join/[code]" options={{ title: 'Group invite' }} />
       </Stack.Protected>
       {/* public: readable before and after login. Listed last so a redirect never lands here */}
       <Stack.Screen name="legal/[doc]" options={{ title: '' }} />
@@ -217,6 +236,11 @@ export default function RootLayout() {
     SpaceMono_400Regular, SpaceMono_700Bold,
   });
   if (!fontsLoaded && !fontError) return null;
+
+  // a shared post / Spark opened by someone who isn't logged in: only that post, for 15 seconds (no access code,
+  // no login screen in front of it; nothing else of Soulink is reachable from here)
+  const shared = sharedLinkTarget();
+  if (shared) return <PhoneFrame><GalaxyBackground /><SharePreview target={shared} /></PhoneFrame>;
 
   return (
     <PhoneFrame>

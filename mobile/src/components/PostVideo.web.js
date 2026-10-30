@@ -2,6 +2,7 @@
 export default function PostVideo({ uri, thumb, style }) {
   return (
     <video src={uri} playsInline controls={!thumb} muted={!!thumb} preload="metadata" loop={!thumb}
+      controlsList="nodownload noremoteplayback noplaybackrate" disablePictureInPicture onContextMenu={(e) => e.preventDefault()}
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', backgroundColor: '#000', ...(style || {}) }} />
   );
 }

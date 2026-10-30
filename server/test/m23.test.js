@@ -18,8 +18,9 @@ describe('Account deletion erases files', () => {
     const b = await makeUser();
     const pa = (await api().post('/users/me/avatar').set(a.h).attach('photo', png, { filename: 'a.png', contentType: 'image/png' }).expect(200)).body.user.avatarUrl;
     const pb = (await api().post('/users/me/avatar').set(b.h).attach('photo', png, { filename: 'b.png', contentType: 'image/png' }).expect(200)).body.user.avatarUrl;
-    const onDisk = (u) => fs.existsSync(path.join(config.uploadDir, u.replace(/^\/uploads\//, '')));
-    const inDb = async (u) => (await query('SELECT COUNT(*) AS n FROM stored_files WHERE path=$1', [u])).rows[0].n > 0;
+    const plain = (u) => u.split('?')[0]; // links come signed (private file links)
+    const onDisk = (u) => fs.existsSync(path.join(config.uploadDir, plain(u).replace(/^\/uploads\//, '')));
+    const inDb = async (u) => (await query('SELECT COUNT(*) AS n FROM stored_files WHERE path=$1', [plain(u)])).rows[0].n > 0;
     assert.ok(onDisk(pa) && (await inDb(pa)));
 
     await api().delete('/users/me').set(a.h).send({ confirm: 'DELETE' }).expect(200);

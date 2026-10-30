@@ -5,7 +5,7 @@ import { Animated, Easing, Platform, Pressable, Share, Text, TextInput, View } f
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { api, mediaUrl } from '../lib/api';
+import { api, shareBase, mediaUrl } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import ActionSheet from './ActionSheet';
 import OffenseSheet from './OffenseSheet';
@@ -17,6 +17,7 @@ import PostVideo from './PostVideo';
 export const isVideo = (u) => /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i.test(String(u || ''));
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
+import Watermark from './Watermark';
 
 export const LIKE_EMOJI = '👌🏻';
 // long words / links wrap instead of running off the screen (web needs this explicitly)
@@ -95,6 +96,7 @@ function Photos({ media, onDoubleTap, burst }) {
         {isVideo(media[i]) ? (
           <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#000' }}><PostVideo key={media[i]} uri={mediaUrl(media[i])} /></View>
         ) : <Image source={{ uri: mediaUrl(media[i]) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" transition={150} />}
+        <Watermark />
         {burst ? (
           <Animated.Text pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '36%', fontSize: 96,
             opacity: burst.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] }),
@@ -214,7 +216,8 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
     if (r.suspended) setTimeout(() => onDeleted?.(post.id), 1800); // enough marks: it disappears for everyone else
   };
   const shareOutside = async () => {
-    const message = `${post.author.username} on Soulink${post.caption ? `: "${post.caption.slice(0, 120)}"` : ''}`;
+    // the link opens just this post: 15 seconds without an account, then "log in to keep watching"
+    const message = `${post.author.username} on Soulink${post.caption ? `: "${post.caption.slice(0, 120)}"` : ''}\n${shareBase()}/p/${post.id}`;
     try {
       if (Platform.OS === 'web') {
         if (navigator.share) await navigator.share({ title: 'Soulink', text: message });

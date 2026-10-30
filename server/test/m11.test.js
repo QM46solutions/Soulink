@@ -40,7 +40,7 @@ describe('Chat attachments', () => {
   test('documents: PDFs go through, HTML is refused', async () => {
     const { a, conv } = await connected();
     const doc = (await api().post(`/conversations/${conv}/document`).set(a.h).field('name', 'Plan.pdf').attach('file', Buffer.from('%PDF-1.4 test'), { filename: 'Plan.pdf', contentType: 'application/pdf' }).expect(201)).body.message;
-    assert.equal(doc.kind, 'document'); assert.equal(doc.document.name, 'Plan.pdf'); assert.ok(doc.mediaUrl.endsWith('.pdf'));
+    assert.equal(doc.kind, 'document'); assert.equal(doc.document.name, 'Plan.pdf'); assert.ok(doc.mediaUrl.split('?')[0].endsWith('.pdf'));
     await api().post(`/conversations/${conv}/document`).set(a.h).attach('file', Buffer.from('<script>'), { filename: 'x.html', contentType: 'text/html' }).expect(400);
   });
 });

@@ -20,6 +20,7 @@ import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
 import { confirm, notice } from '../lib/confirm';
 import { AttachSheet, ContactContent, ContactPicker, DocumentContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
+import Watermark from './Watermark';
 
 // ---------- avatars ----------
 
@@ -358,7 +359,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
   } else if (message.kind === 'image') {
     content = (
       <Pressable onPress={() => { tap(); onOpenImage?.(message); }} onLongPress={onMenu}>
-        <Image source={{ uri: mediaUrl(message.mediaUrl) || message.localUri }} style={st.photo} contentFit="cover" transition={150} />
+        <View><Image source={{ uri: mediaUrl(message.mediaUrl) || message.localUri }} style={st.photo} contentFit="cover" transition={150} /><Watermark /></View>
         {message.body ? <BubbleShell mine={mine} style={{ marginTop: 4 }}><Text style={[st.text, mine && st.textMine]}>{message.body}</Text></BubbleShell> : null}
       </Pressable>
     );

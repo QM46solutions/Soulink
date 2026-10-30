@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { Server } from 'socket.io';
 import { verifyToken } from './lib/auth.js';
 import { one, many } from './db.js';
+import { signDeep } from './lib/fileLinks.js';
 import { checkSession } from './services/sessions.js';
 
 let io = null;
@@ -66,5 +67,6 @@ export function signOutEverywhere(userId, exceptSid, event = 'account:deleted') 
 /** Push an event to these users' phones (no-op in tests or before the server starts). */
 export function emitToUsers(userIds, event, payload) {
   if (!io) return;
-  for (const id of new Set(userIds)) io.to(`user:${id}`).emit(event, payload);
+  // each person gets file links signed for them (private file links, lib/fileLinks.js)
+  for (const id of new Set(userIds)) io.to(`user:${id}`).emit(event, signDeep(payload, id));
 }
