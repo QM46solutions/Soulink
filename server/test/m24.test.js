@@ -33,6 +33,7 @@ describe('Unfinished sign-ups', () => {
     const r = await api().get('/users/me').set(s.h).expect(401);
     assert.equal(r.body.error.code, 'signup_expired');
     assert.equal(await exists(s.id), false);
+    await query(`UPDATE otp_codes SET created_at = DATEADD(MINUTE, -5, created_at) WHERE target LIKE '%' + $1`, [s.phone]); // past the 30-second wait
     const again = await api().post('/auth/otp/request').send({ phone: s.phone }).expect(200);
     const v = (await api().post('/auth/otp/verify').send({ phone: s.phone, code: again.body.devCode }).expect(200)).body;
     assert.equal(v.isNew, true);
@@ -42,6 +43,7 @@ describe('Unfinished sign-ups', () => {
   test('coming back by logging in after the hour also starts fresh', async () => {
     const s = await startSignup();
     await age(s.id, 90);
+    await query(`UPDATE otp_codes SET created_at = DATEADD(MINUTE, -5, created_at) WHERE target LIKE '%' + $1`, [s.phone]); // past the 30-second wait
     const again = await api().post('/auth/otp/request').send({ phone: s.phone }).expect(200);
     const v = (await api().post('/auth/otp/verify').send({ phone: s.phone, code: again.body.devCode }).expect(200)).body;
     assert.equal(v.isNew, true);

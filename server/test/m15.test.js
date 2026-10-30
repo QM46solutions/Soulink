@@ -20,7 +20,7 @@ describe('Scheduled reveal', () => {
     const seen = (await api().get(`/posts/${p.id}`).set(b.h).expect(200)).body.post;
     assert.deepEqual(seen.media, []);
     assert.equal(seen.reveal.locked, true);
-    assert.equal(seen.reveal.teaser, p.reveal.teaser);
+    assert.equal(seen.reveal.teaser.split('?')[0], p.reveal.teaser.split('?')[0]); // same file (links are signed per viewer)
   });
   test('reveal time must be 1 minute to 30 days away, and needs a photo or video', async () => {
     const a = await makeUser();

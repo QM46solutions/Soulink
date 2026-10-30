@@ -157,6 +157,8 @@ export function createApp() {
   app.use('/dev', devRoutes); // laptop-only test helpers (off in production)
   app.use('/music', musicRoutes); // song search (login) + /music/play/<ref> for players (public)
   app.use('/places', placesRoutes); // public (no login): must come before safetyRoutes, which requires login for everything under '/'
+  app.use('/share', shareRoutes); // public: a shared post / Spark, 15-second preview without an account (also before safetyRoutes)
+  app.use('/push', pushRoutes); // /push/renew is public (the service worker has no login): also before safetyRoutes
   app.use('/', safetyRoutes);
   app.use('/notifications', notificationRoutes);
   app.use('/conversations', conversationRoutes);
@@ -166,12 +168,10 @@ export function createApp() {
   app.use('/connections', connectionRoutes);
   app.use('/argue', argueRoutes);
   app.use('/anon', anonRoutes);
-  app.use('/push', pushRoutes);
   app.use('/account', accountRoutes);
   app.use('/moments', momentRoutes);
   app.use('/sparks', sparkRoutes);
   app.use('/ads', adRoutes);
-  app.use('/share', shareRoutes); // a shared post / Spark: a 15-second preview for people without an account
 
   app.use((req, res, next) => next(notFound(`No route ${req.method} ${req.path}`)));
   app.use(errorHandler);

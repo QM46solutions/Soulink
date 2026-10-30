@@ -104,7 +104,7 @@ describe('Chat: 1:1 and message requests', () => {
     const conv = await dm(a, b);
     const img = await api().post(`/conversations/${conv.id}/media`).set(a.h).attach('file', PNG, { filename: 'p.png', contentType: 'image/png' }).expect(201);
     assert.equal(img.body.message.kind, 'image');
-    assert.match(img.body.message.mediaUrl, /^\/uploads\/chat\/.+\.png$/);
+    assert.match(img.body.message.mediaUrl, /^\/uploads\/chat\/[^?]+\.png\?t=.+$/); // a private, signed link
     const voice = await api().post(`/conversations/${conv.id}/media`).set(a.h)
       .field('durationMs', '4200').attach('file', Buffer.from('fake-audio'), { filename: 'v.m4a', contentType: 'audio/m4a' }).expect(201);
     assert.equal(voice.body.message.kind, 'voice');

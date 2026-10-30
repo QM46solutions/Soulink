@@ -104,7 +104,7 @@ describe('Onboarding & profile', () => {
     const a = await makeUser();
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082', 'hex');
     const r = await api().post('/users/me/avatar').set(a.h).attach('photo', png, { filename: 'a.png', contentType: 'image/png' }).expect(200);
-    assert.match(r.body.user.avatarUrl, /^\/uploads\/avatars\/.+\.png$/);
+    assert.match(r.body.user.avatarUrl, /^\/uploads\/avatars\/[^?]+\.png\?t=.+$/); // a private, signed link
     await api().get(r.body.user.avatarUrl).expect(200);
     await api().post('/users/me/avatar').set(a.h).attach('photo', Buffer.from('hi'), { filename: 'a.txt', contentType: 'text/plain' }).expect(400);
   });
