@@ -58,3 +58,20 @@ test('request-time questions target what is still unknown for the pair', () => {
   assert.ok(ids.length >= 1 && ids.length <= 3);
   assert.ok(!ids.includes('in1'));
 });
+
+test('extra scenarios come part by part, from the same part, once', async () => {
+  const { extendPart } = await import('../src/services/soulDna.js');
+  const { SCENARIO_MAP } = await import('../src/services/mind/scenarios.js');
+  const plan = corePlan('part-test');
+  // the plan is grouped by part
+  const parts = plan.map((id) => SCENARIO_MAP[id].layer);
+  assert.deepEqual(parts, [...parts].sort((a, b) => parts.indexOf(a) - parts.indexOf(b)));
+  const layer = parts[0];
+  const mine = plan.filter((id) => SCENARIO_MAP[id].layer === layer);
+  const unsure = Object.fromEntries(mine.map((id) => [id, { o: -1, t: 'not sure' }])); // typed answers: no evidence
+  assert.deepEqual(extendPart(plan, Object.fromEntries(mine.slice(1).map((id) => [id, unsure[id]])), layer), []); // part not finished
+  const more = extendPart(plan, unsure, layer);
+  assert.ok(more.length >= 1 && more.length <= 2);
+  assert.ok(more.every((id) => SCENARIO_MAP[id].layer === layer && !plan.includes(id)));
+  assert.deepEqual(extendPart([...plan, ...more], unsure, layer), []); // only once per part
+});

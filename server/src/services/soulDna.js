@@ -6,11 +6,11 @@
 //   mind/summary.js    the mind model in plain words ("how you think")
 // Everything runs on the server only: the app never receives the traits, weights or rules.
 import { LAYERS, SCENARIOS, SCENARIO_MAP } from './mind/scenarios.js';
-import { buildMind, corePlan, CORE_SIZE, extendPlan, nextScenarios, optionOf } from './mind/model.js';
+import { buildMind, corePlan, CORE_SIZE, extendPart, extendPlan, nextScenarios, optionOf } from './mind/model.js';
 import { compat as compatMinds, compatAll as compatAllMinds, DIMS, FOCUS, RELATIONS, RELATION_KEYS, relationOf } from './mind/match.js';
 import { classicTraits, howTheyThink, selfView as selfViewMind } from './mind/summary.js';
 
-export { DIMS, RELATIONS, RELATION_KEYS, relationOf, CORE_SIZE, corePlan, extendPlan };
+export { DIMS, RELATIONS, RELATION_KEYS, relationOf, CORE_SIZE, corePlan, extendPart, extendPlan };
 export const DNA_VERSION = 4;
 
 // The quiz, as the rest of the app knows it: every scenario is a "choice" question in a section (= layer)

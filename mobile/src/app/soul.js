@@ -229,7 +229,7 @@ export default function SoulQuiz() {
   const timer = useRef(null);
   const shownAt = useRef(Date.now());   // gut-reaction timing: when this scenario appeared
   const changes = useRef({});           // how many times an answer was changed
-  const addedRef = useRef(0);           // scenarios Soul DNA added because it was still unsure
+  const answersRef = useRef({});        // the latest answers (for checks inside callbacks)
   const [other, setOther] = useState(null); // "Anything else…" text being typed (null = closed)
   useEffect(() => { shownAt.current = Date.now(); setOther(null); }, [i, phase]);
 
@@ -237,7 +237,7 @@ export default function SoulQuiz() {
     (async () => {
       try {
         const d = await api('/soul/dna');
-        setData({ ...d, questions: bySection(d.questions || [], d.sections || []) }); setAnswers(d.answers || {});
+        setData({ ...d, questions: bySection(d.questions || [], d.sections || []) }); setAnswers(d.answers || {}); answersRef.current = d.answers || {};
         if (d.completed && user?.soulReady && !retake) {
           const m = await api('/soul/dna/me');
           if (m.ready) { setResult({ type: m.type, tagline: m.tagline, me: m.me }); setPhase('result'); return; }
@@ -249,6 +249,7 @@ export default function SoulQuiz() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const qs = data?.questions || [];
+  const qsRef = useRef(qs); qsRef.current = qs; // the latest list (more questions can be added while answering)
   const sections = data?.sections || [];
   const labels = useMemo(() => Object.fromEntries((qs.find((x) => x.type === 'rank')?.items || []).map((x) => [x.key, x.label])), [qs]);
   const answeredCount = qs.filter((q) => answers[q.id] !== undefined).length;
@@ -261,8 +262,15 @@ export default function SoulQuiz() {
     try {
       const r = await api('/soul/dna/answers', { method: 'PUT', body: { answers: batch } });
       if (r.added?.length) {
-        addedRef.current += r.added.length;
-        setData((d) => ({ ...d, questions: [...d.questions, ...r.added.filter((n) => !d.questions.some((q) => q.id === n.id))], total: r.total }));
+        // 1-2 more from a part that was just finished: they go right after that part (asked next, in order)
+        let list = [...qsRef.current];
+        const fresh = r.added.filter((n) => !list.some((q) => q.id === n.id));
+        for (const n of fresh) {
+          const last = list.reduce((at, q, idx) => (q.section === n.section ? idx : at), list.length - 1);
+          list = [...list.slice(0, last + 1), n, ...list.slice(last + 1)];
+        }
+        qsRef.current = list;
+        setData((d) => ({ ...d, questions: list, total: r.total }));
       }
     }
     catch (e) {
@@ -281,10 +289,8 @@ export default function SoulQuiz() {
     try {
       clearTimeout(timer.current); await flush();
       if (Object.keys(pending.current).length) throw new Error('Could not save your answers. Check the connection and try again.');
-      if (addedRef.current) { // Soul DNA wants a few more answers first
-        const from = qs.length; addedRef.current = 0;
-        setPhase('quiz'); setI(from); return;
-      }
+      const open = qsRef.current.findIndex((q) => answersRef.current[q.id] === undefined);
+      if (open >= 0) { setPhase('quiz'); setI(open); return; } // something still unanswered: go there, in order
       const r = await api('/soul/dna/complete', { method: 'POST' });
       setUser(r.user);
       setResult({ type: r.soul.type, tagline: r.soul.tagline, me: r.me, fresh: true });
@@ -297,7 +303,7 @@ export default function SoulQuiz() {
     moving.current = true;
     Animated.timing(fade, { toValue: 0, duration: 130, useNativeDriver: true }).start(() => {
       setChosen(null);
-      if (next >= qs.length) finish(); else setI(next);
+      if (next >= qsRef.current.length) finish(); else setI(next);
       moving.current = false;
       Animated.timing(fade, { toValue: 1, duration: 190, useNativeDriver: true }).start();
     });
@@ -308,6 +314,16 @@ export default function SoulQuiz() {
     if (answers[q.id] !== undefined) changes.current[q.id] = (changes.current[q.id] || 0) + 1;
     const value = { o: v, ms: Date.now() - shownAt.current, ...(text ? { t: text } : {}), ...(changes.current[q.id] ? { ch: changes.current[q.id] } : {}) };
     setAnswers((a) => ({ ...a, [q.id]: value }));
+    answersRef.current = { ...answersRef.current, [q.id]: value };
+    const nextQ = qsRef.current[i + 1];
+    if (!nextQ || nextQ.section !== q.section) {
+      // end of a part: save now and wait, so any extra questions for this part are asked right here
+      setChosen(v);
+      pending.current[q.id] = value; clearTimeout(timer.current);
+      const started = Date.now();
+      flush().finally(() => setTimeout(() => go(i + 1), Math.max(0, 240 - (Date.now() - started))));
+      return;
+    }
     queue(q.id, value);
     if (instant) { go(i + 1); return; }
     setChosen(v);

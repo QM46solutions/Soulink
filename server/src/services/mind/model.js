@@ -1,8 +1,8 @@
 // Soul DNA v4: building a person's mind model from their scenario answers.
 // Every answer is EVIDENCE about some traits. Evidence is weighed by how the person answered (gut-reaction
 // timing, changing their mind), so the model knows not only "where" someone is on a trait but how SURE it is.
-// The questions each person gets are chosen for them: a random mix across all 9 layers first, then a few more
-// scenarios aimed at whatever the model is still unsure about (adaptive).
+// The questions each person gets are chosen for them, one part (layer) at a time; at the end of a part, 1-2 more
+// scenarios from that part if the model is still unsure about it (adaptive).
 import { LAYERS, SCENARIOS, SCENARIO_MAP, TRAITS } from './scenarios.js';
 
 const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
@@ -86,7 +86,27 @@ export function nextScenarios(mind, answers, n, focus = null, exclude = []) {
     .sort((a, b) => b.g - a.g).slice(0, n).map((x) => x.id);
 }
 
-/** After the core set: add a few targeted scenarios while important traits are still uncertain. */
+/**
+ * Part by part: when the last question of a part (layer) is answered and Soul DNA is still unsure about that
+ * part, add 1-2 more scenarios FROM THE SAME PART, asked straight away (so nothing pops up later out of order).
+ * Each part is extended at most once.
+ */
+export function extendPart(plan, answers, layer) {
+  if (!QUOTA[layer] || plan.length >= MAX_PLAN) return [];
+  const inPlan = plan.filter((id) => SCENARIO_MAP[id]?.layer === layer);
+  if (inPlan.length > QUOTA[layer]) return [];                        // already extended once
+  if (!inPlan.every((id) => answers[id] !== undefined)) return [];   // part not finished yet
+  const mind = buildMind(answers);
+  const own = SCENARIOS.filter((s) => s.layer === layer);
+  const traits = new Set(own.flatMap((s) => s.options.flatMap((o) => Object.keys(o.set))));
+  const weak = [...traits].filter((t) => (mind.traits[t]?.c ?? 0) < 0.4).length;
+  if (weak < 2) return [];
+  const pool = own.filter((s) => !plan.includes(s.id) && answers[s.id] === undefined)
+    .map((s) => ({ id: s.id, g: infoGain(s, mind, null) })).sort((a, b) => b.g - a.g);
+  return pool.slice(0, Math.min(weak >= 4 ? 2 : 1, MAX_PLAN - plan.length)).map((x) => x.id);
+}
+
+/** (older) After the whole core set: a few targeted scenarios from any part. Kept for tools/tests. */
 export function extendPlan(plan, answers) {
   if (plan.length >= MAX_PLAN) return [];
   const mind = buildMind(answers);

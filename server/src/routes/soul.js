@@ -16,7 +16,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { meView } from '../services/social.js';
 import { soulTypeOf } from '../services/soulQuiz.js';
-import { QUESTION_IDS, RELATION_KEYS, SECTIONS, cleanAnswers, compat, corePlan, extendPlan, isComplete, pairQuestions, publicQuestions, relationOf, selfView, theirMind, traitsFromAxes } from '../services/soulDna.js';
+import { QUESTION_IDS, RELATION_KEYS, SECTIONS, cleanAnswers, compat, corePlan, extendPart, isComplete, pairQuestions, publicQuestions, relationOf, selfView, theirMind, traitsFromAxes } from '../services/soulDna.js';
 import { addAnswers, loadDna, relationBetween, saveCompletedDna, scoreFor } from '../services/soulStore.js';
 import { pinnedCompat, pinsFor } from '../services/soulPins.js';
 import { INTENT_KEYS } from '../services/connections.js';
@@ -24,6 +24,8 @@ import { INTENT_KEYS } from '../services/connections.js';
 const r = Router();
 r.use(requireAuth);
 const uuid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id');
+const SECTION_OF = Object.fromEntries(publicQuestions(QUESTION_IDS).map((q) => [q.id, q.section]));
+const sectionOf = (id) => SECTION_OF[id] || null;
 const parse = (v, d = {}) => { if (v && typeof v === 'object') return v; try { return JSON.parse(v || 'null') ?? d; } catch { return d; } };
 
 async function myRow(userId) {
@@ -70,10 +72,18 @@ r.put('/dna/answers', ah(async (req, res) => {
   for (const id of Object.keys(answers)) if (!clean[id] && clean[id] !== 0) throw badRequest(`Invalid answer for ${id}`);
   for (const id of Object.keys(clean)) if (!plan.includes(id)) throw badRequest(`${id} is not one of your questions`);
   const merged = { ...parse(row?.answers), ...clean };
-  // the core set is done: if the model is still unsure about important things, add a few targeted scenarios
-  let added = [];
-  if (plan.every((id) => merged[id] !== undefined)) added = extendPlan(plan, merged);
-  const newPlan = [...plan, ...added];
+  // a part was just finished: if Soul DNA is still unsure about that part, 1-2 more from the SAME part, placed
+  // right after it (asked next, never at the end out of order)
+  let newPlan = [...plan];
+  const added = [];
+  const layers = [...new Set(Object.keys(clean).map((id) => sectionOf(id)).filter(Boolean))];
+  for (const layer of layers) {
+    const more = extendPart(newPlan, merged, layer);
+    if (!more.length) continue;
+    const last = newPlan.reduce((at, id, n) => (sectionOf(id) === layer ? n : at), newPlan.length - 1);
+    newPlan = [...newPlan.slice(0, last + 1), ...more, ...newPlan.slice(last + 1)];
+    added.push(...more);
+  }
   await query('UPDATE soul_dna SET answers=$2, scenario_plan=$3, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(merged), JSON.stringify(newPlan)]);
   res.json({ answered: newPlan.filter((id) => merged[id] !== undefined).length, total: newPlan.length, added: added.length ? publicQuestions(added) : [] });
 }));
