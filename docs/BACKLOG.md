@@ -31,6 +31,7 @@ Internal work list. Not for pitch decks.
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Ads dashboard: each ad has a customer, budget and price per 1,000 views (stops when used up); customer sees My ads (spent, left, paid, views, people reached, taps, day by day, advice); Ads Manager shows revenue (booked, earned, received, to collect, boosts)
 - Music picker like Instagram: For you (popular on Soulink + moods), Recently used, Saved, mood chips; free (Creative Commons) music online
 - Open Mic is now "speak your mind": video or voice only, 6 topics, newest / most heard, its own tab (not the main feed); open mic events kept below. Casting calls have requirements (age, gender, languages, location, pay)
 - Unfinished sign-ups: 1 hour (since the last thing they did) to come back and continue; after that the half-made account is erased (on their next visit, at login, and by the hourly clean-up) and they start as a new user. People with connections, followers or posts are never touched

@@ -97,6 +97,7 @@ function RootStack() {
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="ads/index" options={{ title: 'Ads Manager' }} />
+        <Stack.Screen name="ads/mine" options={{ title: 'My ads' }} />
         <Stack.Screen name="admin/copyright" options={{ title: 'Copyright reports' }} />
         <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />

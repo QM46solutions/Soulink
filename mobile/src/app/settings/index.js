@@ -1,5 +1,6 @@
 // Settings: one clean menu. Every item opens its own page (nothing expands here).
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../../lib/api';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -46,6 +47,8 @@ function ShopButton() {
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const [hasAds, setHasAds] = useState(false); // "My ads" only for people with ads or Spark boosts
+  useEffect(() => { api('/ads/has').then((r) => setHasAds(!!r.has)).catch(() => {}); }, []);
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: 110 }}>
@@ -76,7 +79,8 @@ export default function Settings() {
 
       <Section>More</Section>
       {user.isAdmin ? <MenuRow icon="musical-notes" title="Copyright reports" text="Soulink team: decide within 36 hours" onPress={go('/admin/copyright')} tint={['#ff6b9d', '#7c5cfc']} /> : null}
-      {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: sponsored posts, Spark ads, sponsored Argue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}
+      {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: ads, budgets and revenue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}
+      {hasAds ? <MenuRow icon="stats-chart" title="My ads" text="Spent, left, views and taps for your ads and Spark boosts" onPress={go('/ads/mine')} tint={['#42e8c0', '#7c5cfc']} /> : null}
       <MenuRow icon="information-circle" title="About" text="Soulink version, terms and privacy" onPress={go('/settings/about')} tint={['#b08fff', '#7c5cfc']} />
       <MenuRow icon="log-out-outline" title="Log out" danger
         onPress={async () => { if (await confirm('Log out?', undefined, { confirmText: 'Log out', destructive: true })) signOut(); }} />
