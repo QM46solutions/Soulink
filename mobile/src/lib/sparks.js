@@ -15,7 +15,19 @@ export const CATEGORIES = [
     line: 'What happened, where, with the headline and a source link' },
 ];
 export const ALL_CAT = { key: null, label: 'All', mci: 'movie-open-star', colors: ['#7c5cfc', '#ff6b9d'] };
-export const catOf = (k) => CATEGORIES.find((c) => c.key === k) || CATEGORIES[0];
+// Open Mic: speak your mind (its own tab, not in the category picker or the main feed)
+export const OPENMIC_CAT = { key: 'openmic', label: 'Open Mic', emoji: '🎤', icon: 'mic', mci: 'microphone-variant', colors: ['#f5c842', '#ff6b9d'], react: { emoji: '🙌', label: 'I hear you' },
+  line: 'Say what you want to say: a story, an incident, society, politics' };
+export const MIC_TOPICS = [
+  { key: 'story', label: 'My story', emoji: '📖' },
+  { key: 'incident', label: 'Something that happened', emoji: '⚠️' },
+  { key: 'society', label: 'Society', emoji: '🏙️' },
+  { key: 'politics', label: 'Politics', emoji: '🗳️' },
+  { key: 'voice', label: 'Raising my voice', emoji: '📣' },
+  { key: 'other', label: 'Something else', emoji: '💬' },
+];
+export const micTopicOf = (k) => MIC_TOPICS.find((t) => t.key === k) || MIC_TOPICS[MIC_TOPICS.length - 1];
+export const catOf = (k) => (k === 'openmic' ? OPENMIC_CAT : CATEGORIES.find((c) => c.key === k) || CATEGORIES[0]);
 
 // ---- Acting: Improv Dice 🎲 (random emotion + situation + character) ----
 const EMOTIONS = ['😡 Angry', '😭 Heartbroken', '😂 Can’t stop laughing', '😱 Terrified', '🥹 Proud', '😏 Sarcastic', '🤯 Shocked', '😴 Half asleep', '🥰 In love', '😤 Jealous', '😬 Nervous', '🤩 Over-excited'];
@@ -56,10 +68,11 @@ export const DIETS = [['veg', '🟢 Veg'], ['nonveg', '🔴 Non-veg'], ['egg', '
 const blobOf = async (uri) => (await fetch(uri)).blob();
 
 /** Upload a new Spark: { videoUri, videoType, musicFile?, category, caption, place, details, oneTake, musicTitle } */
-export async function postSpark({ videoUri, videoType, music, voice, category, caption, place, details, oneTake, musicTitle, castingId, stage }) {
+export async function postSpark({ videoUri, videoType, music, voice, category, caption, place, details, oneTake, musicTitle, castingId, stage, mic }) {
   const form = new FormData();
   if (castingId) form.append('castingId', castingId);
   if (stage) form.append('stage', '1');
+  if (mic) form.append('mic', mic);
   form.append('category', category);
   form.append('caption', caption || '');
   if (place) form.append('place', place);
@@ -72,11 +85,12 @@ export async function postSpark({ videoUri, videoType, music, voice, category, c
   if (Platform.OS === 'web') {
     const v = await blobOf(videoUri);
     const type = videoType || v.type || 'video/mp4';
-    form.append('video', new File([v], `spark.${type.includes('webm') ? 'webm' : type.includes('quicktime') ? 'mov' : 'mp4'}`, { type }));
+    const ext = type.startsWith('audio/') ? (type.includes('webm') ? 'webm' : type.includes('mp4') || type.includes('m4a') ? 'm4a' : 'mp3') : type.includes('webm') ? 'webm' : type.includes('quicktime') ? 'mov' : 'mp4';
+    form.append('video', new File([v], `spark.${ext}`, { type }));
     if (music) form.append('music', new File([await blobOf(music.uri)], music.name || 'music.mp3', { type: music.type || 'audio/mpeg' }));
     if (voice) form.append('voice', new File([await blobOf(voice.uri)], voice.name || 'voice.webm', { type: voice.type || 'audio/webm' }));
   } else {
-    form.append('video', { uri: videoUri, name: 'spark.mp4', type: videoType || 'video/mp4' });
+    form.append('video', { uri: videoUri, name: (videoType || '').startsWith('audio/') ? 'spark.m4a' : 'spark.mp4', type: videoType || 'video/mp4' });
     if (music) form.append('music', { uri: music.uri, name: music.name || 'music.mp3', type: music.type || 'audio/mpeg' });
   }
   return api('/sparks', { method: 'POST', form, timeoutMs: 300000 });

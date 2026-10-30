@@ -8,8 +8,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
-import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf } from '../lib/sparks';
+import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, micTopicOf } from '../lib/sparks';
 import SparkVideo from './SparkVideo';
+import MicVoice from './MicVoice';
 import SparkCatBadge from './SparkCatBadge';
 import SpreadSheet from './SpreadSheet';
 import ActionSheet from './ActionSheet';
@@ -108,12 +109,15 @@ export default function SparkCard({ spark, onDeleted }) {
       </View>
 
       <View>
-        <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
+        {spark.voice
+          ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />}
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
           {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
           {spark.stageWeek ? <Chip icon="mic" text="Open Mic" color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
+          {spark.micTopic && !spark.voice ? <Chip icon="mic" text={`${micTopicOf(spark.micTopic).emoji} ${micTopicOf(spark.micTopic).label}`} color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
           {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
           {spark.music ? <Chip icon="musical-notes" text={spark.music.title} /> : null}
         </View>

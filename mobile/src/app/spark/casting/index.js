@@ -5,7 +5,7 @@ import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../../lib/api';
 import { Avatar, Empty, Loading } from '../../../components/ui';
-import { GradBadge, GradButton, left } from '../../../components/SparkHub';
+import { GradBadge, GradButton, RequirementChips, left } from '../../../components/SparkHub';
 import { colors, fonts, space } from '../../../lib/theme';
 
 function CallCard({ c }) {
@@ -23,6 +23,7 @@ function CallCard({ c }) {
         <Ionicons name="chevron-forward" size={18} color={colors.dim} />
       </View>
       <Text numberOfLines={2} style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: space.sm }}>{c.role}</Text>
+      <RequirementChips r={c.requirements} style={{ marginTop: space.sm }} />
       {c.author ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.sm }}>
           <Avatar uri={c.author.avatarUrl} size={20} name={c.author.username} />
@@ -50,7 +51,7 @@ export default function CastingBoard() {
       ListHeaderComponent={
         <View style={{ padding: space.lg }}>
           <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginBottom: space.md }}>
-            Post a role with a few lines. Actors audition with a Spark, and you pick the one you love.
+            Anyone can post a scene and what they need. People who want the role act it out as a Spark, everyone can watch the auditions, and you pick the one you love.
           </Text>
           <GradButton title="Post a casting call" icon="bullhorn" onPress={() => router.push('/spark/casting/new')} />
         </View>

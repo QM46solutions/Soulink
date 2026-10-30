@@ -30,6 +30,7 @@ Internal work list. Not for pitch decks.
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Open Mic is now "speak your mind": video or voice only, 6 topics, newest / most heard, its own tab (not the main feed); open mic events kept below. Casting calls have requirements (age, gender, languages, location, pay)
 - Unfinished sign-ups: 1 hour (since the last thing they did) to come back and continue; after that the half-made account is erased (on their next visit, at login, and by the hourly clean-up) and they start as a new user. People with connections, followers or posts are never touched
 - Face sign-up: duplicate-face limits set from real measurements (same person avg 0.20-0.29, different people 0.41+): block below 0.36, flag 0.36-0.42 for review; sign-up face checks run one at a time. Soul DNA quiz goes one part at a time and can't skip questions on a double tap
 - Chat rules: only Chats and Requests tabs; Chats filters (All / Unread / Groups / Anonymous); anonymous messages only to Connections with a chosen hidden time (1 h to 30 days); Requests = a paid message, or a chat while a Connect request is on hold; at the end of a hold the receiver gets 24 h to accept or reject, then it's rejected automatically and the chat is hidden (kept in the database)

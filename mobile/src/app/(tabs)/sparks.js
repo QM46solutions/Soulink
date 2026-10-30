@@ -63,7 +63,7 @@ export default function Sparks() {
   const features = (
     <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: space.md, paddingTop: space.sm }}>
       <Feature icon="drama-masks" title="Casting Board" text="Audition for roles" c={['#7c5cfc', '#ff6b9d']} to="/spark/casting" />
-      <Feature icon="microphone-variant" title="Open Mic" text="This week's stage" c={['#f5c842', '#ff6b9d']} to="/spark/stage" />
+      <Feature icon="microphone-variant" title="Open Mic" text="Speak your mind" c={['#f5c842', '#ff6b9d']} to="/spark/stage" />
     </View>
   );
 

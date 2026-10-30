@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notice } from '../../lib/confirm';
-import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChallengeOfWeek, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
+import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChallengeOfWeek, micTopicOf, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
 import SparkVideo from '../../components/SparkVideo';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkRecorder from '../../components/SparkRecorder';
@@ -61,19 +61,20 @@ export default function NewSpark() {
   const params = useLocalSearchParams();
   const castingId = typeof params.casting === 'string' ? params.casting : null;
   const forStage = params.stage === '1';
+  const micTopic = typeof params.mic === 'string' ? params.mic : null; // Open Mic on video (topic chosen already)
   const [casting, setCasting] = useState(null); // the role you're auditioning for
   const [stage, setStage] = useState(null); // this week's Open Mic theme
-  const [step, setStep] = useState('category'); // category | video | edit | details
+  const [step, setStep] = useState(micTopic ? 'video' : 'category'); // category | video | edit | details
   const [edit, setEdit] = useState(emptyEdit());
   const [clipLen, setClipLen] = useState(0);
-  const [category, setCategory] = useState(null);
+  const [category, setCategory] = useState(micTopic ? 'openmic' : null);
   const [mode, setMode] = useState(null); // acting: dice | script | scene | dub
   const [dice, setDice] = useState(null);
   const [video, setVideo] = useState(null); // { uri, type, oneTake }
   const [recording, setRecording] = useState(false);
   const [music, setMusic] = useState(null); // { uri, name, type }
   const [voice, setVoice] = useState(null); // the voiceover recorded in the studio { uri, type, name }
-  const [caption, setCaption] = useState('');
+  const [caption, setCaption] = useState(typeof params.caption === 'string' ? params.caption : '');
   const [place, setPlace] = useState('');
   const [sound, setSound] = useState('place');
   const [cook, setCook] = useState({ dish: '', minutes: '', diet: null, ingredients: '', steps: '' });
@@ -101,11 +102,13 @@ export default function NewSpark() {
   const addMusic = () => setMusicOpen(true); // JioSaavn / Deezer / free music / a song from the phone
   const castingCue = casting ? `🎭 ${casting.title}: ${casting.role}${casting.script ? `\n“${casting.script}”` : ''}` : null;
   const stageCue = stage ? `🎤 Open Mic: ${stage.title}` : null;
-  const cue = castingCue || stageCue || (category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
+  const micCue = micTopic ? `🎤 Open Mic · ${micTopicOf(micTopic).label}` : null;
+  const cue = castingCue || stageCue || micCue || (category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
     : category === 'fitness' && fit.useChallenge ? `💪 ${fitChallengeOfWeek()}` : null);
 
   const details = () => ({ ...baseDetails(), ...(cleanEdit(edit, clipLen) ? { edit: cleanEdit(edit, clipLen) } : {}) });
   const baseDetails = () => {
+    if (category === 'openmic') return {};
     if (category === 'travel') return { sound: music ? 'music' : sound };
     if (category === 'cooking') {
       const lines = (t) => t.split('\n').map((x) => x.trim()).filter(Boolean);
@@ -129,11 +132,11 @@ export default function NewSpark() {
     setBusy(true);
     try {
       await postSpark({ videoUri: video.uri, videoType: video.type, music, voice, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
-        castingId: casting?.id, stage: forStage });
-      if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage) router.replace('/spark/stage'); else router.replace('/sparks');
+        castingId: casting?.id, stage: forStage, mic: micTopic });
+      if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage || micTopic) router.replace('/spark/stage'); else router.replace('/sparks');
     } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); }
   };
-  const back = () => (step === 'category' || (step === 'video' && casting) ? router.back() : step === 'video' ? setStep('category') : step === 'edit' ? (setStep('video'), setVideo(null), setMusic(null), setVoice(null)) : setStep('edit'));
+  const back = () => (step === 'category' || (step === 'video' && (casting || micTopic)) ? router.back() : step === 'video' ? setStep('category') : step === 'edit' ? (setStep('video'), setVideo(null), setMusic(null), setVoice(null)) : setStep('edit'));
 
   // Spark Studio takes the whole screen
   if (step === 'edit' && video) {
@@ -149,7 +152,7 @@ export default function NewSpark() {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg }}>
         <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back"><Ionicons name={step === 'category' ? 'close' : 'arrow-back'} size={26} color={colors.text} /></Pressable>
-        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{casting ? 'Audition' : forStage ? 'Open Mic' : cat ? `${cat.label} Spark` : 'New Spark'}</Text>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>{casting ? 'Audition' : forStage || micTopic ? 'Open Mic' : cat ? `${cat.label} Spark` : 'New Spark'}</Text>
         <View style={{ width: 26 }} />
       </View>
 

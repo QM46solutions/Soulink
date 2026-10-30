@@ -76,7 +76,7 @@ export async function setToken(t) {
 }
 
 /** Full URL for images stored on the server (/uploads/...). */
-export const mediaUrl = (p) => (!p ? null : /^https?:\/\//.test(p) ? p : `${baseUrl}${p}`);
+export const mediaUrl = (p) => (!p ? null : /^(https?:|blob:|file:|data:)/.test(p) ? p : `${baseUrl}${p}`);
 
 export class ApiError extends Error {
   constructor(status, message, code) {

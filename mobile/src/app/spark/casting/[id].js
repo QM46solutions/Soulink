@@ -7,7 +7,7 @@ import { api } from '../../../lib/api';
 import { confirm, notice } from '../../../lib/confirm';
 import SparkCard from '../../../components/SparkCard';
 import { Empty, Loading } from '../../../components/ui';
-import { GradBadge, GradButton, H, left } from '../../../components/SparkHub';
+import { GradBadge, GradButton, H, RequirementChips, left } from '../../../components/SparkHub';
 import { colors, fonts, space } from '../../../lib/theme';
 
 export default function CastingCall() {
@@ -53,6 +53,7 @@ export default function CastingCall() {
             </View>
           </View>
           <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.text, marginTop: space.md }}>{c.role}</Text>
+          <RequirementChips r={c.requirements} style={{ marginTop: space.md }} />
           {c.script ? (
             <View style={{ marginTop: space.md, padding: space.lg, borderRadius: 16, backgroundColor: 'rgba(26,24,40,0.85)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.25)' }}>
               <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.aura, letterSpacing: 1 }}>THE LINES</Text>

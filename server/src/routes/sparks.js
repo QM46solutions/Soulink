@@ -32,7 +32,9 @@ import { sharePostToChat } from './conversations.js';
 const r = Router();
 r.use(requireAuth);
 const uuid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id');
-export const SPARK_CATEGORIES = ['travel', 'cooking', 'acting', 'fitness', 'news'];
+export const SPARK_CATEGORIES = ['travel', 'cooking', 'acting', 'fitness', 'news', 'openmic'];
+// Open Mic: speak your mind on any of these (video, or just your voice)
+export const MIC_TOPICS = ['story', 'incident', 'society', 'politics', 'voice', 'other'];
 
 // Spark studio edits (kept with the Spark and applied when it plays): trim, speed, filter, text, stickers, music mix, cover
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -83,6 +85,7 @@ const DETAILS = {
   }),
 };
 
+DETAILS.openmic = z.object({});
 for (const k of Object.keys(DETAILS)) DETAILS[k] = DETAILS[k].extend({ edit: EDIT.optional() });
 
 // ---- Open Mic Stage: one theme a week; Sparks made for it are tagged with the week ----
@@ -132,6 +135,7 @@ const view = (x, me) => ({
   reacted: !!x.reacted, iTried: !!x.i_tried,
   mine: String(x.author_id).toLowerCase() === String(me).toLowerCase(),
   castingId: x.casting_id || null, stageWeek: x.stage_week || null,
+  micTopic: x.mic_topic || null, voice: x.is_voice === true || x.is_voice === 1,
   author: userCard({ ...x, id: x.uid }),
   commentCount: Number(x.comment_count || 0), commented: !!x.commented,
   offenseCount: Number(x.offense_count || 0), offended: !!x.offense_reason, offenseReason: x.offense_reason || null,
@@ -143,7 +147,8 @@ r.get('/', ah(async (req, res) => {
   const category = z.enum(SPARK_CATEGORIES).optional().parse(req.query.category || undefined);
   const before = req.query.before ? z.string().datetime({ offset: true }).parse(req.query.before) : null;
   const rows = await many(
-    `${SELECT} WHERE ${VISIBLE} AND ($2 IS NULL OR s.category = $2) AND ($3 IS NULL OR s.created_at < CAST($3 AS DATETIMEOFFSET))
+    `${SELECT} WHERE ${VISIBLE} AND ($2 IS NULL OR s.category = $2) AND ($2 IS NOT NULL OR s.category <> N'openmic')
+        AND ($3 IS NULL OR s.created_at < CAST($3 AS DATETIMEOFFSET))
       ORDER BY s.created_at DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY`, [req.user.id, category || null, before]);
   const sparks = rows.map((x) => view(x, req.user.id));
   // Spread around: up to 2 boosted Sparks for this viewer (their city / age), placed at about the 3rd and 9th spot
@@ -152,7 +157,7 @@ r.get('/', ah(async (req, res) => {
     const boosted = await many(`SELECT TOP 2 sp.id AS spread_id, x.* FROM spark_spreads sp
         CROSS APPLY (${SELECT} WHERE s.id = sp.spark_id AND ${VISIBLE}) x
         WHERE sp.status IN (N'active', N'test') AND sp.ends_at > SYSDATETIMEOFFSET()
-          AND sp.user_id <> $1 AND ($2 IS NULL OR x.category = $2)
+          AND sp.user_id <> $1 AND ($2 IS NULL OR x.category = $2) AND x.category <> N'openmic'
           AND (sp.city IS NULL OR sp.city = $3)
           AND ($4 IS NULL OR ($4 BETWEEN sp.age_min AND sp.age_max))
         ORDER BY NEWID()`, [req.user.id, category || null, req.user.city || '', age]);
@@ -193,7 +198,9 @@ r.get('/user/:userId', ah(async (req, res) => {
 
 r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', maxCount: 1 }, { name: 'music', maxCount: 1 }, { name: 'voice', maxCount: 1 }]), ah(async (req, res) => {
   const video = req.files?.video?.[0]; const music = req.files?.music?.[0]; const voice = req.files?.voice?.[0];
-  if (!video || !video.mimetype.startsWith('video/')) throw badRequest('Add a video first (up to 60 seconds)', 'no_video');
+  // Open Mic can be just your voice (an audio recording); everything else needs a video
+  const voiceOnly = req.body?.category === 'openmic' && video && video.mimetype.startsWith('audio/');
+  if (!video || !(video.mimetype.startsWith('video/') || voiceOnly)) throw badRequest('Add a video first (up to 60 seconds)', 'no_video');
   if (music && !music.mimetype.startsWith('audio/')) throw badRequest('Music must be an audio file');
   const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
   if (music && !phoneMusicOn()) throw forbidden("Songs from your phone can't be added. Use the music library or your video's original sound.", 'music_upload_off');
@@ -208,8 +215,10 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
     details: z.string().optional(),
     oneTake: z.enum(['0', '1']).default('0'),
     castingId: uuid.optional(),   // an audition for a Casting Board role
-    stage: z.enum(['0', '1']).default('0'), // a performance for this week's Open Mic
+    stage: z.enum(['0', '1']).default('0'), // (older apps) a performance for the weekly Open Mic theme
+    mic: z.enum(MIC_TOPICS).optional(),     // Open Mic: what it's about
   }).parse(req.body || {});
+  if (b.category === 'openmic' && !b.mic) throw badRequest('Pick what you are talking about', 'no_topic');
   let casting = null;
   if (b.castingId) {
     casting = await one('SELECT * FROM casting_calls WHERE id=$1 AND deleted_at IS NULL', [b.castingId]);
@@ -224,10 +233,10 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   const videoUrl = await saveFile(video, 'sparks', 'spark');
   const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : b.musicRef ? playPath(b.musicRef) : null;
   const x = await one(
-    `INSERT INTO sparks (author_id, category, video_url, music_url, music_title, caption, place, details, one_take, casting_id, stage_week)
-     OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    `INSERT INTO sparks (author_id, category, video_url, music_url, music_title, caption, place, details, one_take, casting_id, stage_week, mic_topic, is_voice)
+     OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [req.user.id, b.category, videoUrl, musicUrl, musicUrl ? (b.musicTitle || music?.originalname?.replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music') : null, b.caption, b.place || null, JSON.stringify(details), b.oneTake === '1',
-      casting ? casting.id : null, b.stage === '1' ? stageWeek() : null],
+      casting ? casting.id : null, b.stage === '1' ? stageWeek() : null, b.category === 'openmic' ? b.mic : null, voiceOnly ? 1 : 0],
   );
   if (casting && String(casting.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
     await notify(casting.author_id, req.user.id, 'casting_audition', x.id, { title: casting.title }).catch(() => {});
@@ -237,8 +246,19 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
 }));
 
 // ---------- Casting Board ----------
+// What the role needs (all optional): age range, gender, languages, where, paid or not
+const REQUIREMENTS = z.object({
+  ageMin: z.number().int().min(1).max(100).optional(),
+  ageMax: z.number().int().min(1).max(100).optional(),
+  gender: z.enum(['any', 'male', 'female', 'other']).optional(),
+  languages: z.array(z.string().trim().min(1).max(30)).max(6).optional(),
+  location: z.string().trim().max(80).optional(),
+  pay: z.enum(['paid', 'unpaid', 'negotiable']).optional(),
+  payNote: z.string().trim().max(80).optional(),
+});
 const castingView = (c, me, extra = {}) => ({
   id: c.id, title: c.title, role: c.role, script: c.script || null, category: c.category, endsAt: c.ends_at, createdAt: c.created_at,
+  requirements: parse(c.requirements) || {},
   pickedSparkId: c.picked_spark_id || null, open: !c.picked_spark_id && new Date(c.ends_at) > new Date(),
   mine: String(c.author_id).toLowerCase() === String(me).toLowerCase(), auditions: Number(c.auditions || 0),
   author: c.username ? userCard({ ...c, id: c.uid }) : null, ...extra,
@@ -262,9 +282,12 @@ r.post('/casting', requireSoul, ah(async (req, res) => {
     script: z.string().trim().max(1000).optional(),
     category: z.enum(SPARK_CATEGORIES).default('acting'),
     days: z.number().int().min(1).max(30).default(7),
+    requirements: REQUIREMENTS.optional(),
   }).parse(req.body || {});
-  const c = await one(`INSERT INTO casting_calls (author_id, title, role, script, category, ends_at) OUTPUT INSERTED.id
-                       VALUES ($1, $2, $3, $4, $5, DATEADD(DAY, $6, SYSDATETIMEOFFSET()))`, [req.user.id, d.title, d.role, d.script || null, d.category, d.days]);
+  const reqs = d.requirements ? Object.fromEntries(Object.entries(d.requirements).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && !v.length))) : null;
+  if (reqs?.ageMin && reqs?.ageMax && reqs.ageMin > reqs.ageMax) throw badRequest('The age range is the wrong way round');
+  const c = await one(`INSERT INTO casting_calls (author_id, title, role, script, category, ends_at, requirements) OUTPUT INSERTED.id
+                       VALUES ($1, $2, $3, $4, $5, DATEADD(DAY, $6, SYSDATETIMEOFFSET()), $7)`, [req.user.id, d.title, d.role, d.script || null, d.category, d.days, reqs && Object.keys(reqs).length ? JSON.stringify(reqs) : null]);
   const row = await one(`${CASTING_SELECT} WHERE c.id = $1`, [c.id]);
   res.status(201).json({ call: castingView(row, req.user.id) });
 }));
@@ -312,6 +335,27 @@ const SPOT_SELECT = `SELECT p.*, u.id AS uid, u.username, u.display_name, u.avat
     (SELECT COUNT(*) FROM stage_rsvps r WHERE r.spot_id = p.id AND r.kind = N'perform') AS performing,
     (SELECT TOP 1 r.kind FROM stage_rsvps r WHERE r.spot_id = p.id AND r.user_id = $1) AS my_rsvp
   FROM stage_spots p JOIN users u ON u.id = p.author_id`;
+
+// GET /sparks/mic?topic=&sort=latest|top&city=&before= → Open Mic posts (anyone speaking their mind) + open mics nearby
+r.get('/mic', ah(async (req, res) => {
+  const q = z.object({
+    topic: z.enum(MIC_TOPICS).optional(),
+    sort: z.enum(['latest', 'top']).default('latest'),
+    city: z.string().trim().max(80).optional(),
+    before: z.string().datetime({ offset: true }).optional(),
+  }).parse({ topic: req.query.topic || undefined, sort: req.query.sort || undefined, city: req.query.city || undefined, before: req.query.before || undefined });
+  const order = q.sort === 'top'
+    ? '(SELECT COUNT(*) FROM spark_reactions x WHERE x.spark_id = s.id) + (SELECT COUNT(*) FROM spark_comments c WHERE c.spark_id = s.id AND c.deleted_at IS NULL) DESC, s.created_at DESC'
+    : 's.created_at DESC';
+  const rows = await many(`${SELECT} WHERE ${VISIBLE} AND s.category = N'openmic' AND ($2 IS NULL OR s.mic_topic = $2)
+      AND ($3 IS NULL OR s.created_at < CAST($3 AS DATETIMEOFFSET))
+      ${q.sort === 'top' ? "AND s.created_at > DATEADD(DAY, -30, SYSDATETIMEOFFSET())" : ''}
+    ORDER BY ${order} OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY`, [req.user.id, q.topic || null, q.before || null]);
+  const spots = q.before ? [] : await many(`${SPOT_SELECT} WHERE p.deleted_at IS NULL AND p.starts_at > DATEADD(HOUR, -3, SYSDATETIMEOFFSET())
+      AND ($2 IS NULL OR p.city LIKE '%' + $2 + '%')
+    ORDER BY p.starts_at ASC OFFSET 0 ROWS FETCH NEXT 30 ROWS ONLY`, [req.user.id, q.city || null]);
+  res.json({ topics: MIC_TOPICS, posts: rows.map((x) => view(x, req.user.id)), spots: spots.map((x) => spotView(x, req.user.id)) });
+}));
 
 // GET /sparks/stage?city= → this week's theme, the top performances so far, and open mics coming up
 r.get('/stage', ah(async (req, res) => {
