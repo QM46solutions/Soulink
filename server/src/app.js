@@ -59,10 +59,11 @@ export function createApp() {
   }
   // Browsers may call the API only from Soulink's own address or the CORS_ORIGINS list (policy section 6).
   // The phone apps send no Origin and are not affected. Development allows everything (Expo, phone link).
-  app.use(config.isDev ? cors() : cors((req, cb) => {
+  // (x-soulink-token: a renewed login the app may read)
+  app.use(config.isDev ? cors({ exposedHeaders: ['x-soulink-token'] }) : cors((req, cb) => {
     const origin = req.headers.origin;
     const own = `${req.protocol}://${req.get('host')}`;
-    cb(null, { origin: !origin || origin === own || config.corsOrigins.includes(origin) });
+    cb(null, { origin: !origin || origin === own || config.corsOrigins.includes(origin), exposedHeaders: ['x-soulink-token'] });
   }));
   app.use('/face', express.json({ limit: '8mb' })); // Face ID photos are bigger than normal requests
   app.use('/users/me/restore', express.json({ limit: '15mb' })); // a "Download my data" file
@@ -91,7 +92,7 @@ export function createApp() {
     const ok = (v) => !!v && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(v)).digest(), want);
     app.get('/access', (req, res) => res.json({ required: true, ok: ok(req.get('x-soulink-access')) }));
     app.use((req, res, next) => {
-      if (req.path === '/health' || req.path === '/wake' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || ok(req.get('x-soulink-access'))) return next();
+      if (req.path === '/health' || req.path === '/wake' || req.path === '/push/renew' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || ok(req.get('x-soulink-access'))) return next();
       return res.status(403).json({ error: { code: 'access_code', message: 'Enter the Soulink access code' } });
     });
   } else {

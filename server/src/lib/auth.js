@@ -9,7 +9,7 @@ export const signToken = (userId, sid) => jwt.sign(sid ? { sub: userId, sid } : 
 export function verifyToken(token) {
   try {
     const p = jwt.verify(token, config.jwtSecret);
-    return { userId: p.sub, sid: p.sid || null };
+    return { userId: p.sub, sid: p.sid || null, iat: p.iat || 0 };
   } catch {
     return null;
   }

@@ -32,6 +32,12 @@ const b64ToBytes = (s) => {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 };
 
+// "This person switched notifications on here": remembered on the phone, so the app can quietly re-connect them
+// whenever the phone's push address went missing (an update, a browser clean-up). Only switching them off clears it.
+const WANT = 'soulink.pushWanted';
+const want = (v) => { try { if (v) localStorage.setItem(WANT, '1'); else localStorage.removeItem(WANT); } catch { /* private mode */ } };
+const wanted = () => { try { return localStorage.getItem(WANT) === '1'; } catch { return false; } };
+
 /** Asks permission (must run from a tap), subscribes this phone and tells the server. Throws a friendly message. */
 export async function enablePush() {
   const support = pushSupport();
@@ -55,13 +61,16 @@ export async function enablePush() {
     step = 'save';
     const json = sub.toJSON();
     await api('/push/subscribe', { method: 'POST', body: { endpoint: json.endpoint, keys: json.keys } });
+    want(true);
     return true;
   } catch (e) {
     throw new Error(`${e.message || e} (step: ${step})`);
   }
 }
 
+/** Switching notifications off (Settings, or logging out): this phone stops getting them. */
 export async function disablePush() {
+  want(false);
   try {
     const reg = await navigator.serviceWorker.getRegistration('/');
     const sub = reg && (await reg.pushManager.getSubscription());
@@ -74,12 +83,26 @@ export async function disablePush() {
 
 export const sendTestPush = () => api('/push/test', { method: 'POST' });
 
-/** If this phone already has notifications on, re-send its subscription (e.g. after the server data was reset). */
+/**
+ * Every time the app opens (and after logging in): keep notifications on. If this phone has them, re-send its
+ * address (the server may have dropped it); if they were switched on here but the phone's address went missing,
+ * make a new one quietly (permission is already given, so no question is asked).
+ */
 export async function resyncPush() {
   try {
-    if (!(await pushEnabled())) return;
-    const reg = await navigator.serviceWorker.getRegistration('/');
-    const json = (await reg.pushManager.getSubscription()).toJSON();
+    if (pushSupport() !== 'ready' || Notification.permission !== 'granted') return;
+    const reg = (await navigator.serviceWorker.getRegistration('/')) || (wanted() ? await registration() : null);
+    if (!reg) return;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub && wanted()) {
+      const { publicKey } = await api('/push/key');
+      if (!publicKey) return;
+      await navigator.serviceWorker.ready;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+    }
+    if (!sub) return;
+    want(true);
+    const json = sub.toJSON();
     await api('/push/subscribe', { method: 'POST', body: { endpoint: json.endpoint, keys: json.keys } });
   } catch { /* offline: try next time */ }
 }

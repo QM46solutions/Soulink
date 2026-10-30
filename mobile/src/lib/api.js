@@ -123,6 +123,8 @@ async function apiOnce(path, { method = 'GET', body, form, timeoutMs = 15000 } =
   } finally {
     clearTimeout(timer);
   }
+  const fresh = res.headers?.get?.('x-soulink-token');
+  if (fresh && token && fresh !== token) setToken(fresh).catch(() => {}); // the login renewed itself
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && token && path !== '/auth/logout') onUnauthorized(data?.error?.code);

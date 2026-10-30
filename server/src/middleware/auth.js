@@ -1,6 +1,6 @@
 import { HttpError } from '../lib/errors.js';
 import { config } from '../config.js';
-import { verifyToken } from '../lib/auth.js';
+import { signToken, verifyToken } from '../lib/auth.js';
 import { one, query } from '../db.js';
 import { unauthorized } from '../lib/errors.js';
 import { checkSession } from '../services/sessions.js';
@@ -26,6 +26,7 @@ async function loadUser(req) {
   if (user.deactivated_at) throw unauthorized(user.deactivate_reason === 'deleting' ? 'Your account will be deleted in 30 days. Log in before then to cancel.' : 'This account is paused. Log in again to reactivate it.', user.deactivate_reason === 'deleting' ? 'account_deleting' : 'account_paused');
   if ((await checkSession(t.userId, t.sid)) !== 'ok') throw unauthorized('You were logged out. Log in again to continue.', 'session_ended');
   req.sessionId = t.sid;
+  req.tokenIssuedAt = t.iat;
   return user;
 }
 
@@ -35,6 +36,9 @@ export async function requireAuth(req, res, next) {
     const user = await loadUser(req);
     if (!user) return next(unauthorized());
     req.user = user;
+    // the login renews itself while it's used: a token older than a day gets a fresh one (same session), so active
+    // people are never logged out (and never lose their notifications) because a week went by
+    if (req.sessionId && req.tokenIssuedAt && Date.now() / 1000 - req.tokenIssuedAt > 86400) res.setHeader('x-soulink-token', signToken(user.id, req.sessionId));
     // Cheap activity heartbeat (at most once a minute per user)
     if (!user.last_active_at || Date.now() - new Date(user.last_active_at).getTime() > 60_000) {
       query('UPDATE users SET last_active_at = SYSDATETIMEOFFSET() WHERE id = $1', [user.id]).catch(() => {});

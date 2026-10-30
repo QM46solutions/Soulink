@@ -14,7 +14,9 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async (opts) => {
     const remote = opts?.remote !== false;
     if (remote && getToken()) await api('/auth/logout', { method: 'POST', timeoutMs: 6000 }).catch(() => {});
-    await disablePush(); // this phone stops getting this account's notifications
+    // only YOU logging out switches this phone's notifications off; an automatic sign-out keeps them, so they
+    // come straight back when you log in again
+    if (remote) await disablePush();
     await setToken(null);
     setUser(null);
   }, []);
@@ -51,6 +53,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (token, me) => {
     await setToken(token);
     setUser(me);
+    resyncPush(); // notifications switched on earlier on this phone: connected to this login again
   }, []);
 
   const refresh = useCallback(async () => {
