@@ -80,9 +80,17 @@ export function freeTrack(a) {
   };
 }
 async function searchFree(q, limit) {
-  const j = await getJson(`https://api.openverse.org/v1/audio/?q=${encodeURIComponent(q || 'happy music')}&page_size=${limit}&category=music&license_type=commercial`); // only licences that allow use in an app (CC0, BY, BY-SA)
-  return (j.results || []).map(freeTrack).filter(Boolean);
+  // only licences that allow use in an app (CC0, BY, BY-SA); a few extra are fetched because very short sound
+  // effects are dropped (a song for a reel should be at least 30 seconds)
+  const j = await getJson(`https://api.openverse.org/v1/audio/?q=${encodeURIComponent(q || 'happy music')}&page_size=${Math.min(40, limit + 10)}&category=music&license_type=commercial`);
+  return (j.results || []).map(freeTrack).filter((t) => t && (!t.duration || t.duration >= 30)).slice(0, limit);
 }
+
+// Words that find good free music for each mood (people tap "Romantic", Openverse needs "romantic piano love")
+export const FREE_MOODS = {
+  happy: 'happy upbeat', romantic: 'romantic piano love', indian: 'indian sitar tabla', lofi: 'lofi chill beats', party: 'dance electronic party',
+  sad: 'sad emotional piano', cinematic: 'cinematic epic', calm: 'meditation calm ambient', workout: 'energetic workout rock', travel: 'acoustic travel guitar',
+};
 async function resolveFree(id) {
   const j = await getJson(`https://api.openverse.org/v1/audio/${encodeURIComponent(id)}/`);
   return https(j.url) || null;
@@ -98,7 +106,8 @@ export async function searchMusic(source, q, limit = 20) {
   const hit = searchCache.get(k);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.tracks;
   const fn = { saavn: searchSaavn, deezer: searchDeezer, free: searchFree }[source];
-  const tracks = await fn(source === 'saavn' && !query ? 'latest telugu songs' : query, Math.min(30, Math.max(1, limit)));
+  const asked = source === 'free' && FREE_MOODS[query.toLowerCase()] ? FREE_MOODS[query.toLowerCase()] : query; // a mood chip → better words
+  const tracks = await fn(source === 'saavn' && !asked ? 'latest telugu songs' : asked, Math.min(30, Math.max(1, limit)));
   tracks.forEach((t) => streamCache.set(t.ref, { at: Date.now(), url: t.previewUrl }));
   searchCache.set(k, { at: Date.now(), tracks });
   if (searchCache.size > 500) searchCache.delete(searchCache.keys().next().value);

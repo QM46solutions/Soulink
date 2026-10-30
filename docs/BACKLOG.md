@@ -27,9 +27,11 @@ Internal work list. Not for pitch decks.
 - Soul DNA: grow the scenario bank from the typed "Anything else" answers (they are kept in soul_dna.answers)
 - YouTube linking for interests (needs Google's app review); Spotify once Soulink is big enough for their API
 - Hosting for 100+ active users: Render free (0.1 CPU, sleeps) and the Azure SQL free offer (100,000 vCore-seconds a month) will run out; move to Render Starter and a paid Azure SQL tier before a wider launch
+- Music licence for film/label songs (Saregama, T-Series, Zee, Tips…, or an aggregator like Feed.fm): then switch MUSIC_SAAVN on; the picker already supports it
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Music picker like Instagram: For you (popular on Soulink + moods), Recently used, Saved, mood chips; free (Creative Commons) music online
 - Open Mic is now "speak your mind": video or voice only, 6 topics, newest / most heard, its own tab (not the main feed); open mic events kept below. Casting calls have requirements (age, gender, languages, location, pay)
 - Unfinished sign-ups: 1 hour (since the last thing they did) to come back and continue; after that the half-made account is erased (on their next visit, at login, and by the hourly clean-up) and they start as a new user. People with connections, followers or posts are never touched
 - Face sign-up: duplicate-face limits set from real measurements (same person avg 0.20-0.29, different people 0.41+): block below 0.36, flag 0.36-0.42 for review; sign-up face checks run one at a time. Soul DNA quiz goes one part at a time and can't skip questions on a double tap
