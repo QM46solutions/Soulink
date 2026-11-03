@@ -85,6 +85,12 @@ function RootStack() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
+  // opening another screen or tab stops anything still playing (screens stay open underneath)
+  const where = segs.join('/');
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    for (const m of document.querySelectorAll('video, audio')) { if (!m.paused && !m.muted) m.pause(); }
+  }, [where]);
   useUsageTracker(!!user?.onboardingDone); // Settings › Time management (hooks must run before any early return)
   if (!ready) return null;
 

@@ -1,7 +1,8 @@
 // Sparks video player (web): tap to play / pause, loops. Plays the Spark with its studio edits:
 // trim (start–end), speed, filter + adjustments, zoom / crop, fade in / out, timed text + stickers,
 // music (from its start point) and a voiceover, mixed with the video's own sound.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mediaUrl } from '../lib/api';
@@ -87,10 +88,23 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const onTime = () => { const v = video.current; if (v && t1 && v.currentTime >= t1) { v.currentTime = t0; syncAudio(); } };
   const onEnded = () => { const v = video.current; if (v) { v.currentTime = t0; v.play().catch(() => {}); syncAudio(); voice.current?.play().catch(() => {}); } };
   useEffect(() => () => { if (current === pause) current = null; video.current?.pause(); audio.current?.pause(); voice.current?.pause(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // stop when it's scrolled away (less than half on screen), when you open another screen or tab, or when the
+  // app goes to the background. Screens stay open underneath, so leaving one doesn't stop its video by itself.
+  useEffect(() => {
+    const v = video.current;
+    if (!v || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([en]) => { if (!en.isIntersecting || en.intersectionRatio < 0.5) pause(); }, { threshold: [0, 0.5] });
+    io.observe(v);
+    const hide = () => { if (document.visibilityState === 'hidden') pause(); };
+    document.addEventListener('visibilitychange', hide);
+    return () => { io.disconnect(); document.removeEventListener('visibilitychange', hide); };
+  }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  useFocusEffect(useCallback(() => () => pause(), [])); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Pressable onPress={() => (playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
       <video ref={video} src={src} playsInline preload="metadata" onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
+        onPause={() => { audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}
       {vo ? <audio ref={voice} src={vo} preload="auto" /> : null}

@@ -1,6 +1,7 @@
 // An Open Mic Spark that is just a voice (for people who'd rather not show their face): a calm card with a big
 // play button, how far it has played, and what it's about. Plays on phones and on the web (expo-audio).
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,8 @@ export default function MicVoice({ uri, topic, caption, height = 300, onFirstPla
   const st = useAudioPlayerStatus(player);
   const played = useRef(false);
   useEffect(() => () => { if (current === player) current = null; }, [player]);
+  // stops when you open another screen or tab
+  useFocusEffect(useCallback(() => () => { try { player.pause(); } catch { /* gone */ } }, [player]));
   const t = micTopicOf(topic);
   const toggle = () => {
     if (st.playing) { player.pause(); return; }

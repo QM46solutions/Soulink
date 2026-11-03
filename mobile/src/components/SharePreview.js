@@ -62,7 +62,7 @@ export default function SharePreview({ target }) {
               {media && !over ? (
                 d.kind === 'spark' || isVideo(media)
                   ? (d.voice ? <Text style={{ color: colors.text, fontFamily: fonts.semibold, margin: space.xl, textAlign: 'center' }}>🎤 A voice post on Open Mic. Log in to listen.</Text>
-                    : <PostVideo uri={abs(media)} />)
+                    : <PostVideo uri={abs(media)} standalone />)
                   : <Image source={{ uri: abs(media) }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
               ) : null}
               <Watermark label="Soulink preview" />
