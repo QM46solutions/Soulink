@@ -7,7 +7,7 @@
 // Every screen is saved when you tap Next, so you can stop and continue later. Taps only: no swiping.
 // Ends with your Soul DNA: how you think (in words), give and take, your spectrum and what wins for you.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { retakeSoulDna } from '../lib/retake';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,11 +30,48 @@ const WHY = {
   rhythm: ['Your daily rhythm', 'Partners whose sleep and free time barely overlap get less time together.', 'Morning–evening type research (Horne & Östberg)'],
   conflict: ['How you argue and make up', 'Criticism, defensiveness and stonewalling are warning signs; making up quickly protects a relationship. Your picks are shown to someone only after you connect.', 'Gottman’s couples research; dual-concern model of conflict'],
 };
-const HINT = {
-  mostleast: 'Tap one for “Most me”, then another for “Least me”.',
-  me: 'Skip anything that doesn’t apply.',
-  boxes: 'Tap a chip to change it: Flexible → Must → Never.',
-};
+/** What to do on this screen, step by step; the step you're on is highlighted (index = how many are done). */
+function stepsFor(step, answers) {
+  const q = step.items[0]; const v = answers[q.id];
+  if (step.screen) {
+    const done = step.items.filter((x) => Number.isInteger(answers[x.id]?.o)).length;
+    return { list: [step.screen === 'day' ? `Pick one for each part of your day (${done} of ${step.items.length} done)` : `Pick one answer in each row (${done} of ${step.items.length} done)`], at: done === step.items.length ? 1 : 0 };
+  }
+  switch (q.kind) {
+    case 'mostleast': return { list: ['Tap the photo that is MOST like you', 'Now tap the photo that is LEAST like you'], at: !Number.isInteger(v?.m) ? 0 : !Number.isInteger(v?.l) ? 1 : 2 };
+    case 'vs': return { list: ['Tap the one that matters more to you', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
+    case 'loyal': return { list: ['Tap what you would really do', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
+    case 'react': return { list: ['Tap your first reaction. Don’t overthink it.'], at: Number.isInteger(v?.o) ? 1 : 0 };
+    case 'check': return { list: ['Tap the answer that fits you best'], at: Number.isInteger(v?.o) ? 1 : 0 };
+    case 'me': return { list: ['Tap every chip that describes you. Leave the rest.'], at: v?.s?.length ? 1 : 0, optional: true };
+    case 'boxes': return { list: ['Tap a chip once for MUST, twice for NEVER, three times to make it Flexible again'], at: v?.must?.length || v?.never?.length ? 1 : 0, optional: true };
+    default: return { list: [], at: 0 };
+  }
+}
+
+/** The instructions card: numbered steps, the current one highlighted, then "All set — tap Next". */
+function Instructions({ list, at, optional }) {
+  if (!list.length) return null;
+  const done = at >= list.length;
+  return (
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: done ? 'rgba(66,232,192,0.45)' : 'rgba(255,107,157,0.45)', backgroundColor: done ? 'rgba(66,232,192,0.08)' : 'rgba(255,107,157,0.08)', padding: 12, marginBottom: space.lg, gap: 8 }}>
+      {list.map((t, k) => {
+        const state = k < at ? 'done' : k === at ? 'now' : 'next';
+        return (
+          <View key={t} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 24, height: 24, borderRadius: 12, marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: state === 'done' ? colors.mint : state === 'now' ? colors.spark : 'transparent', borderWidth: state === 'next' ? 1.5 : 0, borderColor: colors.dim }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: state === 'next' ? colors.dim : '#0e0c16' }}>{state === 'done' ? '✓' : k + 1}</Text>
+            </View>
+            <Text style={{ flex: 1, fontFamily: state === 'now' ? fonts.bold : fonts.medium, fontSize: 15, lineHeight: 20, color: state === 'next' ? colors.dim : state === 'done' ? colors.muted : colors.text }}>{t}</Text>
+          </View>
+        );
+      })}
+      {done || optional ? (
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>{done ? 'All set: tap Next' : 'Nothing applies? Just tap Next'}</Text>
+      ) : null}
+    </View>
+  );
+}
 const DIAL_KINDS = ['vs', 'loyal'];
 
 function Bar({ value, style }) {
@@ -67,14 +104,17 @@ const Label = ({ children, size = 15, center, bold }) => (
   <Text style={{ color: colors.text, fontFamily: bold ? fonts.semibold : fonts.medium, fontSize: size, lineHeight: size * 1.35, textAlign: center ? 'center' : 'left' }}>{children}</Text>
 );
 
+const DIAL_HELP = ['I can bend on this', 'It matters a lot', 'I won’t cross this line'];
 function Dial({ value, onPick, labels }) {
+  const waiting = !Number.isInteger(value);
   return (
-    <View style={{ marginTop: space.md }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.muted, marginBottom: 8 }}>How firm are you on this?</Text>
+    <View style={{ marginTop: space.lg, padding: 12, borderRadius: 16, borderWidth: waiting ? 1.5 : 1, borderColor: waiting ? colors.spark : colors.border, backgroundColor: waiting ? 'rgba(255,107,157,0.06)' : 'transparent' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 10 }}>How firm are you on this?</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {labels.map((l, k) => (
-          <Tap key={l} on={value === k} tone={['mint', 'gold', 'spark'][k]} onPress={() => onPick(k)} style={{ flex: 1, paddingVertical: 11, alignItems: 'center' }} label={l}>
-            <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 13 }}>{l}</Text>
+          <Tap key={l} on={value === k} tone={['mint', 'gold', 'spark'][k]} onPress={() => onPick(k)} style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center' }} label={`${l}: ${DIAL_HELP[k]}`}>
+            <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 13.5, textAlign: 'center' }}>{l}</Text>
+            <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 11.5, lineHeight: 15, textAlign: 'center', marginTop: 3 }}>{DIAL_HELP[k]}</Text>
           </Tap>
         ))}
       </View>
@@ -85,6 +125,7 @@ function Dial({ value, onPick, labels }) {
 // ---------- one screen per game round ----------
 function MostLeast({ q, value, onChange }) {
   const v = value || {};
+  const [broken, setBroken] = useState({}); // a photo that failed to load falls back to its emoji
   const tap = (k) => {
     if (v.m === k) onChange({ ...v, m: undefined });
     else if (v.l === k) onChange({ ...v, l: undefined });
@@ -94,14 +135,25 @@ function MostLeast({ q, value, onChange }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       {q.options.map((label, k) => {
-        const tag = v.m === k ? 'Most me' : v.l === k ? 'Least me' : null;
+        const tag = v.m === k ? 'MOST ME' : v.l === k ? 'LEAST ME' : null;
+        const tone = v.m === k ? colors.mint : colors.spark;
+        const photo = q.photos?.[k] && !broken[k] ? q.photos[k] : null;
         return (
-          <Tap key={label} on={!!tag} tone={v.m === k ? 'mint' : 'spark'} onPress={() => tap(k)} label={label} style={{ width: '47.5%', padding: 10 }}>
-            <View style={{ aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: ['rgba(124,92,252,0.18)', 'rgba(66,232,192,0.14)', 'rgba(245,200,66,0.14)', 'rgba(255,107,157,0.14)'][k % 4], alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <Text style={{ fontSize: 40 }}>{q.emojis[k]}</Text>
+          <Tap key={label} on={!!tag} tone={v.m === k ? 'mint' : 'spark'} onPress={() => tap(k)} label={`${label}${tag ? `, ${tag.toLowerCase()}` : ''}`}
+            style={{ width: '47.5%', overflow: 'hidden', borderWidth: tag ? 3 : 1.5 }}>
+            <View style={{ aspectRatio: 4 / 3, backgroundColor: ['rgba(124,92,252,0.18)', 'rgba(66,232,192,0.14)', 'rgba(245,200,66,0.14)', 'rgba(255,107,157,0.14)'][k % 4], alignItems: 'center', justifyContent: 'center' }}>
+              {photo ? <Image source={{ uri: photo }} onError={() => setBroken((b) => ({ ...b, [k]: true }))} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                : <Text style={{ fontSize: 40 }}>{q.emojis[k]}</Text>}
+              {tag ? (
+                <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: tone, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: '#0e0c16' }}>{v.m === k ? '★ ' : '✕ '}{tag}</Text>
+                </View>
+              ) : null}
             </View>
-            <Label size={13.5} bold>{label}</Label>
-            {tag ? <Text style={{ position: 'absolute', top: 6, right: 6, fontFamily: fonts.bold, fontSize: 11, color: '#fff', backgroundColor: v.m === k ? colors.mint : colors.spark, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' }}>{tag}</Text> : null}
+            {/* the caption: what this photo means, in plain words */}
+            <View style={{ paddingHorizontal: 10, paddingVertical: 10, minHeight: 62, justifyContent: 'center', backgroundColor: tag ? `${tone}26` : 'rgba(255,255,255,0.03)' }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text }}>{label}</Text>
+            </View>
           </Tap>
         );
       })}
@@ -149,7 +201,18 @@ function Chips({ q, value, onChange }) {
     if (st === 'flex') must.push(k); else if (st === 'must') never.push(k);
     onChange({ must, never });
   };
+  const legend = boxes ? (
+    <View style={{ gap: 6, marginBottom: space.md }}>
+      {[[colors.mint, 'MUST', 'they need to have this'], [colors.spark, 'NEVER', 'a deal-breaker for me'], [colors.dim, 'FLEXIBLE', 'I don’t mind either way']].map(([c, k, t]) => (
+        <View key={k} style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ width: 82, fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: c }}>{k}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{t}</Text>
+        </View>
+      ))}
+    </View>
+  ) : null;
   return (
+    <>{legend}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {q.chips.map((c) => {
         const st = stateOf(c.key);
@@ -162,19 +225,22 @@ function Chips({ q, value, onChange }) {
         );
       })}
     </View>
+    </>
   );
 }
 
 function PickRow({ q, value, onChange, icons }) {
   return (
     <View style={{ marginBottom: space.lg }}>
-      <Text style={{ fontFamily: icons ? fonts.mono : fonts.semibold, fontSize: icons ? 11 : 16, letterSpacing: icons ? 1.1 : 0, textTransform: icons ? 'uppercase' : 'none', color: icons ? colors.muted : colors.text, marginBottom: 8 }}>{q.text}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 8 }}>
+        {Number.isInteger(value?.o) ? <Text style={{ color: colors.mint }}>✓  </Text> : null}{q.text}
+      </Text>
       <View style={{ flexDirection: 'row', flexWrap: icons ? 'nowrap' : 'wrap', gap: 8 }}>
         {q.options.map((label, k) => (
           <Tap key={label} on={value?.o === k} onPress={() => onChange({ ...value, o: k })} label={label}
             style={icons ? { flex: 1, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center' } : { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ fontSize: icons ? 22 : 16, marginRight: icons ? 0 : 6 }}>{q.emojis[k]}</Text>
-            <Text style={{ color: colors.text, fontFamily: fonts.medium, fontSize: icons ? 11 : 14, textAlign: 'center', marginTop: icons ? 3 : 0 }}>{label}</Text>
+            <Text style={{ color: colors.text, fontFamily: value?.o === k ? fonts.bold : fonts.medium, fontSize: icons ? 12 : 14.5, lineHeight: icons ? 15 : 19, textAlign: 'center', marginTop: icons ? 4 : 0 }}>{label}</Text>
           </Tap>
         ))}
       </View>
@@ -463,18 +529,28 @@ export default function SoulGames() {
   const q = step.items[0];
   const canGo = step.items.every((x) => ready(x, answers[x.id]));
   const w = WHY[step.section];
-  const title = step.screen ? null : q.kind === 'vs' ? 'Which matters more to you?' : q.kind === 'check' && q.section === 'values' ? 'One more, quickly.' : q.text;
+  const title = step.screen === 'intent' ? 'First, a few quick picks about what you want'
+    : step.screen === 'day' ? 'Build your ideal day'
+      : q.kind === 'vs' ? 'Which matters more to you?'
+        : q.kind === 'check' && q.section === 'values' ? 'One more, quickly: which matters more?'
+          : q.kind === 'me' ? 'Which of these describe you?'
+            : q.kind === 'boxes' ? 'What do you need in a partner?'
+              : q.text;
   return (
     <BrandScreen back onBack={back} center={false}
       right={<><Bar value={answered / Math.max(1, plan.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
-      <View style={{ marginTop: space.md, marginBottom: space.lg }}>
-        <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.spark, textTransform: 'uppercase' }}>
-          {sec?.game}{sec?.game !== sec?.title ? ` · ${sec?.title}` : ''}{inSec.length > 1 ? ` · ${pos} of ${inSec.length}` : ''}
-        </Text>
-        {title ? <Text style={{ fontFamily: fonts.displayBold, fontSize: 21, lineHeight: 28, color: colors.text, marginTop: 8 }}>{title}</Text> : null}
-        {step.screen === 'day' ? <Text style={{ fontFamily: fonts.displayBold, fontSize: 21, lineHeight: 28, color: colors.text, marginTop: 8 }}>Build your ideal day.</Text> : null}
-        {HINT[q.kind] ? <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: 6 }}>{HINT[q.kind]}</Text> : null}
+      <View style={{ marginTop: space.md, marginBottom: space.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <View style={{ backgroundColor: 'rgba(255,107,157,0.16)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.spark, textTransform: 'uppercase' }}>
+              {sec?.game?.startsWith('Game') ? `${sec.game} of 7` : sec?.game} · {sec?.title}
+            </Text>
+          </View>
+          {inSec.length > 1 ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted }}>Round {pos} of {inSec.length}</Text> : null}
+        </View>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 23, lineHeight: 30, color: colors.text, marginTop: 10 }}>{title}</Text>
       </View>
+      <Instructions {...stepsFor(step, answers)} />
       {error ? <ErrorText>{error}</ErrorText> : null}
 
       {step.screen ? step.items.map((x) => <PickRow key={x.id} q={x} value={answers[x.id]} icons={step.screen === 'day'} onChange={(v) => setAnswer(x, v)} />) : null}

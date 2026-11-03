@@ -21,6 +21,8 @@ export const QUESTIONS = SCENARIOS.map((s) => ({ ...s, section: s.layer, type: C
 export const QUESTION_IDS = QUESTIONS.map((q) => q.id);
 const QMAP = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
 
+/** Game 1 photos come from Unsplash (free for commercial use), resized by their CDN to a small 4:3 tile. */
+const photoUrl = (id) => `https://images.unsplash.com/photo-${id}?w=480&h=360&fit=crop&q=70&fm=jpg&auto=format`;
 const okTiming = (v) => (v.ms == null || (Number.isFinite(v.ms) && v.ms >= 0 && v.ms < 3_600_000)) && (v.ch == null || (Number.isInteger(v.ch) && v.ch >= 0 && v.ch < 50));
 const chipList = (x) => Array.isArray(x) && x.length <= CHIP_KEYS.length && x.every((k) => CHIP_KEYS.includes(k)) && new Set(x).size === x.length;
 
@@ -68,6 +70,7 @@ export const publicQuestions = (ids = QUESTION_IDS) => ids.filter((id) => QMAP[i
   return {
     id: q.id, section: q.section, kind: q.kind, type: q.type, text: q.text,
     options: q.options.map((x) => x.label), emojis: q.options.map((x) => x.emoji || ''),
+    ...(q.options.some((x) => x.photo) ? { photos: q.options.map((x) => (x.photo ? photoUrl(x.photo) : null)) } : {}),
     ...(q.screen ? { screen: q.screen } : {}), ...(q.variant ? { variant: q.variant } : {}),
     ...(DIAL_KINDS.includes(q.kind) ? { dial: FIRM.labels } : {}),
     ...(q.kind === 'me' || q.kind === 'boxes' ? { chips: CHIPS } : {}),

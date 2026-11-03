@@ -65,7 +65,8 @@ export const CHIP_KEYS = CHIPS.map((c) => c.key);
 export const CHIP_SET = { relocate: { home_dir: 80 }, family_home: { v_family: 72, home_dir: 20 }, faith: { v_tradition: 66 }, nightlife: { energy: 78 } };
 
 // ---------- the items ----------
-// o(emoji, label, set, extra)  extra: { key } for intent picks, { s } strictness 0-3 for loyalty, { tag } for analysis
+// o(emoji, label, set, extra)  extra: { key } for intent picks, { s } strictness 0-3 for loyalty, { tag } for analysis,
+//   { photo } an Unsplash photo id for game 1 (free for commercial use: unsplash.com/license)
 const o = (emoji, label, set, extra = {}) => ({ emoji, label, set, ...extra });
 const it = (id, layer, kind, text, options, more = {}) => ({ id, layer, kind, text, options, ...more });
 
@@ -88,30 +89,30 @@ export const SCENARIOS = [
 
   // ---------- game 1: which one is you? (forced-choice Big Five; each trait 4 times) ----------
   it('pe1', 'personality', 'mostleast', 'At a party, which one is you?', [
-    o('🕺', 'In the middle, the life of the party', { b_E: 85, energy: 82 }, { tag: 'E' }),
-    o('🫶', 'Making sure the new person feels included', { b_A: 85, read_sense: 72 }, { tag: 'A' }),
-    o('⏰', 'Arrived on time, left on time', { b_C: 85, dec_head: 68 }, { tag: 'C' }),
-    o('💭', 'Deep talk about ideas with a stranger', { b_O: 85, depth: 80, curiosity: 70 }, { tag: 'O' })]),
+    o('🕺', 'In the middle, the life of the party', { b_E: 85, energy: 82 }, { tag: 'E', photo: '1655459765544-39065b741a9e' }),
+    o('🫶', 'Making sure the new person feels included', { b_A: 85, read_sense: 72 }, { tag: 'A', photo: '1659352790996-871ea0804eec' }),
+    o('⏰', 'Arrived on time, left on time', { b_C: 85, dec_head: 68 }, { tag: 'C', photo: '1662528567216-fdce2181ab73' }),
+    o('💭', 'Deep talk about ideas with a stranger', { b_O: 85, depth: 80, curiosity: 70 }, { tag: 'O', photo: '1604881988758-f76ad2f7aac1' })]),
   it('pe2', 'personality', 'mostleast', 'Planning a trip, which one is you?', [
-    o('🗂️', 'Plan ready weeks ahead', { b_C: 85, dec_head: 72, dec_risk: 25 }, { tag: 'C' }),
-    o('🧭', 'Somewhere new nobody has been', { b_O: 85, curiosity: 85, adventure: 78 }, { tag: 'O' }),
-    o('👥', 'Whatever the group wants', { b_A: 85, dec_lead: 25 }, { tag: 'A' }),
-    o('😌', 'Flight delayed? I stay calm', { b_S: 85, r_heat: 18, rec_speed: 72 }, { tag: 'S' })]),
+    o('🗂️', 'Plan ready weeks ahead', { b_C: 85, dec_head: 72, dec_risk: 25 }, { tag: 'C', photo: '1524850011238-e3d235c7d4c9' }),
+    o('🧭', 'Somewhere new nobody has been', { b_O: 85, curiosity: 85, adventure: 78 }, { tag: 'O', photo: '1627894485200-b92fb4353967' }),
+    o('👥', 'Whatever the group wants', { b_A: 85, dec_lead: 25 }, { tag: 'A', photo: '1645111529167-7ed14ce1ae28' }),
+    o('😌', 'Flight delayed? I stay calm', { b_S: 85, r_heat: 18, rec_speed: 72 }, { tag: 'S', photo: '1694932845880-d8ad94f23ea6' })]),
   it('pe3', 'personality', 'mostleast', 'Bad news day, which one is you?', [
-    o('🧘', 'Stay calm and handle it', { b_S: 85, r_heat: 20, rec_speed: 70 }, { tag: 'S' }),
-    o('📞', 'Call friends right away', { b_E: 85, energy: 75, r_seek: 70 }, { tag: 'E' }),
-    o('🤲', 'Still check on how others are', { b_A: 85, read_sense: 78 }, { tag: 'A' }),
-    o('📝', 'Make a plan to fix it', { b_C: 85, r_fix: 75, dec_head: 70 }, { tag: 'C' })]),
+    o('🧘', 'Stay calm and handle it', { b_S: 85, r_heat: 20, rec_speed: 70 }, { tag: 'S', photo: '1506126613408-eca07ce68773' }),
+    o('📞', 'Call friends right away', { b_E: 85, energy: 75, r_seek: 70 }, { tag: 'E', photo: '1663743629961-c6134ef1afc9' }),
+    o('🤲', 'Still check on how others are', { b_A: 85, read_sense: 78 }, { tag: 'A', photo: '1539541417736-3d44c90da315' }),
+    o('📝', 'Make a plan to fix it', { b_C: 85, r_fix: 75, dec_head: 70 }, { tag: 'C', photo: '1517971071642-34a2d3ecc9cd' })]),
   it('pe4', 'personality', 'mostleast', 'Free weekend, which one is you?', [
-    o('🎨', 'Try something new: a class, a place, a cuisine', { b_O: 85, curiosity: 85, adventure: 65 }, { tag: 'O' }),
-    o('🎉', 'Out with a big group', { b_E: 85, energy: 85 }, { tag: 'E' }),
-    o('✅', 'Finish my to-do list first', { b_C: 85, v_ambition: 62 }, { tag: 'C' }),
-    o('☀️', 'Enjoy it without overthinking Monday', { b_S: 85, r_heat: 25, humor: 65 }, { tag: 'S' })]),
+    o('🎨', 'Try something new: a class, a place, a cuisine', { b_O: 85, curiosity: 85, adventure: 65 }, { tag: 'O', photo: '1595351298020-038700609878' }),
+    o('🎉', 'Out with a big group', { b_E: 85, energy: 85 }, { tag: 'E', photo: '1672135620913-2e8dae4b46e2' }),
+    o('✅', 'Finish my to-do list first', { b_C: 85, v_ambition: 62 }, { tag: 'C', photo: '1768055105012-4c53791b2877' }),
+    o('☀️', 'Enjoy it without overthinking Monday', { b_S: 85, r_heat: 25, humor: 65 }, { tag: 'S', photo: '1598958288736-97eab7acfa91' })]),
   it('pe5', 'personality', 'mostleast', 'In a team, which one is you?', [
-    o('📣', 'Speak up and lead', { b_E: 85, dec_lead: 85 }, { tag: 'E' }),
-    o('🕊️', 'Keep the peace', { b_A: 85, rec_forgive: 70, r_fight: 20 }, { tag: 'A' }),
-    o('💡', 'Bring the wild idea', { b_O: 85, curiosity: 80, dec_risk: 70 }, { tag: 'O' }),
-    o('⚓', 'Steady under pressure', { b_S: 85, r_heat: 15, rec_speed: 68 }, { tag: 'S' })]),
+    o('📣', 'Speak up and lead', { b_E: 85, dec_lead: 85 }, { tag: 'E', photo: '1776039230119-6e69e241512d' }),
+    o('🕊️', 'Keep the peace', { b_A: 85, rec_forgive: 70, r_fight: 20 }, { tag: 'A', photo: '1577962917302-cd874c4e31d2' }),
+    o('💡', 'Bring the wild idea', { b_O: 85, curiosity: 80, dec_risk: 70 }, { tag: 'O', photo: '1586936893354-362ad6ae47ba' }),
+    o('⚓', 'Steady under pressure', { b_S: 85, r_heat: 15, rec_speed: 68 }, { tag: 'S', photo: '1758598307046-22f11e2a6917' })]),
 
   // ---------- game 2: react (attachment + emotion regulation; gut-reaction time) ----------
   it('em1', 'emotion', 'react', "Your partner hasn't replied in 6 hours.", [
