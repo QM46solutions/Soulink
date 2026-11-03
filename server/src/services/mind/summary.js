@@ -1,4 +1,4 @@
-// Soul DNA v4: a person's mind model in plain words ("how you think"), for their own Soul DNA page and profile.
+// Soul DNA v5: a person's mind model in plain words ("how you think"), for their own Soul DNA page and profile.
 import { LAYERS, TRAITS } from './scenarios.js';
 import { AREAS } from './match.js';
 import { tensions } from './model.js';
@@ -14,6 +14,8 @@ export function howTheyThink(P, you = true) {
   const out = [];
   const mode = MODE.map(([t, mine, theirs]) => [t, v(P, t), you ? mine : theirs]).sort((a, b) => b[1] - a[1])[0];
   if (sure(P, mode[0])) out.push(`When hurt or stressed, ${mode[2]}.`);
+  if (sure(P, 'att_anx') && v(P, 'att_anx') >= 65) out.push(S('You like reassurance when things go quiet.', 'They like reassurance when things go quiet.'));
+  else if (sure(P, 'att_avo') && v(P, 'att_avo') >= 65) out.push(S('You need your own space, even when you’re close to someone.', 'They need their own space, even when close to someone.'));
   if (sure(P, 'rec_speed')) out.push(v(P, 'rec_speed') >= 65 ? S('You bounce back from fights fast.', 'They bounce back from fights fast.') : v(P, 'rec_speed') <= 35 ? S('Fights stay with you for a while.', 'Fights stay with them for a while.') : S('You need a few hours to settle after a fight.', 'They need a few hours to settle after a fight.'));
   if (sure(P, 'rec_forgive')) out.push(v(P, 'rec_forgive') >= 65 ? S('You forgive easily and don’t bring old things up.', 'They forgive easily and don’t bring old things up.') : v(P, 'rec_forgive') <= 35 ? S('You forgive slowly and remember.', 'They forgive slowly and remember.') : S('You forgive, but you watch for it happening again.', 'They forgive, but watch for it happening again.'));
   if (sure(P, 'read_trust')) out.push(v(P, 'read_trust') >= 65 ? S('You assume the best about people.', 'They assume the best about people.') : v(P, 'read_trust') <= 35 ? S('You are careful who you trust, and notice when something feels off.', 'They are careful who they trust.') : S('You trust, but you verify.', 'They trust, but verify.'));
@@ -33,12 +35,14 @@ export function howTheyThink(P, you = true) {
 const SPECTRUM = [
   ['energy', 'Introvert', 'Extrovert'], ['dec_head', 'Heart-led', 'Head-led'], ['dec_risk', 'Careful', 'Risk-taker'], ['read_trust', 'Cautious', 'Trusting'],
   ['rec_speed', 'Takes time to settle', 'Bounces back fast'], ['curiosity', 'Routine', 'Always exploring'], ['depth', 'Light talk', 'Deep talk'], ['intent_serious', 'Keeping it light', 'Here for something real'],
+  ['chrono', 'Early bird', 'Night owl'],
 ];
 
 /** Your own Soul DNA page. */
 export function selfView(P) {
   const layers = LAYERS.map((l) => {
     const ts = Object.entries(TRAITS).filter(([, layer]) => layer === l.key).map(([t]) => P.traits?.[t]?.c ?? 0);
+    if (!ts.length) return { key: l.key, label: l.title, emoji: l.emoji, strength: null };
     return { key: l.key, label: l.title, emoji: l.emoji, strength: Math.round((ts.reduce((a, b) => a + b, 0) / ts.length) * 100) };
   });
   const giveTake = Object.entries(AREAS).map(([key, a]) => ({ key, label: a.label, stance: v(P, a.firm) >= 62 ? 'lead' : v(P, a.firm) <= 38 ? 'bend' : 'flexible' }));
@@ -46,7 +50,7 @@ export function selfView(P) {
   return {
     summary: howTheyThink(P, true),
     dims: layers, // "how well Soul DNA knows you", per layer
-    spectrum: SPECTRUM.map(([k, left, right]) => ({ key: k, left, right, value: v(P, k) })),
+    spectrum: SPECTRUM.filter(([k]) => P.traits?.[k]).map(([k, left, right]) => ({ key: k, left, right, value: v(P, k) })),
     giveTake, priorities, strengths: [], tensions: tensions(P), completeness: P.completeness ?? 0,
   };
 }

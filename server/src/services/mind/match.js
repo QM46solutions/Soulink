@@ -13,6 +13,70 @@ const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const avg = (xs) => { const v = xs.filter((x) => x != null && !Number.isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 const wavg = (pairs) => { let w = 0; let s = 0; for (const [v, k] of pairs) if (v != null) { s += v * k; w += k; } return w ? s / w : null; };
 
+// ---------- v5 games: answers compared directly between two people ----------
+// Rarity: how common each answer is among everyone who played (item id → share per option, 0-1). Two people who
+// share a RARE answer have found something special; sharing what almost everyone picks says little.
+let RARITY = {};
+export const setRarity = (map) => { RARITY = map && typeof map === 'object' ? map : {}; };
+const VALUE_ITEMS = ['va1', 'va2', 'va3', 'va4', 'va5', 'va6'];
+const VALUE_TOPIC = { va1: 'a career abroad or staying near family', va2: 'money or time for life', va3: 'your own rules or tradition', va4: 'hard truths or keeping the peace', va5: 'spending or saving', va6: 'family approval of a partner' };
+const CHIP_LABEL = { smoke: 'smoking', drink: 'drinking', pets: 'pets', kids: 'wanting kids', family_home: 'living with family after marriage', relocate: 'moving cities', veg: 'being vegetarian', faith: 'practising a faith', nightlife: 'night-outs' };
+const LINE_TOPIC = { lp1: 'an ex getting in touch', lp2: 'phone privacy', lp3: 'flirting', lp4: 'close friends of the opposite gender', lp5: 'sticking together in hard times', lp6: 'standing up for each other', lp7: 'owning up to mistakes', lf1: 'taking sides', lf2: 'keeping secrets', lf3: 'helping with money', lf4: 'standing up for each other', lf5: 'staying in touch', lf6: 'being upfront', lf7: 'making up' };
+/** Same answers on the value cards, weighted by how rare they are (null when either hasn't played). */
+function sharedRare(A, B, ids) {
+  let s = 0; let n = 0;
+  for (const id of ids) {
+    const a = A.picks?.[id]; const b = B.picks?.[id];
+    if (!a || !b) continue;
+    n += 1;
+    if (a.o === b.o) s += 0.5 + (1 - (RARITY[id]?.[a.o] ?? 0.5));
+  }
+  return n >= 3 ? clamp(30 + (s / n) * 55) : null;
+}
+/** How close two people's loyalty lines are (same items only). */
+function linesFit(A, B) {
+  const b = Object.fromEntries((B.lines || []).map((l) => [l.id, l]));
+  const d = (A.lines || []).filter((l) => b[l.id]).map((l) => Math.abs(l.s - b[l.id].s));
+  return d.length >= 3 ? clamp(100 - avg(d) * 32) : null;
+}
+/** Deal-breakers and watch-outs that come straight from the games (intent, chips, non-negotiable lines and values). */
+function gameChecks(A, B, relation, deal, watch, soft) {
+  const couple = relation === 'dating' || relation === 'lifepartner';
+  const ia = A.intent || {}; const ib = B.intent || {};
+  if (ia.look && ib.look && couple) {
+    const serious = (x) => x === 'marriage' || x === 'serious';
+    if ((serious(ia.look) && ib.look === 'exploring') || (serious(ib.look) && ia.look === 'exploring')) deal.push('what you are each looking for');
+    else if (ia.look === 'friendship' || ib.look === 'friendship') watch.push('one of you is here for friendship');
+  }
+  if (ia.kids && ib.kids && ((ia.kids === 'want' && ib.kids === 'no') || (ia.kids === 'no' && ib.kids === 'want'))) (relation === 'lifepartner' ? deal : couple ? watch : []).push('kids');
+  if (ia.time && ib.time && relation === 'lifepartner' && ((ia.time === 'soon' && ib.time === 'never') || (ia.time === 'never' && ib.time === 'soon'))) deal.push('when to settle down');
+  if (couple) {
+    for (const [X, Y] of [[A, B], [B, A]]) {
+      if (!X.life?.played || !Y.life?.played) continue;
+      for (const k of X.life.never || []) if ((Y.life.me || []).includes(k)) deal.push(`${CHIP_LABEL[k] || k} (a “Never” for one of you)`);
+      for (const k of X.life.must || []) if (!(Y.life.me || []).includes(k)) soft.push(`${CHIP_LABEL[k] || k} (a “Must” for one of you)`);
+    }
+  }
+  // a crossed non-negotiable: one of you marked it Non-negotiable and the other holds the opposite at least Firmly.
+  // One caps the score softly, two or more is a deal-breaker. If the other one is Flexible, they can bend: that's
+  // give and take, worth talking about but not a wall.
+  const wall = (x, y) => (x.f === 2 && y.f >= 1) || (y.f === 2 && x.f >= 1);
+  const crossed = [];
+  if (couple) {
+    const lb = Object.fromEntries((B.lines || []).map((l) => [l.id, l]));
+    for (const l of A.lines || []) {
+      const o = lb[l.id]; if (!o || Math.abs(l.s - o.s) < 2) continue;
+      (wall(l, o) ? crossed : watch).push(`trust lines on ${LINE_TOPIC[l.id] || 'loyalty'}`);
+    }
+  }
+  for (const id of VALUE_ITEMS) {
+    const a = A.picks?.[id]; const b = B.picks?.[id];
+    if (!a || !b || a.o === b.o || !(a.f === 2 || b.f === 2)) continue;
+    (wall(a, b) && (couple || relation === 'business') ? crossed : watch).push(`what matters most: ${VALUE_TOPIC[id]}`);
+  }
+  if (crossed.length >= 2) deal.push(...crossed); else if (crossed.length) soft.push(...crossed);
+}
+
 export const DIMS = {
   vibe: { label: 'Vibe', emoji: '✨', side: 'natural' },
   interests: { label: 'Interests', emoji: '🎧', side: 'natural' },
@@ -48,7 +112,9 @@ const pairConf = (A, B, ts) => avg(ts.flatMap((t) => [conf(A, t), conf(B, t)])) 
 // ---------- layer fits ----------
 function vibeFit(A, B, relation) {
   const k = relation === 'friendship' ? 0.9 : 1;
-  return wavg([[sim(A, B, 'energy', 0.9 * k), 1.2], [sim(A, B, 'humor', k), 1.2], [sim(A, B, 'curiosity', k), 1], [sim(A, B, 'adventure', k), 1], [sim(A, B, 'depth', k), 1.1]]);
+  // daily rhythm (game 6): early bird vs night owl, only when both have played it
+  const rhythm = conf(A, 'chrono') > 0.3 && conf(B, 'chrono') > 0.3 ? sim(A, B, 'chrono', 0.9) : null;
+  return wavg([[sim(A, B, 'energy', 0.9 * k), 1.2], [sim(A, B, 'humor', k), 1.2], [sim(A, B, 'curiosity', k), 1], [sim(A, B, 'adventure', k), 1], [sim(A, B, 'depth', k), 1.1], [rhythm, 0.8]]);
 }
 function interestsFit(A, B) {
   const a = new Set(A.interests || []); const b = new Set(B.interests || []);
@@ -64,7 +130,8 @@ function valuesFit(A, B, relation) {
   const top = (P) => VALUES.map((t) => [t, val(P, t)]).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([t]) => t);
   const shared = top(A).filter((t) => top(B).includes(t)).length;
   const base = wavg(VALUES.map((t) => [sim(A, B, t, 1.1), w[t] ?? 1]));
-  return clamp(base - 8 + shared * 8);
+  const rare = sharedRare(A, B, VALUE_ITEMS); // the same picks on the value cards, rarer = stronger
+  return clamp(wavg([[base - 8 + shared * 8, 2], [rare, 1]]));
 }
 function intentionFit(A, B, relation, deal) {
   const ser = Math.abs(val(A, 'intent_serious') - val(B, 'intent_serious'));
@@ -108,7 +175,9 @@ function meet(A, B) {
 const topMode = (P) => Object.entries(modes(P)).sort((x, y) => y[1] - x[1])[0][0];
 function recoveryFit(A, B) {
   const repair = Math.min(avg([val(A, 'rec_apology'), val(A, 'rec_forgive')]), avg([val(B, 'rec_apology'), val(B, 'rec_forgive')]));
-  return wavg([[sim(A, B, 'rec_speed'), 1], [clamp(repair * 1.25), 1.5]]);
+  // Big Five: emotional stability and agreeableness help any pair (the lower of the two is what counts)
+  const big = conf(A, 'b_S') > 0.3 && conf(B, 'b_S') > 0.3 ? clamp(avg([Math.min(val(A, 'b_S'), val(B, 'b_S')), Math.min(val(A, 'b_A'), val(B, 'b_A'))]) * 1.2) : null;
+  return wavg([[sim(A, B, 'rec_speed'), 1], [clamp(repair * 1.25), 1.5], [big, 0.7]]);
 }
 function readingFit(A, B) {
   const trust = Math.min(val(A, 'read_trust'), val(B, 'read_trust'));
@@ -122,7 +191,7 @@ function loyaltyFit(A, B, relation, watch) {
   if (integ < 32) watch.push('staying faithful when tempted');
   if (cross > 55) watch.push('jealousy versus being easy-going about flirting');
   const couple = relation === 'dating' || relation === 'lifepartner';
-  return wavg([[clamp(integ * 1.25), couple ? 1.5 : 1], [clamp(loyal * 1.2), 1], [clamp(100 - cross * 1.2), couple ? 1.2 : 0.3]]);
+  return wavg([[clamp(integ * 1.25), couple ? 1.5 : 1], [clamp(loyal * 1.2), 1], [clamp(100 - cross * 1.2), couple ? 1.2 : 0.3], [linesFit(A, B), 1.3]]);
 }
 
 // give and take, per life area
@@ -233,6 +302,14 @@ export function compat(A, B, relation = 'friendship') {
     recovery: recoveryFit(A, B), givetake: gt.score, loyalty: loyaltyFit(A, B, relation, watch), reading: readingFit(A, B),
   };
   for (const a of gt.areas) if (a.who === 'clash' && relation === 'lifepartner') deal.push(`both unbending on ${a.label}`);
+  const soft = [];
+  gameChecks(A, B, relation, deal, watch, soft);
+  // attachment (game 2): one who needs closeness with one who needs space is a known hard mix
+  const sureAtt = (P) => conf(P, 'att_anx') > 0.3 && conf(P, 'att_avo') > 0.3;
+  if (sureAtt(A) && sureAtt(B) && ((val(A, 'att_anx') > 65 && val(B, 'att_avo') > 65) || (val(B, 'att_anx') > 65 && val(A, 'att_avo') > 65))) {
+    raw.reaction = clamp(raw.reaction - 10);
+    watch.push('one of you needs closeness when the other needs space');
+  }
   // weighted average of the areas, pulled down by the weakest important area (one bad area can sink a match)
   const parts = Object.entries(rel.weights).filter(([k]) => raw[k] != null).map(([k, w]) => [raw[k], w]);
   const mean = wavg(parts);
@@ -249,7 +326,8 @@ export function compat(A, B, relation = 'friendship') {
   const sure = pairConf(A, B, Object.keys(A.traits || {}));
   total = 62 + (total - 62) * (0.75 + 0.25 * sure);
   let overall = calibrate(total, relation);
-  if (deal.length && (relation === 'lifepartner' || relation === 'dating')) overall = Math.min(overall, 40);
+  if (deal.length && (relation === 'lifepartner' || relation === 'dating' || relation === 'business')) overall = Math.min(overall, 40);
+  else if (soft.length) overall = Math.min(overall, 60);
   // the two halves and each area are shown around the overall score (gentler stretch, so they don't all hit 1 or 99)
   const shown = (x) => (x == null ? null : clamp(Math.round(x), 1, 99)); // each area on its own 0-100 fit
   const pick = (keys) => { const x = wavg(keys.filter((k) => rel.weights[k] && raw[k] != null).map((k) => [raw[k], rel.weights[k]])); return x == null ? null : clamp(Math.round(overall + (x - mean) * 1.2), 1, 99); };
@@ -277,7 +355,7 @@ export function compat(A, B, relation = 'friendship') {
     relation, relationLabel: rel.label, emoji: rel.emoji,
     overall, natural, relationship, sure: Math.round(sure * 100),
     type: TYPE_NAMES[kind][rel.pair], typeKey: kind, typeLine: TYPE_LINES[kind],
-    dims, strengths, friction, dealbreakers: deal, watch, leads, story, reactLine,
+    dims, strengths, friction, dealbreakers: [...new Set(deal)], watch: [...new Set([...soft, ...watch])], leads, story, reactLine,
   };
 }
 

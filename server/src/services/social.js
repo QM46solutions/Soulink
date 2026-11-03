@@ -111,6 +111,7 @@ export const meView = (u) => ({
   },
   onboardingDone: u.onboarding_done,
   soulReady: !!u.soul_ready,
+  soulUpgrade: !!u.soul_ready && (u.soul_version ?? 4) < 5, // made with the old quiz: invited to play the new games
   hasLocation: u.lat != null && u.lon != null,
   chatLanguage: u.chat_language || null,
   eventsNotify: !!u.events_notify,

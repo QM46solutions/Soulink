@@ -50,7 +50,19 @@ export default function Home() {
     });
   }, [navigation, user.soulReady]);
   // Moments row (stories) on top; friends' profile posts below
-  const composer = <MomentsBar me={user} groups={moments} />;
+  // Soul DNA made with the old quiz: a gentle nudge to play the new games (matches keep working meanwhile)
+  const upgrade = user.soulUpgrade ? (
+    <Pressable onPress={() => router.push('/soul')} accessibilityRole="button"
+      style={{ marginHorizontal: space.lg, marginBottom: space.md, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)', flexDirection: 'row', alignItems: 'center' }}>
+      <SoulDnaIcon size={38} />
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Soul DNA is now 7 quick games</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>About 6 minutes, just taps. Play once for sharper matches.</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.aura} />
+    </Pressable>
+  ) : null;
+  const composer = <>{upgrade}<MomentsBar me={user} groups={moments} /></>;
 
   const load = useCallback(async () => {
     api('/moments/feed').then((m) => setMoments(m.groups)).catch(() => {});
@@ -60,7 +72,7 @@ export default function Home() {
 
   if (!user.soulReady) {
     return (
-      <CenterCard icon="dna" live={<SoulDnaIcon size={140} />} title={`Welcome, ${first}! One last step`} text={user.soulType ? "Soul DNA got a big upgrade: it now understands your values, nature, thinking and loyalty. Retake it to see your matches again." : "Create your Soul DNA to unlock connections. One quiz in short sections, about 10 minutes. It's how Soulink finds people who truly match you."}>
+      <CenterCard icon="dna" live={<SoulDnaIcon size={140} />} title={`Welcome, ${first}! One last step`} text={user.soulType ? "Soul DNA got a big upgrade: it now understands your values, nature, thinking and loyalty. Retake it to see your matches again." : "Create your Soul DNA to unlock connections. Seven quick tap games, about 6 minutes. It's how Soulink finds people who truly match you."}>
         <Button title={user.soulType ? 'Retake Soul DNA' : 'Create my Soul DNA'} onPress={() => router.push('/soul')} />
       </CenterCard>
     );

@@ -1,4 +1,4 @@
-// Build 1: Soul DNA (v4 mind model: scenarios, predicted compatibility), connecting rules, home feed, place search.
+// Build 1: Soul DNA (v5: the 7 games, predicted compatibility), connecting rules, home feed, place search.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, resetDb, makeUser, closePool, makeDna, sampleAnswers, query } from './helpers.js';
@@ -10,21 +10,40 @@ after(() => closePool());
 const takeQuiz = (u, k = 0) => makeDna(u, k);
 
 describe('Soul DNA', () => {
-  test('scenarios in layers, each with "anything else", and no scoring sent to the phone', async () => {
+  test('the games, in order, with no scoring sent to the phone', async () => {
     const u = await makeUser();
     const r = await api().get('/soul/dna').set(u.h).expect(200);
-    assert.ok(r.body.total >= 30, `got ${r.body.total} scenarios`);
-    assert.equal(r.body.questions.length, r.body.total);
-    assert.ok(r.body.sections.length >= 9);
-    assert.ok(r.body.questions.every((q) => q.type === 'choice' && q.allowOther && q.options.length >= 3));
+    assert.ok(r.body.total >= 30 && r.body.total <= 40, `got ${r.body.total} items`);
+    assert.equal(r.body.sections.length, 8);
+    assert.equal(r.body.plan.length, r.body.total);
+    assert.ok(r.body.questions.length > r.body.total, 'both loyalty versions are sent; the app shows the right one');
+    const kinds = new Set(r.body.questions.map((q) => q.kind));
+    for (const k of ['pick', 'mostleast', 'react', 'vs', 'loyal', 'check', 'me', 'boxes', 'day']) assert.ok(kinds.has(k), k);
     const raw = JSON.stringify(r.body.questions);
     assert.equal(raw.includes('"set"') || raw.includes('intent_') || raw.includes('r_fight'), false);
     assert.equal(r.body.completed, false);
-    // a typed "anything else" answer and gut-reaction timing are accepted
-    const [q1, q2] = r.body.questions;
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: -1, t: 'I would call my mom first', ms: 4200 }, [q2.id]: { o: 1, ms: 1800, ch: 1 } } }).expect(200);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: 9 } } }).expect(400);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { [q1.id]: { o: -1, t: '' } } }).expect(400);
+    // gut-reaction timing and the firmness dial are part of the answer
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { em1: { o: 1, ms: 1800, ch: 1 }, va1: { o: 0, f: 2, ms: 2100 }, pe1: { m: 0, l: 3 } } }).expect(200);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { va1: { o: 0 } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { pe1: { m: 1, l: 1 } } }).expect(400);
+    // friendship seekers get the friend version of the loyalty game
+    const f = (await api().put('/soul/dna/answers').set(u.h).send({ answers: { it_look: 2 } }).expect(200)).body;
+    assert.ok(f.plan.includes('lf1') && !f.plan.includes('lp1'));
+  });
+
+  test('a Soul DNA made with the old quiz keeps matching, and its owner can play the games for free', async () => {
+    const u = await makeUser();
+    await takeQuiz(u, 0);
+    await query("UPDATE soul_dna SET dna=JSON_MODIFY(dna, '$.v', 4) WHERE user_id=$1", [u.user.id]);
+    await query('UPDATE users SET soul_version=4 WHERE id=$1', [u.user.id]);
+    assert.equal((await api().get('/users/me').set(u.h)).body.user.soulUpgrade, true);
+    const d = (await api().get('/soul/dna').set(u.h).expect(200)).body;
+    assert.equal(d.upgrade, true); assert.equal(d.completed, false);
+    assert.equal((await api().get('/soul/dna/me').set(u.h)).body.upgrade, true);
+    await api().post('/soul/dna/retake').set(u.h).expect(200); // not Premium: still allowed, once
+    const r = await takeQuiz(u, 1);
+    assert.equal(r.body.user.soulUpgrade, false);
+    assert.equal((await api().get('/soul/dna').set(u.h)).body.completed, true);
   });
 
   test('progress is saved and resumable; finishing gives a Soul type', async () => {
@@ -40,7 +59,7 @@ describe('Soul DNA', () => {
     const r = await takeQuiz(u);
     assert.equal(r.body.user.soulReady, true);
     assert.ok(r.body.soul.type.startsWith('The '));
-    assert.ok(r.body.me.dims.length >= 9);
+    assert.equal(r.body.me.dims.length, 8);
     assert.ok(r.body.me.summary.length >= 3, 'how you think, in words');
     const me = await api().get('/soul/dna/me').set(u.h).expect(200);
     assert.equal(me.body.ready, true);
@@ -62,7 +81,7 @@ describe('Soul DNA', () => {
     assert.equal(full.overall, 93);
     const other = (await api().get(`/users/u/${x.user.username}`).set(ak.h).expect(200)).body.match;
     assert.equal(typeof other.all.lifepartner.overall, 'number');
-    assert.ok(other.all.lifepartner.overall >= 80, 'same answers score high the normal way');
+    assert.ok(other.all.lifepartner.overall >= 65, 'same answers score well the normal way');
     assert.notEqual(other.relation, 'lifepartner');
   });
 

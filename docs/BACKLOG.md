@@ -49,3 +49,8 @@ Internal work list. Not for pitch decks.
 - Production guard on COPY-DATA-TO-CLOUD (reason required, logged; legal records never replaced). SETUP-CLOUD only saves settings and tests the connection, so it needs no guard
 - Tests use their own temporary uploads folder (they used to write into, and wipe, server/uploads/soulmoji)
 - All server tests passing (m1–m22)
+
+## Soul DNA v5: the games (Nov 2026)
+- Done: the long scenario quiz is replaced by 7 tap games plus 3 intent taps (~6 min), each built on published research (docs/SOUL-DNA-GAMES.md). Firmness dial, deal-breaker chips, consistency checks, rarity weighting; old (v4) Soul DNA keeps matching until people play (free, once; Home nudge).
+- To do before launch: psychologist review (RCI-registered), 50-person pilot against the Mini-IPIP, re-check score calibration after ~100 real players, real photos for Game 1 (Pexels/Unsplash, free for commercial use) instead of emoji tiles.
+- Later: "guess my answer" pair games after connecting; one-tap "Did you two vibe?" after meeting.

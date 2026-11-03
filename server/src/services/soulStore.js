@@ -1,7 +1,7 @@
-// Loading Soul DNA (v4 mind models) from the database and scoring pairs.
+// Loading Soul DNA (v4 and v5 mind models) from the database and scoring pairs.
 // Predicted from Soul DNA (+ what people are into inside Soulink, with their consent); chats and meetups stay private.
 import { many, one, query, tx } from '../db.js';
-import { buildAxes, compat, compatAll, DNA_VERSION, relationOf, theirMind, traitsFromAxes } from './soulDna.js';
+import { buildAxes, compat, compatAll, DNA_VERSIONS, QUESTIONS, isComplete, knownAnswers, relationOf, setRarity, theirMind, traitsFromAxes } from './soulDna.js';
 import { TRAITS, soulTypeOf } from './soulQuiz.js';
 import { applyPinsAll, pinsFor } from './soulPins.js';
 import { interestsFor } from './signals.js';
@@ -16,7 +16,7 @@ export async function loadDna(ids) {
   for (let i = 0; i < list.length; i += 500) {
     const part = list.slice(i, i + 500);
     const rows = await many(`SELECT user_id, dna FROM soul_dna WHERE completed_at IS NOT NULL AND user_id IN (${part.map((_, j) => `$${j + 1}`).join(', ')})`, part);
-    for (const r of rows) { const d = parse(r.dna); if (d?.v === DNA_VERSION && d.traits) out.set(String(r.user_id).toLowerCase(), d); }
+    for (const r of rows) { const d = parse(r.dna); if (DNA_VERSIONS.includes(d?.v) && d.traits) out.set(String(r.user_id).toLowerCase(), d); }
   }
   if (out.size) {
     const interests = await interestsFor([...out.keys()]);
@@ -69,7 +69,7 @@ export async function saveCompletedDna(userId, answers) {
        VALUES ($1, ${TRAITS.map((_, i) => `$${i + 2}`).join(', ')}, $10, $11, $12)`,
       [userId, ...TRAITS.map((t) => traits[t]), tagline, Math.max(1, Math.min(100, dna.completeness)), JSON.stringify(answers)],
     );
-    return (await c.query('UPDATE users SET soul_ready=1, soul_type=$2, updated_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1', [userId, type])).rows[0];
+    return (await c.query('UPDATE users SET soul_ready=1, soul_type=$2, soul_version=$3, updated_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.* WHERE id=$1', [userId, type, dna.v])).rows[0];
   });
   return { user, dna, type, tagline };
 }
@@ -78,8 +78,30 @@ export async function saveCompletedDna(userId, answers) {
 export async function addAnswers(userId, extra) {
   const row = await one('SELECT answers, completed_at FROM soul_dna WHERE user_id=$1', [userId]);
   const answers = { ...(parse(row?.answers) || {}), ...extra };
-  if (row?.completed_at) return saveCompletedDna(userId, answers);
+  // rebuilt only for a Soul DNA made with the games (an old-quiz one stays as it is until the games are played)
+  if (row?.completed_at && isComplete(knownAnswers(answers))) return saveCompletedDna(userId, knownAnswers(answers));
   if (row) await query('UPDATE soul_dna SET answers=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [userId, JSON.stringify(answers)]);
   else await query('INSERT INTO soul_dna (user_id, answers) VALUES ($1, $2)', [userId, JSON.stringify(answers)]);
   return null;
+}
+
+/** How common each answer on the value cards and loyalty questions is, among everyone who has played the games
+ *  (for rarity weighting: sharing a rare answer counts for more). Refreshed hourly; needs 20+ players to kick in. */
+const RARE_IDS = QUESTIONS.filter((q) => q.kind === 'vs' || q.kind === 'loyal').map((q) => q.id);
+export async function refreshRarity() {
+  const rows = await many("SELECT TOP 5000 dna FROM soul_dna WHERE completed_at IS NOT NULL ORDER BY completed_at DESC");
+  const count = {}; let players = 0;
+  for (const r of rows) {
+    const d = parse(r.dna); if (d?.v !== 5 || !d.picks) continue;
+    players += 1;
+    for (const id of RARE_IDS) { const p = d.picks[id]; if (!p) continue; (count[id] ||= {})[p.o] = (count[id][p.o] || 0) + 1; }
+  }
+  if (players < 20) { setRarity({}); return 0; }
+  const map = {};
+  for (const [id, byOpt] of Object.entries(count)) {
+    const total = Object.values(byOpt).reduce((a, b) => a + b, 0);
+    map[id] = Object.fromEntries(Object.entries(byOpt).map(([o, n]) => [o, n / total]));
+  }
+  setRarity(map);
+  return players;
 }
