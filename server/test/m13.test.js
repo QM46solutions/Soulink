@@ -31,6 +31,11 @@ describe('Casting Board', () => {
     assert.equal((await api().get('/sparks/casting').set(actor.h).expect(200)).body.calls.length, 1);
     const aud = (await post(actor, { category: 'acting', castingId: call.id, details: { mode: 'scene' } }).expect(201)).body.spark;
     assert.equal(aud.castingId, call.id);
+    // auditions have their own Casting Call section in the Sparks tab, not the main feed
+    const feedIds = (await api().get('/sparks').set(other.h).expect(200)).body.sparks.map((x) => x.id);
+    assert.equal(feedIds.includes(aud.id), false);
+    assert.equal((await api().get('/sparks?category=acting').set(other.h).expect(200)).body.sparks.some((x) => x.id === aud.id), false);
+    assert.ok((await api().get('/sparks?section=casting').set(other.h).expect(200)).body.sparks.some((x) => x.id === aud.id));
     const one = (await api().get(`/sparks/casting/${call.id}`).set(other.h).expect(200)).body;
     assert.equal(one.auditions.length, 1); assert.equal(one.call.auditions, 1);
     await api().post(`/sparks/casting/${call.id}/pick`).set(actor.h).send({ sparkId: aud.id }).expect(404);

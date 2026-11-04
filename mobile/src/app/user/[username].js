@@ -124,6 +124,13 @@ export default function UserProfile() {
   } else if (!rel.isMe && !conn?.connected && !conn?.blocked) {
     messageBtn = <ProfileAction icon="diamond-outline" onPress={() => { if (!needSoul()) setPaidOpen(true); }} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />;
   }
+  // Public profiles: Connect AND Follow (see their posts and Sparks, no request, no chat).
+  // Private profiles: Connect only. Messages open only once a Connect request is accepted.
+  const following = rel.following === 'accepted' && rel.followKind === 'follow';
+  const followBtn = !rel.isMe && !target.isPrivate && !conn?.connected && !conn?.iConnect ? (
+    <ProfileAction title={following ? 'Following' : 'Follow'} icon={following ? 'checkmark' : 'add'} loading={busy}
+      onPress={() => { if (!needSoul()) act(() => api(`/users/${target.id}/follow`, { method: following ? 'DELETE' : 'POST' })); }} />
+  ) : null;
   const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? (
     <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
   ) : null;
@@ -138,6 +145,7 @@ export default function UserProfile() {
         isMe={rel.isMe}
         actions={<>
           {connectBtn}
+          {followBtn}
           {messageBtn}
           {anonBtn}
         </>}

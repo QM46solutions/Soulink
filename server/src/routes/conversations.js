@@ -31,9 +31,9 @@ const displayName = (u) => u.display_name || u.username;
 // Upper-case both ids first so the same pair always gives the same key, whoever starts the chat
 export const directKey = (a, b) => [String(a).toUpperCase(), String(b).toUpperCase()].sort().join(':');
 
-/** Does `follower` follow `followee` (accepted)? */
+/** Is `follower` connected to `followee` (a Connect, not just a plain Follow)? */
 async function follows(follower, followee) {
-  return !!(await one(`SELECT TOP 1 1 AS x FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted'`, [follower, followee]));
+  return !!(await one(`SELECT TOP 1 1 AS x FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted' AND kind=N'connect'`, [follower, followee]));
 }
 
 /** A message from me lands in someone's Requests unless they follow me. */

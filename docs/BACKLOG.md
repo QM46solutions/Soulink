@@ -54,3 +54,10 @@ Internal work list. Not for pitch decks.
 - Done: the long scenario quiz is replaced by 7 tap games plus 3 intent taps (~6 min), each built on published research (docs/SOUL-DNA-GAMES.md). Firmness dial, deal-breaker chips, consistency checks, rarity weighting; old (v4) Soul DNA keeps matching until people play (free, once; Home nudge).
 - To do before launch: psychologist review (RCI-registered), 50-person pilot against the Mini-IPIP, re-check score calibration after ~100 real players, real photos for Game 1 (Pexels/Unsplash, free for commercial use) instead of emoji tiles.
 - Later: "guess my answer" pair games after connecting; one-tap "Did you two vibe?" after meeting.
+
+## Sparks, search and follows (Nov 2026)
+- Done: Spark Clips: pick several videos (or record more), order them (Move left / right), trim, split, duplicate, delete, transitions (Cut / Fade / Flash); joined into one video in the browser, then Spark Studio. Web only for now (like Studio).
+- Done: Improv Dice explained when posting and labelled on Sparks; every category extra (dice, script, scene, recipe, place, headline) is optional.
+- Done: Casting Call auditions and Open Mic have their own chips in the Sparks tab (not in All or the other categories).
+- Done: Search says "Find suggestions" and shows your 75%+ Soul Score matches automatically, best first then nearest.
+- Done: public profiles have Connect + Follow; private profiles Connect only. Following never opens a chat; messages only after a Connect is accepted (plus the one paid Premium message, kept).

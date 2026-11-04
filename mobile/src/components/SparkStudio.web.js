@@ -1,5 +1,5 @@
 // Spark Studio (web, works on the laptop and online): edit your video like Reels before posting.
-// Trim · Speed · Filters · Adjust · Crop / zoom · Text (with timing) · Stickers · Music · Voiceover · Fade · Cover. Nothing is re-encoded on the phone:
+// Clips (add more videos, joined into one) · Trim · Speed · Filters · Adjust · Crop / zoom · Text (with timing) · Stickers · Music · Voiceover · Fade · Cover. Nothing is re-encoded on the phone:
 // the edits are saved with the Spark and applied whenever it plays (fast, and the original stays sharp).
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
@@ -52,7 +52,7 @@ function pickAudioType() {
   return '';
 }
 
-export default function SparkStudio({ video, edit, onChange, music, onMusic, voice, onVoice, onBack, onNext, cue }) {
+export default function SparkStudio({ video, edit, onChange, music, onMusic, voice, onVoice, onBack, onNext, cue, onClips }) {
   const { height: winH } = useWindowDimensions();
   const v = useRef(null); const a = useRef(null); const vo = useRef(null);
   const rec = useRef(null);
@@ -220,10 +220,10 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, voi
 
       {/* tools */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginTop: space.md }} contentContainerStyle={{ paddingHorizontal: space.md }}>
-        {TOOLS.map(([k, label, icon]) => {
+        {(onClips ? [['clips', 'Clips', 'filmstrip-box-multiple'], ...TOOLS] : TOOLS).map(([k, label, icon]) => {
           const on = tool === k;
           return (
-            <Pressable key={k} onPress={() => { setTool(k); setDraft(null); }} style={{ alignItems: 'center', width: 62 }}>
+            <Pressable key={k} onPress={() => { if (k === 'clips') { pause(); onClips(); return; } setTool(k); setDraft(null); }} style={{ alignItems: 'center', width: 62 }}>
               <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: on ? undefined : 'rgba(255,255,255,0.08)' }}>
                 {on ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
                 <MaterialCommunityIcons name={icon} size={22} color={on ? '#fff' : colors.aura} />

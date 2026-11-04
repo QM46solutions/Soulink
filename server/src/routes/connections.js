@@ -146,10 +146,11 @@ r.get('/requests', ah(async (req, res) => {
 // ---------- the Connect model ----------
 // A connects to B  = follow A -> B (accepted)  → A is one of B's Followers
 // both directions  = a connections row           → "Connections" (+ a chat opens)
+// (a plain Follow, kind 'follow', is not a connection: it becomes one when a Connect request is accepted)
 const followSql = `IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)
-                     INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'accepted')
-                   ELSE UPDATE follows SET status=N'accepted' WHERE follower_id=$1 AND followee_id=$2`;
-const connectsTo = async (a, b) => !!(await one(`SELECT 1 AS y FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted'`, [a, b]));
+                     INSERT INTO follows (follower_id, followee_id, status, kind) VALUES ($1, $2, N'accepted', N'connect')
+                   ELSE UPDATE follows SET status=N'accepted', kind=N'connect' WHERE follower_id=$1 AND followee_id=$2`;
+const connectsTo = async (a, b) => !!(await one(`SELECT 1 AS y FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted' AND kind=N'connect'`, [a, b]));
 
 /** Both people are connected to each other: Connections row, chat, welcome message. Returns the conversation. */
 async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null, note = null, noteFrom = null } = {}) {

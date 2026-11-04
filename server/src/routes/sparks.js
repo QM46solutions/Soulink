@@ -145,14 +145,17 @@ const view = (x, me) => ({
 
 r.get('/', ah(async (req, res) => {
   const category = z.enum(SPARK_CATEGORIES).optional().parse(req.query.category || undefined);
+  // Casting Call auditions and Open Mic posts are their own sections of the Sparks tab (not in All or the other categories)
+  const casting = req.query.section === 'casting' ? 1 : 0;
   const before = req.query.before ? z.string().datetime({ offset: true }).parse(req.query.before) : null;
   const rows = await many(
     `${SELECT} WHERE ${VISIBLE} AND ($2 IS NULL OR s.category = $2) AND ($2 IS NOT NULL OR s.category <> N'openmic')
+        AND (($4 = 1 AND s.casting_id IS NOT NULL) OR ($4 = 0 AND s.casting_id IS NULL))
         AND ($3 IS NULL OR s.created_at < CAST($3 AS DATETIMEOFFSET))
-      ORDER BY s.created_at DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY`, [req.user.id, category || null, before]);
+      ORDER BY s.created_at DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY`, [req.user.id, casting ? null : category || null, before, casting]);
   const sparks = rows.map((x) => view(x, req.user.id));
   // Spread around: up to 2 boosted Sparks for this viewer (their city / age), placed at about the 3rd and 9th spot
-  if (!before) try {
+  if (!before && !casting) try {
     const age = req.user.birth_date ? Math.floor((Date.now() - new Date(req.user.birth_date)) / 31557600000) : null;
     const boosted = await many(`SELECT TOP 2 sp.id AS spread_id, x.* FROM spark_spreads sp
         CROSS APPLY (${SELECT} WHERE s.id = sp.spark_id AND ${VISIBLE}) x
@@ -229,7 +232,6 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   try { details = b.details ? DETAILS[b.category].parse(JSON.parse(b.details)) : {}; } catch { throw badRequest('Some of the extra details are not right'); }
   if (details.edit) delete details.edit.voice;
   if (voice) details.edit = { ...(details.edit || {}), voice: await saveFile(voice, 'sparks', 'spark') };
-  if (b.category === 'travel' && !b.place) throw badRequest('Add the place for a travel Spark', 'no_place');
   const videoUrl = await saveFile(video, 'sparks', 'spark');
   const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : b.musicRef ? playPath(b.musicRef) : null;
   const x = await one(

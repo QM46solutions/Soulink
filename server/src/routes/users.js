@@ -328,11 +328,13 @@ r.get('/:id/connections', ah(async (req, res) => {
 r.post('/:id/follow', requireSoul, ah(async (req, res) => {
   const u = await loadTarget(req);
   if (u.id === req.user.id) throw badRequest("You can't follow yourself");
+  // Private profiles can only be connected with (Connect request); public profiles have both Connect and Follow.
+  if (u.is_private) throw forbidden('This account is private. Send a Connect request instead.', 'private_connect_only');
   const existing = await one('SELECT status FROM follows WHERE follower_id=$1 AND followee_id=$2', [req.user.id, u.id]);
   if (existing) return res.json({ following: existing.status });
-  const status = u.is_private ? 'pending' : 'accepted';
+  const status = 'accepted';
   try {
-    await query('INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, $3)', [req.user.id, u.id, status]);
+    await query("INSERT INTO follows (follower_id, followee_id, status, kind) VALUES ($1, $2, $3, N'follow')", [req.user.id, u.id, status]);
   } catch (e) {
     // A double tap can race; the first insert wins
     if (e?.number === 2627 || e?.originalError?.info?.number === 2627) {
@@ -348,7 +350,8 @@ r.post('/:id/follow', requireSoul, ah(async (req, res) => {
 // Unfollow, or cancel a pending request
 r.delete('/:id/follow', ah(async (req, res) => {
   const u = await loadTarget(req);
-  await query('DELETE FROM follows WHERE follower_id=$1 AND followee_id=$2', [req.user.id, u.id]);
+  // only a plain Follow (or an old pending request); being connected is undone with Disconnect
+  await query("DELETE FROM follows WHERE follower_id=$1 AND followee_id=$2 AND (kind=N'follow' OR status=N'pending')", [req.user.id, u.id]);
   res.json({ following: 'none' });
 }));
 

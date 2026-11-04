@@ -150,7 +150,7 @@ r.post('/search', ah(async (req, res) => {
 
   const sort = f.sort || (mine ? 'match' : 'active');
   const by = {
-    match: (a, b) => (b.score ?? -1) - (a.score ?? -1),
+    match: (a, b) => (b.score ?? -1) - (a.score ?? -1) || (a.km ?? 1e9) - (b.km ?? 1e9), // best first, then nearest
     nearest: (a, b) => (a.km ?? 1e9) - (b.km ?? 1e9),
     active: (a, b) => new Date(b.u.last_active_at || 0) - new Date(a.u.last_active_at || 0),
     newest: (a, b) => new Date(b.u.created_at) - new Date(a.u.created_at),

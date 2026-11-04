@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { Empty, ErrorText, Input, UserRow, s } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 import { RadarIcon } from '../../components/LiveIcons';
@@ -12,7 +13,7 @@ import { RadarIcon } from '../../components/LiveIcons';
 function DiscoverCard() {
   const tags = [['heart-circle', 'Intent'], ['people', 'Age'], ['location', 'Nearby'], ['sparkles', 'Interests'], ['planet', 'Soul Score']];
   return (
-    <Pressable onPress={() => router.push('/discover')} accessibilityRole="button" accessibilityLabel="Discover new people with Soul Filters"
+    <Pressable onPress={() => router.push('/discover')} accessibilityRole="button" accessibilityLabel="Find suggestions with Soul Filters"
       style={({ hovered, pressed }) => ({ marginTop: space.sm, marginBottom: space.md, borderRadius: 24, transform: [{ scale: pressed ? 0.98 : hovered ? 1.01 : 1 }] })}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, padding: 1.5 }}>
         <View style={{ borderRadius: 23, padding: space.lg, backgroundColor: 'rgba(14,12,22,0.94)' }}>
@@ -21,7 +22,7 @@ function DiscoverCard() {
               <RadarIcon size={52} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.displayBold, fontSize: 18, color: colors.text }}>Discover new people</Text>
+              <Text style={{ fontFamily: fonts.displayBold, fontSize: 18, color: colors.text }}>Find suggestions</Text>
               <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 2 }}>Don't know their name? Find new souls who match your vibe.</Text>
             </View>
           </View>
@@ -35,7 +36,7 @@ function DiscoverCard() {
           </View>
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ marginTop: space.sm, height: 46, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="options" size={17} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Find people with Soul Filters</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Find suggestions with Soul Filters</Text>
             <Ionicons name="arrow-forward" size={17} color="#fff" style={{ marginLeft: 8 }} />
           </LinearGradient>
         </View>
@@ -44,7 +45,27 @@ function DiscoverCard() {
   );
 }
 
+/** A strong match (Soul Score 75%+), shown without typing anything. */
+function MatchRow({ p }) {
+  const bits = [p.matchAs ? `${p.matchAs.emoji} ${p.matchAs.label}` : null, p.km != null ? `${p.km < 1 ? '<1' : Math.round(p.km)} km away` : p.city || null].filter(Boolean);
+  return (
+    <UserRow user={p} subtitle={bits.join(' · ') || p.displayName} onPress={() => router.push(`/user/${p.username}`)}
+      right={(
+        <View style={{ paddingHorizontal: 10, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(66,232,192,0.14)', borderWidth: 1, borderColor: 'rgba(66,232,192,0.45)' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.mint }}>{p.soulScore}%</Text>
+        </View>
+      )} />
+  );
+}
+
 export default function Search() {
+  const { user } = useAuth();
+  // people who match your Soul Score (75%+) and you're not connected with yet: best first, then nearest
+  const [matches, setMatches] = useState(null);
+  useFocusEffect(useCallback(() => {
+    if (!user?.soulReady) { setMatches([]); return; }
+    api('/discover/search', { method: 'POST', body: { sort: 'match' } }).then((r) => setMatches((r.people || []).slice(0, 20))).catch(() => setMatches((m) => m || []));
+  }, [user?.soulReady]));
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
@@ -79,17 +100,22 @@ export default function Search() {
         {!q.trim() ? <DiscoverCard /> : null}
       </View>
       <FlatList
-        data={results}
+        data={q.trim() ? results : matches || []}
         keyExtractor={(u) => u.id}
         keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => (
+        ListHeaderComponent={!q.trim() && matches?.length ? (
+          <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.xs }}>
+            <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text }}>Your matches</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>People with a Soul Score of 75% or more with you, best first</Text>
+          </View>
+        ) : null}
+        renderItem={({ item }) => (q.trim() ? (
           <UserRow user={item} subtitle={item.youFollow ? `${item.displayName} · Following` : item.displayName} onPress={() => router.push(`/user/${item.username}`)} />
-        )}
+        ) : <MatchRow p={item} />)}
         ListEmptyComponent={
-          searched ? <Empty icon="person-outline" title="No one found" text="Try a different name or username." />
-            : (
-              <Empty icon="search-outline" title="Know someone?" text="Type their name or @username above to find them." />
-            )
+          q.trim() ? (searched ? <Empty icon="person-outline" title="No one found" text="Try a different name or username." /> : null)
+            : !user?.soulReady ? <Empty icon="planet-outline" title="See who matches you" text="Create your Soul DNA and your 75%+ matches show up here." />
+              : matches ? <Empty icon="planet-outline" title="No 75%+ matches yet" text="New people join every day. Check back soon, or type a name above to find someone." /> : null
         }
       />
     </View>

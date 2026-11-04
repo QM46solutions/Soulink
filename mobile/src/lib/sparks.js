@@ -14,6 +14,8 @@ export const CATEGORIES = [
   { key: 'news', label: 'News', emoji: '📰', icon: 'newspaper', mci: 'newspaper-variant', colors: ['#ff6b6b', '#ff9a5a'], react: { emoji: '💡', label: 'Useful' },
     line: 'What happened, where, with the headline and a source link' },
 ];
+// Casting Call: auditions for Casting Board roles (their own section of the Sparks tab)
+export const CASTING_CAT = { key: 'casting', label: 'Casting Call', emoji: '🎭', icon: 'film', mci: 'drama-masks', colors: ['#b08fff', '#ff6b9d'], section: true };
 export const ALL_CAT = { key: null, label: 'All', mci: 'movie-open-star', colors: ['#7c5cfc', '#ff6b9d'] };
 // Open Mic: speak your mind (its own tab, not in the category picker or the main feed)
 export const OPENMIC_CAT = { key: 'openmic', label: 'Open Mic', emoji: '🎤', icon: 'mic', mci: 'microphone-variant', colors: ['#f5c842', '#ff6b9d'], react: { emoji: '🙌', label: 'I hear you' },

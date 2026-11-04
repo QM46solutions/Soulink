@@ -28,10 +28,11 @@ describe('Sparks', () => {
     assert.equal(all.find((s) => s.category === 'acting').oneTake, true);
   });
 
-  test('rules: a video is required, travel needs a place, unknown category refused', async () => {
+  test('rules: a video is required, every extra is optional, unknown category refused', async () => {
     const a = await makeUser();
     await post(a, { category: 'news' }, null).expect(400);
-    assert.equal((await post(a, { category: 'travel' }).expect(400)).body.error.code, 'no_place');
+    await post(a, { category: 'travel' }).expect(201);          // no place needed any more
+    await post(a, { category: 'acting', details: {} }).expect(201); // no dice, script or scene needed
     await post(a, { category: 'comedy' }).expect(400);
   });
 

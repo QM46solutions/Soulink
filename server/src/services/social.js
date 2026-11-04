@@ -20,7 +20,7 @@ export async function isBlockedEither(a, b) {
 export async function relationship(viewerId, targetId) {
   if (String(viewerId).toLowerCase() === String(targetId).toLowerCase()) return { isMe: true, following: 'none', followsYou: false, requestedYou: false, connected: false };
   const rows = await many(
-    `SELECT follower_id, status FROM follows
+    `SELECT follower_id, status, kind FROM follows
       WHERE (follower_id=$1 AND followee_id=$2) OR (follower_id=$2 AND followee_id=$1)`,
     [viewerId, targetId],
   );
@@ -31,6 +31,7 @@ export async function relationship(viewerId, targetId) {
   return {
     isMe: false,
     following: out ? out.status : 'none',
+    followKind: out ? out.kind || 'connect' : null, // 'follow' = just following · 'connect' = connected to them
     followsYou: inc?.status === 'accepted',
     requestedYou: inc?.status === 'pending',
     connected: !!conn,

@@ -5,7 +5,7 @@ import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
-import { ALL_CAT, CATEGORIES } from '../../lib/sparks';
+import { ALL_CAT, CASTING_CAT, CATEGORIES, OPENMIC_CAT } from '../../lib/sparks';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import { GradBadge } from '../../components/SparkHub';
 import SparkCard from '../../components/SparkCard';
@@ -38,14 +38,16 @@ export default function Sparks() {
     });
   }, [navigation]);
 
+  // Casting Call (auditions) and Open Mic have their own chips, after the categories
+  const query = (k) => (k === 'casting' ? 'section=casting&' : k ? `category=${k}&` : '');
   const load = useCallback(async (category = cat) => {
-    try { const r = await api(`/sparks${category ? `?category=${category}` : ''}`); setList(r.sparks); setMore(r.hasMore); } catch { setList((l) => l || []); }
+    try { const r = await api(`/sparks?${query(category)}`); setList(r.sparks); setMore(r.hasMore); } catch { setList((l) => l || []); }
   }, [cat]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const loadMore = async () => {
     if (!more || !list?.length) return;
     const last = list[list.length - 1].createdAt;
-    try { const r = await api(`/sparks?${cat ? `category=${cat}&` : ''}before=${encodeURIComponent(last)}`); setList((l) => [...l, ...r.sparks]); setMore(r.hasMore); } catch { /* try later */ }
+    try { const r = await api(`/sparks?${query(cat)}before=${encodeURIComponent(last)}`); setList((l) => [...l, ...r.sparks]); setMore(r.hasMore); } catch { /* try later */ }
   };
   const choose = (k) => { setCat(k); setList(null); load(k); };
 
@@ -69,7 +71,7 @@ export default function Sparks() {
 
   const chips = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.md, paddingVertical: space.sm, gap: 8 }}>
-      {[ALL_CAT, ...CATEGORIES].map((c) => {
+      {[ALL_CAT, ...CATEGORIES, CASTING_CAT, OPENMIC_CAT].map((c) => {
         const on = cat === c.key;
         return (
           <Pressable key={c.label} onPress={() => choose(c.key)} style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingLeft: 4, paddingRight: 14, height: 38, borderRadius: 999, borderWidth: 1.5,
@@ -93,8 +95,9 @@ export default function Sparks() {
       contentContainerStyle={{ paddingBottom: space.xxl, flexGrow: 1 }}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       ListEmptyComponent={list ? (
-        <Empty icon="film-outline" title={cat ? 'No Sparks here yet' : 'No Sparks yet'} text="Travel, cooking, acting, fitness and news: short videos from the people around you.">
-          <Button title="Post the first Spark 🎬" onPress={() => router.push('/spark/new')} style={{ marginTop: space.lg }} />
+        <Empty icon="film-outline" title={cat ? 'No Sparks here yet' : 'No Sparks yet'}
+          text={cat === 'casting' ? 'Auditions for Casting Board roles show here. Pick a role and audition.' : cat === 'openmic' ? 'Open Mic videos and voice notes show here. Say what you want to say.' : 'Travel, cooking, acting, fitness and news: short videos from the people around you.'}>
+          <Button title={cat === 'casting' ? 'See the Casting Board 🎭' : cat === 'openmic' ? 'Go to Open Mic 🎤' : 'Post the first Spark 🎬'} onPress={() => router.push(cat === 'casting' ? '/spark/casting' : cat === 'openmic' ? '/spark/stage' : '/spark/new')} style={{ marginTop: space.lg }} />
         </Empty>
       ) : <Loading />}
     />

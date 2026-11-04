@@ -87,7 +87,7 @@ export default function SparkCard({ spark, onDeleted }) {
   const fitLine = spark.category === 'fitness' ? [label(FIT_TYPES, d.type), label(FIT_LEVELS, d.level), d.minutes ? `⏱ ${d.minutes} min` : null].filter(Boolean).join('  ·  ') : null;
   const tryable = spark.category === 'cooking' || spark.category === 'fitness';
   const hasSheet = spark.category === 'cooking' || (spark.category === 'fitness' && d.moves?.length);
-  const actingLine = d.mode === 'dice' && d.prompt ? `🎲 ${d.prompt.emotion} · ${d.prompt.situation} · ${d.prompt.character}`
+  const actingLine = d.mode === 'dice' && d.prompt ? `🎲 Improv Dice: ${d.prompt.emotion} · ${d.prompt.situation} · ${d.prompt.character}`
     : d.mode === 'script' && d.scriptTitle ? `📜 Script: ${d.scriptTitle}` : d.scene ? `🎬 Recreating: ${d.scene}` : d.mode === 'dub' ? '🎙️ Dub' : null;
 
   return (

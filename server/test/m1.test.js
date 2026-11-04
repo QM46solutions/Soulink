@@ -118,16 +118,21 @@ describe('Follow graph (Instagram rules)', () => {
     const p = await api().get(`/users/u/${b.user.username}`).set(a.h).expect(200);
     assert.equal(p.body.counts.followers, 1);
     assert.equal(p.body.relationship.following, 'accepted');
+    assert.equal(p.body.relationship.followKind, 'follow');
     assert.equal(p.body.canViewContent, true);
+    // following is not connecting: no "connect back" for them, and no chat
+    const cs = (await api().get(`/connections/status/${a.user.id}`).set(b.h).expect(200)).body;
+    assert.equal(cs.theyConnect, false);
     await api().delete(`/users/${b.user.id}/follow`).set(a.h).expect(200);
     const p2 = await api().get(`/users/u/${b.user.username}`).set(a.h).expect(200);
     assert.equal(p2.body.counts.followers, 0);
   });
 
-  test('private account: request → hidden content → accept → visible', async () => {
+  test('private account: Connect only (Follow is refused); an old pending follow request can still be accepted', async () => {
     const a = await makeUser(); const b = await makeUser({ isPrivate: true });
-    const f = await api().post(`/users/${b.user.id}/follow`).set(a.h).expect(200);
-    assert.equal(f.body.following, 'pending');
+    const no = await api().post(`/users/${b.user.id}/follow`).set(a.h).expect(403);
+    assert.equal(no.body.error.code, 'private_connect_only');
+    await query("INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'pending')", [a.user.id, b.user.id]); // from before
     const p = await api().get(`/users/u/${b.user.username}`).set(a.h).expect(200);
     assert.equal(p.body.canViewContent, false);
     await api().get(`/users/${b.user.id}/followers`).set(a.h).expect(403);
@@ -150,12 +155,13 @@ describe('Follow graph (Instagram rules)', () => {
 
   test('decline request; cancel request; remove follower', async () => {
     const a = await makeUser(); const b = await makeUser({ isPrivate: true }); const c = await makeUser();
-    await api().post(`/users/${b.user.id}/follow`).set(a.h).expect(200);
+    const pending = (x) => query("INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'pending')", [x.user.id, b.user.id]);
+    await pending(a);
     await api().post(`/users/me/follow-requests/${a.user.id}/decline`).set(b.h).expect(200);
     const p = await api().get(`/users/u/${b.user.username}`).set(a.h);
     assert.equal(p.body.relationship.following, 'none');
 
-    await api().post(`/users/${b.user.id}/follow`).set(c.h).expect(200);
+    await pending(c);
     await api().delete(`/users/${b.user.id}/follow`).set(c.h).expect(200);
     const reqs = await api().get('/users/me/follow-requests').set(b.h);
     assert.equal(reqs.body.requests.length, 0);
@@ -168,7 +174,7 @@ describe('Follow graph (Instagram rules)', () => {
 
   test('switching private → public auto-accepts pending requests', async () => {
     const a = await makeUser(); const b = await makeUser({ isPrivate: true });
-    await api().post(`/users/${b.user.id}/follow`).set(a.h);
+    await query("INSERT INTO follows (follower_id, followee_id, status) VALUES ($1, $2, N'pending')", [a.user.id, b.user.id]);
     await api().patch('/users/me').set(b.h).send({ isPrivate: false }).expect(200);
     const p = await api().get(`/users/u/${b.user.username}`).set(a.h);
     assert.equal(p.body.relationship.following, 'accepted');
