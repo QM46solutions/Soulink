@@ -37,6 +37,23 @@ function Stars({ w, h, n, seed, speed, drift }) {
   );
 }
 
+// Phones have no blur filter, so a soft glow is drawn as many see-through circles stacked from big to small:
+// the middle is brightest and the edge fades to almost nothing (no hard "bubble" edge like a plain circle).
+const RINGS = 14;
+function SoftGlow({ color, size }) {
+  const m = String(color).match(/rgba?\(([^)]+)\)/);
+  const [r, g, b, a = 1] = (m ? m[1].split(',').map((x) => Number(x.trim())) : [124, 92, 252, 0.5]);
+  const step = (a * 0.9) / RINGS;
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      {Array.from({ length: RINGS }, (_, i) => {
+        const d = size * (1 - i / RINGS) ** 1.15;
+        return <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d / 2, backgroundColor: `rgba(${r},${g},${b},${step.toFixed(3)})` }} />;
+      })}
+    </View>
+  );
+}
+
 function Nebula({ color, size, x, y, ms, dx, dy }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => { const a = loop(v, ms); a.start(); return () => a.stop(); }, [v, ms]);
@@ -45,7 +62,7 @@ function Nebula({ color, size, x, y, ms, dx, dy }) {
       opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.85] }),
       transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, dx] }) }, { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, dy] }) }, { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }],
       ...(Platform.OS === 'web' ? { filter: 'blur(38px)' } : {}) }}>
-      <LinearGradient colors={[color, 'rgba(8,7,13,0)']} start={{ x: 0.5, y: 0.5 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }} />
+      {Platform.OS === 'web' ? <LinearGradient colors={[color, 'rgba(8,7,13,0)']} start={{ x: 0.5, y: 0.5 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }} /> : <SoftGlow color={color} size={size} />}
     </Animated.View>
   );
 }
