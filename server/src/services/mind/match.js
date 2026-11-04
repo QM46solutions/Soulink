@@ -18,20 +18,24 @@ const wavg = (pairs) => { let w = 0; let s = 0; for (const [v, k] of pairs) if (
 // share a RARE answer have found something special; sharing what almost everyone picks says little.
 let RARITY = {};
 export const setRarity = (map) => { RARITY = map && typeof map === 'object' ? map : {}; };
-const VALUE_ITEMS = ['va1', 'va2', 'va3', 'va4', 'va5', 'va6'];
-const VALUE_TOPIC = { va1: 'a career abroad or staying near family', va2: 'money or time for life', va3: 'your own rules or tradition', va4: 'hard truths or keeping the peace', va5: 'spending or saving', va6: 'family approval of a partner' };
+const VALUE_ITEMS = ['g_values', 'va1', 'va2', 'va3', 'va4', 'va5', 'va6'];
+const VALUE_TOPIC = { g_values: 'what matters most', va1: 'a career abroad or staying near family', va2: 'money or time for life', va3: 'your own rules or tradition', va4: 'hard truths or keeping the peace', va5: 'spending or saving', va6: 'family approval of a partner' };
 const CHIP_LABEL = { smoke: 'smoking', drink: 'drinking', pets: 'pets', kids: 'wanting kids', family_home: 'living with family after marriage', relocate: 'moving cities', veg: 'being vegetarian', faith: 'practising a faith', nightlife: 'night-outs' };
 const LINE_TOPIC = { lp1: 'an ex getting in touch', lp2: 'phone privacy', lp3: 'flirting', lp4: 'close friends of the opposite gender', lp5: 'sticking together in hard times', lp6: 'standing up for each other', lp7: 'owning up to mistakes', lf1: 'taking sides', lf2: 'keeping secrets', lf3: 'helping with money', lf4: 'standing up for each other', lf5: 'staying in touch', lf6: 'being upfront', lf7: 'making up' };
-/** Same answers on the value cards, weighted by how rare they are (null when either hasn't played). */
+/** Same answers on the value cards (and the same photos in the values grid), weighted by how rare they are
+ *  (null when fewer than 2 are shared to compare). RARITY for a photo grid = the share of players who picked it. */
 function sharedRare(A, B, ids) {
   let s = 0; let n = 0;
   for (const id of ids) {
     const a = A.picks?.[id]; const b = B.picks?.[id];
     if (!a || !b) continue;
     n += 1;
-    if (a.o === b.o) s += 0.5 + (1 - (RARITY[id]?.[a.o] ?? 0.5));
+    if (Array.isArray(a.s) && Array.isArray(b.s)) {
+      const both = a.s.filter((k) => b.s.includes(k));
+      s += both.reduce((x, k) => x + 0.5 + (1 - (RARITY[id]?.[k] ?? 0.3)), 0) / Math.max(1, a.s.length, b.s.length) * 1.1;
+    } else if (a.o === b.o) s += 0.5 + (1 - (RARITY[id]?.[a.o] ?? 0.5));
   }
-  return n >= 3 ? clamp(30 + (s / n) * 55) : null;
+  return n >= 2 ? clamp(30 + (s / n) * 55) : null;
 }
 /** How close two people's loyalty lines are (same items only). */
 function linesFit(A, B) {
@@ -71,7 +75,7 @@ function gameChecks(A, B, relation, deal, watch, soft) {
   }
   for (const id of VALUE_ITEMS) {
     const a = A.picks?.[id]; const b = B.picks?.[id];
-    if (!a || !b || a.o === b.o || !(a.f === 2 || b.f === 2)) continue;
+    if (!a || !b || a.o == null || b.o == null || a.o === b.o || !(a.f === 2 || b.f === 2)) continue;
     (wall(a, b) && (couple || relation === 'business') ? crossed : watch).push(`what matters most: ${VALUE_TOPIC[id]}`);
   }
   if (crossed.length >= 2) deal.push(...crossed); else if (crossed.length) soft.push(...crossed);

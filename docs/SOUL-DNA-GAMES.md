@@ -1,3 +1,24 @@
+# Soul DNA v6: 7 rounds × 3 taps
+
+Since v6 Soul DNA is 21 taps in about 4 minutes. Every round opens with one photo grid (8 to 12 real photos from
+Unsplash, "which of these is you?", pick up to 3; the order you tap is your ranking, the first counts most), then
+two quick questions. No emoji or icons anywhere in the games: photos, plain text and round numbers only.
+
+| Round | Photo grid | Then | Based on |
+|---|---|---|---|
+| 1 Your nature | 12 photos: party, books, planner, adventure, shoulder to lean on, leader, calm, creative, joker, deep talks, gets things done, fitness | Plans cancelled? · In a group project you're the one who… | IPIP Big Five |
+| 2 Your feelings | 12 photos: how you cope when upset | Someone close hasn't replied in 6 hours · wants every evening with you | Attachment (Fraley), emotion regulation (Gross & John) |
+| 3 What matters most | 11 photos, pick exactly your top 3 | Dream job abroad or near family · family approval or my choice (both with the firmness dial) | Schwartz values |
+| 4 Love and loyalty | What are you looking for? · 10 photos "what loyalty means to you" | Flirting at work (partner) or keeping a secret (friend), with the dial | Investment Model (Rusbult), jealousy research |
+| 5 Your lifestyle | 8 lifestyle photos, tap all that are you | Must / Never chips for a partner · Kids someday? | Deal-breakers research (Jonason et al.) |
+| 6 Your day | 11 photos: build your perfect day | When do you fall asleep? · Ideal weekend | Morningness–eveningness (Horne & Östberg) |
+| 7 After a disagreement | 9 photos | Money spent without telling you · who makes the first move | Gottman, dual-concern model |
+
+Answers from v5 with the same ids (em1, em5, va1, va6, it_look, lp3, lf2, fx_me, fx_box, it_kids, dy4, dy5, cf1,
+cf3) carry over. Older Soul DNA (v4, v5) keeps matching until its owner plays v6 (free, once).
+
+---
+
 # Soul DNA v5: the games
 
 Soul DNA is 7 short tap games plus 3 taps about what you want: about 38 screens' worth of taps in roughly 6 minutes, no typing. They replace the long scenario quiz (v4).

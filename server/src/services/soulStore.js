@@ -1,7 +1,7 @@
 // Loading Soul DNA (v4 and v5 mind models) from the database and scoring pairs.
 // Predicted from Soul DNA (+ what people are into inside Soulink, with their consent); chats and meetups stay private.
 import { many, one, query, tx } from '../db.js';
-import { buildAxes, compat, compatAll, DNA_VERSIONS, QUESTIONS, isComplete, knownAnswers, relationOf, setRarity, theirMind, traitsFromAxes } from './soulDna.js';
+import { buildAxes, compat, compatAll, DNA_VERSION, DNA_VERSIONS, QUESTIONS, isComplete, knownAnswers, relationOf, setRarity, theirMind, traitsFromAxes } from './soulDna.js';
 import { TRAITS, soulTypeOf } from './soulQuiz.js';
 import { applyPinsAll, pinsFor } from './soulPins.js';
 import { interestsFor } from './signals.js';
@@ -87,20 +87,23 @@ export async function addAnswers(userId, extra) {
 
 /** How common each answer on the value cards and loyalty questions is, among everyone who has played the games
  *  (for rarity weighting: sharing a rare answer counts for more). Refreshed hourly; needs 20+ players to kick in. */
-const RARE_IDS = QUESTIONS.filter((q) => q.kind === 'vs' || q.kind === 'loyal').map((q) => q.id);
+const RARE_IDS = QUESTIONS.filter((q) => q.kind === 'vs' || q.kind === 'loyal' || q.kind === 'photos').map((q) => q.id);
 export async function refreshRarity() {
   const rows = await many("SELECT TOP 5000 dna FROM soul_dna WHERE completed_at IS NOT NULL ORDER BY completed_at DESC");
   const count = {}; let players = 0;
   for (const r of rows) {
-    const d = parse(r.dna); if (d?.v !== 5 || !d.picks) continue;
+    const d = parse(r.dna); if (d?.v !== DNA_VERSION || !d.picks) continue;
     players += 1;
-    for (const id of RARE_IDS) { const p = d.picks[id]; if (!p) continue; (count[id] ||= {})[p.o] = (count[id][p.o] || 0) + 1; }
+    for (const id of RARE_IDS) {
+      const p = d.picks[id]; if (!p) continue;
+      const c = (count[id] ||= { _n: 0 }); c._n += 1;
+      for (const o of Array.isArray(p.s) ? p.s : [p.o]) c[o] = (c[o] || 0) + 1;
+    }
   }
   if (players < 20) { setRarity({}); return 0; }
   const map = {};
-  for (const [id, byOpt] of Object.entries(count)) {
-    const total = Object.values(byOpt).reduce((a, b) => a + b, 0);
-    map[id] = Object.fromEntries(Object.entries(byOpt).map(([o, n]) => [o, n / total]));
+  for (const [id, { _n: total, ...byOpt }] of Object.entries(count)) {
+    map[id] = Object.fromEntries(Object.entries(byOpt).map(([o, n]) => [o, n / total])); // share of players who picked it
   }
   setRarity(map);
   return players;

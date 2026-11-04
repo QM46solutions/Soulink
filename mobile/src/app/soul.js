@@ -1,10 +1,10 @@
-// Soul DNA v5: 7 short tap games (plus 3 taps about what you want), about 6 minutes, no typing.
-// Each game is built on published psychology research ("Why we ask" on every screen says what it measures).
-//   Before we start  what you want (3 picks)          Game 4  Loyalty & commitment (+ how firm you are)
-//   Game 1  Which one is you? (Most me / Least me)    Game 5  Three boxes (you, then Must / Never for a partner)
-//   Game 2  React (gut reactions, timed)              Game 6  Build my day
-//   Game 3  Which matters more? (+ how firm you are)  Game 7  Your move (after a disagreement)
-// Every screen is saved when you tap Next, so you can stop and continue later. Taps only: no swiping.
+// Soul DNA v6: 7 short rounds, 3 taps each (21 in all), about 4 minutes, no typing.
+// Every round opens with one photo grid ("which of these is you?", pick up to 3, the order you tap is your
+// ranking), then two quick questions. Built on published psychology research ("Why we ask" says what each
+// round measures).
+//   1 Your nature   2 Your feelings   3 What matters most   4 Love and loyalty
+//   5 Your lifestyle   6 Your day   7 After a disagreement
+// Every screen is saved when you tap Next, so you can stop and continue later. Taps only: no swiping, no emoji.
 // Ends with your Soul DNA: how you think (in words), give and take, your spectrum and what wins for you.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Pressable, Text, View } from 'react-native';
@@ -19,37 +19,36 @@ import { Button, ErrorText } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { SoulDnaIcon } from '../components/LiveIcons';
 
-// ---------- what each game measures (shown under "Why we ask") ----------
+// ---------- what each round measures (shown under "Why we ask") ----------
 const WHY = {
-  intent: ['What you want', 'Different goals (marriage vs exploring, kids vs no kids) are among the most common deal-breakers.', 'Relationship deal-breakers research (Jonason et al., 2015)'],
-  personality: ['Your personality (the Big Five)', 'Each trait appears 4 times. Choosing “Most me” and “Least me” is harder to fake than rating yourself.', 'IPIP / Mini-IPIP Big Five (public domain)'],
-  emotion: ['How you handle closeness and feelings', 'Your first reaction is noted, and how quickly you tap. Gut reactions are more honest.', 'Attachment research (Fraley et al.) and emotion regulation (Gross & John)'],
-  values: ['What matters most, and how firmly', 'The cards pit opposite values against each other, so you can’t pick both. The dial shows whether it’s a preference or a line you won’t cross.', 'Schwartz theory of basic human values'],
-  loyalty: ['Loyalty, trust and commitment', 'Your answers are matched with the other person’s lines, never judged. Nobody is labelled “disloyal”.', 'Investment Model of commitment (Rusbult) and jealousy research'],
-  flex: ['Deal-breakers and must-haves', 'A “Never” that the other person has stops a match. Everything starts as Flexible.', 'Relationship deal-breakers research (Jonason et al., 2015)'],
+  personality: ['Your personality (the Big Five)', 'The photos you pick, and the order you pick them in, show how outgoing, organised, open, kind and steady you are.', 'IPIP / Mini-IPIP Big Five (public domain)'],
+  emotion: ['How you handle closeness and feelings', 'How you cope when upset, and your first reaction to distance or closeness. Quick answers are more honest, so how fast you tap is noted.', 'Attachment research (Fraley et al.) and emotion regulation (Gross & John)'],
+  values: ['What matters most, and how firmly', 'Your top 3 show what wins when life pulls two ways. The firmness dial shows whether it’s a preference or a line you won’t cross.', 'Schwartz theory of basic human values'],
+  loyalty: ['What you want, loyalty and trust', 'Your answers are matched with the other person’s, never judged. Nobody is labelled “disloyal”.', 'Investment Model of commitment (Rusbult) and jealousy research'],
+  flex: ['Your lifestyle and deal-breakers', 'A “Never” that the other person has stops a match. Everything starts as Flexible.', 'Relationship deal-breakers research (Jonason et al., 2015)'],
   rhythm: ['Your daily rhythm', 'Partners whose sleep and free time barely overlap get less time together.', 'Morning–evening type research (Horne & Östberg)'],
-  conflict: ['How you argue and make up', 'Criticism, defensiveness and stonewalling are warning signs; making up quickly protects a relationship. Your picks are shown to someone only after you connect.', 'Gottman’s couples research; dual-concern model of conflict'],
+  conflict: ['How you argue and make up', 'Shouting, going silent and holding grudges are warning signs; making up quickly protects a relationship. Shown to someone only after you connect.', 'Gottman’s couples research; dual-concern model of conflict'],
 };
+
 /** What to do on this screen, step by step; the step you're on is highlighted (index = how many are done). */
-function stepsFor(step, answers) {
-  const q = step.items[0]; const v = answers[q.id];
-  if (step.screen) {
-    const done = step.items.filter((x) => Number.isInteger(answers[x.id]?.o)).length;
-    return { list: [step.screen === 'day' ? `Pick one for each part of your day (${done} of ${step.items.length} done)` : `Pick one answer in each row (${done} of ${step.items.length} done)`], at: done === step.items.length ? 1 : 0 };
-  }
+function stepsFor(q, v) {
   switch (q.kind) {
-    case 'mostleast': return { list: ['Tap the photo that is MOST like you', 'Now tap the photo that is LEAST like you'], at: !Number.isInteger(v?.m) ? 0 : !Number.isInteger(v?.l) ? 1 : 2 };
+    case 'photos': {
+      const n = v?.s?.length || 0;
+      if (q.exact) return { list: [`Tap your top ${q.max}, the most important first (${n} of ${q.max})`], at: n >= q.max ? 1 : 0 };
+      return { list: [`Tap the photos that are you, up to ${q.max}. Your first tap counts most.`], at: n ? 1 : 0 };
+    }
     case 'vs': return { list: ['Tap the one that matters more to you', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
     case 'loyal': return { list: ['Tap what you would really do', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
     case 'react': return { list: ['Tap your first reaction. Don’t overthink it.'], at: Number.isInteger(v?.o) ? 1 : 0 };
-    case 'check': return { list: ['Tap the answer that fits you best'], at: Number.isInteger(v?.o) ? 1 : 0 };
-    case 'me': return { list: ['Tap every chip that describes you. Leave the rest.'], at: v?.s?.length ? 1 : 0, optional: true };
-    case 'boxes': return { list: ['Tap a chip once for MUST, twice for NEVER, three times to make it Flexible again'], at: v?.must?.length || v?.never?.length ? 1 : 0, optional: true };
+    case 'pick': return { list: ['Tap one answer'], at: Number.isInteger(v?.o) ? 1 : 0 };
+    case 'me': return { list: ['Tap every photo that is you'], at: v?.s?.length ? 1 : 0, optional: true };
+    case 'boxes': return { list: ['Tap a chip once for MUST, twice for NEVER, a third time to make it Flexible again'], at: v?.must?.length || v?.never?.length ? 1 : 0, optional: true };
     default: return { list: [], at: 0 };
   }
 }
 
-/** The instructions card: numbered steps, the current one highlighted, then "All set — tap Next". */
+/** The instructions card: numbered steps, the current one highlighted, then "All set: tap Next". */
 function Instructions({ list, at, optional }) {
   if (!list.length) return null;
   const done = at >= list.length;
@@ -67,7 +66,7 @@ function Instructions({ list, at, optional }) {
         );
       })}
       {done || optional ? (
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>{done ? 'All set: tap Next' : 'Nothing applies? Just tap Next'}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>{done ? 'All set: tap Next' : 'None of these? Just tap Next'}</Text>
       ) : null}
     </View>
   );
@@ -86,11 +85,11 @@ const Kicker = ({ children, style }) => (
   <Text style={[{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.aura, textTransform: 'uppercase', marginBottom: space.md }, style]}>{children}</Text>
 );
 
-/** A tappable box. `tone`: soul (chosen), mint (Most me / Must), spark (Least me / Never). */
-function Tap({ onPress, on, tone = 'soul', style, children, label }) {
+/** A tappable box. `tone`: soul (chosen), mint (Must), spark (Never), gold. */
+function Tap({ onPress, on, tone = 'soul', style, children, label, disabled }) {
   const c = { soul: colors.soul, mint: colors.mint, spark: colors.spark, gold: colors.gold }[tone];
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on }}
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: !!on, disabled: !!disabled }}
       style={({ hovered, pressed }) => [{
         borderRadius: 16, borderWidth: 1.5,
         borderColor: on ? c : hovered ? colors.aura : colors.border,
@@ -122,56 +121,69 @@ function Dial({ value, onPick, labels }) {
   );
 }
 
-// ---------- one screen per game round ----------
-function MostLeast({ q, value, onChange }) {
-  const v = value || {};
-  const [broken, setBroken] = useState({}); // a photo that failed to load falls back to its emoji
+// ---------- the photo grid (3 across) ----------
+/** One photo tile: the photo, a short caption under it; when picked, a coloured frame and its number (1, 2, 3). */
+function PhotoTile({ uri, label, badge, on, faded, onPress }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}${on ? `, picked ${badge}` : ''}`} accessibilityState={{ selected: !!on }}
+      style={{ width: '31.6%', opacity: faded ? 0.45 : 1 }}>
+      <View style={{ aspectRatio: 1, borderRadius: 14, overflow: 'hidden', borderWidth: on ? 3 : 1, borderColor: on ? colors.soul : colors.border, backgroundColor: colors.inputBg }}>
+        {uri && !broken ? <Image source={{ uri }} onError={() => setBroken(true)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+          : <LinearGradient colors={['rgba(124,92,252,0.30)', 'rgba(255,107,157,0.22)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
+        {on ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(124,92,252,0.18)' }} /> : null}
+        {on ? (
+          <View style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }}>
+            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text numberOfLines={2} style={{ marginTop: 6, minHeight: 34, fontFamily: on ? fonts.bold : fonts.medium, fontSize: 12.5, lineHeight: 17, color: on ? colors.text : colors.muted, textAlign: 'center' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** Pick up to q.max photos; the order you tap them is your ranking (tap again to take one back). */
+function PhotoGrid({ q, value, onChange }) {
+  const s = value?.s || [];
+  const full = s.length >= q.max;
   const tap = (k) => {
-    if (v.m === k) onChange({ ...v, m: undefined });
-    else if (v.l === k) onChange({ ...v, l: undefined });
-    else if (v.m === undefined) onChange({ ...v, m: k });
-    else onChange({ ...v, l: k });
+    if (s.includes(k)) onChange({ s: s.filter((x) => x !== k) });
+    else if (!full) onChange({ s: [...s, k] });
   };
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      {q.options.map((label, k) => {
-        const tag = v.m === k ? 'MOST ME' : v.l === k ? 'LEAST ME' : null;
-        const tone = v.m === k ? colors.mint : colors.spark;
-        const photo = q.photos?.[k] && !broken[k] ? q.photos[k] : null;
-        return (
-          <Tap key={label} on={!!tag} tone={v.m === k ? 'mint' : 'spark'} onPress={() => tap(k)} label={`${label}${tag ? `, ${tag.toLowerCase()}` : ''}`}
-            style={{ width: '47.5%', overflow: 'hidden', borderWidth: tag ? 3 : 1.5 }}>
-            <View style={{ aspectRatio: 4 / 3, backgroundColor: ['rgba(124,92,252,0.18)', 'rgba(66,232,192,0.14)', 'rgba(245,200,66,0.14)', 'rgba(255,107,157,0.14)'][k % 4], alignItems: 'center', justifyContent: 'center' }}>
-              {photo ? <Image source={{ uri: photo }} onError={() => setBroken((b) => ({ ...b, [k]: true }))} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-                : <Text style={{ fontSize: 40 }}>{q.emojis[k]}</Text>}
-              {tag ? (
-                <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: tone, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: '#0e0c16' }}>{v.m === k ? '★ ' : '✕ '}{tag}</Text>
-                </View>
-              ) : null}
-            </View>
-            {/* the caption: what this photo means, in plain words */}
-            <View style={{ paddingHorizontal: 10, paddingVertical: 10, minHeight: 62, justifyContent: 'center', backgroundColor: tag ? `${tone}26` : 'rgba(255,255,255,0.03)' }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text }}>{label}</Text>
-            </View>
-          </Tap>
-        );
-      })}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 }}>
+      {q.options.map((label, k) => (
+        <PhotoTile key={label} uri={q.photos?.[k]} label={label} on={s.includes(k)} badge={s.indexOf(k) + 1} faded={full && !s.includes(k)} onPress={() => tap(k)} />
+      ))}
+      {q.options.length % 3 ? <View style={{ width: '31.6%' }} /> : null}
+    </View>
+  );
+}
+
+/** Lifestyle photos: tap every one that is you (no limit). */
+function MeGrid({ q, value, onChange }) {
+  const s = value?.s || [];
+  const tap = (key) => onChange({ s: s.includes(key) ? s.filter((x) => x !== key) : [...s, key] });
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 }}>
+      {q.chips.map((c) => <PhotoTile key={c.key} uri={c.photo} label={c.label} on={s.includes(c.key)} badge="✓" onPress={() => tap(c.key)} />)}
+      {q.chips.length % 3 ? <View style={{ width: '31.6%' }} /> : null}
     </View>
   );
 }
 
 function Choices({ q, value, onChange }) {
   const o = value?.o;
-  if (q.kind === 'vs' || (q.kind === 'check' && q.section === 'values')) {
+  if (q.kind === 'vs') {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {q.options.map((label, k) => (
           <View key={label} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
             {k === 1 ? <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.dim, marginRight: 8 }}>OR</Text> : null}
-            <Tap on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ flex: 1, minHeight: 130, padding: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>{q.emojis[k]}</Text>
-              <Label size={14.5} center bold>{label}</Label>
+            <Tap on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ flex: 1, minHeight: 110, padding: 14, alignItems: 'center', justifyContent: 'center' }}>
+              <Label size={15.5} center bold>{label}</Label>
             </Tap>
           </View>
         ))}
@@ -182,7 +194,9 @@ function Choices({ q, value, onChange }) {
     <View style={{ gap: 9 }}>
       {q.options.map((label, k) => (
         <Tap key={label} on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ minHeight: 52, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
-          {q.emojis[k] ? <Text style={{ fontSize: 22, marginRight: 12 }}>{q.emojis[k]}</Text> : null}
+          <View style={{ width: 20, height: 20, borderRadius: 10, marginRight: 12, borderWidth: 2, borderColor: o === k ? colors.soul : colors.dim, alignItems: 'center', justifyContent: 'center' }}>
+            {o === k ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.soul }} /> : null}
+          </View>
           <View style={{ flex: 1 }}><Label>{label}</Label></View>
         </Tap>
       ))}
@@ -190,61 +204,39 @@ function Choices({ q, value, onChange }) {
   );
 }
 
-function Chips({ q, value, onChange }) {
-  const boxes = q.kind === 'boxes';
-  const v = value || (boxes ? { must: [], never: [] } : { s: [] });
-  const stateOf = (k) => (boxes ? (v.must.includes(k) ? 'must' : v.never.includes(k) ? 'never' : 'flex') : v.s.includes(k) ? 'on' : 'off');
+/** For a partner: each chip is Flexible, MUST or NEVER. */
+function Boxes({ q, value, onChange }) {
+  const v = value || { must: [], never: [] };
+  const stateOf = (k) => (v.must.includes(k) ? 'must' : v.never.includes(k) ? 'never' : 'flex');
   const tap = (k) => {
-    if (!boxes) { onChange({ s: v.s.includes(k) ? v.s.filter((x) => x !== k) : [...v.s, k] }); return; }
     const st = stateOf(k);
     const must = v.must.filter((x) => x !== k); const never = v.never.filter((x) => x !== k);
     if (st === 'flex') must.push(k); else if (st === 'must') never.push(k);
     onChange({ must, never });
   };
-  const legend = boxes ? (
-    <View style={{ gap: 6, marginBottom: space.md }}>
-      {[[colors.mint, 'MUST', 'they need to have this'], [colors.spark, 'NEVER', 'a deal-breaker for me'], [colors.dim, 'FLEXIBLE', 'I don’t mind either way']].map(([c, k, t]) => (
-        <View key={k} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ width: 82, fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: c }}>{k}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{t}</Text>
-        </View>
-      ))}
-    </View>
-  ) : null;
   return (
-    <>{legend}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {q.chips.map((c) => {
-        const st = stateOf(c.key);
-        return (
-          <Tap key={c.key} on={st === 'on' || st === 'must' || st === 'never'} tone={st === 'never' ? 'spark' : 'mint'} onPress={() => tap(c.key)} label={c.label}
-            style={{ paddingHorizontal: 14, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', borderRadius: 999 }}>
-            <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 14 }}>{c.label}</Text>
-            {boxes ? <Text style={{ marginLeft: 7, fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 0.6, color: st === 'must' ? colors.mint : st === 'never' ? colors.spark : colors.dim }}>{st === 'must' ? 'MUST' : st === 'never' ? 'NEVER' : 'FLEXIBLE'}</Text> : null}
-          </Tap>
-        );
-      })}
-    </View>
-    </>
-  );
-}
-
-function PickRow({ q, value, onChange, icons }) {
-  return (
-    <View style={{ marginBottom: space.lg }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 8 }}>
-        {Number.isInteger(value?.o) ? <Text style={{ color: colors.mint }}>✓  </Text> : null}{q.text}
-      </Text>
-      <View style={{ flexDirection: 'row', flexWrap: icons ? 'nowrap' : 'wrap', gap: 8 }}>
-        {q.options.map((label, k) => (
-          <Tap key={label} on={value?.o === k} onPress={() => onChange({ ...value, o: k })} label={label}
-            style={icons ? { flex: 1, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center' } : { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ fontSize: icons ? 22 : 16, marginRight: icons ? 0 : 6 }}>{q.emojis[k]}</Text>
-            <Text style={{ color: colors.text, fontFamily: value?.o === k ? fonts.bold : fonts.medium, fontSize: icons ? 12 : 14.5, lineHeight: icons ? 15 : 19, textAlign: 'center', marginTop: icons ? 4 : 0 }}>{label}</Text>
-          </Tap>
+    <>
+      <View style={{ gap: 6, marginBottom: space.md }}>
+        {[[colors.mint, 'MUST', 'they need to have this'], [colors.spark, 'NEVER', 'a deal-breaker for me'], [colors.dim, 'FLEXIBLE', 'I don’t mind either way']].map(([c, k, t]) => (
+          <View key={k} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ width: 82, fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: c }}>{k}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{t}</Text>
+          </View>
         ))}
       </View>
-    </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {q.chips.map((c) => {
+          const st = stateOf(c.key);
+          return (
+            <Tap key={c.key} on={st !== 'flex'} tone={st === 'never' ? 'spark' : 'mint'} onPress={() => tap(c.key)} label={`${c.label}: ${st}`}
+              style={{ paddingHorizontal: 14, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', borderRadius: 999 }}>
+              <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 14 }}>{c.label}</Text>
+              <Text style={{ marginLeft: 7, fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 0.6, color: st === 'must' ? colors.mint : st === 'never' ? colors.spark : colors.dim }}>{st === 'must' ? 'MUST' : st === 'never' ? 'NEVER' : 'FLEXIBLE'}</Text>
+            </Tap>
+          );
+        })}
+      </View>
+    </>
   );
 }
 
@@ -252,25 +244,18 @@ function PickRow({ q, value, onChange, icons }) {
 const ready = (q, v) => {
   if (q.kind === 'me' || q.kind === 'boxes') return true; // nothing ticked is a fine answer
   if (!v) return false;
-  if (q.kind === 'mostleast') return Number.isInteger(v.m) && Number.isInteger(v.l);
+  if (q.kind === 'photos') return q.exact ? v.s?.length === q.max : v.s?.length > 0;
   if (!Number.isInteger(v.o)) return false;
   return DIAL_KINDS.includes(q.kind) ? Number.isInteger(v.f) : true;
 };
 /** The answer as sent to the server (empty chip games get their empty shape). */
 const finalOf = (q, v) => (q.kind === 'me' ? (v || { s: [] }) : q.kind === 'boxes' ? (v || { must: [], never: [] }) : v);
-
-/** Steps (screens) for this person: grouped screens (intent, the day) and one item per screen otherwise. */
-function buildSteps(questions, plan) {
-  const inPlan = new Set(plan);
-  const steps = [];
-  for (const q of questions) {
-    if (!inPlan.has(q.id)) continue;
-    const last = steps[steps.length - 1];
-    if (q.screen && last?.screen === q.screen) last.items.push(q);
-    else steps.push({ key: q.id, screen: q.screen || null, section: q.section, items: [q] });
-  }
-  return steps;
-}
+/** A round number in a small ring (used instead of icons). */
+const Num = ({ n, done, size = 26 }) => (
+  <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: done ? colors.mint : colors.aura, backgroundColor: done ? 'rgba(66,232,192,0.15)' : 'transparent' }}>
+    <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.46, color: done ? colors.mint : colors.aura }}>{done ? '✓' : n}</Text>
+  </View>
+);
 
 // ---------- your Soul DNA (after finishing, or when you open it again) ----------
 function Spectrum({ left, right, value }) {
@@ -347,7 +332,7 @@ export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake }) 
           {dims.map((d) => (
             <View key={d.key} style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{d.emoji}  {d.label}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{d.label}</Text>
                 <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.muted }}>{d.strength}</Text>
               </View>
               <Bar value={d.strength / 100} />
@@ -367,15 +352,16 @@ export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake }) 
         Soul DNA is a matching aid built on published psychology research, not a psychological assessment. Match scores are predicted from your Soul DNA (and, if you allow it, what you're into on Soulink). Your chats and meetups stay private and are never used.
       </Text>
       {onDone ? <Button title="Start connecting" style={{ marginTop: space.lg }} onPress={onDone} /> : null}
-      {onRetake ? <Button variant="ghost" title="Play Soul DNA again 💎" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
+      {onRetake ? <Button variant="ghost" title="Play Soul DNA again" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
     </>
   );
 }
 
+
 // ---------- the games ----------
 export default function SoulGames() {
   const { user, setUser } = useAuth();
-  const { retake } = useLocalSearchParams(); // Premium retake: start from the first game
+  const { retake } = useLocalSearchParams(); // Premium retake: start from the first round
   const [data, setData] = useState(null); // { sections, questions, plan, upgrade, completed }
   const [answers, setAnswers] = useState({});
   const [phase, setPhase] = useState('loading'); // loading | intro | play | saving | result
@@ -403,16 +389,16 @@ export default function SoulGames() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the loyalty version follows "What are you looking for?", so the steps are worked out from the live answers
+  // the loyalty question follows "What are you looking for?", so the plan is worked out from the live answers
   const plan = useMemo(() => {
     if (!data) return [];
     const friend = data.questions.find((q) => q.id === 'it_look')?.options?.[answers.it_look?.o ?? answers.it_look] === 'Friendship';
     return data.questions.filter((q) => !q.variant || q.variant === (friend ? 'friend' : 'partner')).map((q) => q.id);
   }, [data, answers.it_look]);
-  const steps = useMemo(() => (data ? buildSteps(data.questions, plan) : []), [data, plan]);
+  const steps = useMemo(() => (data ? plan.map((id) => data.questions.find((q) => q.id === id)).filter(Boolean) : []), [data, plan]);
   const sections = data?.sections || [];
   const answered = plan.filter((id) => answers[id] !== undefined).length;
-  const firstOpen = Math.max(0, steps.findIndex((s) => s.items.some((q) => answers[q.id] === undefined)));
+  const firstOpen = Math.max(0, steps.findIndex((q) => answers[q.id] === undefined));
 
   const setAnswer = (q, v) => {
     const prev = answers[q.id];
@@ -421,18 +407,14 @@ export default function SoulGames() {
     setAnswers((a) => ({ ...a, [q.id]: v }));
   };
 
-  const save = async (step) => {
-    const batch = {};
-    for (const q of step.items) {
-      let v = finalOf(q, answers[q.id]);
-      if (q.kind !== 'me' && q.kind !== 'boxes') {
-        const ms = firstTap.current[q.id]; const ch = changes.current[q.id];
-        v = { ...v, ...(ms != null ? { ms } : {}), ...(ch ? { ch: Math.min(ch, 49) } : {}) };
-      }
-      batch[q.id] = v;
+  const save = async (q) => {
+    let v = finalOf(q, answers[q.id]);
+    if (q.kind !== 'me' && q.kind !== 'boxes') {
+      const ms = firstTap.current[q.id]; const ch = changes.current[q.id];
+      v = { ...(typeof v === 'object' ? v : { o: v }), ...(ms != null ? { ms } : {}), ...(ch ? { ch: Math.min(ch, 49) } : {}) };
     }
-    await api('/soul/dna/answers', { method: 'PUT', body: { answers: batch } });
-    setAnswers((a) => ({ ...a, ...batch }));
+    await api('/soul/dna/answers', { method: 'PUT', body: { answers: { [q.id]: v } } });
+    setAnswers((a) => ({ ...a, [q.id]: v }));
   };
 
   const finish = async () => {
@@ -444,17 +426,17 @@ export default function SoulGames() {
       setPhase('result');
     } catch (e) {
       setError(e.message); setPhase('play');
-      const open = steps.findIndex((s) => s.items.some((q) => answers[q.id] === undefined));
+      const open = steps.findIndex((q) => answers[q.id] === undefined);
       if (open >= 0) setI(open);
     }
   };
 
   const next = async () => {
-    const step = steps[i];
-    if (!step || busy) return;
+    const q = steps[i];
+    if (!q || busy) return;
     setBusy(true); setError(null);
     try {
-      await save(step);
+      await save(q);
       if (i + 1 >= steps.length) await finish(); else setI(i + 1);
     } catch (e) {
       setError(e.code === 'premium_required' ? e.message : 'Could not save. Check your connection and tap Next again.');
@@ -492,23 +474,21 @@ export default function SoulGames() {
     const upgrade = data?.upgrade || user?.soulUpgrade;
     return (
       <BrandScreen back onBack={back}>
-        <BrandHeader size={36} title={retake ? 'Play Soul DNA again' : upgrade ? 'Soul DNA is now 7 quick games' : 'Create your Soul DNA'}
+        <BrandHeader size={36} title={retake ? 'Play Soul DNA again' : upgrade ? 'Soul DNA is now shorter' : 'Create your Soul DNA'}
           subtitle={upgrade
-            ? 'No more long quiz. Seven quick tap games, about 6 minutes. Your current Soul DNA and matches stay until you finish.'
-            : 'Seven quick tap games, about 6 minutes. No typing, no right answers: go with your gut.'} />
+            ? '7 quick rounds, 21 taps, about 4 minutes. Your current Soul DNA and matches stay until you finish.'
+            : '7 quick rounds, 21 taps, about 4 minutes. Pick the photos that feel like you. No right answers.'} />
         {error ? <ErrorText>{error}</ErrorText> : null}
         <GlassCard>
-          {sections.map((s) => {
+          {sections.map((s, n) => {
             const list = plan.filter((id) => data.questions.find((q) => q.id === id)?.section === s.key);
             const done = list.filter((id) => answers[id] !== undefined).length;
+            const all = !!list.length && done === list.length;
             return (
               <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7 }}>
-                <Text style={{ width: 28, fontSize: 16 }}>{s.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.text }}>{s.title}</Text>
-                  <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.dim }}>{s.game}</Text>
-                </View>
-                <Text style={{ fontFamily: fonts.mono, fontSize: 11.5, color: done === list.length && list.length ? colors.aura : colors.dim }}>{done === list.length && list.length ? '✓' : `${done}/${list.length}`}</Text>
+                <View style={{ marginRight: 12 }}><Num n={n + 1} done={all} /></View>
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14.5, color: colors.text }}>{s.title}</Text>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 11.5, color: all ? colors.mint : colors.dim }}>{done}/{list.length}</Text>
               </View>
             );
           })}
@@ -522,42 +502,36 @@ export default function SoulGames() {
     );
   }
 
-  const step = steps[Math.min(i, steps.length - 1)];
-  const sec = sections.find((s) => s.key === step.section);
-  const inSec = steps.filter((s) => s.section === step.section);
-  const pos = inSec.indexOf(step) + 1;
-  const q = step.items[0];
-  const canGo = step.items.every((x) => ready(x, answers[x.id]));
-  const w = WHY[step.section];
-  const title = step.screen === 'intent' ? 'First, a few quick picks about what you want'
-    : step.screen === 'day' ? 'Build your ideal day'
-      : q.kind === 'vs' ? 'Which matters more to you?'
-        : q.kind === 'check' && q.section === 'values' ? 'One more, quickly: which matters more?'
-          : q.kind === 'me' ? 'Which of these describe you?'
-            : q.kind === 'boxes' ? 'What do you need in a partner?'
-              : q.text;
+  const q = steps[Math.min(i, steps.length - 1)];
+  const secN = sections.findIndex((s) => s.key === q.section);
+  const sec = sections[secN];
+  const inSec = steps.filter((x) => x.section === q.section);
+  const pos = inSec.indexOf(q) + 1;
+  const v = answers[q.id];
+  const w = WHY[q.section];
+  const title = q.kind === 'vs' ? 'Which matters more to you?' : q.kind === 'boxes' ? 'What do you need in a partner?' : q.text;
   return (
     <BrandScreen back onBack={back} center={false}
       right={<><Bar value={answered / Math.max(1, plan.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
       <View style={{ marginTop: space.md, marginBottom: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <View style={{ backgroundColor: 'rgba(255,107,157,0.16)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.spark, textTransform: 'uppercase' }}>
-              {sec?.game?.startsWith('Game') ? `${sec.game} of 7` : sec?.game} · {sec?.title}
-            </Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.spark, textTransform: 'uppercase' }}>{secN + 1} of {sections.length} · {sec?.title}</Text>
           </View>
-          {inSec.length > 1 ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted }}>Round {pos} of {inSec.length}</Text> : null}
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {inSec.map((x, k) => <View key={x.id} style={{ width: 16, height: 4, borderRadius: 2, backgroundColor: k < pos ? colors.spark : colors.border }} />)}
+          </View>
         </View>
         <Text style={{ fontFamily: fonts.displayBold, fontSize: 23, lineHeight: 30, color: colors.text, marginTop: 10 }}>{title}</Text>
       </View>
-      <Instructions {...stepsFor(step, answers)} />
+      <Instructions {...stepsFor(q, v)} />
       {error ? <ErrorText>{error}</ErrorText> : null}
 
-      {step.screen ? step.items.map((x) => <PickRow key={x.id} q={x} value={answers[x.id]} icons={step.screen === 'day'} onChange={(v) => setAnswer(x, v)} />) : null}
-      {!step.screen && q.kind === 'mostleast' ? <MostLeast q={q} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} /> : null}
-      {!step.screen && ['react', 'vs', 'loyal', 'check'].includes(q.kind) ? <Choices q={q} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} /> : null}
-      {!step.screen && DIAL_KINDS.includes(q.kind) && Number.isInteger(answers[q.id]?.o) ? <Dial labels={q.dial} value={answers[q.id]?.f} onPick={(f) => setAnswer(q, { ...answers[q.id], f })} /> : null}
-      {!step.screen && (q.kind === 'me' || q.kind === 'boxes') ? <Chips q={q} value={answers[q.id]} onChange={(v) => setAnswer(q, v)} /> : null}
+      {q.kind === 'photos' ? <PhotoGrid q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'me' ? <MeGrid q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'boxes' ? <Boxes q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {['pick', 'react', 'vs', 'loyal'].includes(q.kind) ? <Choices q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {DIAL_KINDS.includes(q.kind) && Number.isInteger(v?.o) ? <Dial labels={q.dial} value={v?.f} onPick={(f) => setAnswer(q, { ...v, f })} /> : null}
 
       {why && w ? (
         <View style={{ marginTop: space.lg, padding: 14, borderRadius: 14, backgroundColor: 'rgba(66,232,192,0.10)', borderWidth: 1, borderColor: 'rgba(66,232,192,0.35)' }}>
@@ -566,10 +540,11 @@ export default function SoulGames() {
           <Text style={{ fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 6, fontStyle: 'italic' }}>Based on: {w[2]}</Text>
         </View>
       ) : null}
+      {q.photos || q.kind === 'me' ? <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.dim, marginTop: space.md }}>Photos: Unsplash</Text> : null}
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: space.xl, marginBottom: space.xl }}>
         <Button small variant="ghost" title={why ? 'Hide' : 'Why we ask'} onPress={() => setWhy(!why)} style={{ flex: 1 }} />
-        <Button title={i + 1 >= steps.length ? 'See my Soul DNA' : 'Next'} disabled={!canGo} loading={busy} onPress={next} style={{ flex: 2 }} />
+        <Button title={i + 1 >= steps.length ? 'See my Soul DNA' : 'Next'} disabled={!ready(q, v)} loading={busy} onPress={next} style={{ flex: 2 }} />
       </View>
     </BrandScreen>
   );

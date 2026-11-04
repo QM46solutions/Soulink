@@ -13,25 +13,27 @@ describe('Soul DNA', () => {
   test('the games, in order, with no scoring sent to the phone', async () => {
     const u = await makeUser();
     const r = await api().get('/soul/dna').set(u.h).expect(200);
-    assert.ok(r.body.total >= 30 && r.body.total <= 40, `got ${r.body.total} items`);
-    assert.equal(r.body.sections.length, 8);
+    assert.equal(r.body.total, 21, `got ${r.body.total} items`);
+    assert.equal(r.body.sections.length, 7);
     assert.equal(r.body.plan.length, r.body.total);
     assert.ok(r.body.questions.length > r.body.total, 'both loyalty versions are sent; the app shows the right one');
     const kinds = new Set(r.body.questions.map((q) => q.kind));
-    for (const k of ['pick', 'mostleast', 'react', 'vs', 'loyal', 'check', 'me', 'boxes', 'day']) assert.ok(kinds.has(k), k);
+    for (const k of ['photos', 'pick', 'react', 'vs', 'loyal', 'me', 'boxes']) assert.ok(kinds.has(k), k);
+    assert.ok(r.body.questions.filter((q) => q.kind === 'photos').every((q) => q.photos.length >= 8 && q.photos.length <= 15));
     const raw = JSON.stringify(r.body.questions);
     assert.equal(raw.includes('"set"') || raw.includes('intent_') || raw.includes('r_fight'), false);
     assert.equal(r.body.completed, false);
     // gut-reaction timing and the firmness dial are part of the answer
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { em1: { o: 1, ms: 1800, ch: 1 }, va1: { o: 0, f: 2, ms: 2100 }, pe1: { m: 0, l: 3 } } }).expect(200);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { em1: { o: 1, ms: 1800, ch: 1 }, va1: { o: 0, f: 2, ms: 2100 }, g_nature: { s: [0, 4], ms: 4000 } } }).expect(200);
     await api().put('/soul/dna/answers').set(u.h).send({ answers: { va1: { o: 0 } } }).expect(400);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { pe1: { m: 1, l: 1 } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { g_nature: { s: [1, 1] } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { g_nature: { s: [0, 1, 2, 3] } } }).expect(400);
     // friendship seekers get the friend version of the loyalty game
     const f = (await api().put('/soul/dna/answers').set(u.h).send({ answers: { it_look: 2 } }).expect(200)).body;
-    assert.ok(f.plan.includes('lf1') && !f.plan.includes('lp1'));
+    assert.ok(f.plan.includes('lf2') && !f.plan.includes('lp3'));
   });
 
-  test('a Soul DNA made with the old quiz keeps matching, and its owner can play the games for free', async () => {
+  test('an older Soul DNA keeps matching, and its owner can play the new games for free', async () => {
     const u = await makeUser();
     await takeQuiz(u, 0);
     await query("UPDATE soul_dna SET dna=JSON_MODIFY(dna, '$.v', 4) WHERE user_id=$1", [u.user.id]);
@@ -59,7 +61,7 @@ describe('Soul DNA', () => {
     const r = await takeQuiz(u);
     assert.equal(r.body.user.soulReady, true);
     assert.ok(r.body.soul.type.startsWith('The '));
-    assert.equal(r.body.me.dims.length, 8);
+    assert.equal(r.body.me.dims.length, 7);
     assert.ok(r.body.me.summary.length >= 3, 'how you think, in words');
     const me = await api().get('/soul/dna/me').set(u.h).expect(200);
     assert.equal(me.body.ready, true);
