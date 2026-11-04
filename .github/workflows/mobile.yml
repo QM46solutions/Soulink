@@ -28,7 +28,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Expo account connected?
         id: ready
-        run: if [ -n "$EXPO_TOKEN" ] && grep -q '"projectId"' app.json; then echo "ok=1" >> $GITHUB_OUTPUT; else echo "Skipping: add the EXPO_TOKEN secret and run SETUP-PHONE-APP.bat once (see docs/PHONE-APP.md)"; fi
+        run: |
+          if [ -n "$EXPO_TOKEN" ] && grep -q '"projectId"' app.json; then
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping - add the EXPO_TOKEN secret and run SETUP-PHONE-APP.bat once (see docs/PHONE-APP.md)"
+          fi
       - uses: actions/setup-node@v4
         if: steps.ready.outputs.ok
         with:
