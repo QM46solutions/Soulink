@@ -39,16 +39,16 @@ function Stars({ w, h, n, seed, speed, drift }) {
 
 // Phones have no blur filter, so a soft glow is drawn as many see-through circles stacked from big to small:
 // the middle is brightest and the edge fades to almost nothing (no hard "bubble" edge like a plain circle).
-const RINGS = 14;
+const RINGS = 22;
 function SoftGlow({ color, size }) {
   const m = String(color).match(/rgba?\(([^)]+)\)/);
   const [r, g, b, a = 1] = (m ? m[1].split(',').map((x) => Number(x.trim())) : [124, 92, 252, 0.5]);
-  const step = (a * 0.9) / RINGS;
+  const step = (a * 0.3) / RINGS; // matched to the website's blurred glow: faint, no visible edge
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       {Array.from({ length: RINGS }, (_, i) => {
-        const d = size * (1 - i / RINGS) ** 1.15;
-        return <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d / 2, backgroundColor: `rgba(${r},${g},${b},${step.toFixed(3)})` }} />;
+        const d = size * (1 - i / RINGS) ** 0.8;
+        return <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d / 2, backgroundColor: `rgba(${r},${g},${b},${step.toFixed(4)})` }} />;
       })}
     </View>
   );
