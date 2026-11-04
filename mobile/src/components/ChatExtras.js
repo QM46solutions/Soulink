@@ -1,4 +1,5 @@
 // WhatsApp-style "+" menu for chats: Photos, Location, Contact, Document, Poll — and how each shows in the chat.
+import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
@@ -86,7 +87,17 @@ export function ContactPicker({ visible, onClose, onSend }) {
 const DOC_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
 export function pickDocument() {
   return new Promise((resolve) => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') { notice('Documents', 'Sending documents works in the Soulink web app for now.'); resolve(null); return; }
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      // phone app: the phone's own file picker (Files / Drive / Downloads)
+      DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true, multiple: false })
+        .then((r) => {
+          const a = r.canceled ? null : r.assets?.[0];
+          if (!a) return resolve(null);
+          if (a.size && a.size > 25 * 1024 * 1024) { notice('Too big', 'Documents up to 25 MB.'); return resolve(null); }
+          resolve({ uri: a.uri, name: a.name || 'document', type: a.mimeType || 'application/octet-stream', size: a.size || 0 });
+        }).catch(() => resolve(null));
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file'; input.accept = DOC_TYPES;
     input.onchange = () => {

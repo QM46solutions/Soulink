@@ -13,7 +13,14 @@ export async function downloadMyData() {
       const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } else {
-      await Share.share({ title: name, message: json });
+      // phone app: save it as a file, then the phone's share sheet (Save to Files, Drive, email…)
+      const { File, Paths } = await import('expo-file-system'); // phone-only modules, loaded when needed
+      const Sharing = await import('expo-sharing');
+      const f = new File(Paths.cache, name);
+      if (f.exists) f.delete();
+      f.create(); f.write(json);
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri, { mimeType: 'application/json', dialogTitle: 'Save your Soulink data', UTI: 'public.json' });
+      else await Share.share({ title: name, message: json });
     }
   } catch (e) { notice("Couldn't get your data", e.message); }
 }

@@ -7,13 +7,19 @@ const SERVER_KEY = 'soulink.server';
 const TOKEN_KEY = 'soulink.token';
 const ACCESS_KEY = 'soulink.access';
 
-// Default server: the laptop that is running Expo, on port 4000. Expo tells the app that laptop's
+// Default server (web build): the laptop that is running Expo, on port 4000. Expo tells the app that laptop's
 // Wi-Fi address, so the phone finds the server automatically. You can still override it from the
 // ⚙️ button on the welcome screen.
 function defaultServer() {
   // Opened through the phone link (START-SOULINK-PHONE): the API is on the same https address under /api
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.port !== '8081' && window.location.hostname !== 'localhost') {
     return `${window.location.origin}/api`;
+  }
+  // The phone app talks to the live Soulink server in the cloud (app.json › extra.apiUrl), so it works on Wi-Fi or
+  // mobile data with the laptop off. EXPO_PUBLIC_API_URL can point it somewhere else (e.g. the laptop for testing).
+  if (Platform.OS !== 'web') {
+    const cloud = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl;
+    if (cloud) return cloud.replace(/\/$/, '');
   }
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoClient?.hostUri || '';
   const host = hostUri.split(':')[0];
@@ -76,7 +82,7 @@ export async function setToken(t) {
 }
 
 /** Full URL for images stored on the server (/uploads/...). */
-export const mediaUrl = (p) => (!p ? null : /^(https?:|blob:|file:|data:)/.test(p) ? p : `${baseUrl}${p}`);
+export const mediaUrl = (p) => (!p ? null : /^(https?:|blob:|file:|data:|content:|ph:|assets-library:)/.test(p) ? p : `${baseUrl}${p}`);
 
 export class ApiError extends Error {
   constructor(status, message, code) {

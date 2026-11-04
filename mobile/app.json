@@ -3,7 +3,7 @@
     "name": "Soulink",
     "slug": "soulink",
     "scheme": "soulink",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,8 +14,19 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Soulink uses the camera for face verification and to take photos you choose to share.",
         "NSPhotoLibraryUsageDescription": "Soulink lets you choose photos for your profile and posts.",
-        "NSMicrophoneUsageDescription": "Soulink uses the microphone to record voice messages you choose to send."
-      }
+        "NSMicrophoneUsageDescription": "Soulink uses the microphone to record voice messages you choose to send.",
+        "NSLocationWhenInUseUsageDescription": "Soulink uses your location once to fill in your city. You can always type it instead.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "associatedDomains": [
+        "applinks:soulink-xvbd.onrender.com"
+      ],
+      "buildNumber": "1"
     },
     "android": {
       "package": "app.soulink.mobile",
@@ -24,7 +35,48 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "soulink-xvbd.onrender.com",
+              "pathPrefix": "/p/"
+            },
+            {
+              "scheme": "https",
+              "host": "soulink-xvbd.onrender.com",
+              "pathPrefix": "/s/"
+            },
+            {
+              "scheme": "https",
+              "host": "soulink-xvbd.onrender.com",
+              "pathPrefix": "/join/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,7 +105,8 @@
         "expo-camera",
         {
           "cameraPermission": "Soulink uses the camera for your Face ID scan, so every profile is a real person.",
-          "recordAudioAndroid": false
+          "recordAudioAndroid": true,
+          "microphonePermission": "Soulink uses the microphone for the sound in Sparks you record."
         }
       ],
       [
@@ -61,7 +114,24 @@
         {
           "locationWhenInUsePermission": "Soulink uses your location once to fill in your city. You can always type it instead."
         }
-      ]
-    ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#7c5cfc"
+        }
+      ],
+      "expo-video",
+      "expo-document-picker",
+      "expo-sharing",
+      "expo-updates"
+    ],
+    "extra": {
+      "apiUrl": "https://soulink-xvbd.onrender.com/api"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

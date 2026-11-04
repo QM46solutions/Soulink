@@ -1,6 +1,6 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, resetDb, makeUser, closePool } from './helpers.js';
+import { api, resetDb, makeUser, closePool, query } from './helpers.js';
 
 before(resetDb);
 after(() => closePool());
@@ -47,13 +47,21 @@ describe('Chat: 1:1 and message requests', () => {
     assert.equal(bBox.requestCount, 0);
   });
 
-  test('if they follow you, your message goes straight to their inbox', async () => {
+  // a Connect from them (not a plain Follow) is what puts your message straight in their Chats
+  const connectTo = (from, to) => query("INSERT INTO follows (follower_id, followee_id, status, kind) VALUES ($1, $2, N'accepted', N'connect')", [from.user.id, to.user.id]);
+
+  test('if they connected to you, your message goes straight to their inbox; a plain Follow does not', async () => {
     const a = await makeUser(); const b = await makeUser();
-    await api().post(`/users/${a.user.id}/follow`).set(b.h).expect(200);
+    await connectTo(b, a);
     const conv = await dm(a, b);
     await send(a, conv.id, 'hello').expect(201);
     assert.equal((await inbox(b)).conversations.length, 1);
     assert.equal((await inbox(b, 'requests')).conversations.length, 0);
+    const c = await makeUser(); const d = await makeUser();
+    await api().post(`/users/${c.user.id}/follow`).set(d.h).expect(200); // d only follows c
+    const conv2 = await dm(c, d);
+    await send(c, conv2.id, 'hi').expect(201);
+    assert.equal((await inbox(d, 'requests')).conversations.length, 1);
   });
 
   test('replying to a request accepts it; the same pair always shares one thread', async () => {
@@ -68,7 +76,7 @@ describe('Chat: 1:1 and message requests', () => {
 
   test('messages page newest first; read receipts and unread counts', async () => {
     const a = await makeUser(); const b = await makeUser();
-    await api().post(`/users/${a.user.id}/follow`).set(b.h);
+    await connectTo(b, a);
     const conv = await dm(a, b);
     for (let i = 1; i <= 5; i++) await send(a, conv.id, `msg ${i}`).expect(201);
     const page1 = await api().get(`/conversations/${conv.id}/messages?limit=3`).set(b.h).expect(200);

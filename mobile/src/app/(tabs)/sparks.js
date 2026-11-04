@@ -1,5 +1,5 @@
 // Sparks 🎬 tab: everyone's short videos, newest first. Filter by category; the + posts your own Spark.
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,12 +84,19 @@ export default function Sparks() {
     </ScrollView>
   );
 
+  // phone app: a Spark stops when it scrolls off screen (at least half of it must be showing to keep playing)
+  const [onScreen, setOnScreen] = useState(() => new Set());
+  const viewable = useRef(({ viewableItems }) => setOnScreen(new Set(viewableItems.map((v) => v.key)))).current;
+  const viewConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+
   return (
     <FlatList
+      onViewableItemsChanged={viewable}
+      viewabilityConfig={viewConfig}
       data={list?.length ? withAds(list, ads, 5, 3) : list && ads[0] ? [{ __ad: ads[0], key: 'ad-0' }] : []}
       keyExtractor={(s) => s.key || s.id}
       ListHeaderComponent={<>{features}{chips}</>}
-      renderItem={({ item }) => item.__ad ? <SparkAd ad={item.__ad} /> : <SparkCard spark={item} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}
+      renderItem={({ item }) => item.__ad ? <SparkAd ad={item.__ad} /> : <SparkCard spark={item} active={onScreen.has(item.id)} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.6}
       contentContainerStyle={{ paddingBottom: space.xxl, flexGrow: 1 }}

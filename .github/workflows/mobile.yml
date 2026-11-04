@@ -1,0 +1,55 @@
+# The Soulink phone app, built and updated in the cloud (Expo EAS). Nothing runs on the laptop.
+#  · Every push to main: the new app code goes out as an over-the-air update. Phones with the Soulink test app
+#    (channel "preview") or the store app (channel "production") get it the next time they open Soulink.
+#  · "Run workflow" (GitHub › Actions › Soulink phone app): build a new installable app in Expo's cloud —
+#    an Android test app (APK link), the Play Store bundle, or the iPhone app for TestFlight / the App Store.
+# Needs the EXPO_TOKEN secret (GitHub › Settings › Secrets › Actions). Without it this workflow just skips.
+name: Soulink phone app
+on:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 'What to build'
+        type: choice
+        default: none
+        options: [none, android-test-apk, android-play-store, iphone-testflight, all-stores]
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expo account connected?
+        id: ready
+        run: if [ -n "$EXPO_TOKEN" ] && grep -q '"projectId"' app.json; then echo "ok=1" >> $GITHUB_OUTPUT; else echo "Skipping: add the EXPO_TOKEN secret and run SETUP-PHONE-APP.bat once (see docs/PHONE-APP.md)"; fi
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.ok
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install the app's packages
+        if: steps.ready.outputs.ok
+        run: npm ci --no-audit --no-fund
+      - name: Send the update to phones (test app + store app)
+        if: steps.ready.outputs.ok && github.event_name == 'push'
+        run: |
+          MSG="$(git log -1 --pretty=%s | head -c 200)"
+          npx --yes eas-cli@latest update --branch preview --message "$MSG" --non-interactive
+          npx --yes eas-cli@latest update --branch production --message "$MSG" --non-interactive
+      - name: Build the Android test app (APK link)
+        if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && inputs.build == 'android-test-apk'
+        run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --no-wait
+      - name: Build for the Play Store (sent to the internal test track)
+        if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && (inputs.build == 'android-play-store' || inputs.build == 'all-stores')
+        run: npx --yes eas-cli@latest build --platform android --profile production --non-interactive --no-wait --auto-submit
+      - name: Build the iPhone app (sent to TestFlight)
+        if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && (inputs.build == 'iphone-testflight' || inputs.build == 'all-stores')
+        run: npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --no-wait --auto-submit

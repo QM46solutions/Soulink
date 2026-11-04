@@ -1,6 +1,7 @@
 // Settings › Restore my data: bring back your profile and Soul DNA from a "Download my data" file
 // you saved before deleting your old account. Only a genuine, unchanged Soulink download of your own
 // phone number or email is accepted.
+import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
 import { Platform, ScrollView, Text, View } from 'react-native';
 import { api } from '../../lib/api';
@@ -12,7 +13,16 @@ import { colors, fonts, space } from '../../lib/theme';
 
 const LABELS = { profile: 'profile details', username: 'username', soulDna: 'Soul DNA' };
 
-function pickJson() {
+async function pickJson() {
+  if (Platform.OS !== 'web') {
+    // phone app: pick the downloaded file from Files / Downloads
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'text/plain', '*/*'], copyToCacheDirectory: true });
+    const a = r.canceled ? null : r.assets?.[0];
+    if (!a) return null;
+    if (a.size && a.size > 15 * 1024 * 1024) throw new Error('That file is too big to be a Soulink download.');
+    const { File } = await import('expo-file-system'); // phone-only, loaded when needed
+    try { return JSON.parse(await new File(a.uri).text()); } catch { throw new Error("That file isn't a Soulink download."); }
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'application/json,.json';

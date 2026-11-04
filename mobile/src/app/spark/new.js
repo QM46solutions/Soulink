@@ -110,6 +110,15 @@ export default function NewSpark() {
     const fresh = ok.map((a) => ({ id: newClipId(), uri: a.uri, type: a.mimeType || 'video/mp4', start: 0, end: a.duration ? Math.min(a.duration / 1000, MAX_SPARK) : null }));
     addClips(fresh);
   };
+  // phone app: record with the phone's own camera (front / back, up to 60 s), then on to the editor
+  const recordWithCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { notice('Camera', 'Allow the camera for Soulink in your phone settings to record a Spark.'); return; }
+    const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 60, quality: 0.8, cameraType: ImagePicker.CameraType.front });
+    const a = r.canceled ? null : r.assets?.[0];
+    if (!a) return;
+    addClips([{ id: newClipId(), uri: a.uri, type: a.mimeType || 'video/mp4', start: 0, end: a.duration ? Math.min(a.duration / 1000, MAX_SPARK) : null }], true);
+  };
   // a new clip (from the phone or recorded in Soulink): one video goes straight to Spark Studio, more open Spark Clips
   const addClips = (fresh, oneTake = false) => {
     if (step === 'clips' || step === 'edit' || clips.length + fresh.length > 1) {
@@ -179,6 +188,7 @@ export default function NewSpark() {
     if (step === 'clips' && video) return setStep('edit'); // came here from Spark Studio: back to it
     if (step === 'clips' || (step === 'edit' && clips.length <= 1)) { setStep('video'); setVideo(null); setClips([]); setMusic(null); setVoice(null); return undefined; }
     if (step === 'edit') return setStep('clips'); // several clips: back to putting them together
+    if (Platform.OS !== 'web') { setStep('video'); setVideo(null); setClips([]); return undefined; } // the phone editor comes in the next build
     return setStep('edit');
   };
 
@@ -297,7 +307,8 @@ export default function NewSpark() {
                 <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginBottom: space.md, lineHeight: 19 }}>Share something that happened: in your area, in India or the world. Record yourself telling it, or a clip you shot. Add the headline and a source link in the next step.</Text>
               ) : null}
               <Label>Your video · up to 60 seconds</Label>
-              {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="Record in clips with a timer · one clip gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} /> : null}
+              {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="Record in clips with a timer · one clip gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} />
+                : <BigOption icon="videocam" title="Record a video" text="Opens your camera · up to 60 seconds" colors={['#ff6b9d', '#ff9a5a']} onPress={recordWithCamera} />}
               <BigOption icon="folder-open" title="Upload from your phone" text={Platform.OS === 'web' ? 'Pick one video, or several to join into one Spark (each up to 3 min)' : `Up to 3 min and ${MAX_MB} MB · trim it to 60 s in the editor`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
               <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: edit it in Spark Studio (trim, speed, filters, adjust, crop, text, stickers, music, voiceover, fade, cover).</Text>
             </>
@@ -306,9 +317,9 @@ export default function NewSpark() {
           {step === 'details' && video ? (
             <>
               <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
-              <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
+              {Platform.OS === 'web' ? <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
                 <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
-              </Pressable>
+              </Pressable> : null}
               {video.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
 
               {category === 'travel' ? (

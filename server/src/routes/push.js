@@ -2,6 +2,8 @@
 //  GET    /push/key         -> { publicKey } (null if push isn't available on this server)
 //  POST   /push/subscribe   { endpoint, keys: { p256dh, auth } }
 //  DELETE /push/subscribe   { endpoint }
+//  POST   /push/expo        { token, platform }  the installed phone app's push token (iPhone / Android)
+//  DELETE /push/expo        { token }
 //  POST   /push/test        sends "Notifications are on" to all your phones
 import { Router } from 'express';
 import { z } from 'zod';
@@ -50,6 +52,24 @@ r.post('/subscribe', ah(async (req, res) => {
 r.delete('/subscribe', ah(async (req, res) => {
   const { endpoint } = z.object({ endpoint: z.string().max(800) }).parse(req.body || {});
   await query('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
+  res.json({ ok: true });
+}));
+
+// the installed phone app: one token per app install; logging in on it as someone else moves the token to them
+const expoToken = z.string().regex(/^Expo(nent)?PushToken\[[^\]]{10,180}\]$/, 'Not a push token');
+r.post('/expo', ah(async (req, res) => {
+  const { token, platform } = z.object({ token: expoToken, platform: z.enum(['ios', 'android']).optional() }).parse(req.body || {});
+  await query(
+    `IF EXISTS (SELECT 1 FROM expo_push_tokens WHERE token=$1)
+       UPDATE expo_push_tokens SET user_id=$2, platform=$3, updated_at=SYSDATETIMEOFFSET() WHERE token=$1
+     ELSE INSERT INTO expo_push_tokens (token, user_id, platform) VALUES ($1, $2, $3)`,
+    [token, req.user.id, platform || null],
+  );
+  res.status(201).json({ ok: true });
+}));
+r.delete('/expo', ah(async (req, res) => {
+  const { token } = z.object({ token: z.string().max(200) }).parse(req.body || {});
+  await query('DELETE FROM expo_push_tokens WHERE token=$1 AND user_id=$2', [token, req.user.id]);
   res.json({ ok: true });
 }));
 

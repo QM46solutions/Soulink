@@ -43,7 +43,7 @@ export default function NotificationSettings() {
   const hint = phoneOn ? 'This phone gets Soulink notifications, even when the app is closed.'
     : support === 'needs_home_screen' ? 'iPhone: in Safari tap Share › Add to Home Screen, open Soulink from that icon, then switch this on.'
     : support === 'blocked' ? 'Blocked in your phone settings. Allow notifications for Soulink there first.'
-    : support === 'unsupported' ? "This browser can't show notifications."
+    : support === 'unsupported' ? "This phone can't get notifications from this version of the app."
     : 'Get alerts when something happens, even when Soulink is closed.';
 
   return (

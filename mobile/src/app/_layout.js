@@ -19,6 +19,8 @@ import SharePreview, { sharedLinkTarget } from '../components/SharePreview';
 import TermsGate from '../components/TermsGate';
 import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
+import { usePushTaps } from '../lib/push';
+import PrivacyShield from '../components/PrivacyShield';
 import BackButton from '../components/BackButton';
 import { BottomBar, barSpace } from '../components/TabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -236,6 +238,9 @@ function PhoneFrame({ children }) {
 // Opening a page straight from its link (refresh, reopened app) still puts the tabs underneath it, so Home and Back work
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
+// tapping a phone notification opens its screen (phone app; nothing on the web)
+function PushTaps() { usePushTaps(); return null; }
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Syne_600SemiBold, Syne_700Bold, Syne_800ExtraBold,
@@ -260,10 +265,12 @@ export default function RootLayout() {
             <RealtimeProvider>
               <RootStack />
               <DialogHost />
+              <PushTaps />
             </RealtimeProvider>
           </AuthProvider>
         </AccessGate>
       </ThemeProvider>
+      <PrivacyShield />
     </PhoneFrame>
   );
 }

@@ -294,7 +294,8 @@ export default function Chat() {
     try {
       const form = new FormData();
       form.append('name', f.name);
-      form.append('file', f, f.name);
+      if (f.uri) form.append('file', { uri: f.uri, name: f.name, type: f.type }); // phone app
+      else form.append('file', f, f.name);
       const r = await api(`/conversations/${id}/document`, { method: 'POST', form, timeoutMs: 180000 });
       replaceTmp(tmpId, r.message);
     } catch (e) {

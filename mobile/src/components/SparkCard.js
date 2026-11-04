@@ -29,7 +29,7 @@ const Chip = ({ icon, text, color = colors.text, onPress }) => (
   </Pressable>
 );
 
-export default function SparkCard({ spark, onDeleted }) {
+export default function SparkCard({ spark, onDeleted, active = true }) {
   const cat = catOf(spark.category);
   const d = spark.details || {};
   const [reacted, setReacted] = useState(spark.reacted);
@@ -113,7 +113,7 @@ export default function SparkCard({ spark, onDeleted }) {
       <View>
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />}
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />}
         {!spark.voice ? <Watermark /> : null}
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}

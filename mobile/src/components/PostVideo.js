@@ -1,13 +1,30 @@
-// A video in a post (phone app build): videos play in the web version for now.
-import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts } from '../lib/theme';
+// A video in a post (phone app). thumb = small muted preview for grids (first frame, no controls).
+// Full videos show the phone's own controls, loop, and stop when you leave the screen or the app goes to the
+// background. No download, no picture-in-picture.
+import { useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
-export default function PostVideo({ thumb }) {
+// pauses when the screen it's on loses focus (a separate piece so the shared-link preview, which has no
+// screens, can leave it out)
+function PauseOnBlur({ player }) {
+  useFocusEffect(useCallback(() => () => { try { player.pause(); } catch { /* released */ } }, [player]));
+  return null;
+}
+
+export default function PostVideo({ uri, thumb, style, standalone, active = true }) {
+  const player = useVideoPlayer(uri, (p) => { p.loop = !thumb; p.muted = !!thumb; });
+  useEffect(() => { if (!active) try { player.pause(); } catch { /* released */ } }, [active, player]);
+  useEffect(() => {
+    const s = AppState.addEventListener('change', (st) => { if (st !== 'active') try { player.pause(); } catch { /* released */ } });
+    return () => s.remove();
+  }, [player]);
   return (
-    <View style={{ flex: 1, minHeight: thumb ? 0 : 240, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name="play-circle" size={thumb ? 28 : 54} color="#fff" />
-      {thumb ? null : <Text style={{ color: colors.muted, fontFamily: fonts.body, marginTop: 6 }}>Open Soulink in the browser to play videos.</Text>}
-    </View>
+    <>
+      {!standalone && !thumb ? <PauseOnBlur player={player} /> : null}
+      <VideoView player={player} nativeControls={!thumb} contentFit="cover" allowsPictureInPicture={false} allowsFullscreen={!thumb}
+        style={[{ width: '100%', height: '100%', backgroundColor: '#000' }, style]} />
+    </>
   );
 }

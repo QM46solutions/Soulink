@@ -46,6 +46,18 @@ export function createApp() {
   // Cloud hosting: one address serves the web app (/...) and the API (/api/...)
   const web = !!config.webDir && fs.existsSync(path.join(config.webDir, 'index.html'));
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, ...(web ? { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false } : {}) }));
+  // App links: share links (/p/…, /s/…, /join/…) open the installed Soulink phone app instead of the website.
+  // Android checks assetlinks.json (needs the app's signing fingerprint: ANDROID_CERT_SHA256, comma-separated),
+  // iPhone checks apple-app-site-association (needs APPLE_TEAM_ID). Until they're set, links open the website.
+  const APP_ID = process.env.MOBILE_APP_ID || 'app.soulink.mobile';
+  app.get('/.well-known/assetlinks.json', (req, res) => {
+    const prints = String(process.env.ANDROID_CERT_SHA256 || '').split(',').map((x) => x.trim()).filter(Boolean);
+    res.json(prints.length ? [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: APP_ID, sha256_cert_fingerprints: prints } }] : []);
+  });
+  app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association'], (req, res) => {
+    const team = process.env.APPLE_TEAM_ID;
+    res.json(team ? { applinks: { details: [{ appIDs: [`${team}.${APP_ID}`], components: [{ '/': '/p/*' }, { '/': '/s/*' }, { '/': '/join/*' }] }] } } : { applinks: { details: [] } });
+  });
   if (web) {
     const site = express.Router();
     site.use(express.static(config.webDir, { maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('.html') || file.endsWith('sw.js') || file.endsWith('manifest.json')) res.setHeader('Cache-Control', 'no-cache'); } }));

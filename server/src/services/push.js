@@ -1,4 +1,5 @@
-// Phone notifications (Web Push: works in Chrome/Android and on iPhone when Soulink is added to the Home Screen).
+// Phone notifications: the installed phone app (Expo push → Apple / Google) and Web Push (browsers, and iPhone
+// when the website is added to the Home Screen).
 // Free: no Firebase or paid service. The push keys are created once and kept in the database (app_secrets).
 // Each person chooses which kinds of notifications reach their phone (Settings > Notifications).
 import { many, one, query } from '../db.js';
@@ -98,15 +99,42 @@ async function badgeCount(userId) {
 }
 
 /** Sends one push to every phone the person switched notifications on for (if they allow this kind). Never throws. */
+// ---------- the installed phone app: Expo's free push service (it passes them on to Apple and Google) ----------
+const EXPO_PUSH = 'https://exp.host/--/api/v2/push/send';
+async function pushToApps(userId, kind, { title, body, url, tag, badge }) {
+  const rows = await many('SELECT token FROM expo_push_tokens WHERE user_id=$1', [userId]);
+  if (!rows.length) return 0;
+  const messages = rows.map((r) => ({
+    to: r.token, title, body, sound: 'default', priority: kind === 'messages' ? 'high' : 'default', channelId: 'default',
+    data: { url, ...(tag ? { tag } : {}) }, ...(badge != null ? { badge } : {}), ...(tag ? { collapseId: tag, threadId: tag } : {}),
+  }));
+  for (let i = 0; i < messages.length; i += 100) {
+    const part = messages.slice(i, i + 100);
+    try {
+      const r = await fetch(EXPO_PUSH, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(process.env.EXPO_ACCESS_TOKEN ? { Authorization: `Bearer ${process.env.EXPO_ACCESS_TOKEN}` } : {}) }, body: JSON.stringify(part) });
+      const out = await r.json().catch(() => ({}));
+      (out.data || []).forEach((t, k) => {
+        if (t.status === 'error' && t.details?.error === 'DeviceNotRegistered') query('DELETE FROM expo_push_tokens WHERE token=$1', [part[k].to]).catch(() => {}); // app removed
+        else if (t.status === 'error') console.warn(`app push FAILED: ${t.message || t.details?.error}`);
+      });
+      console.log(`app push -> ${part.length} phone(s) (${r.status}) [${kind}]`);
+    } catch (e) { console.warn('app push failed:', e.message); }
+  }
+  return rows.length;
+}
+
 export async function pushTo(userId, kind, { title = 'Soulink', body, url = '/', tag } = {}) {
   try {
-    const l = await ready();
-    if (!l) return;
+    if (config.env === 'test') return;
     const u = await one('SELECT notify_prefs FROM users WHERE id=$1', [userId]);
     if (!u || (kind !== 'account' && !prefsOf(u)[kind])) return; // account notices always go out
+    const badge = await badgeCount(userId);
+    const apps = await pushToApps(userId, kind, { title, body, url, tag, badge });
+    const l = await ready();
+    if (!l) return;
     const subs = await many('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1', [userId]);
-    if (!subs.length) { console.log(`push skipped: no phone has notifications on for this person [${kind}]`); return; }
-    const payload = JSON.stringify({ title, body, url, tag, badge: await badgeCount(userId) });
+    if (!subs.length) { if (!apps) console.log(`push skipped: no phone has notifications on for this person [${kind}]`); return; }
+    const payload = JSON.stringify({ title, body, url, tag, badge });
     await Promise.all(subs.map(async (s) => {
       const where = new URL(s.endpoint).host;
       try {

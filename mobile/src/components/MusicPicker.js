@@ -5,6 +5,7 @@
 // (they need a music licence before they can go live).
 // onPick({ source, ref?, uri, name, title, start, cover?, type?, size? })
 //   source 'file' = a song from the phone (uri is a local file); otherwise ref = 'saavn:<id>' etc. and uri streams it.
+import * as DocumentPicker from 'expo-document-picker';
 import { confirm } from '../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -56,7 +57,13 @@ function usePreview() {
 /** Web: open the phone's file picker for audio. Resolves { uri, name, type, size } or null. */
 export function pickAudioFile() {
   return new Promise((resolve) => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') { resolve(null); return; }
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      // phone app: pick a song file from the phone
+      DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true })
+        .then((r) => { const a = r.canceled ? null : r.assets?.[0]; resolve(a ? { uri: a.uri, name: a.name || 'song', type: a.mimeType || 'audio/mpeg', size: a.size || 0 } : null); })
+        .catch(() => resolve(null));
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'audio/*';
     input.onchange = () => { const f = input.files?.[0]; resolve(f ? { uri: URL.createObjectURL(f), name: f.name, type: f.type || 'audio/mpeg', size: f.size } : null); };
@@ -130,7 +137,7 @@ export default function MusicPicker({ visible, onClose, onPick, allowPhone = tru
   const fromPhone = async () => {
     pv.stop();
     const f = await pickAudioFile();
-    if (!f) { setError(Platform.OS === 'web' ? null : 'Songs from your phone work in the web version for now.'); return; }
+    if (!f) return;
     if (f.size > 15 * 1024 * 1024) { setError('That file is too big (15 MB max).'); return; }
     // Copyright: like Instagram, only music you own or may use. Film and label songs need the owner's permission.
     if (!(await confirm('Do you have the rights to this song?', 'Only add music you made yourself or have permission to use. Film and label songs usually need a licence; they can be removed after a copyright complaint and count as a strike.', { confirmText: 'I have the rights' }))) return;
