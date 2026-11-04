@@ -61,6 +61,7 @@ export default function Settings() {
 
       <Section>Privacy & safety</Section>
       <MenuRow icon="lock-closed" title="Account privacy" text="Private account, Discover, Pulse meter" onPress={go('/settings/privacy')} tint={['#5b46d6', '#7c5cfc']} />
+      <MenuRow icon="phone-portrait" title="Where you're logged in" text="Every device on your account · log one out" onPress={go('/settings/devices')} tint={['#3fa9f5', '#7c5cfc']} />
       <MenuRow icon="ban" title="Blocked contacts" text="People you've blocked" onPress={go('/blocked')} tint={['#8b88a0', '#4a4760']} />
       <MenuRow icon="shield-checkmark" title="Account status" text="Verification, warnings and reports" onPress={go('/settings/status')} tint={['#42e8c0', '#2bb673']} />
 

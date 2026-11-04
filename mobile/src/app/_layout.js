@@ -144,6 +144,7 @@ function RootStack() {
         <Stack.Screen name="settings/time" options={{ title: 'Time management' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="settings/viewers" options={{ title: 'Who viewed my profile' }} />
+        <Stack.Screen name="settings/devices" options={{ title: "Where you're logged in" }} />
         <Stack.Screen name="settings/privacy" options={{ title: 'Account privacy' }} />
         <Stack.Screen name="settings/status" options={{ title: 'Account status' }} />
         <Stack.Screen name="settings/app-permissions" options={{ title: 'App permissions' }} />

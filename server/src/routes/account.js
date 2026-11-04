@@ -3,6 +3,9 @@
 //  GET    /account/viewers                                 who viewed your profile (last 30 days): top 3 free, all with Premium
 //  GET    /account/status                                  account status (verification, warnings, suspensions)
 //  DELETE /account/location                                stop using your location
+//  GET    /account/sessions                                every device your account is logged in on (and recently ended)
+//  DELETE /account/sessions/:id                            log that device out
+//  POST   /account/sessions/end-others                     log out of every other device
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
@@ -11,6 +14,10 @@ import { requireAuth } from '../middleware/auth.js';
 import { meView, userCard } from '../services/social.js';
 import { POST_SELECT, postView } from './posts.js';
 import { INTENTS } from '../services/connections.js';
+import { endMySession, endOtherSessions, listSessions } from '../services/sessions.js';
+import { disconnectSession } from '../realtime.js';
+import { audit } from '../services/audit.js';
+import { badRequest, notFound } from '../lib/errors.js';
 
 export const FREE_VIEWERS = 3; // free accounts see this many profile viewers; the rest is Premium
 const r = Router();
@@ -98,3 +105,22 @@ r.delete('/location', ah(async (req, res) => {
 }));
 
 export default r;
+
+// ---------- Settings › Where you're logged in ----------
+r.get('/sessions', ah(async (req, res) => {
+  res.json({ sessions: await listSessions(req.user.id, req.sessionId) });
+}));
+r.post('/sessions/end-others', ah(async (req, res) => {
+  const ended = await endOtherSessions(req.user.id, req.sessionId);
+  for (const sid of ended) disconnectSession(sid); // their live connection drops now; the app shows "You were logged out"
+  await audit(req, 'sessions_ended_others', { detail: String(ended.length) });
+  res.json({ ended: ended.length, sessions: await listSessions(req.user.id, req.sessionId) });
+}));
+r.delete('/sessions/:id', ah(async (req, res) => {
+  const sid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id').parse(req.params.id);
+  if (req.sessionId && sid.toLowerCase() === String(req.sessionId).toLowerCase()) throw badRequest('This is the device you are using. Use Log out instead.', 'current_session');
+  if (!(await endMySession(req.user.id, sid))) throw notFound('That device is already logged out');
+  disconnectSession(sid);
+  await audit(req, 'session_ended_remote', { detail: sid });
+  res.json({ ok: true, sessions: await listSessions(req.user.id, req.sessionId) });
+}));

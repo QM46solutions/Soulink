@@ -61,3 +61,7 @@ Internal work list. Not for pitch decks.
 - Done: Casting Call auditions and Open Mic have their own chips in the Sparks tab (not in All or the other categories).
 - Done: Search says "Find suggestions" and shows your 75%+ Soul Score matches automatically, best first then nearest.
 - Done: public profiles have Connect + Follow; private profiles Connect only. Following never opens a chat; messages only after a Connect is accepted (plus the one paid Premium message, kept).
+- Done: Settings › Where you're logged in: every device on the account (this one first, last active, partly hidden address), log one out or all the others; logged-out devices kept 30 days. Later idea: an alert when a new device logs in.
+
+## Parked: Admin portal
+- PARKED until Sai says to build it. Full plan and the 4 open decisions: docs/ADMIN-PORTAL-PLAN.md
