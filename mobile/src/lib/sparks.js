@@ -94,6 +94,7 @@ export async function postSpark({ videoUri, videoType, music, voice, category, c
   } else {
     form.append('video', { uri: videoUri, name: (videoType || '').startsWith('audio/') ? 'spark.m4a' : 'spark.mp4', type: videoType || 'video/mp4' });
     if (music) form.append('music', { uri: music.uri, name: music.name || 'music.mp3', type: music.type || 'audio/mpeg' });
+    if (voice) form.append('voice', { uri: voice.uri, name: voice.name || 'voice.m4a', type: voice.type || 'audio/m4a' });
   }
   return api('/sparks', { method: 'POST', form, timeoutMs: 300000 });
 }

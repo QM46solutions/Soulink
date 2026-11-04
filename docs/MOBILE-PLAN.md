@@ -28,11 +28,12 @@ From now on every feature is built and checked for the phone app (Android + iPho
 - ✅ Sparks stop when scrolled off screen
 - ✅ record a Spark with the phone camera (up to 60 s)
 - ✅ cloud builds and over-the-air updates (`eas.json`, `.github/workflows/mobile.yml`, `docs/PHONE-APP.md`)
+- ✅ test first, then release: a push updates only the test app; Run workflow › release-to-users sends it to the store app
 - ⏳ a check of every screen on iPhone 17 Pro Max and Android: keyboard, back button, safe areas, hover-only effects (from Sai's screenshots)
 
 **Phase 2: video creation on phones**
 - ⏳ Record in Soulink (expo-camera: clips, timer, prompt on screen)
-- ⏳ Spark Studio for phones
+- ✅ Spark Studio for phones: trim, speed, crop/zoom, timed text, stickers, music, voiceover, fade, cover (colour filters come with the server-built videos)
 - ⏳ Spark Clips for phones
 - ⏳ a server video worker (ffmpeg, scale-to-zero container) that builds the finished Spark (filters, text, music, joined clips) when it's posted, so every phone and the web play the same file
 

@@ -1,6 +1,7 @@
 # The Soulink phone app, built and updated in the cloud (Expo EAS). Nothing runs on the laptop.
-#  · Every push to main: the new app code goes out as an over-the-air update. Phones with the Soulink test app
-#    (channel "preview") or the store app (channel "production") get it the next time they open Soulink.
+#  · Every push to main: the new app code goes to the TEST app only (channel "preview": you, Nikhil, testers).
+#  · "Run workflow" › release-to-users: sends what the test app has now to everyone with the store app
+#    (channel "production"). So a mistake never reaches real users before you've seen it.
 #  · "Run workflow" (GitHub › Actions › Soulink phone app): build a new installable app in Expo's cloud —
 #    an Android test app (APK link), the Play Store bundle, or the iPhone app for TestFlight / the App Store.
 # Needs the EXPO_TOKEN secret (GitHub › Settings › Secrets › Actions). Without it this workflow just skips.
@@ -15,7 +16,7 @@ on:
         description: 'What to build'
         type: choice
         default: none
-        options: [none, android-test-apk, android-play-store, iphone-testflight, all-stores]
+        options: [none, release-to-users, android-test-apk, android-play-store, iphone-testflight, all-stores]
 jobs:
   app:
     runs-on: ubuntu-latest
@@ -43,12 +44,12 @@ jobs:
       - name: Install the app's packages
         if: steps.ready.outputs.ok
         run: npm ci --no-audit --no-fund
-      - name: Send the update to phones (test app + store app)
+      - name: Send the update to the test app
         if: steps.ready.outputs.ok && github.event_name == 'push'
-        run: |
-          MSG="$(git log -1 --pretty=%s | head -c 200)"
-          npx --yes eas-cli@latest update --branch preview --message "$MSG" --non-interactive
-          npx --yes eas-cli@latest update --branch production --message "$MSG" --non-interactive
+        run: npx --yes eas-cli@latest update --branch preview --message "$(git log -1 --pretty=%s | head -c 200)" --non-interactive
+      - name: Release to everyone (store app)
+        if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && inputs.build == 'release-to-users'
+        run: npx --yes eas-cli@latest update --branch production --message "Release $(git log -1 --pretty=%s | head -c 180)" --non-interactive
       - name: Build the Android test app (APK link)
         if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && inputs.build == 'android-test-apk'
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --no-wait

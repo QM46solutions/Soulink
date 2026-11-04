@@ -188,7 +188,6 @@ export default function NewSpark() {
     if (step === 'clips' && video) return setStep('edit'); // came here from Spark Studio: back to it
     if (step === 'clips' || (step === 'edit' && clips.length <= 1)) { setStep('video'); setVideo(null); setClips([]); setMusic(null); setVoice(null); return undefined; }
     if (step === 'edit') return setStep('clips'); // several clips: back to putting them together
-    if (Platform.OS !== 'web') { setStep('video'); setVideo(null); setClips([]); return undefined; } // the phone editor comes in the next build
     return setStep('edit');
   };
 
@@ -317,9 +316,9 @@ export default function NewSpark() {
           {step === 'details' && video ? (
             <>
               <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
-              {Platform.OS === 'web' ? <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
+              <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
                 <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
-              </Pressable> : null}
+              </Pressable>
               {video.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
 
               {category === 'travel' ? (
