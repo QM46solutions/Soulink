@@ -21,7 +21,7 @@ function Stat({ n, label, onPress }) {
 export function ProfileAction({ title, onPress, primary, icon, disabled, loading, style }) {
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button" accessibilityLabel={title || undefined}
-      style={({ hovered, pressed }) => [{ flex: 1, height: 40, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+      style={({ hovered, pressed }) => [{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 40, paddingHorizontal: 8, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
         borderWidth: primary ? 0 : 1, borderColor: hovered ? 'rgba(176,143,255,0.75)' : 'rgba(176,143,255,0.32)',
         backgroundColor: primary ? colors.soul : hovered ? 'rgba(124,92,252,0.16)' : 'rgba(255,255,255,0.06)', opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
