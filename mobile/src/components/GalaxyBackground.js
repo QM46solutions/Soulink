@@ -54,6 +54,21 @@ function SoftGlow({ color, size }) {
   );
 }
 
+// Phones: no clouds or circles at all. A soft wash in the logo's colours (purple at the top, a hint of pink lower
+// down) that slowly breathes, the same feel as the website's blurred galaxy.
+function SoftSky() {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { const a = loop(v, 9000); a.start(); return () => a.stop(); }, [v]);
+  return (
+    <>
+      <LinearGradient pointerEvents="none" colors={['rgba(124,92,252,0.20)', 'rgba(124,92,252,0.06)', 'rgba(8,7,13,0)']} locations={[0, 0.35, 0.7]} start={{ x: 0.1, y: 0 }} end={{ x: 0.6, y: 1 }} style={StyleSheet.absoluteFill} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }]}>
+        <LinearGradient colors={['rgba(8,7,13,0)', 'rgba(255,107,157,0.07)', 'rgba(124,92,252,0.08)']} locations={[0.35, 0.75, 1]} start={{ x: 0.9, y: 0 }} end={{ x: 0.2, y: 1 }} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+    </>
+  );
+}
+
 function Nebula({ color, size, x, y, ms, dx, dy }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => { const a = loop(v, ms); a.start(); return () => a.stop(); }, [v, ms]);
@@ -77,9 +92,13 @@ export default function GalaxyBackground() {
   useEffect(() => { const a = loop(tw, 2600); a.start(); return () => a.stop(); }, [tw]);
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#07060c' }]}>
-      <Nebula color="rgba(124,92,252,0.55)" size={w * 1.1} x={-w * 0.45} y={h * 0.05} ms={18000} dx={60} dy={40} />
-      <Nebula color="rgba(255,107,157,0.42)" size={w * 0.95} x={w * 0.35} y={h * 0.42} ms={22000} dx={-50} dy={-60} />
-      <Nebula color="rgba(63,169,245,0.30)" size={w * 0.8} x={w * 0.1} y={h * 0.7} ms={26000} dx={40} dy={-30} />
+      {Platform.OS === 'web' ? (
+        <>
+          <Nebula color="rgba(124,92,252,0.55)" size={w * 1.1} x={-w * 0.45} y={h * 0.05} ms={18000} dx={60} dy={40} />
+          <Nebula color="rgba(255,107,157,0.42)" size={w * 0.95} x={w * 0.35} y={h * 0.42} ms={22000} dx={-50} dy={-60} />
+          <Nebula color="rgba(63,169,245,0.30)" size={w * 0.8} x={w * 0.1} y={h * 0.7} ms={26000} dx={40} dy={-30} />
+        </>
+      ) : <SoftSky />}
       <Stars w={w} h={h} n={70} seed={7} speed={140000} drift={-20} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: tw.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) }]}>
         <Stars w={w} h={h} n={28} seed={42} speed={80000} drift={14} />

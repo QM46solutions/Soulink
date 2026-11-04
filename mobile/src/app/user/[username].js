@@ -153,8 +153,8 @@ export default function UserProfile() {
       {conn?.connected ? (
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
-      {/* Soul Score: only before you're connected, and only when you tap (connected people don't need it) */}
-      {conn?.connected || rel.isMe ? null : data.match ? (
+      {/* Soul Score: shown when you tap it, before and after you're connected */}
+      {rel.isMe ? null : data.match ? (
         <ShowScoreButton match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
       ) : !rel.isMe && me.soulReady ? (
         <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12.5, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Your Soul Score shows once {(target.displayName || target.username).split(' ')[0]} takes the new Soul DNA.</Text>
