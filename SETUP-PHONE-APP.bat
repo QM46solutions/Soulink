@@ -2,6 +2,7 @@
 rem ONE TIME: connects the Soulink phone app to your free Expo account, so it can be built and updated in the cloud.
 rem Before running: create a free account at https://expo.dev/signup (use the Soulink / QM46 email).
 cd /d "%~dp0mobile"
+set EAS_NO_VCS=1
 echo.
 echo  Step 1 of 3: log in to Expo (type your Expo email and password when asked)
 call npx --yes eas-cli@latest login

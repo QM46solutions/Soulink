@@ -65,12 +65,15 @@
         }
       ],
       "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "POST_NOTIFICATIONS",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -128,10 +131,20 @@
       "expo-updates"
     ],
     "extra": {
-      "apiUrl": "https://soulink-xvbd.onrender.com/api"
+      "apiUrl": "https://soulink-xvbd.onrender.com/api",
+      "router": {},
+      "eas": {
+        "projectId": "596a5a73-6ed7-49a2-94bb-d7e41c535620"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "owner": "soulinks-team",
+    "updates": {
+      "url": "https://u.expo.dev/596a5a73-6ed7-49a2-94bb-d7e41c535620",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
     }
   }
 }
