@@ -8,7 +8,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getServer } from '../lib/api';
 import { isVideo } from './PostCard';
 import PostVideo from './PostVideo';
-import Watermark from './Watermark';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
 /** /p/<id> or /s/<id> in the address bar → { kind, id } (web only) */
@@ -65,7 +64,6 @@ export default function SharePreview({ target }) {
                     : <PostVideo uri={abs(media)} standalone />)
                   : <Image source={{ uri: abs(media) }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
               ) : null}
-              <Watermark label="Soulink preview" />
               {over ? (
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: space.xl, backgroundColor: 'rgba(8,7,13,0.92)' }}>
                   <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 20, textAlign: 'center' }}>Log in to keep watching</Text>

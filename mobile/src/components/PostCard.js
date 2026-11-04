@@ -17,7 +17,6 @@ import PostVideo from './PostVideo';
 export const isVideo = (u) => /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i.test(String(u || ''));
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
-import Watermark from './Watermark';
 
 export const LIKE_EMOJI = '👌🏻';
 // long words / links wrap instead of running off the screen (web needs this explicitly)
@@ -96,7 +95,6 @@ function Photos({ media, onDoubleTap, burst }) {
         {isVideo(media[i]) ? (
           <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#000' }}><PostVideo key={media[i]} uri={mediaUrl(media[i])} /></View>
         ) : <Image source={{ uri: mediaUrl(media[i]) }} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.card }} contentFit="cover" transition={150} />}
-        <Watermark />
         {burst ? (
           <Animated.Text pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '36%', fontSize: 96,
             opacity: burst.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] }),

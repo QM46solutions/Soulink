@@ -32,7 +32,7 @@ Internal work list. Not for pitch decks.
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
-- Private files: every photo, video, voice note, document and selfie opens only through a signed link that expires (1-2 h), for people allowed to see it; ad pictures stay public. Shared posts / Sparks: 15-second preview without an account, then log in. Group invite links (admins: create, reset, turn off); nothing else from chats can be shared. Watermark with the viewer's @username, no save / long-press / download on media, media blur when the app goes to the background
+- Private files: every photo, video, voice note, document and selfie opens only through a signed link that expires (1-2 h), for people allowed to see it; ad pictures stay public. Shared posts / Sparks: 15-second preview without an account, then log in. Group invite links (admins: create, reset, turn off); nothing else from chats can be shared. No save / long-press / download on media, media blur when the app goes to the background
 - Separate face key (FACE_KEY): faces locked with the old key are re-locked with it at start-up (MAKE-FACE-KEY.bat makes the key)
 - Ads dashboard: each ad has a customer, budget and price per 1,000 views (stops when used up); customer sees My ads (spent, left, paid, views, people reached, taps, day by day, advice); Ads Manager shows revenue (booked, earned, received, to collect, boosts)
 - Music picker like Instagram: For you (popular on Soulink + moods), Recently used, Saved, mood chips; free (Creative Commons) music online
@@ -65,3 +65,5 @@ Internal work list. Not for pitch decks.
 
 ## Parked: Admin portal
 - PARKED until Sai says to build it. Full plan and the 4 open decisions: docs/ADMIN-PORTAL-PLAN.md
+
+- Removed (Nov 2026, Sai's decision): the @username watermark on photos, videos, Sparks, Moments, chat photos and share previews. Screenshot blocking and no-save stay.

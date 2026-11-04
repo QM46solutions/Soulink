@@ -19,7 +19,6 @@ import { BottomSheet, CommentsSheet } from './PostSheets';
 import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
-import Watermark from './Watermark';
 
 const ago = (iso) => { const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (m < 60) return `${m}m`; const h = Math.round(m / 60); return h < 24 ? `${h}h` : `${Math.round(h / 24)}d`; };
 const Chip = ({ icon, text, color = colors.text, onPress }) => (
@@ -114,7 +113,6 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
           : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />}
-        {!spark.voice ? <Watermark /> : null}
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
