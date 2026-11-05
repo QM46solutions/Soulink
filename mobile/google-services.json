@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1039650208725",
+    "project_id": "soulink-c8170",
+    "storage_bucket": "soulink-c8170.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1039650208725:android:971cf859b260412e369b5c",
+        "android_client_info": {
+          "package_name": "app.soulink.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXUes6rmK7Pe9qmaaQMsujURZoe1f0FmM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
