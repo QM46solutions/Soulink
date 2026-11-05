@@ -1,0 +1,72 @@
+# Render (free plan): one web service = the Soulink web app + its API on one https address.
+# The code comes from the "deploy" branch, which GitHub builds automatically (.github/workflows/deploy.yml).
+# Secrets marked sync:false are typed in once in the Render dashboard (see docs/CLOUD-HOSTING.md).
+services:
+  - type: web
+    name: soulink
+    runtime: node
+    plan: free
+    region: singapore
+    branch: deploy
+    autoDeploy: true
+    buildCommand: npm ci --omit=dev --no-audit --no-fund
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # free plan = 512 MB: let Node clean up memory earlier
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=320
+      - key: WEB_DIR
+        value: web
+      - key: STORAGE
+        value: db
+      - key: AI_PROVIDER
+        value: basic
+      - key: SMS_PROVIDER
+        value: console
+      - key: OTP_DEV_ECHO
+        value: "true"
+      - key: DB_PORT
+        value: "1433"
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERT
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_SERVER
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ACCESS_CODE
+        sync: false
+      # optional: Microsoft Translator free tier (F0) key + region, used first by the chat translator
+      - key: AZURE_TRANSLATOR_KEY
+        sync: false
+      - key: AZURE_TRANSLATOR_REGION
+        sync: false
+      # Voice translator: Azure AI Speech free tier (F0): key + region (centralindia)
+      - key: AZURE_SPEECH_KEY
+        sync: false
+      - key: AZURE_SPEECH_REGION
+        value: centralindia
+      # Soulmoji AI on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md): its address + the shared secret.
+      # With both set, SOULMOJI_ENGINE=ai makes benchmark-quality Soulmojis; without them it stays on the built-in engine.
+      - key: SOULMOJI_ENGINE
+        value: ai
+      - key: SOULMOJI_AI_FEATURES
+        value: edit
+      - key: SOULMOJI_AI_URL
+        sync: false
+      - key: SOULMOJI_AI_TOKEN
+        sync: false
+      - key: ADMIN_USERNAMES
+        sync: false
