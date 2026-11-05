@@ -29,7 +29,7 @@ export function BottomSheet({ visible, onClose, title, children, tall }) {
   return (
     <Overlay onClose={onClose}>
       <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', cursor: 'default' }} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAvoidingView behavior="padding"
         style={{ height: tall ? '75%' : undefined, maxHeight: '75%', backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
         <View style={{ alignItems: 'center', paddingTop: space.sm, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.dim, marginBottom: space.md }} />

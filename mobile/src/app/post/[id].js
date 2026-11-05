@@ -1,6 +1,6 @@
 // One post with all its comments (👌🏻 / Reply / ❗ on each) and a comment box.
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../../lib/api';
 import PostCard from '../../components/PostCard';
@@ -30,7 +30,7 @@ export default function PostScreen() {
   if (loadError && !post) return <View style={s.screen}><Empty icon="alert-circle-outline" title={loadError} /></View>;
   if (!post || !cm.comments) return <Loading />;
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={s.screen} behavior="padding" keyboardVerticalOffset={90}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <View style={{ paddingTop: space.md }}>
           <PostCard post={{ ...post, commentCount: cm.off ? null : cm.comments.length }} showAllComments onDeleted={() => router.back()} onChanged={() => load()} />

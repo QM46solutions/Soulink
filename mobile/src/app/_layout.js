@@ -20,6 +20,7 @@ import TermsGate from '../components/TermsGate';
 import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
 import { usePushTaps } from '../lib/push';
+import { useAppUpdate } from '../lib/appUpdate';
 import PrivacyShield from '../components/PrivacyShield';
 import BackButton from '../components/BackButton';
 import { BottomBar, barSpace } from '../components/TabBar';
@@ -239,7 +240,7 @@ function PhoneFrame({ children }) {
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
 // tapping a phone notification opens its screen (phone app; nothing on the web)
-function PushTaps() { usePushTaps(); return null; }
+function PushTaps() { usePushTaps(); useAppUpdate(); return null; }
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

@@ -56,8 +56,8 @@ export default function Home() {
       style={{ marginHorizontal: space.lg, marginBottom: space.md, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)', flexDirection: 'row', alignItems: 'center' }}>
       <SoulDnaIcon size={38} />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Soul DNA is now 7 quick games</Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>About 6 minutes, just taps. Play once for sharper matches.</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Soul DNA is now shorter</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>7 rounds, 21 taps, about 4 minutes. Play once for sharper matches.</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.aura} />
     </Pressable>

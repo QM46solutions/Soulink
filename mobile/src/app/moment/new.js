@@ -108,7 +108,7 @@ export default function NewMoment() {
       {step === 'start' ? <Start onCamera={camera} onGallery={gallery} onWrite={write} /> : null}
 
       {step === 'edit' ? (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, padding: space.lg }}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, padding: space.lg }}>
           {/* music for the Moment (plays while people watch it) */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: space.md }}>
             <Pressable onPress={() => setMusicOpen(true)} accessibilityLabel={music ? 'Change music' : 'Add music'}

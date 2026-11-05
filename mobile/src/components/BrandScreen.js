@@ -3,7 +3,7 @@
 //   - top bar: back arrow on the left (optional), extra control on the right (optional)
 //   - content centred vertically, 24px side padding, no scrollbar, keyboard-safe
 //   - BrandHeader: big gradient "Soulink" wordmark + one-line title + short subtitle, all centred
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,7 @@ export function BrandScreen({ children, back, onBack, right, center = true }) {
         ) : <View style={{ width: 36 }} />}
         {right || <View style={{ width: 36 }} />}
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: center ? 'center' : 'flex-start', paddingHorizontal: space.xl, paddingBottom: space.xl }}
           showsVerticalScrollIndicator={false}

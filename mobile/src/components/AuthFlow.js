@@ -2,7 +2,7 @@
 // Step 1: phone or email → Step 2: 6-digit code → signed in.
 import { notice } from '../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
@@ -113,7 +113,7 @@ export default function AuthFlow({ mode = 'login', initialMethod = 'phone' }) {
   const valid = isPhone ? value.replace(/\D/g, '').length >= 10 : /\S+@\S+\.\S+/.test(value);
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: space.xl, paddingTop: 64 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Same layout as the welcome screen: big centered wordmark, then the form (no box around it) */}
         <View style={{ width: '100%' }}>

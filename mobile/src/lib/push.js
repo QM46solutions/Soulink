@@ -49,7 +49,11 @@ export async function enablePush() {
   if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
   if (status !== 'granted') throw new Error('Notifications are off for Soulink. Allow them in your phone’s Settings › Notifications › Soulink, then try again.');
   try { await save(await token()); return true; }
-  catch (e) { throw new Error(`Couldn't connect this phone to notifications. ${e.message || ''}`.trim()); }
+  catch (e) {
+    const m = String(e?.message || '');
+    if (/firebase|fcm|google/i.test(m)) throw new Error('Android notifications aren’t set up in this version of the app yet. They will work after the next app update from the Play Store / test link.');
+    throw new Error(`Couldn't connect this phone to notifications. ${m}`.trim());
+  }
 }
 
 /** Switching notifications off (Settings, or logging out): this phone stops getting them. */
