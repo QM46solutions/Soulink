@@ -171,8 +171,9 @@ export function Divider({ style }) {
 
 /** Header background for navigation headers: transparent with the divider along the bottom edge. */
 export function HeaderBackground() {
+  // phones: a solid header, so the header of the screen underneath never shows through (see ScreenBackdrop.js)
   return (
-    <View style={{ flex: 1, justifyContent: 'flex-end' }} pointerEvents="none">
+    <View style={{ flex: 1, justifyContent: 'flex-end', ...(Platform.OS === 'web' ? null : { backgroundColor: '#07060c' }) }} pointerEvents="none">
       <Divider />
     </View>
   );

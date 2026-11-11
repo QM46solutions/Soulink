@@ -1,9 +1,11 @@
 import { Stack } from 'expo-router';
 import { colors, fonts } from '../../lib/theme';
+import { screenLayout } from '../../components/ScreenBackdrop';
 
 export default function AuthLayout() {
   return (
     <Stack
+      screenLayout={screenLayout}
       screenOptions={{
         headerTransparent: true,
         headerStyle: { backgroundColor: 'transparent' },

@@ -23,6 +23,7 @@ import { usePushTaps } from '../lib/push';
 import { useAppUpdate } from '../lib/appUpdate';
 import PrivacyShield from '../components/PrivacyShield';
 import BackButton from '../components/BackButton';
+import { screenLayout } from '../components/ScreenBackdrop';
 import { BottomBar, barSpace } from '../components/TabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
@@ -106,7 +107,7 @@ function RootStack() {
 
   return (
     <View style={{ flex: 1, paddingBottom: showBar ? barSpace(insets) : 0 }}>
-    <Stack screenOptions={{ ...headerStyle, headerStyle: { backgroundColor: 'transparent', height: insets.top + 46 } }}>
+    <Stack screenLayout={screenLayout} screenOptions={{ ...headerStyle, headerStyle: { backgroundColor: 'transparent', height: insets.top + 46 } }}>
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>
