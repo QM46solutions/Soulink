@@ -86,6 +86,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/optional-hardware",
       "expo-router",
       "expo-image",
       "expo-secure-store",
