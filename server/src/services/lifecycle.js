@@ -1,7 +1,8 @@
 // Account lifecycle (Privacy Policy "Pausing and deleting"; Information Security Policy section 11):
 //  pause            hidden everywhere, data kept, logging in again brings it back
-//  schedule delete  hidden at once, erased after 30 days; logging in before then cancels
-//  delete           erased; a 1-year identity record is kept (name, date of birth, city, phone, email, consents)
+//  schedule delete  hidden at once, erased after 7 days (a cooling period); logging in before then cancels
+//  delete           erased; a 1-year identity record is kept (name, date of birth, city, phone, email, consents),
+//                   and for 6 months the same face, phone or email can't make a new account (kept encrypted)
 //  ban              repeat offenders: name, contact and an encrypted face fingerprint kept (3 years by default)
 //                   so the same person cannot create a new profile
 import { many, one, query } from '../db.js';
@@ -15,16 +16,19 @@ import { sendSmsNotice } from '../providers/sms.js';
 import { openFace, sealFace } from '../lib/faceCrypto.js';
 import { faceDistance } from './faceEngine.js';
 
-export const DELETE_GRACE_DAYS = 30;
+export const DELETE_GRACE_DAYS = 7;
+/** After deleting your own account: how long the same face, phone number or email can't create a new one. */
+export const REJOIN_DAYS = 180;
 export const BAN_DAYS = 3 * 365;
 export const MESSAGES = {
   paused: 'This account is paused. Log in again to reactivate it.',
   deleting: `Your account will be deleted in ${DELETE_GRACE_DAYS} days. Log in before then to cancel.`,
   banned: "This Soulink account was removed for breaking our rules, and a new one can't be created. If you think this is a mistake, write to our Grievance Officer.",
+  rejoin: (until) => `A Soulink account with these details was deleted recently. You can create a new account from ${day(until)}, 6 months after the deletion.`,
 };
 
 const day = (d) => new Date(d).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric' });
-const GRIEVANCE = 'Rragishetty@gmail.com';
+const GRIEVANCE = 'quantum46solutions@gmail.com';
 
 function notify(u, subject, text, smsTemplateEnv) {
   if (u.email) return sendEmail({ to: u.email, subject, text: `${text}\n\nSoulink · QM46 Solutions Private Limited · Grievance Officer: ${GRIEVANCE}` }).catch(() => {});
@@ -63,15 +67,17 @@ export async function reactivateOnLogin(u, req) {
   return was;
 }
 
-/** Erase now (also used at the end of the 30 days). The 1-year identity record is kept by deleteAccount. */
+/** Erase now (also used at the end of the 7 days). The 1-year identity record is kept by deleteAccount; a person who
+ *  deleted their own account also gets a 6-month "rejoin" record (encrypted face fingerprint, phone, email). */
 export async function eraseAccount(u, req, reason = 'user') {
   await signOutAll(u, req, 'account:deleted');
+  if (reason !== 'banned') await holdRejoin(u).catch(() => {});
   await deleteAccount(u.id, reason);
   await audit(req, 'account_deleted', { actorId: req?.user?.id ?? null, targetUserId: u.id, detail: `${reason}${u.username ? ` @${u.username}` : ''}` });
-  notify(u, 'Your Soulink account has been deleted', `Your Soulink account${u.username ? ` @${u.username}` : ''} was deleted on ${day(Date.now())}. You have been logged out on every phone and browser.\n\nYour profile, photos, face data, Soul DNA, posts, Sparks and chats have been erased. As Indian law requires, we keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests, then delete them.\n\nIf you did not do this, write to our Grievance Officer.`, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID');
+  notify(u, 'Your Soulink account has been deleted', `Your Soulink account${u.username ? ` @${u.username}` : ''} was deleted on ${day(Date.now())}. You have been logged out on every phone and browser.\n\nYour profile, photos, face data, Soul DNA, posts, Sparks and chats have been erased. As Indian law requires, we keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests, then delete them.\n\nFor 6 months your face fingerprint, phone number and email are kept encrypted so they can't be used to create a new Soulink account. After that they are erased and you are welcome back.\n\nIf you did not do this, write to our Grievance Officer.`, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID');
 }
 
-/** Daily: erase accounts whose 30 days are over. */
+/** Daily: erase accounts whose 7 days are over. */
 export async function runScheduledDeletions() {
   try {
     const due = await many('SELECT * FROM users WHERE delete_after IS NOT NULL AND delete_after < SYSDATETIMEOFFSET()');
@@ -82,6 +88,15 @@ export async function runScheduledDeletions() {
 
 // ---------- bans ----------
 const active = 'lifted_at IS NULL AND expires_at > SYSDATETIMEOFFSET()';
+
+/** 6 months after deleting your own account, the same face, phone or email can't sign up again. */
+async function holdRejoin(u) {
+  const face = await one('SELECT embedding FROM face_embeddings WHERE user_id=$1', [u.id]);
+  const vec = openFace(face?.embedding);
+  await query(`INSERT INTO banned_identities (user_id, username, display_name, phone, email, face_embedding, reason, kind, expires_at)
+    VALUES ($1, $2, $3, $4, $5, $6, N'Deleted their own account', N'rejoin', DATEADD(DAY, $7, SYSDATETIMEOFFSET()))`,
+  [u.id, u.username, u.display_name, u.phone, u.email, vec ? sealFace(vec) : null, REJOIN_DAYS]);
+}
 
 export async function banAccount(u, { reason, days = BAN_DAYS }, req) {
   const face = await one('SELECT embedding FROM face_embeddings WHERE user_id=$1', [u.id]);
@@ -96,12 +111,12 @@ export async function banAccount(u, { reason, days = BAN_DAYS }, req) {
 /** Is this phone or email banned? */
 export async function contactBanned({ phone, email }) {
   if (!phone && !email) return null;
-  return one(`SELECT TOP 1 id, reason FROM banned_identities WHERE ${active} AND (phone=$1 OR email=$2)`, [phone || '#', email || '#']);
+  return one(`SELECT TOP 1 id, reason, kind, expires_at FROM banned_identities WHERE ${active} AND (phone=$1 OR email=$2) ORDER BY CASE WHEN kind=N'ban' THEN 0 ELSE 1 END`, [phone || '#', email || '#']);
 }
 
 /** Does this face match a banned person? (checked at the face scan, before an account can finish sign-up) */
 export async function faceBanned(vector, maxDistance) {
-  const rows = await many(`SELECT id, face_embedding FROM banned_identities WHERE ${active} AND face_embedding IS NOT NULL`);
+  const rows = await many(`SELECT id, kind, expires_at, face_embedding FROM banned_identities WHERE ${active} AND face_embedding IS NOT NULL ORDER BY CASE WHEN kind=N'ban' THEN 0 ELSE 1 END`);
   for (const r of rows) {
     const v = openFace(r.face_embedding);
     if (v && faceDistance(vector, v) < maxDistance) return r;
@@ -109,7 +124,12 @@ export async function faceBanned(vector, maxDistance) {
   return null;
 }
 
+/** The message for a blocked sign-up: a ban, or the 6-month wait after deleting your own account. */
+export const blockedMessage = (row) => (row?.kind === 'rejoin' ? MESSAGES.rejoin(row.expires_at) : MESSAGES.banned);
+
 export async function purgeExpiredBans() {
+  // the 6 months after deleting your own account are over: that record is erased completely
+  await query(`DELETE FROM banned_identities WHERE kind=N'rejoin' AND (lifted_at IS NOT NULL OR expires_at < SYSDATETIMEOFFSET())`).catch(() => {});
   // expired bans: the face fingerprint is erased; the row stays 1 more year as part of the audit trail, then goes
   await query(`UPDATE banned_identities SET face_embedding=NULL WHERE face_embedding IS NOT NULL AND (lifted_at IS NOT NULL OR expires_at < SYSDATETIMEOFFSET())`).catch(() => {});
   await query('DELETE FROM banned_identities WHERE COALESCE(lifted_at, expires_at) < DATEADD(DAY, -365, SYSDATETIMEOFFSET())').catch(() => {});

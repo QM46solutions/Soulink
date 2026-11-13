@@ -23,7 +23,7 @@ async function loadUser(req) {
     throw unauthorized("Your sign-up wasn't finished within an hour, so it was cleared. Please start again.", 'signup_expired');
   }
   // paused, or waiting to be deleted: signed out until the person logs in again (which reactivates it)
-  if (user.deactivated_at) throw unauthorized(user.deactivate_reason === 'deleting' ? 'Your account will be deleted in 30 days. Log in before then to cancel.' : 'This account is paused. Log in again to reactivate it.', user.deactivate_reason === 'deleting' ? 'account_deleting' : 'account_paused');
+  if (user.deactivated_at) throw unauthorized(user.deactivate_reason === 'deleting' ? 'Your account will be deleted in 7 days. Log in before then to cancel.' : 'This account is paused. Log in again to reactivate it.', user.deactivate_reason === 'deleting' ? 'account_deleting' : 'account_paused');
   if ((await checkSession(t.userId, t.sid)) !== 'ok') throw unauthorized('You were logged out. Log in again to continue.', 'session_ended');
   req.sessionId = t.sid;
   req.tokenIssuedAt = t.iat;

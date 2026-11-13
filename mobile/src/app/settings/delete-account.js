@@ -1,5 +1,6 @@
-// Settings › Delete my account. Like Instagram: the account is hidden at once and erased after 30 days;
-// logging in before then cancels. "Delete now" skips the 30 days (DPDP right to erasure).
+// Settings › Delete my account. The account is hidden at once and erased after a 7-day cooling period (time for
+// the team to check everything); logging in before then cancels. After it is erased, the same face, phone number
+// or email can't create a new Soulink account for 6 months (kept encrypted until then).
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { api } from '../../lib/api';
@@ -18,7 +19,7 @@ export default function DeleteAccount() {
   const ok = text.trim() === 'DELETE';
 
   const schedule = async () => {
-    if (!(await confirm('Delete your account?', 'Your account will be deleted in 30 days. Log in before then to cancel.', { confirmText: 'Delete', destructive: true }))) return;
+    if (!(await confirm('Delete your account?', 'Your account will be deleted in 7 days. Log in before then to cancel. After that you can\'t create a new Soulink account for 6 months.', { confirmText: 'Delete', destructive: true }))) return;
     setBusy('later'); setError(null);
     try {
       const r = await api('/users/me/schedule-deletion', { method: 'POST', body: { confirm: 'DELETE' } });
@@ -26,26 +27,18 @@ export default function DeleteAccount() {
       notice('Account scheduled for deletion', r.message);
     } catch (e) { setError(e.message); setBusy(null); }
   };
-  const now = async () => {
-    if (!(await confirm('Delete everything now?', 'There are no 30 days to change your mind. This cannot be undone.', { confirmText: 'Delete now', destructive: true }))) return;
-    setBusy('now'); setError(null);
-    try { await api('/users/me', { method: 'DELETE', body: { confirm: 'DELETE' }, timeoutMs: 60000 }); await signOut({ remote: false }); }
-    catch (e) { setError(e.message); setBusy(null); }
-  };
-
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ padding: space.lg, paddingBottom: 60 }}>
-      <Text style={{ fontFamily: fonts.displayBold, fontSize: 20, color: colors.text }}>Your account will be deleted in 30 days</Text>
-      <Note>Your profile is hidden from everyone straight away and you are logged out on every phone and browser. Log in before the 30 days are over to cancel. After that, your profile, photos, face data, Soul DNA, posts, Sparks and chats are erased for good. As Indian law requires, we keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests.</Note>
+      <Text style={{ fontFamily: fonts.displayBold, fontSize: 20, color: colors.text }}>Your account will be deleted in 7 days</Text>
+      <Note>Your profile is hidden from everyone straight away and you are logged out on every phone and browser. We wait 7 days before deleting, to give you time to change your mind and us time to check everything. Log in before then to cancel.</Note>
+      <Note>After 7 days your profile, photos, Soul DNA, posts, Sparks and chats are erased for good.</Note>
+      <Note>For 6 months after that, the same face, phone number or email can't be used to create a new Soulink account. Until then your face fingerprint and contact details are kept encrypted, used only for this check, and then erased. As Indian law requires, we also keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests.</Note>
       <Note>Just need a break? Pause your account instead: nothing is deleted.</Note>
       <Button title="Download my data first" variant="ghost" icon="download-outline" onPress={downloadMyData} style={{ marginTop: space.sm }} />
       <View style={{ marginTop: space.xl }}>
         <Input label="Type DELETE to confirm" value={text} onChangeText={setText} autoCapitalize="characters" autoCorrect={false} />
         <ErrorText>{error}</ErrorText>
         <Button title="Delete my account" variant="danger" onPress={schedule} loading={busy === 'later'} disabled={!ok || !!busy} />
-        <Text onPress={ok && !busy ? now : undefined} style={{ fontFamily: fonts.semibold, fontSize: 13, color: ok ? colors.danger : colors.dim, textAlign: 'center', marginTop: space.lg }}>
-          {busy === 'now' ? 'Deleting…' : 'Delete everything now instead (no 30 days)'}
-        </Text>
       </View>
     </ScrollView>
   );

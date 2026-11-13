@@ -8,7 +8,7 @@ import { startSession, endSession } from '../services/sessions.js';
 import { audit } from '../services/audit.js';
 import { securityLog, clientIp } from '../lib/log.js';
 import { disconnectSession } from '../realtime.js';
-import { contactBanned, reactivateOnLogin, MESSAGES } from '../services/lifecycle.js';
+import { blockedMessage, contactBanned, reactivateOnLogin, MESSAGES } from '../services/lifecycle.js';
 import { sendOtp } from '../providers/sms.js';
 import { requireAuth } from '../middleware/auth.js';
 import { meView } from '../services/social.js';
@@ -41,9 +41,10 @@ r.post(
     const intent = z.enum(['login', 'signup']).optional().parse(req.body.intent);
     const col = channel === 'phone' ? 'phone' : 'email';
     const existing = await one(`SELECT TOP 1 id FROM users WHERE ${col}=$1`, [target]);
-    if (!existing && await contactBanned(channel === 'phone' ? { phone: target } : { email: target })) {
-      securityLog('signup_blocked_banned', { channel, ip: clientIp(req) });
-      throw new HttpError(403, MESSAGES.banned, 'banned');
+    const blocked = !existing && await contactBanned(channel === 'phone' ? { phone: target } : { email: target });
+    if (blocked) {
+      securityLog(blocked.kind === 'rejoin' ? 'signup_blocked_rejoin_wait' : 'signup_blocked_banned', { channel, ip: clientIp(req) });
+      throw new HttpError(403, blockedMessage(blocked), blocked.kind === 'rejoin' ? 'rejoin_wait' : 'banned');
     }
     if (intent === 'login' && !existing) {
       throw notFound(channel === 'phone' ? 'No Soulink account uses this number yet.' : 'No Soulink account uses this email yet.', 'no_account');

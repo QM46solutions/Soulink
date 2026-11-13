@@ -76,7 +76,7 @@ export default function Settings() {
       <MenuRow icon="download" title="Download my data" text="A copy of your profile, posts, chats and more" onPress={downloadMyData} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="cloud-upload" title="Restore my data" text="Coming back? Bring back your profile and Soul DNA" onPress={go('/settings/restore-data')} tint={['#7c5cfc', '#42e8c0']} />
       <MenuRow icon="pause-circle" title="Pause my account" text="Hide everything for a while; nothing is deleted" onPress={go('/settings/pause-account')} tint={['#f5c842', '#8b88a0']} />
-      <MenuRow icon="trash" title="Delete my account" text="Deleted after 30 days; log in before then to cancel" onPress={go('/settings/delete-account')} tint={['#ff5c7a', '#8b2a3c']} />
+      <MenuRow icon="trash" title="Delete my account" text="Deleted after 7 days; log in before then to cancel" onPress={go('/settings/delete-account')} tint={['#ff5c7a', '#8b2a3c']} />
 
       <Section>More</Section>
       {user.isAdmin ? <MenuRow icon="musical-notes" title="Copyright reports" text="Soulink team: decide within 36 hours" onPress={go('/admin/copyright')} tint={['#ff6b9d', '#7c5cfc']} /> : null}

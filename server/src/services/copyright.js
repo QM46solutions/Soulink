@@ -18,7 +18,7 @@ export const REMIND_HOURS = 24; // reminder to the team: 12 hours left
 export const RESTORE_DAYS = 21;
 export const STRIKE_DAYS = 365;
 export const BLOCK_DAYS = 7;
-export const COPYRIGHT_EMAIL = process.env.COPYRIGHT_EMAIL || 'Rragishetty@gmail.com';
+export const COPYRIGHT_EMAIL = process.env.COPYRIGHT_EMAIL || 'quantum46solutions@gmail.com';
 export const UNAVAILABLE = 'This is unavailable because of a copyright complaint.';
 
 const TABLE = { spark: 'sparks', post: 'posts' };

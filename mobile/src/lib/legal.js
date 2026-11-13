@@ -8,11 +8,11 @@ export const TERMS_VERSION = '2026-10-28';
 export const LEGAL = {
   company: 'QM46 Solutions Private Limited',
   brand: 'Soulink',
-  address: 'Hyderabad, Telangana, India', // TODO: full registered office address
+  address: 'Flat No. 501, Plot No. 31 & 48, Sri Venkateshwara Nilyam, L B Nagar, Hyderabad 500074, Telangana, India', // registered office
   grievanceOfficer: 'Sai Raghava Ragishetty',
-  grievanceEmail: 'Rragishetty@gmail.com',
+  grievanceEmail: 'quantum46solutions@gmail.com',
   founder: 'Nikhil Cheedella',
-  updated: '17 October 2026',
+  updated: '13 November 2026',
 };
 
 const G = LEGAL;
@@ -64,8 +64,9 @@ export const DOCS = {
       ]],
       ['Pausing, deleting and coming back', [
         'Pause: Settings › Pause my account hides your profile and content and stops notifications. Nothing is deleted; log in again to come back.',
-        'Delete: Settings › Delete my account. Your account is hidden at once and deleted after 30 days. Log in before then to cancel. You can also choose to delete everything straight away.',
-        'Coming back: download your data before you delete. If you join again with the same phone number or email, Settings › Restore my data brings back your profile details and Soul DNA from that file. Photos, posts and chats cannot be restored.',
+        'Delete: Settings › Delete my account. Your account is hidden at once and deleted after a 7-day cooling period, which gives you time to change your mind and us time to check everything. Log in before then to cancel.',
+        'Waiting period: after your account is deleted, the same face, phone number or email cannot be used to create a new Soulink account for 6 months. This stops people deleting and re-creating accounts to escape reports, blocks or limits.',
+        'Coming back: download your data before you delete. After the 6 months, if you join again with the same phone number or email, Settings › Restore my data brings back your profile details and Soul DNA from that file. Photos, posts and chats cannot be restored.',
       ]],
       ['Removal for breaking the rules', [
         'We may close accounts that break these terms or the law. If we remove an account for serious or repeated violations (for example harassment, sexual content involving anyone without consent, impersonation, fraud or threats), we keep the person\'s name, phone number, email and an encrypted face fingerprint for up to 3 years, only to stop them creating a new account. You can appeal to our Grievance Officer.',
@@ -102,12 +103,13 @@ export const DOCS = {
       ]],
       ['Who we share it with', [
         'Other users see what you choose to make visible (your profile, posts, Sparks). Chats are only between the people in them.',
-        'Service providers who work for us under contract: Microsoft Azure for hosting, database, storage and logs (all in India), Microsoft Translator for translation, AI services for Soulmoji and the Argue Referee, MSG91 for login codes by SMS, an email service for login codes and account notices, and Razorpay for payments. AI services may process the text or photo you send them outside India; they never receive your face fingerprint and may not train on your data.',
+        'Service providers who work for us under contract: Microsoft Azure for the database and stored files (in India), Render for the app servers (in Singapore), Microsoft Translator for translation, AI services for Soulmoji and the Argue Referee, MSG91 for login codes by SMS, an email service for login codes and account notices, and Razorpay for payments. AI services may process the text or photo you send them outside India; they never receive your face fingerprint and may not train on your data.',
         'Authorities, when Indian law requires it.',
       ]],
       ['How long we keep it', [
-        'While your account is open, or paused. If you delete your account it is hidden at once and erased after 30 days (or straight away if you choose), unless you log in to cancel.',
+        'While your account is open, or paused. If you delete your account it is hidden at once and erased after a 7-day cooling period, unless you log in to cancel.',
         'When the account is erased, your profile, photos, face fingerprint, Soul DNA, posts, Sparks and chats are deleted. For 1 year we keep your name, username, date of birth, city, phone number, email, the dates you joined and left, your consent records, and logs of your logins and actions (device, IP address, time). The DPDP Rules 2025 and IT Rules 2021 require this so we can answer lawful requests; it is used for nothing else and then deleted.',
+        'After you delete your account, we keep your face fingerprint, phone number and email for 6 months, encrypted, only to stop a new account being created with them during that time. They are then erased.',
         'If your account is removed for serious or repeated rule-breaking, we keep your name, contact details and an encrypted face fingerprint for up to 3 years to stop you creating a new account.',
         'Payment and invoice records are kept for 8 years, as tax and company law require.',
       ]],
@@ -119,7 +121,7 @@ export const DOCS = {
         'Nominate someone to exercise these rights if you die or cannot act: write to us.',
       ]],
       ['Security', [
-        'Your data is stored in India, encrypted in transit and at rest; face fingerprints are encrypted again with a separate key. Access is limited to the people who need it, and we keep security logs in India to detect misuse. If a data breach affects you, we will tell you and the Data Protection Board as the law requires.',
+        'Your data is stored in Microsoft Azure data centres in India and handled by our app servers in Singapore. As Soulink grows around the world we may add servers in other countries; wherever your data is processed it gets the same protection described here. It is encrypted in transit and at rest; face fingerprints are encrypted again with a separate key. Access is limited to the people who need it, and we keep security logs to detect misuse. If a data breach affects you, we will tell you and the Data Protection Board as the law requires.',
       ]],
       ['Children', [
         'Soulink is only for people 18 and older. We do not knowingly process children\'s data; if we learn we have, we delete it.',

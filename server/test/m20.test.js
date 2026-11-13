@@ -1,4 +1,4 @@
-// Account lifecycle: pause, 30-day scheduled deletion, cancel by logging in, restore from a download, bans.
+// Account lifecycle: pause, 7-day scheduled deletion, the 6-month wait before rejoining, cancel by logging in, restore from a download, bans.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, resetDb, makeUser, closePool, query } from './helpers.js';
@@ -26,19 +26,19 @@ describe('Pause and delete', () => {
     await api().get(`/users/u/${a.user.username}`).set(b.h).expect(200);
   });
 
-  test('deletion waits 30 days, and logging in before then cancels it', async () => {
+  test('deletion waits 7 days, and logging in before then cancels it', async () => {
     const a = await makeUser();
     const s = (await api().post('/users/me/schedule-deletion').set(a.h).send({ confirm: 'DELETE' }).expect(200)).body;
-    assert.match(s.message, /deleted in 30 days\. Log in before then to cancel/);
+    assert.match(s.message, /deleted in 7 days\. Log in before then to cancel/);
     const days = (new Date(s.deleteAfter) - Date.now()) / 86400_000;
-    assert.ok(days > 29.9 && days < 30.1);
+    assert.ok(days > 6.9 && days < 7.1);
     const back = await login(a.user.phone);
     assert.equal(back.body.welcomeBack, 'deleting');
     const row = (await query('SELECT delete_after FROM users WHERE id=$1', [a.user.id])).rows[0];
     assert.equal(row.delete_after, null);
   });
 
-  test('after 30 days the account is erased and a 1-year identity record kept', async () => {
+  test('after 7 days the account is erased, a 1-year identity record kept, and the same number waits 6 months', async () => {
     const a = await makeUser();
     await api().post('/users/me/schedule-deletion').set(a.h).send({ confirm: 'DELETE' }).expect(200);
     await query('UPDATE users SET delete_after = DATEADD(DAY, -1, SYSDATETIMEOFFSET()) WHERE id=$1', [a.user.id]);
@@ -46,6 +46,23 @@ describe('Pause and delete', () => {
     assert.equal((await query('SELECT id FROM users WHERE id=$1', [a.user.id])).rows.length, 0);
     const rec = (await query('SELECT display_name, birth_date, phone, reason FROM deleted_accounts WHERE user_id=$1', [a.user.id])).rows[0];
     assert.equal(rec.reason, 'scheduled'); assert.equal(rec.phone, a.user.phone); assert.ok(rec.birth_date); assert.ok(rec.display_name);
+    // for 6 months the same phone number can't create a new account
+    const wait = (await query("SELECT kind, expires_at FROM banned_identities WHERE user_id=$1", [a.user.id])).rows[0];
+    assert.equal(wait.kind, 'rejoin');
+    const months = (new Date(wait.expires_at) - Date.now()) / 86400_000;
+    assert.ok(months > 179 && months < 181);
+    await query('DELETE FROM otp_codes WHERE target=$1', [a.user.phone]);
+    const r = await api().post('/auth/otp/request').send({ phone: a.user.phone }).expect(403);
+    assert.equal(r.body.error.code, 'rejoin_wait');
+    assert.match(r.body.error.message, /create a new account from/);
+    // the team's ban list shows only real bans
+    assert.equal((await query("SELECT COUNT(*) AS n FROM banned_identities WHERE kind=N'ban' AND user_id=$1", [a.user.id])).rows[0].n, 0);
+    // after the 6 months the record is erased and the number can sign up again
+    await query('UPDATE banned_identities SET expires_at = DATEADD(DAY, -1, SYSDATETIMEOFFSET()) WHERE user_id=$1', [a.user.id]);
+    const { purgeExpiredBans } = await import('../src/services/lifecycle.js');
+    await purgeExpiredBans();
+    assert.equal((await query('SELECT COUNT(*) AS n FROM banned_identities WHERE user_id=$1', [a.user.id])).rows[0].n, 0);
+    await api().post('/auth/otp/request').send({ phone: a.user.phone }).expect(200);
   });
 });
 
@@ -56,6 +73,7 @@ describe('Restore my data', () => {
     const file = (await api().get('/users/me/export').set(a.h).expect(200)).body;
     assert.ok(file.signature);
     await api().delete('/users/me').set(a.h).send({ confirm: 'DELETE' }).expect(200);
+    await query('UPDATE banned_identities SET expires_at = DATEADD(DAY, -1, SYSDATETIMEOFFSET()) WHERE user_id=$1', [a.user.id]); // 6 months later
     const again = await login(a.user.phone); // a fresh account with the same number
     const r = (await api().post('/users/me/restore').set(again.h).send(file).expect(200)).body;
     assert.ok(r.restored.includes('profile'));

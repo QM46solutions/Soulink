@@ -32,7 +32,7 @@ r.post('/users/:username/ban', ah(async (req, res) => {
 
 r.get('/bans', ah(async (req, res) => {
   const rows = await many(`SELECT id, username, display_name, phone, email, reason, banned_at, expires_at, CASE WHEN face_embedding IS NULL THEN 0 ELSE 1 END AS has_face
-    FROM banned_identities WHERE lifted_at IS NULL AND expires_at > SYSDATETIMEOFFSET() ORDER BY banned_at DESC`);
+    FROM banned_identities WHERE kind=N'ban' AND lifted_at IS NULL AND expires_at > SYSDATETIMEOFFSET() ORDER BY banned_at DESC`);
   res.json({ bans: rows.map((b) => ({ id: b.id, username: b.username, name: b.display_name, phone: b.phone, email: b.email, reason: b.reason, bannedAt: b.banned_at, expiresAt: b.expires_at, face: !!b.has_face })) });
 }));
 

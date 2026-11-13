@@ -164,14 +164,14 @@ r.post('/me/pause', ah(async (req, res) => {
   res.json({ ok: true, paused: true, message: MESSAGES.paused });
 }));
 
-// Delete my account: hidden at once, erased after 30 days; logging in before then cancels. Body: { confirm: 'DELETE' }
+// Delete my account: hidden at once, erased after a 7-day cooling period; logging in before then cancels. Body: { confirm: 'DELETE' }
 r.post('/me/schedule-deletion', ah(async (req, res) => {
   z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
   const after = await scheduleDeletion(req.user, req);
   res.json({ ok: true, deleteAfter: after, message: MESSAGES.deleting });
 }));
 
-// Delete my account now, without the 30 days (DPDP right to erasure). Body: { confirm: 'DELETE' }
+// Delete my account now, without the 7 days (not offered in the app any more; kept for the team and tests). Body: { confirm: 'DELETE' }
 r.delete('/me', ah(async (req, res) => {
   z.object({ confirm: z.literal('DELETE', { message: 'Type DELETE to confirm' }) }).parse(req.body || {});
   // a last notification to the person's other phones and browsers, while their push subscriptions still exist
