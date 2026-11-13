@@ -16,6 +16,10 @@ import { expireSignup, isExpiredSignup, isRealMember } from '../services/signupC
 
 const r = Router();
 
+/** The store reviewers' test number (REVIEW_PHONE + REVIEW_CODE in the cloud settings), or null when not set up. */
+const reviewTarget = () => (config.reviewPhone && config.reviewCode ? normalizePhone(config.reviewPhone) : null);
+const isReview = (target) => !!target && target === reviewTarget();
+
 const targetSchema = z
   .object({ phone: z.string().optional(), email: z.string().optional() })
   .refine((v) => !!v.phone !== !!v.email, 'Send either phone or email');
@@ -49,16 +53,17 @@ r.post(
     if (intent === 'login' && !existing) {
       throw notFound(channel === 'phone' ? 'No Soulink account uses this number yet.' : 'No Soulink account uses this email yet.', 'no_account');
     }
-    const last = await one(`SELECT TOP 1 created_at FROM otp_codes WHERE target=$1 ORDER BY created_at DESC`, [target]);
+    const review = isReview(target); // the store reviewers' number: fixed code, no SMS, no wait between codes
+    const last = review ? null : await one(`SELECT TOP 1 created_at FROM otp_codes WHERE target=$1 ORDER BY created_at DESC`, [target]);
     if (last && Date.now() - new Date(last.created_at).getTime() < config.otp.resendCooldownSeconds * 1000) {
       throw tooMany(`Please wait ${config.otp.resendCooldownSeconds} seconds before requesting another code`);
     }
-    const code = randomOtp();
+    const code = review ? config.reviewCode : randomOtp();
     await query(
       `INSERT INTO otp_codes (target, channel, code_hash, expires_at) VALUES ($1, $2, $3, DATEADD(SECOND, $4, SYSDATETIMEOFFSET()))`,
       [target, channel, hashCode(target, code), config.otp.ttlSeconds],
     );
-    await sendOtp({ target, channel, code });
+    if (!review) await sendOtp({ target, channel, code });
     securityLog('otp_requested', { channel, ip: clientIp(req) });
     res.json({ sent: true, target, channel, accountExists: !!existing, expiresIn: config.otp.ttlSeconds, ...((config.isDev || config.accessCode) && config.otpDevEcho ? { devCode: code } : {}) });
   }),
@@ -90,6 +95,8 @@ r.post(
       if (!user) {
         user = (await c.query(`INSERT INTO users (${col}) OUTPUT INSERTED.* VALUES ($1)`, [target])).rows[0];
         isNew = true;
+        // the store reviewers' account skips the live face scan (no face fingerprint is stored for it)
+        if (isReview(target)) user = (await c.query('UPDATE users SET face_verified=1 OUTPUT INSERTED.* WHERE id=$1', [user.id])).rows[0];
       }
       return { user, isNew };
     });
@@ -102,6 +109,7 @@ r.post(
       await expireSignup(result.user);
       const col = channel === 'phone' ? 'phone' : 'email';
       result.user = await one(`INSERT INTO users (${col}) OUTPUT INSERTED.* VALUES ($1)`, [target]);
+      if (isReview(target)) result.user = await one('UPDATE users SET face_verified=1 OUTPUT INSERTED.* WHERE id=$1', [result.user.id]);
       result.isNew = true;
     }
     const welcomeBack = await reactivateOnLogin(result.user, req); // paused or waiting to be deleted → back

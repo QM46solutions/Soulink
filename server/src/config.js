@@ -38,6 +38,10 @@ export const config = {
   webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',
   // Private preview: everyone must type this code once before using the app (empty = no code)
   accessCode: process.env.ACCESS_CODE || '',
+  // Google Play / App Store reviewers: one test phone number that always takes the same 6-digit code, and skips
+  // the live face scan (a reviewer can't pass it). Both are set only in the cloud settings, never in the code.
+  reviewPhone: process.env.REVIEW_PHONE || '',
+  reviewCode: /^\d{6}$/.test(process.env.REVIEW_CODE || '') ? process.env.REVIEW_CODE : '',
   // (tests always use their own temporary folder, see test/helpers.js; never the real uploads)
   uploadDir: process.env.UPLOAD_DIR || (process.env.NODE_ENV === 'test' ? `${tmpdir()}/soulink-test-uploads/` : fileURLToPath(new URL('../uploads/', import.meta.url))),
   // Argue referee AI: local = free Ollama on this laptop (falls back to the basic judge), claude = Claude API (paid), basic = rules only
