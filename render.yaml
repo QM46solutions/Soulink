@@ -70,3 +70,8 @@ services:
         sync: false
       - key: ADMIN_USERNAMES
         sync: false
+      # Google Play / App Store reviewers: one test number + its fixed 6-digit code (skips the face scan)
+      - key: REVIEW_PHONE
+        sync: false
+      - key: REVIEW_CODE
+        sync: false
