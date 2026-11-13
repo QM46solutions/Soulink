@@ -31,7 +31,7 @@
     "android": {
       "package": "app.soulink.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#0a0a0f",
+        "backgroundColor": "#07051a",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -122,7 +122,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/android-icon-monochrome.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#7c5cfc"
         }
       ],

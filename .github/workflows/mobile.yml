@@ -53,9 +53,9 @@ jobs:
       - name: Build the Android test app (APK link)
         if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && inputs.build == 'android-test-apk'
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --no-wait
-      - name: Build for the Play Store (sent to the internal test track)
+      - name: Build for the Play Store (.aab - upload it in Play Console)
         if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && (inputs.build == 'android-play-store' || inputs.build == 'all-stores')
-        run: npx --yes eas-cli@latest build --platform android --profile production --non-interactive --no-wait --auto-submit
+        run: npx --yes eas-cli@latest build --platform android --profile production --non-interactive --no-wait
       - name: Build the iPhone app (sent to TestFlight)
         if: steps.ready.outputs.ok && github.event_name == 'workflow_dispatch' && (inputs.build == 'iphone-testflight' || inputs.build == 'all-stores')
-        run: npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --no-wait --auto-submit
+        run: npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --no-wait
