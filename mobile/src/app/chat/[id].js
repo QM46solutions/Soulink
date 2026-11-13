@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Image } from 'expo-image';
@@ -49,6 +50,7 @@ function HeldBar({ held, name, onChanged }) {
 }
 
 export default function Chat() {
+  const headerH = useSafeAreaInsets().top + 46; // same height as the app's top bar (root _layout.js)
   const { id } = useLocalSearchParams();
   const { user: me, setUser } = useAuth();
   const { emit, refreshUnread } = useRealtime();
@@ -474,7 +476,7 @@ export default function Chat() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerH}>
       {conv.privateMode ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(3,2,8,0.55)' }} /> : null}
       {conv.privateMode ? (
         <View pointerEvents="none" style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,

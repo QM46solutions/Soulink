@@ -1,4 +1,5 @@
 // One post with all its comments (👌🏻 / Reply / ❗ on each) and a comment box.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,6 +10,7 @@ import { Empty, Loading, s } from '../../components/ui';
 import { colors, fonts, space } from '../../lib/theme';
 
 export default function PostScreen() {
+  const headerH = useSafeAreaInsets().top + 46; // same height as the app's top bar (root _layout.js)
   const { id } = useLocalSearchParams();
   const [post, setPost] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -30,7 +32,7 @@ export default function PostScreen() {
   if (loadError && !post) return <View style={s.screen}><Empty icon="alert-circle-outline" title={loadError} /></View>;
   if (!post || !cm.comments) return <Loading />;
   return (
-    <KeyboardAvoidingView style={s.screen} behavior="padding" keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={s.screen} behavior="padding" keyboardVerticalOffset={headerH}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <View style={{ paddingTop: space.md }}>
           <PostCard post={{ ...post, commentCount: cm.off ? null : cm.comments.length }} showAllComments onDeleted={() => router.back()} onChanged={() => load()} />

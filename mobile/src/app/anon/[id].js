@@ -1,5 +1,6 @@
 // Anonymous chat, only between Connections. "new" = writing anonymously to a connection (from their profile).
 // First you choose how long you stay hidden; the person who receives it sees only an alias until then.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -98,6 +99,7 @@ function Bubble({ m }) {
 }
 
 export default function AnonChat() {
+  const headerH = useSafeAreaInsets().top + 46; // same height as the app's top bar (root _layout.js)
   const { id, userId, username, name } = useLocalSearchParams();
   const isNew = id === 'new';
   const navigation = useNavigation();
@@ -189,7 +191,7 @@ export default function AnonChat() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerH}>
       <FlatList
         ref={listRef}
         data={data.messages}

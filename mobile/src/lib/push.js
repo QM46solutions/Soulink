@@ -23,10 +23,15 @@ export function pushSupport() {
   return projectId() ? 'ready' : 'unsupported';
 }
 
-async function token() {
+// Android 13+: the "Allow notifications?" question only appears once the app has a notification channel,
+// so the channel is made before asking (and again before every token, which is harmless)
+async function channel() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', { name: 'Soulink', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 200, 120, 200], lightColor: '#7c5cfc' });
   }
+}
+async function token() {
+  await channel();
   return (await Notifications.getExpoPushTokenAsync({ projectId: projectId() })).data;
 }
 const save = async (t) => {
@@ -45,6 +50,7 @@ export async function pushEnabled() {
 /** Asks permission (the phone's own question), gets this phone's push token and tells the server. */
 export async function enablePush() {
   if (!projectId()) throw new Error('Notifications will work in the installed Soulink app (TestFlight or the Play Store version).');
+  await channel().catch(() => {});
   let { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
   if (status !== 'granted') throw new Error('Notifications are off for Soulink. Allow them in your phone’s Settings › Notifications › Soulink, then try again.');
