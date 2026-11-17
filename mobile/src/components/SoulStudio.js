@@ -97,7 +97,11 @@ function Layer({ o, box, selected, onSelect, onChange }) {
 
 // ---------- the editor ----------
 export default function SoulStudio({ initial, onBack, onNext, onAddMedia, onDraft, cue, nextLabel = 'Next' }) {
-  const { width: winW, height: winH } = useWindowDimensions();
+  // size from the editor's own box, not the window: in a desktop browser the app sits inside a phone frame,
+  // and window sizes made the preview too small or pushed the tools off the bottom, and moved the playhead
+  const win = useWindowDimensions();
+  const [area, setArea] = useState(null);
+  const winW = area?.width || win.width; const winH = area?.height || win.height;
   const [h, setH] = useState(() => S.history(initial || S.emptyProject()));
   const p = h.present;
   const change = useCallback((fn, key) => setH((cur) => S.commit(cur, S.fitOverlays(typeof fn === 'function' ? fn(cur.present) : fn), key)), []);
@@ -126,7 +130,7 @@ export default function SoulStudio({ initial, onBack, onNext, onAddMedia, onDraf
       if (info[key]) return;
       setInfo((m) => ({ ...m, [key]: { loading: true, thumbs: [] } }));
       probeClip(c.uri, c.kind).then((r) => {
-        setInfo((m) => ({ ...m, [key]: { thumbs: r.thumbs || [] } }));
+        setInfo((m) => ({ ...m, [key]: { thumbs: r.thumbs || [], unplayable: !!r.unplayable } }));
         if (r.duration) setH((cur) => ({ ...cur, present: cur.present.clips.reduce((acc, x) => (x.uri === c.uri && !x.src ? S.setSourceLength(acc, x.id, r.duration) : acc), cur.present) }));
       });
     });
@@ -425,7 +429,7 @@ export default function SoulStudio({ initial, onBack, onNext, onAddMedia, onDraf
   const fadeShade = (() => { const f = p.fade || {}; if (f.in && t < f.in) return 1 - t / f.in; if (f.out && len - t < f.out) return 1 - (len - t) / f.out; return 0; })();
 
   return (
-    <View style={{ flex: 1, backgroundColor: INK }}>
+    <View onLayout={(e) => { const { width, height } = e.nativeEvent.layout; if (width && height && (width !== area?.width || height !== area?.height)) setArea({ width, height }); }} style={{ flex: 1, backgroundColor: INK }}>
       {/* top bar: back · undo / redo · next */}
       <View style={{ height: TOP, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.md }}>
         <IconBtn icon="arrow-left" label="Back" onPress={() => { pause(); onBack?.(p); }} />
@@ -461,6 +465,13 @@ export default function SoulStudio({ initial, onBack, onNext, onAddMedia, onDraf
           {voice.recording ? (
             <View pointerEvents="none" style={{ position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,60,90,0.92)' }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 6 }} /><Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>Recording your voice</Text>
+            </View>
+          ) : null}
+          {cur?.kind === 'video' && info[cur.uri]?.unplayable ? (
+            <View pointerEvents="none" style={[fill, { alignItems: 'center', justifyContent: 'center', padding: 22, backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+              <Ionicons name="alert-circle-outline" size={30} color={colors.gold} />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: '#fff', textAlign: 'center', marginTop: 8 }}>This browser can't play this video</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>iPhone videos (HEVC / .MOV) play in Safari and in Chrome on a Mac. Elsewhere, pick an MP4 (H.264) or use the Soulink app.</Text>
             </View>
           ) : null}
           {cue ? <View pointerEvents="none" style={{ position: 'absolute', left: 10, right: 10, bottom: 10, padding: 8, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.45)' }}><Text numberOfLines={3} style={{ fontFamily: fonts.body, fontSize: 12, color: '#fff' }}>{cue}</Text></View> : null}

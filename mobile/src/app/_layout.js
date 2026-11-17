@@ -189,7 +189,9 @@ function RootStack() {
 const ZOOM_KEY = 'soulink.previewZoom';
 function PhoneFrame({ children }) {
   const { width, height } = useWindowDimensions();
-  const [mode, setMode] = useState(() => { try { return window.localStorage.getItem(ZOOM_KEY) || 'actual'; } catch { return 'actual'; } });
+  // no choice saved yet: true size when the whole phone fits the window, otherwise shrink it, so the bottom of
+  // full-screen tools (Soulink Studio's timeline and tools) isn't hidden below a short laptop screen
+  const [mode, setMode] = useState(() => { const auto = height >= PHONE.height + 36 ? 'actual' : 'fit'; try { return window.localStorage.getItem(ZOOM_KEY) || auto; } catch { return auto; } });
   if (Platform.OS !== 'web' || width < 520) return <View style={{ flex: 1, backgroundColor: colors.void }}>{children}</View>;
   const BEZEL = 10;
   const fullH = PHONE.height + BEZEL * 2;

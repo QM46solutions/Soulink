@@ -81,7 +81,11 @@ export function installCrashReporting() {
   if (Platform.OS === 'web') {
     if (typeof window === 'undefined') return;
     window.addEventListener('error', (e) => { sendCrash(crashText(e.error || e.message)).catch(() => {}); });
-    window.addEventListener('unhandledrejection', (e) => { sendCrash(crashText(e.reason)).catch(() => {}); });
+    window.addEventListener('unhandledrejection', (e) => {
+      // a video's play() cut short by pause() or a new clip is normal browser behaviour, not a crash
+      const r = e.reason; if (r && (r.name === 'AbortError' || /play\(\) request was interrupted/.test(String(r.message || '')))) return;
+      sendCrash(crashText(r)).catch(() => {});
+    });
     return;
   }
   const EU = global.ErrorUtils;

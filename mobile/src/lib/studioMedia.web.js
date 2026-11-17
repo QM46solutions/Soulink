@@ -6,8 +6,13 @@ export async function probeClip(uri, kind, n = 6) {
   if (kind === 'photo') return { duration: null, thumbs: [{ uri }] };
   try {
     const v = document.createElement('video');
-    v.src = uri; v.muted = true; v.playsInline = true; v.crossOrigin = 'anonymous'; v.preload = 'auto';
-    await new Promise((r, j) => { v.onloadeddata = r; v.onerror = j; setTimeout(r, 6000); });
+    v.muted = true; v.playsInline = true; v.preload = 'auto';
+    if (!String(uri).startsWith('blob:') && !String(uri).startsWith('data:')) v.crossOrigin = 'anonymous';
+    // the length comes with the metadata; frames for the timeline need loaded data (iPhone Safari may hold that back)
+    const failed = await new Promise((r) => { v.onloadedmetadata = () => r(false); v.onerror = () => r(true); v.src = uri; setTimeout(() => r(false), 6000); });
+    // no picture size = the browser read the file but can't decode its video (e.g. HEVC in Chrome on Windows)
+    if (failed || (v.error && v.error.code) || (v.readyState >= 1 && !v.videoWidth)) return { duration: v.duration && isFinite(v.duration) ? v.duration : null, thumbs: [], unplayable: true };
+    await new Promise((r) => { if (v.readyState >= 2) r(); v.onloadeddata = r; setTimeout(r, 3000); });
     const d = v.duration && isFinite(v.duration) ? v.duration : null;
     const c = document.createElement('canvas'); const w = 90; const h = 160; c.width = w; c.height = h;
     const g = c.getContext('2d'); const thumbs = [];

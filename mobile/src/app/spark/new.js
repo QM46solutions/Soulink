@@ -26,6 +26,9 @@ import { colors, fonts, gradients, space } from '../../lib/theme';
 
 const MAX_MB = 40;
 const DRAFT_KEY = 'soulink.sparkDraft';
+// a picked video's length in seconds: the phone picker gives milliseconds, the web picker gives seconds
+// (dividing the web value by 1000 made an 8 s video 0.008 s long, so it never played in the editor)
+const pickedSeconds = (a) => (a?.duration && isFinite(a.duration) && a.duration > 0 ? (Platform.OS === 'web' ? a.duration : a.duration / 1000) : null);
 // a draft can be reopened only if its files are still on this phone (web blob: links end when the page closes)
 const keepable = (pr) => pr?.clips?.length && pr.clips.every((c) => !String(c.uri).startsWith('blob:'));
 const Label = ({ children }) => <Text style={{ color: colors.dim, fontSize: 12, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 1, marginTop: space.lg, marginBottom: space.sm }}>{children}</Text>;
@@ -114,9 +117,9 @@ export default function NewSpark() {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos', 'images'], videoMaxDuration: 180, quality: 0.85, allowsMultipleSelection: true, selectionLimit: 10, orderedSelection: true });
     const list = r.canceled ? [] : r.assets || [];
     if (!list.length) return [];
-    const ok = list.filter((a) => a.type === 'image' || (!(a.duration && a.duration > 181000) && !(a.fileSize && a.fileSize > MAX_MB * 1024 * 1024)));
+    const ok = list.filter((a) => a.type === 'image' || (!(pickedSeconds(a) > 181) && !(a.fileSize && a.fileSize > MAX_MB * 1024 * 1024)));
     if (ok.length < list.length) notice(ok.length ? 'Some videos were left out' : 'Too long or too big', `Each video can be up to 3 minutes and ${MAX_MB} MB.`);
-    return ok.map((a) => Studio.makeClip({ uri: a.uri, type: a.mimeType || (a.type === 'image' ? 'image/jpeg' : 'video/mp4'), kind: a.type === 'image' ? 'photo' : 'video', duration: a.duration ? a.duration / 1000 : null }));
+    return ok.map((a) => Studio.makeClip({ uri: a.uri, type: a.mimeType || (a.type === 'image' ? 'image/jpeg' : 'video/mp4'), kind: a.type === 'image' ? 'photo' : 'video', duration: pickedSeconds(a) }));
   };
   // open Soulink Studio with these clips (from the gallery, the camera or the Soulink recorder)
   const openStudio = (clips, oneTake = false) => {
@@ -132,7 +135,7 @@ export default function NewSpark() {
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 60, quality: 0.8, cameraType: ImagePicker.CameraType.front });
     const a = r.canceled ? null : r.assets?.[0];
     if (!a) return;
-    openStudio([Studio.makeClip({ uri: a.uri, type: a.mimeType || 'video/mp4', duration: a.duration ? a.duration / 1000 : null })], true);
+    openStudio([Studio.makeClip({ uri: a.uri, type: a.mimeType || 'video/mp4', duration: pickedSeconds(a) })], true);
   };
   // Studio → Next: one video goes as it is with its edits; several clips / photos are joined into one video first
   const studioNext = async (project) => {
