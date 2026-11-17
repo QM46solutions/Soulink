@@ -1,4 +1,5 @@
 import { HttpError } from '../lib/errors.js';
+import { markUserActive } from '../services/metrics.js';
 import { config } from '../config.js';
 import { signToken, verifyToken } from '../lib/auth.js';
 import { one, query } from '../db.js';
@@ -39,6 +40,7 @@ export async function requireAuth(req, res, next) {
     // the login renews itself while it's used: a token older than a day gets a fresh one (same session), so active
     // people are never logged out (and never lose their notifications) because a week went by
     if (req.sessionId && req.tokenIssuedAt && Date.now() / 1000 - req.tokenIssuedAt > 86400) res.setHeader('x-soulink-token', signToken(user.id, req.sessionId));
+    markUserActive(user.id); // people per hour, for the team console (in memory)
     // Cheap activity heartbeat (at most once a minute per user)
     if (!user.last_active_at || Date.now() - new Date(user.last_active_at).getTime() > 60_000) {
       query('UPDATE users SET last_active_at = SYSDATETIMEOFFSET() WHERE id = $1', [user.id]).catch(() => {});

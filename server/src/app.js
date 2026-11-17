@@ -38,6 +38,9 @@ import momentRoutes from './routes/moments.js';
 import sparkRoutes from './routes/sparks.js';
 import adminRoutes from './routes/admin.js';
 import copyrightRoutes from './routes/copyright.js';
+import consoleRoutes from './routes/console.js';
+import telemetryRoutes from './routes/telemetry.js';
+import { timeRequests } from './services/metrics.js';
 import { securityLog, clientIp } from './lib/log.js';
 
 export function createApp() {
@@ -92,6 +95,7 @@ export function createApp() {
       next();
     });
   }
+  app.use(timeRequests); // response times and errors for the team console
   app.use(express.json({ limit: '1mb' }));
   // Private file links: every /uploads/... path the server sends gets a signature for this viewer (lib/fileLinks.js);
   // links the app sends back lose theirs, so the server always compares plain paths
@@ -158,6 +162,8 @@ export function createApp() {
     if (await Promise.race([waitDbReady().then(() => true), t])) return next();
     return res.status(503).json({ error: { code: 'waking', message: 'Soulink is waking up. Try again in a moment.' } });
   });
+  app.use('/console', consoleRoutes); // the team console (admin.qm46.in): its own sign-in
+  app.use('/telemetry', telemetryRoutes); // screen times, Report a problem, crashes (from the app)
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/admin', adminRoutes);

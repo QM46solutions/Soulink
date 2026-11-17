@@ -120,6 +120,11 @@ describe('Moments (Home +): story for 24 h, chat Moments open once / replay once
     assert.equal(feed.length, 1); assert.equal(feed[0].user.id, a.user.id); assert.equal(feed[0].allSeen, false);
     assert.equal((await api().get('/moments/feed').set(stranger.h).expect(200)).body.groups.length, 0);
     await api().get(`/moments/user/${a.user.id}`).set(stranger.h).expect(403);
+    // a plain Follower of a public profile sees posts and reels, never Moments
+    await api().post(`/users/${a.user.id}/follow`).set(stranger.h).expect(200);
+    assert.equal((await api().get('/moments/feed').set(stranger.h).expect(200)).body.groups.length, 0, 'followers do not see Moments');
+    await api().get(`/moments/user/${a.user.id}`).set(stranger.h).expect(403);
+    await api().post(`/moments/${m.id}/view`).set(stranger.h).expect(404);
     await api().post(`/moments/${m.id}/view`).set(b.h).expect(200);
     assert.equal((await api().get('/moments/feed').set(b.h).expect(200)).body.groups[0].allSeen, true);
     const v = (await api().get(`/moments/${m.id}/viewers`).set(a.h).expect(200)).body.viewers;

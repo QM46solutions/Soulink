@@ -46,6 +46,9 @@ r.get('/', ah(async (req, res) => {
   const rows = await many(
     `SELECT TOP ${n} * FROM ad_campaigns WHERE placement=$1 AND active=1 AND starts_at <= SYSDATETIMEOFFSET() AND ends_at > SYSDATETIMEOFFSET()
        AND (city IS NULL OR LTRIM(RTRIM(city)) = N'' OR LOWER(LTRIM(RTRIM(city))) = LOWER(LTRIM(RTRIM($2))))
+       -- hourly bookings from the team console: only in the booked hours (Indian time) and cities
+       AND (hours_csv IS NULL OR CHARINDEX(N',' + CAST(DATEPART(hour, SWITCHOFFSET(SYSDATETIMEOFFSET(), '+05:30')) AS NVARCHAR(2)) + N',', hours_csv) > 0)
+       AND (cities_csv IS NULL OR CHARINDEX(N',' + LOWER(LTRIM(RTRIM($2))) + N',', cities_csv) > 0)
        AND (budget_paise IS NULL OR cpm_paise IS NULL OR CAST(impressions AS BIGINT) * cpm_paise / 1000 < budget_paise) -- budget used up: stops
      ORDER BY NEWID()`, [placement, req.user.city || ''],
   );

@@ -18,8 +18,10 @@ import { purgeExpiredBans, runScheduledDeletions } from './services/lifecycle.js
 import { remindPendingReports, runCopyrightRestores } from './services/copyright.js';
 import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
+import { startMetrics } from './services/metrics.js';
 
 const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
+if (config.env !== 'test') startMetrics(); // health numbers for the team console, written every 5 minutes
 async function startDatabase() {
   // after a restart (or while the free cloud database is resuming) it can take a minute to accept connections
   await waitForDatabase({ maxMs: cloud ? 10 * 60_000 : 150_000 });

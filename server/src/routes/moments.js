@@ -34,7 +34,8 @@ const view = (m, seen) => ({ id: m.id, mediaUrl: m.media_url || null, text: m.te
 async function canSee(viewerId, authorId) {
   if (same(viewerId, authorId)) return true;
   if (await isBlockedEither(viewerId, authorId)) return false;
-  return !!(await one("SELECT 1 AS y FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted'", [viewerId, authorId]));
+  // Moments are for Connections only. A plain Follow (public profile) sees posts and reels, never Moments.
+  return !!(await connectionBetween(viewerId, authorId));
 }
 
 r.post('/', requireSoul, uploadMemory('image', 10).single('photo'), ah(async (req, res) => {
@@ -82,7 +83,7 @@ r.get('/feed', ah(async (req, res) => {
        LEFT JOIN moment_views v ON v.moment_id = m.id AND v.viewer_id = $1
       WHERE m.is_story = 1 AND m.deleted_at IS NULL AND m.expires_at > SYSDATETIMEOFFSET()
         AND NOT EXISTS (SELECT 1 FROM users du WHERE du.id = m.author_id AND du.deactivated_at IS NOT NULL)
-        AND (m.author_id = $1 OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = m.author_id AND f.status = N'accepted'))
+        AND (m.author_id = $1 OR EXISTS (SELECT 1 FROM connections c WHERE (c.user_a = $1 AND c.user_b = m.author_id) OR (c.user_a = m.author_id AND c.user_b = $1)))
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = $1 AND b.blocked_id = m.author_id) OR (b.blocker_id = m.author_id AND b.blocked_id = $1))
       ORDER BY m.created_at ASC`, [me]);
   const authorIds = [...new Set(rows.map((x) => String(x.author_id).toLowerCase()))];
