@@ -19,6 +19,7 @@ import SharePreview, { sharedLinkTarget } from '../components/SharePreview';
 import TermsGate from '../components/TermsGate';
 import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
+import { installCrashReporting, sendPendingCrash, useScreenTimings } from '../lib/telemetry';
 import { usePushTaps } from '../lib/push';
 import { useAppUpdate } from '../lib/appUpdate';
 import PrivacyShield from '../components/PrivacyShield';
@@ -96,6 +97,9 @@ function RootStack() {
     for (const m of document.querySelectorAll('video, audio')) { if (!m.paused && !m.muted) m.pause(); }
   }, [where]);
   useUsageTracker(!!user?.onboardingDone); // Settings › Time management (hooks must run before any early return)
+  // team console: how long each screen takes, and crashes (route pattern only, never who or what)
+  useScreenTimings(where, !!user?.onboardingDone);
+  useEffect(() => { if (user?.id) sendPendingCrash(); }, [user?.id]);
   if (!ready) return null;
 
   const loggedIn = !!user;
@@ -155,6 +159,7 @@ function RootStack() {
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
         <Stack.Screen name="settings/device-permissions" options={{ title: 'Device permissions' }} />
         <Stack.Screen name="settings/about" options={{ title: 'About' }} />
+        <Stack.Screen name="settings/report-problem" options={{ title: 'Report a problem' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete my account' }} />
         <Stack.Screen name="settings/pause-account" options={{ title: 'Pause my account' }} />
         <Stack.Screen name="settings/restore-data" options={{ title: 'Restore my data' }} />
@@ -242,6 +247,8 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 
 // tapping a phone notification opens its screen (phone app; nothing on the web)
 function PushTaps() { usePushTaps(); useAppUpdate(); return null; }
+
+installCrashReporting(); // once, as the app starts: crashes go to the team console (Issues)
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

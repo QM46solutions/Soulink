@@ -66,9 +66,23 @@ export async function flushMetrics() {
     INSERT INTO server_metrics (at, requests, errors, p50_ms, p95_ms, max_ms, rss_mb, cpu_pct, slowest) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, row).catch(() => {});
 }
 
+/** This hour's and today's distinct active people (Indian time), straight from memory: no database wait. */
+export function liveActivity() {
+  const { day, hour } = istParts();
+  return { activeHour: hourSets.get(`${day}|${hour}`)?.size || 0, activeToday: daySets.get(day)?.size || 0, requestsSinceFlush: times.length };
+}
+
 let timer = null;
 export function startMetrics() {
   if (timer) return;
   timer = setInterval(() => { flushMetrics().catch(() => {}); }, 5 * 60_000);
   timer.unref?.();
+  // Render restarts and sleeps the server (new version, free-plan sleep): save the numbers first, not lose up to 5 minutes
+  let saving = false;
+  const saveAndExit = (sig) => {
+    if (saving) return; saving = true;
+    Promise.race([flushMetrics().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]).finally(() => process.exit(sig === 'SIGINT' ? 130 : 0));
+  };
+  process.once('SIGTERM', () => saveAndExit('SIGTERM'));
+  process.once('SIGINT', () => saveAndExit('SIGINT'));
 }

@@ -116,24 +116,66 @@
     PAGES.filter(can).forEach((p) => { if (p.g !== g) { g = p.g; nav += `<div class="nav-h">${g}</div>`; } nav += `<a href="#${p.id}" data-id="${p.id}"><svg viewBox="0 0 24 24">${ic[p.i]}</svg>${p.t}<span class="ct" data-ct="${p.id}" hidden></span></a>`; });
     $('#root').innerHTML = `<div class="app"><aside class="rail" id="rail"><div class="brand"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><circle cx="15" cy="20" r="10" stroke="#9b7bff" stroke-width="3.5"/><circle cx="25" cy="20" r="10" stroke="#f0679a" stroke-width="3.5"/></svg><div>Soulink<small>TEAM CONSOLE</small></div></div>
       <nav class="nav">${nav}</nav><div class="who"><b>${esc(me.name)}</b><span>${ROLE[me.role]}</span><br><button id="out">Sign out</button></div></aside>
-      <main><div class="top"><button class="btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="sp"></div><span class="stamp" id="stamp"></span><button class="btn sm" id="refresh">↻ Refresh</button></div><div id="view"></div></main></div>`;
-    $('#out').onclick = () => { saveToken(null); me = null; showAuth(); };
+      <main><div class="top"><button class="btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="sp"></div><span class="live" id="live" hidden></span><span class="stamp" id="stamp"></span><button class="btn sm" id="refresh">↻ Refresh</button></div><div id="view"></div></main></div>`;
+    $('#out').onclick = () => { timers.forEach(clearInterval); timers = []; saveToken(null); me = null; showAuth(); };
     $('#menuBtn').onclick = () => $('#rail').classList.toggle('open');
     $('#refresh').onclick = () => render();
     window.onhashchange = () => { st.cust = null; render(); };
   }
-  async function render() {
+  let shown = null; // the page on screen
+  async function render(opts = {}) {
     let id = (location.hash || '').slice(1); let p = PAGES.find((x) => x.id === id && can(x)); if (!p) { p = PAGES.find(can); id = p.id; }
+    const v = $('#view');
+    if (opts.silent) {
+      // auto-refresh: fetch first, swap only if nothing changed meanwhile, keep the scroll position, never flash "Loading"
+      try {
+        const html = await VIEWS[id]();
+        if (id !== shown || !canAutoRefresh()) return;
+        const y = window.scrollY; v.innerHTML = html; AFTER[id]?.(); window.scrollTo(0, y); stamp();
+      } catch { /* keep what's on screen; the next try may work */ }
+      return;
+    }
+    shown = id;
     document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.id === id));
     $('#title').textContent = p.t; $('#sub').textContent = p.s; $('#rail')?.classList.remove('open');
-    const v = $('#view'); v.innerHTML = '<div class="loading">Loading live numbers…</div>';
-    try { v.innerHTML = await VIEWS[id](); $('#stamp').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); AFTER[id]?.(); }
+    v.innerHTML = '<div class="loading">Loading live numbers…</div>';
+    try { v.innerHTML = await VIEWS[id](); stamp(); AFTER[id]?.(); }
     catch (e) { v.innerHTML = `<div class="panel"><b>Couldn’t load this page.</b><p class="mu">${esc(e.message)}</p><button class="btn" onclick="location.reload()">Reload</button></div>`; }
+  }
+  const stamp = () => { $('#stamp').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', second: '2-digit' }); };
+
+  // ---------- live: the strip refreshes every 15 s, the page every 60 s ----------
+  // Pages with forms (new booking, rate card, team) never refresh by themselves, and nothing refreshes while
+  // a pop-up is open, someone is typing, a customer is open, or the tab is in the background.
+  const AUTO = new Set(['overview', 'users', 'activity', 'growth', 'performance', 'issues', 'releases', 'revenue', 'safety', 'ads']);
+  function canAutoRefresh() {
+    if (document.hidden || !me || document.querySelector('.modal')) return false;
+    const f = document.activeElement; if (f && /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)) return false;
+    if (shown === 'ads' && st.cust) return false;
+    return AUTO.has(shown);
+  }
+  async function pollLive() {
+    const e = $('#live'); if (!e || document.hidden || !me) return;
+    try {
+      const l = await api('/live'); st.live = l;
+      const f = (x) => Number(x || 0).toLocaleString('en-IN');
+      e.hidden = false; e.className = 'live';
+      e.innerHTML = `<i></i><b>${f(l.online)}</b> online now · <b>${f(l.activeHour)}</b> this hour · <b>${f(l.signupsToday)}</b> new today`;
+      e.title = `Active in the last 5 minutes: ${f(l.active5)}\nPeople today (since the server started): ${f(l.activeToday)}\nMessages in the last hour: ${f(l.messagesHour)}\nPosts and Sparks in the last hour: ${f(l.postsHour)}\nNew issues waiting: ${f(l.issuesNew)}\nServer up for ${f(l.uptimeMin)} min`;
+      const ct = document.querySelector('[data-ct="issues"]'); if (ct) { ct.hidden = !l.issuesNew; ct.textContent = l.issuesNew || ''; }
+    } catch { e.hidden = false; e.className = 'live off'; e.innerHTML = '<i></i>Server not answering'; }
+  }
+  let timers = [];
+  function startLive() {
+    timers.forEach(clearInterval);
+    pollLive();
+    timers = [setInterval(pollLive, 15_000), setInterval(() => { if (canAutoRefresh()) render({ silent: true }); }, 60_000)];
+    document.onvisibilitychange = () => { if (!document.hidden && me) { pollLive(); if (canAutoRefresh()) render({ silent: true }); } };
   }
   async function boot() {
     if (!token) return showAuth();
     try { if (!me) me = (await api('/auth/me')).me; } catch { return showAuth(); }
-    shell(); render();
+    shell(); render(); startLive();
   }
   const kpi = (l, v, d = '', cls = 'mu', sp = '') => `<div class="panel kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d ${cls}">${d}</div>${sp}</div>`;
   const VIEWS = {}; const AFTER = {};

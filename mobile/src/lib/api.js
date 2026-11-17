@@ -109,7 +109,18 @@ export async function api(path, opts = {}) {
   }
 }
 
-async function apiOnce(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {
+// Requests in flight, so screen timings (lib/telemetry.js) can tell when a screen has finished loading its data.
+let inflight = 0; let netChangedAt = Date.now();
+export const netState = () => ({ inflight, changedAt: netChangedAt });
+const netDone = () => { inflight = Math.max(0, inflight - 1); netChangedAt = Date.now(); };
+
+async function apiOnce(path, opts = {}) {
+  const counted = !path.startsWith('/telemetry');
+  if (counted) { inflight += 1; netChangedAt = Date.now(); }
+  try { return await apiRequest(path, opts); } finally { if (counted) netDone(); }
+}
+
+async function apiRequest(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (access) headers['x-soulink-access'] = access;

@@ -131,3 +131,12 @@ svg text{fill:var(--dim);font-family:var(--mono);font-size:10px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .kpi:has(svg.spark) .d{padding-right:96px}
+/* live strip in the top bar: who's on Soulink right now */
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);padding:5px 10px;border-radius:999px;background:var(--goodSoft);border:1px solid var(--goodSoft);white-space:nowrap;cursor:default}
+.live b{color:var(--fg);font-weight:600}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--good);animation:livepulse 2s infinite}
+.live.off{background:var(--badSoft);border-color:var(--badSoft)}
+.live.off i{background:var(--bad);animation:none}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live i{animation:none}}
+@media (max-width:640px){.live{order:5;width:100%;justify-content:center;white-space:normal}}

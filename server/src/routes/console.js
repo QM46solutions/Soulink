@@ -7,6 +7,8 @@ import { many, one, query } from '../db.js';
 import { ah, badRequest, notFound, HttpError } from '../lib/errors.js';
 import { checkPassword, checkTotp, hashPassword, newTotpSecret, otpauthUrl, requireConsole, signConsole } from '../lib/consoleAuth.js';
 import { uploadMemory, saveFile } from '../providers/storage.js';
+import { onlineNow } from '../realtime.js';
+import { liveActivity } from '../services/metrics.js';
 
 const r = Router();
 const OWNER = requireConsole(); // owner-only when no extra roles are given
@@ -143,6 +145,20 @@ r.get('/overview', ANY, ah(async (req, res) => {
   const growth = []; for (let i = 29; i >= 0; i--) { const d = new Date(Date.now() + 330 * 60_000 - i * 86400_000).toISOString().slice(0, 10); run += byDay[d] || 0; growth.push({ day: d, users: run, signups: byDay[d] || 0 }); }
   res.json({ totals: t, platforms: Object.fromEntries(plat.map((p) => [p.p, n(p.n)])), growth, dau: dau.map((d) => ({ day: new Date(d.day).toISOString().slice(0, 10), users: n(d.users) })),
     counts: c, peakHour: peak ? { hour: n(peak.hour), users: Math.round(n(peak.u)) } : null, release, server: await latestMetrics() });
+}));
+
+// ---------- live (the console checks this every 15 seconds) ----------
+// Light on purpose: who has the app open now and this hour come from memory; the rest is 5 small counts.
+r.get('/live', ANY, ah(async (req, res) => {
+  const mem = liveActivity();
+  const c = await one(`SELECT
+      (SELECT COUNT(*) FROM users WHERE last_active_at > DATEADD(minute, -5, SYSDATETIMEOFFSET()) AND deactivated_at IS NULL) AS active5,
+      (SELECT COUNT(*) FROM users WHERE created_at >= CAST(${TODAY} AS DATETIMEOFFSET) AND username IS NOT NULL) AS signupsToday,
+      (SELECT COUNT(*) FROM messages WHERE created_at > DATEADD(hour, -1, SYSDATETIMEOFFSET())) AS messagesHour,
+      (SELECT COUNT(*) FROM posts WHERE created_at > DATEADD(hour, -1, SYSDATETIMEOFFSET())) + (SELECT COUNT(*) FROM sparks WHERE created_at > DATEADD(hour, -1, SYSDATETIMEOFFSET())) AS postsHour,
+      (SELECT COUNT(*) FROM app_issues WHERE status = N'new') AS issuesNew`).catch(() => ({}));
+  res.json({ at: new Date().toISOString(), online: onlineNow(), activeHour: mem.activeHour, activeToday: mem.activeToday,
+    active5: n(c.active5), signupsToday: n(c.signupsToday), messagesHour: n(c.messagesHour), postsHour: n(c.postsHour), issuesNew: n(c.issuesNew), uptimeMin: Math.round(process.uptime() / 60) });
 }));
 
 // ---------- users ----------

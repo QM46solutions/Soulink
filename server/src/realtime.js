@@ -50,6 +50,14 @@ async function membersOf(conversationId) {
   return rows.map((r) => r.user_id);
 }
 
+/** People with the app open right now (a live connection), for the team console. */
+export function onlineNow() {
+  if (!io) return 0;
+  const ids = new Set();
+  for (const s of io.of('/').sockets.values()) if (s.data?.userId) ids.add(String(s.data.userId).toLowerCase());
+  return ids.size;
+}
+
 /** Logout: close this device's live connection. */
 export function disconnectSession(sid) {
   if (io && sid) io.in(`session:${sid}`).disconnectSockets(true);

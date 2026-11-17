@@ -82,6 +82,7 @@ export default function Settings() {
       {user.isAdmin ? <MenuRow icon="musical-notes" title="Copyright reports" text="Soulink team: decide within 36 hours" onPress={go('/admin/copyright')} tint={['#ff6b9d', '#7c5cfc']} /> : null}
       {user.isAdmin ? <MenuRow icon="megaphone" title="Ads Manager" text="Soulink team: ads, budgets and revenue" onPress={go('/ads')} tint={['#f5c842', '#ff9a5a']} /> : null}
       {hasAds ? <MenuRow icon="stats-chart" title="My ads" text="Spent, left, views and taps for your ads and Spark boosts" onPress={go('/ads/mine')} tint={['#42e8c0', '#7c5cfc']} /> : null}
+      <MenuRow icon="chatbox-ellipses" title="Report a problem" text="Something not working? Tell the Soulink team" onPress={go('/settings/report-problem')} tint={['#ff9a5a', '#f5c842']} />
       <MenuRow icon="information-circle" title="About" text="Soulink version, terms and privacy" onPress={go('/settings/about')} tint={['#b08fff', '#7c5cfc']} />
       <MenuRow icon="log-out-outline" title="Log out" danger
         onPress={async () => { if (await confirm('Log out?', undefined, { confirmText: 'Log out', destructive: true })) signOut(); }} />
