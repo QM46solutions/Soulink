@@ -118,7 +118,7 @@ export function createApp() {
     const ok = (v) => !!v && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(v)).digest(), want);
     app.get('/access', (req, res) => res.json({ required: true, ok: ok(req.get('x-soulink-access')) }));
     app.use((req, res, next) => {
-      if (req.path === '/health' || req.path === '/wake' || req.path === '/push/renew' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || req.path.startsWith('/share/') || ok(req.get('x-soulink-access'))) return next();
+      if (req.path === '/health' || req.path === '/wake' || req.path === '/push/renew' || req.path.startsWith('/uploads/') || req.path.startsWith('/music/play/') || req.path.startsWith('/share/') || req.path.startsWith('/console/') || ok(req.get('x-soulink-access'))) return next(); // the team console has its own sign-in
       return res.status(403).json({ error: { code: 'access_code', message: 'Enter the Soulink access code' } });
     });
   } else {
