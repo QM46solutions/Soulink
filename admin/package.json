@@ -1,0 +1,8 @@
+{
+  "name": "soulink-console",
+  "private": true,
+  "description": "Soulink team console (admin.qm46.in). Plain HTML, CSS and JavaScript: nothing to build.",
+  "scripts": {
+    "build": "echo \"Nothing to build\""
+  }
+}
