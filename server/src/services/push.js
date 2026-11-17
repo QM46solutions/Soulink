@@ -44,6 +44,8 @@ const TYPES = {
   spark_comment_reply: ['comments', () => 'replied to your comment on a Spark.'],
   spark_comment_like: ['likes', () => 'liked your comment 👌🏻'],
   spark_suspended: ['likes', () => 'Your Spark was suspended after many reports. Only you can see it now.', true],
+  spark_ready: ['likes', () => 'Your Spark is ready and live 🎬', true],
+  spark_build_failed: ['likes', () => "Your Spark couldn't be put together. Open Soulink to try again.", true],
   spark_tried: ['likes', (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`)],
   argue_invite: ['argue', (m) => `invited you to settle an argument${m?.topic ? `: "${m.topic}"` : ''}`],
   argue_verdict: ['argue', (m) => `The Referee's verdict is in${m?.topic ? ` for "${m.topic}"` : ''} ⚖️`, true],

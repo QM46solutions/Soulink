@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notice } from '../../lib/confirm';
-import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChallengeOfWeek, micTopicOf, postSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
+import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, builderOn, catOf, fitChallengeOfWeek, micTopicOf, postSpark, postStudioSpark, rollDice, scriptOfWeek } from '../../lib/sparks';
 import SparkVideo from '../../components/SparkVideo';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkRecorder from '../../components/SparkRecorder';
@@ -77,6 +77,8 @@ export default function NewSpark() {
   const [draft, setDraft] = useState(null); // a Spark you were editing before, on this phone
   const [joining, setJoining] = useState(null); // null, or how far joining the clips has got (0-1)
   const [edit, setEdit] = useState({});    // what the players apply (details.edit), made from the project
+  const [build, setBuild] = useState(false); // posted through the Soulink video builder (several clips / photos / a Soul Look)
+  const [uploading, setUploading] = useState(null);
   const [category, setCategory] = useState(micTopic ? 'openmic' : null);
   const [mode, setMode] = useState(null); // acting: dice | script | scene | dub
   const [dice, setDice] = useState(null);
@@ -136,6 +138,16 @@ export default function NewSpark() {
   const studioNext = async (project) => {
     setProj(project); setMusic(project.music || null); setVoice(project.voice || null);
     const recipe = Studio.toRecipe(project);
+    // the video builder puts it together on the server: several clips or photos, or a Soul Look / adjustments
+    // (looks are baked into the video so they show on every phone). Text and stickers stay live on top.
+    const look = (project.filter && project.filter !== 'none') || Object.values(project.adjust || {}).some(Boolean);
+    if ((!Studio.isSingleVideo(project) || look) && (await builderOn())) {
+      const len = Studio.totalLen(project);
+      const L = Studio.toLegacyEdit({ ...project, clips: [{ id: 'built', kind: 'video', in: 0, out: len, src: len, speed: 1 }] }) || {};
+      setEdit({ ...(L.texts ? { texts: L.texts } : {}), ...(L.stickers ? { stickers: L.stickers } : {}), ...(L.cover != null ? { cover: L.cover } : {}) });
+      setBuild(true); setVideo(null); setStep('details'); return;
+    }
+    setBuild(false);
     if (Studio.isSingleVideo(project)) {
       const c = project.clips[0];
       setVideo({ uri: c.uri, type: c.type, oneTake: !!c.oneTake });
@@ -186,6 +198,15 @@ export default function NewSpark() {
   };
   const post = async () => {
     setBusy(true);
+    if (build) {
+      try {
+        const r = await postStudioSpark({ project: proj, recipe: Studio.toRecipe(proj), edit, category, caption, place: place.trim(), details: baseDetails(), castingId: casting?.id, stage: forStage, mic: micTopic, onProgress: setUploading });
+        clearDraft();
+        notice('Almost live 🎬', r.message || "We're putting your Spark together. We'll tell you when it's ready.");
+        if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage || micTopic) router.replace('/spark/stage'); else router.replace('/sparks');
+      } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); setUploading(null); }
+      return;
+    }
     try {
       await postSpark({ videoUri: video.uri, videoType: video.type, music, voice, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
         castingId: casting?.id, stage: forStage, mic: micTopic });
@@ -321,13 +342,20 @@ export default function NewSpark() {
             </>
           ) : null}
 
-          {step === 'details' && video ? (
+          {step === 'details' && (video || (build && proj)) ? (
             <>
-              <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={edit} />
+              {build ? (
+                <View style={{ padding: space.lg, borderRadius: 20, overflow: 'hidden', alignItems: 'center' }}>
+                  <LinearGradient colors={['rgba(124,92,252,0.32)', 'rgba(255,107,157,0.22)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                  <Ionicons name="film" size={34} color={colors.text} />
+                  <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 17, marginTop: 8 }}>{`${proj.clips.length} ${proj.clips.length === 1 ? 'clip' : 'clips'} · ${Math.round(Studio.totalLen(proj))} s${proj.filter && proj.filter !== 'none' ? ' · Soul Look' : ''}`}</Text>
+                  <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>When you post, Soulink puts your clips, look and sound together into one Spark. It goes live in a minute or two and we'll tell you.</Text>
+                </View>
+              ) : <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={edit} />}
               <Pressable onPress={() => setStep('studio')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
                 <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
               </Pressable>
-              {video.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
+              {video?.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
 
               {category === 'travel' ? (
                 <>
@@ -395,7 +423,7 @@ export default function NewSpark() {
 
               <Pressable onPress={post} disabled={busy} style={{ marginTop: space.xl, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                 <LinearGradient colors={cat?.colors || gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>Post Spark 🎬</Text>}
+                {busy ? (uploading != null ? <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{`Uploading · ${Math.round(uploading * 100)}%`}</Text> : <ActivityIndicator color="#fff" />) : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>Post Spark 🎬</Text>}
               </Pressable>
               {busy ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>Uploading your video… this can take a minute.</Text> : null}
             </>

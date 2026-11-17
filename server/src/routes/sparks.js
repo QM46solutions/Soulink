@@ -2,6 +2,10 @@
 //  GET    /sparks?category=&before=   the Sparks tab (everyone's, newest first; filter by category)
 //  GET    /sparks/user/:userId        someone's Sparks
 //  POST   /sparks                     multipart: video (required), music? + category, caption, place?, details (json), oneTake=1|0
+//  GET    /sparks/builder             is the Soulink video builder on? (several clips / photos / Soul Looks)
+//  POST   /sparks/uploads             { files: [{ type, size }] } -> links to upload Studio clips straight to storage
+//  POST   /sparks/studio              json: the Spark + its Studio recipe + the uploaded file names -> a build job
+//  GET    /sparks/builds              my Sparks still being put together
 //  POST   /sparks/:id/react           the category reaction (😍 / 😋 / 👏 / 💪 / 💡), toggle
 //  POST   /sparks/:id/tried           cooking "I tried it" / fitness "I did it", toggle
 //  POST   /sparks/:id/view            counts a view (once a day per person)
@@ -20,9 +24,11 @@ import { phoneMusicOn } from './music.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
-import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
+import { ah, badRequest, forbidden, notFound, HttpError } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
-import { uploadMemory, saveFile } from '../providers/storage.js';
+import { uploadMemory, saveFile, blobLink, blobSize } from '../providers/storage.js';
+import { builderOn, kickBuilds, myBuilds, startBuilds } from '../services/videoBuilder.js';
+import crypto from 'node:crypto';
 import { notify, userCard } from '../services/social.js';
 import { REF_RE, playPath } from '../services/music.js';
 import { paymentMode, takePayment } from '../lib/payments.js';
@@ -236,18 +242,99 @@ r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', m
   if (voice) details.edit = { ...(details.edit || {}), voice: await saveFile(voice, 'sparks', 'spark') };
   const videoUrl = await saveFile(video, 'sparks', 'spark');
   const musicUrl = music ? await saveFile(music, 'sparks', 'spark') : b.musicRef ? playPath(b.musicRef) : null;
+  const id = await createSpark(req.user.id, { category: b.category, caption: b.caption, place: b.place, details, videoUrl, musicUrl,
+    musicTitle: musicUrl ? (b.musicTitle || music?.originalname?.replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music') : null, oneTake: b.oneTake === '1',
+    castingId: casting?.id || null, stage: b.stage === '1', mic: b.mic, voiceOnly });
+  const row = await one(`${SELECT} WHERE s.id = $2`, [req.user.id, id]);
+  res.status(201).json({ spark: view(row, req.user.id) });
+}));
+
+/** Saves a Spark (a normal post, or one the video builder just finished). Returns its id. */
+export async function createSpark(authorId, f) {
   const x = await one(
     `INSERT INTO sparks (author_id, category, video_url, music_url, music_title, caption, place, details, one_take, casting_id, stage_week, mic_topic, is_voice)
      OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-    [req.user.id, b.category, videoUrl, musicUrl, musicUrl ? (b.musicTitle || music?.originalname?.replace(/\.[a-z0-9]{2,4}$/i, '') || 'Music') : null, b.caption, b.place || null, JSON.stringify(details), b.oneTake === '1',
-      casting ? casting.id : null, b.stage === '1' ? stageWeek() : null, b.category === 'openmic' ? b.mic : null, voiceOnly ? 1 : 0],
+    [authorId, f.category, f.videoUrl, f.musicUrl || null, f.musicTitle || null, f.caption || '', f.place || null, JSON.stringify(f.details || {}), !!f.oneTake,
+      f.castingId || null, f.stage ? stageWeek() : null, f.category === 'openmic' ? f.mic : null, f.voiceOnly ? 1 : 0],
   );
-  if (casting && String(casting.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
-    await notify(casting.author_id, req.user.id, 'casting_audition', x.id, { title: casting.title }).catch(() => {});
+  if (f.castingId) {
+    const casting = await one('SELECT id, author_id, title FROM casting_calls WHERE id=$1', [f.castingId]);
+    if (casting && String(casting.author_id).toLowerCase() !== String(authorId).toLowerCase()) await notify(casting.author_id, authorId, 'casting_audition', x.id, { title: casting.title }).catch(() => {});
   }
-  const row = await one(`${SELECT} WHERE s.id = $2`, [req.user.id, x.id]);
-  res.status(201).json({ spark: view(row, req.user.id) });
+  return x.id;
+}
+startBuilds(createSpark);
+
+// ---------- Soulink Studio: Sparks the video builder puts together ----------
+const UPLOAD_TYPES = /^(video\/(mp4|quicktime|webm|x-m4v|3gpp)|image\/(jpeg|png|webp|heic)|audio\/(mp4|m4a|x-m4a|aac|mpeg|mp3|webm|ogg|wav|x-wav|3gpp))$/;
+const EXT = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/x-m4v': 'm4v', 'video/3gpp': '3gp', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' };
+const incoming = (userId) => `incoming/${String(userId).toLowerCase()}/`;
+
+r.get('/builder', (req, res) => res.json({ on: builderOn() }));
+
+// links to upload the Studio's clips, photos and sound straight to storage (big videos never pass through this server)
+r.post('/uploads', requireSoul, ah(async (req, res) => {
+  if (!builderOn()) throw new HttpError(503, 'Putting clips together is not switched on yet.', 'builder_off');
+  const { files } = z.object({ files: z.array(z.object({ type: z.string().regex(UPLOAD_TYPES, 'Unsupported file type'), size: z.number().int().min(1).max(200 * 1024 * 1024) })).min(1).max(22) }).parse(req.body || {});
+  const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
+  const out = [];
+  for (const f of files) {
+    const name = `${incoming(req.user.id)}${crypto.randomUUID()}.${EXT[f.type] || f.type.split('/')[1].replace(/[^a-z0-9]/g, '').slice(0, 5)}`;
+    out.push({ name, url: await blobLink(name, 'cw', 30) });
+  }
+  res.json({ uploads: out });
 }));
+
+const RECIPE = z.object({
+  clips: z.array(z.object({ kind: z.enum(['video', 'photo']), in: z.number().min(0).max(3600), out: z.number().min(0).max(3600), speed: z.number().min(0.25).max(4).optional() })).min(1).max(20),
+  music: z.object({ start: z.number().min(0).max(1200), volume: z.number().min(0).max(1) }).partial().optional(),
+  voice: z.object({ volume: z.number().min(0).max(1) }).partial().optional(),
+  videoVolume: z.number().min(0).max(1).optional(),
+  filter: z.enum(['none', 'warm', 'cool', 'vivid', 'mono', 'vintage', 'dream', 'noir', 'fade']).optional(),
+  adjust: z.object({ b: z.number().min(-1).max(1), c: z.number().min(-1).max(1), s: z.number().min(-1).max(1), w: z.number().min(-1).max(1) }).partial().optional(),
+  zoom: z.object({ s: z.number().min(1).max(3), x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+  fade: z.object({ in: z.number().min(0).max(3), out: z.number().min(0).max(3) }).partial().optional(),
+  cover: z.number().min(0).max(600).optional(),
+}).passthrough();
+
+// the Spark itself (like POST /sparks) + its Studio recipe + the names of the uploaded pieces -> a build job
+r.post('/studio', requireSoul, ah(async (req, res) => {
+  if (!builderOn()) throw new HttpError(503, 'Putting clips together is not switched on yet.', 'builder_off');
+  const blocked = postingBlocked(req.user); if (blocked) throw forbidden(blocked, 'posting_limited');
+  const mine = (n) => typeof n === 'string' && n.startsWith(incoming(req.user.id)) && /^[a-z0-9/.-]+$/.test(n);
+  const b = z.object({
+    category: z.enum(SPARK_CATEGORIES), caption: z.string().trim().max(1000).default(''), place: z.string().trim().max(150).optional(),
+    musicTitle: z.string().trim().max(150).optional(), musicRef: z.string().regex(REF_RE, 'Pick the song again').optional(),
+    details: z.record(z.string(), z.any()).default({}), oneTake: z.boolean().default(false), castingId: uuid.optional(), stage: z.boolean().default(false), mic: z.enum(MIC_TOPICS).optional(),
+    recipe: RECIPE,
+    files: z.object({ clips: z.array(z.string()).min(1).max(20), music: z.string().optional(), voice: z.string().optional() }),
+    rightsConfirmed: z.boolean().optional(),
+  }).parse(req.body || {});
+  if (b.category === 'openmic' && !b.mic) throw badRequest('Pick what you are talking about', 'no_topic');
+  if (b.files.clips.length !== b.recipe.clips.length) throw badRequest('The clips and the edit do not match');
+  for (const n of [...b.files.clips, b.files.music, b.files.voice].filter(Boolean)) {
+    if (!mine(n)) throw badRequest('One of the files is not yours');
+    if (!(await blobSize(n))) throw badRequest('One of the clips did not finish uploading. Try again.', 'upload_missing');
+  }
+  if (b.files.music && !phoneMusicOn()) throw forbidden("Songs from your phone can't be added. Use the music library or your video's original sound.", 'music_upload_off');
+  if (b.files.music && !b.rightsConfirmed) throw badRequest('Confirm you own this song or have permission to use it', 'rights_not_confirmed');
+  const total = b.recipe.clips.reduce((sum, c) => sum + Math.max(0, c.out - c.in) / (c.kind === 'photo' ? 1 : (c.speed || 1)), 0);
+  if (total > 61) throw badRequest('A Spark is up to 60 seconds', 'too_long');
+  let details = {};
+  try { details = DETAILS[b.category].parse(b.details); } catch { throw badRequest('Some of the extra details are not right'); }
+  if (b.castingId) {
+    const casting = await one('SELECT * FROM casting_calls WHERE id=$1 AND deleted_at IS NULL', [b.castingId]);
+    if (!casting) throw notFound('That casting call is gone');
+    if (new Date(casting.ends_at) < new Date() || casting.picked_spark_id) throw badRequest('Auditions for this role are closed', 'casting_closed');
+  }
+  const payload = { post: { category: b.category, caption: b.caption, place: b.place, musicTitle: b.musicTitle || null, oneTake: b.oneTake, castingId: b.castingId || null, stage: b.stage, mic: b.mic },
+    details, recipe: b.recipe, files: b.files, musicRef: b.musicRef || null };
+  const job = await one('INSERT INTO spark_builds (author_id, payload) OUTPUT INSERTED.id VALUES ($1, $2)', [req.user.id, JSON.stringify(payload)]);
+  kickBuilds();
+  res.status(202).json({ build: { id: job.id, status: 'queued' }, message: "We're putting your Spark together. It goes live in a minute or two, and we'll tell you when it's ready." });
+}));
+
+r.get('/builds', ah(async (req, res) => res.json({ builds: await myBuilds(req.user.id) })));
 
 // ---------- Casting Board ----------
 // What the role needs (all optional): age range, gender, languages, where, paid or not

@@ -34,19 +34,63 @@ export const uploadMemory = (kind = 'image', maxMb = 10, maxFiles = 1) =>
       ALLOWED[kind][file.mimetype] ? cb(null, true) : cb(badRequest(`Unsupported file type ${file.mimetype}`)),
   });
 
+// ---------- Azure Blob Storage (STORAGE=blob) ----------
+// Files live in a private Blob container (AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER, default "media"),
+// under the same name as their /uploads/ path, with the server's disk as a cache. Files saved before the switch are
+// still in the database (stored_files): they're read from there and copied to Blob on first use, and
+// moveStoredFilesToBlob() moves the rest in small, verified batches (BLOB_MIGRATE=on), freeing the database.
+let blobApi = null;
+async function blob() {
+  if (blobApi) return blobApi;
+  const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!conn) throw new Error('STORAGE=blob needs AZURE_STORAGE_CONNECTION_STRING');
+  const { BlobServiceClient, BlobSASPermissions } = await import('@azure/storage-blob');
+  const container = BlobServiceClient.fromConnectionString(conn).getContainerClient(process.env.AZURE_STORAGE_CONTAINER || 'media');
+  await container.createIfNotExists(); // private: nothing in it is public
+  blobApi = { container, BlobSASPermissions };
+  return blobApi;
+}
+export const blobOn = () => config.storage === 'blob';
+const blobNameOf = (url) => String(url).replace(/^\/uploads\//, '');
+async function putBlob(url, buffer, mimetype) {
+  const { container } = await blob();
+  await container.getBlockBlobClient(blobNameOf(url)).uploadData(buffer, { blobHTTPHeaders: { blobContentType: mimetype || MIME[path.extname(url).toLowerCase()] || 'application/octet-stream' } });
+}
+/** A short-lived link to read (r) or write (cw) one file in Blob directly, for the video builder and direct uploads. */
+export async function blobLink(name, perms = 'r', minutes = 30) {
+  const { container, BlobSASPermissions } = await blob();
+  return container.getBlockBlobClient(blobNameOf(name)).generateSasUrl({ permissions: BlobSASPermissions.parse(perms), startsOn: new Date(Date.now() - 5 * 60_000), expiresOn: new Date(Date.now() + minutes * 60_000) });
+}
+/** Size in bytes of a file in Blob, or null if it isn't there. */
+export async function blobSize(name) {
+  const { container } = await blob();
+  try { return (await container.getBlockBlobClient(blobNameOf(name)).getProperties()).contentLength; } catch (e) { if (e.statusCode === 404) return null; throw e; }
+}
+/** Rename a file in Blob (an uploaded clip becomes a Spark's file): copy, check, delete the old one. */
+export async function blobMove(from, to) {
+  const { container } = await blob();
+  const src = container.getBlockBlobClient(blobNameOf(from)); const dst = container.getBlockBlobClient(blobNameOf(to));
+  await (await dst.beginCopyFromURL(await blobLink(from, 'r', 30))).pollUntilDone();
+  await src.deleteIfExists();
+  return to;
+}
+export async function blobDelete(name) { const { container } = await blob(); await container.getBlockBlobClient(blobNameOf(name)).deleteIfExists(); }
+
 /** Saves a buffer and returns its public URL (/uploads/folder/name).
  *  STORAGE=local: file on this computer's disk (server/uploads).
- *  STORAGE=db:    file on disk as a cache AND in the database (stored_files), for cloud hosts whose disk is wiped on restart. */
+ *  STORAGE=db:    file on disk as a cache AND in the database (stored_files), for cloud hosts whose disk is wiped on restart.
+ *  STORAGE=blob:  file on disk as a cache AND in Azure Blob Storage. */
 export async function saveFile(file, folder, kind = 'image') {
   if (!file) throw badRequest('No file uploaded');
   const ext = ALLOWED[kind][file.mimetype] || '';
   const name = `${crypto.randomUUID()}${ext}`;
-  if (config.storage !== 'local' && config.storage !== 'db') throw new Error(`Storage "${config.storage}" is not set up yet`);
+  if (!['local', 'db', 'blob'].includes(config.storage)) throw new Error(`Storage "${config.storage}" is not set up yet`);
   const dir = path.join(config.uploadDir, folder);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, name), file.buffer);
   const url = `/uploads/${folder}/${name}`;
   if (config.storage === 'db') await storeInDb(url, file.buffer, file.mimetype);
+  if (config.storage === 'blob') await putBlob(url, file.buffer, file.mimetype);
   return url;
 }
 
@@ -64,19 +108,41 @@ async function storeInDb(url, buffer, mimetype) {
 
 /** A file written straight to disk by other code (e.g. a translated voice clip): also keep it in the database. */
 export async function persistFile(url) {
-  if (config.storage !== 'db') return;
-  await storeInDb(url, await fs.readFile(diskOf(url)));
+  if (config.storage === 'db') await storeInDb(url, await fs.readFile(diskOf(url)));
+  if (config.storage === 'blob') await putBlob(url, await fs.readFile(diskOf(url)));
 }
 
 /** Makes sure an /uploads/... file is on this computer's disk (restores it from the database if needed). Returns the disk path. */
 export async function ensureLocal(url) {
   const file = diskOf(url);
-  if (config.storage !== 'db') return file;
+  if (config.storage !== 'db' && config.storage !== 'blob') return file;
   try { await fs.access(file); return file; } catch { /* not cached yet */ }
-  const { one } = await import('../db.js');
-  const row = await one('SELECT data FROM stored_files WHERE path=$1', [url]);
-  if (!row?.data) return file;
   await fs.mkdir(path.dirname(file), { recursive: true });
+  if (config.storage === 'blob') {
+    try { await (await blob()).container.getBlockBlobClient(blobNameOf(url)).downloadToFile(file); return file; }
+    catch (e) { if (e.statusCode !== 404) throw e; await fs.rm(file, { force: true }); } // not in Blob: an older file, still in the database
+  }
+  const { one } = await import('../db.js');
+  const row = await one('SELECT data, mime FROM stored_files WHERE path=$1', [url]);
+  if (!row?.data) return file;
   await fs.writeFile(file, row.data);
+  if (config.storage === 'blob') putBlob(url, row.data, row.mime).catch(() => {}); // copied to Blob on first use
   return file;
+}
+
+/** STORAGE=blob + BLOB_MIGRATE=on: moves files saved in the database to Blob, a few at a time, and frees the database.
+ *  Each file is uploaded, its size in Blob is checked, and only then is the database copy deleted. Returns how many moved. */
+export async function moveStoredFilesToBlob(batch = 10) {
+  if (config.storage !== 'blob' || process.env.BLOB_MIGRATE !== 'on') return 0;
+  const { many, query } = await import('../db.js');
+  const rows = await many(`SELECT TOP ${Math.max(1, Math.min(50, batch))} path, mime, data FROM stored_files ORDER BY created_at`);
+  let moved = 0;
+  for (const r of rows) {
+    const len = r.data?.length || 0;
+    try {
+      if ((await blobSize(r.path)) !== len) await putBlob(r.path, r.data, r.mime);
+      if ((await blobSize(r.path)) === len) { await query('DELETE FROM stored_files WHERE path=$1', [r.path]); moved += 1; }
+    } catch { /* this one stays in the database; tried again next time */ }
+  }
+  return moved;
 }

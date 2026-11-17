@@ -1,0 +1,8 @@
+{
+  "name": "soulink-builder",
+  "private": true,
+  "type": "module",
+  "description": "Soulink video builder: turns a Soulink Studio edit into the finished Spark (ffmpeg).",
+  "scripts": { "start": "node server.js", "test": "node smoke_test.js" },
+  "engines": { "node": ">=20" }
+}

@@ -43,6 +43,8 @@ const TEXT = {
   spark_comment_reply: 'replied to your comment on a Spark.',
   spark_comment_like: 'liked your comment 👌🏻',
   spark_suspended: 'Your Spark was suspended: more than 75 people found it offensive. Only you can see it now.',
+  spark_ready: 'Your Spark is ready and live 🎬',
+  spark_build_failed: "Your Spark couldn't be put together. Try posting it again from your draft.",
   casting_audition: (m) => `auditioned for your role${m?.title ? ` "${m.title}"` : ''} 🎭`,
   casting_pick: (m) => `picked your audition${m?.title ? ` for "${m.title}"` : ''}! 🌟`,
   spark_tried: (m) => (m?.category === 'fitness' ? 'did your workout 💪' : `tried your recipe${m?.dish ? ` for ${m.dish}` : ''} 😋`),

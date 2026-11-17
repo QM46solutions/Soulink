@@ -98,3 +98,55 @@ export async function postSpark({ videoUri, videoType, music, voice, category, c
   }
   return api('/sparks', { method: 'POST', form, timeoutMs: 300000 });
 }
+
+// ---------- Soulink Studio: Sparks the video builder puts together (several clips / photos, Soul Looks) ----------
+/** is the video builder switched on? (cached for the session) */
+let builderCache = null;
+export async function builderOn() {
+  if (builderCache != null) return builderCache;
+  try { builderCache = !!(await api('/sparks/builder')).on; } catch { return false; }
+  return builderCache;
+}
+async function sizeOf(uri) {
+  if (Platform.OS === 'web') return (await blobOf(uri)).size;
+  const FS = await import('expo-file-system/legacy');
+  const info = await FS.getInfoAsync(uri, { size: true }).catch(() => null);
+  return info?.size || 1;
+}
+async function putFile(url, uri, type) {
+  const headers = { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': type };
+  if (Platform.OS === 'web') {
+    const res = await fetch(url, { method: 'PUT', body: await blobOf(uri), headers });
+    if (!res.ok) throw new Error('A clip could not be uploaded. Check your connection and try again.');
+    return;
+  }
+  const FS = await import('expo-file-system/legacy');
+  const res = await FS.uploadAsync(url, uri, { httpMethod: 'PUT', uploadType: FS.FileSystemUploadType.BINARY_CONTENT, headers });
+  if (res.status < 200 || res.status >= 300) throw new Error('A clip could not be uploaded. Check your connection and try again.');
+}
+/**
+ * Uploads the Studio's clips (and a song from the phone / the voiceover) straight to storage, then posts the Spark
+ * as a build job. The Spark appears when it's ready (a notification tells you). onProgress(0..1) while uploading.
+ * recipe = lib/studio.js toRecipe(project); edit = the text / stickers / cover that stay live on top of the video.
+ */
+export async function postStudioSpark({ project, recipe, edit, category, caption, place, details, castingId, stage, mic, onProgress }) {
+  const pieces = project.clips.map((c) => ({ uri: c.uri, type: c.type || (c.kind === 'photo' ? 'image/jpeg' : 'video/mp4') }));
+  const song = project.music && !project.music.ref && project.music.uri ? { uri: project.music.uri, type: project.music.type || 'audio/mpeg' } : null;
+  const voice = project.voice?.uri ? { uri: project.voice.uri, type: (project.voice.type || 'audio/m4a').split(';')[0] } : null;
+  const all = [...pieces, ...(song ? [song] : []), ...(voice ? [voice] : [])];
+  const sizes = await Promise.all(all.map((f) => sizeOf(f.uri)));
+  const { uploads } = await api('/sparks/uploads', { method: 'POST', body: { files: all.map((f, i) => ({ type: f.type, size: Math.max(1, sizes[i]) })) } });
+  let done = 0;
+  for (let i = 0; i < all.length; i += 1) {
+    await putFile(uploads[i].url, all[i].uri, all[i].type);
+    done += sizes[i]; onProgress?.(Math.min(0.99, done / sizes.reduce((a, b) => a + b, 0)));
+  }
+  const names = uploads.map((u) => u.name);
+  return api('/sparks/studio', { method: 'POST', timeoutMs: 60000, body: {
+    category, caption: caption || '', ...(place ? { place } : {}), details: { ...(details || {}), ...(edit ? { edit } : {}) },
+    ...(project.music?.ref ? { musicRef: project.music.ref } : {}), ...(project.music ? { musicTitle: (project.music.title || project.music.name || '').slice(0, 150) } : {}),
+    ...(castingId ? { castingId } : {}), ...(stage ? { stage: true } : {}), ...(mic ? { mic } : {}),
+    ...(song ? { rightsConfirmed: !!project.music.rightsConfirmed } : {}),
+    recipe, files: { clips: names.slice(0, pieces.length), ...(song ? { music: names[pieces.length] } : {}), ...(voice ? { voice: names[names.length - 1] } : {}) },
+  } });
+}

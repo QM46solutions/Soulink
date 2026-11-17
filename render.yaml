@@ -70,6 +70,19 @@ services:
         sync: false
       - key: ADMIN_USERNAMES
         sync: false
+      # Soulink Studio video builder + Azure Blob storage (docs/VIDEO-BUILDER.md). Typed in once in the Render dashboard.
+      # STORAGE above stays "db" until these are in; then it changes to "blob" in this file.
+      - key: AZURE_STORAGE_CONNECTION_STRING
+        sync: false
+      - key: AZURE_STORAGE_CONTAINER
+        value: media
+      - key: BUILDER_URL
+        sync: false
+      - key: BUILDER_TOKEN
+        sync: false
+      # moves files saved in the database to Blob, a few at a time, each one checked before the database copy is removed
+      - key: BLOB_MIGRATE
+        value: "off"
       # Google Play / App Store reviewers: one test number + its fixed 6-digit code (skips the face scan)
       - key: REVIEW_PHONE
         sync: false
