@@ -4,7 +4,7 @@ import { PanResponder, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { textShown, textStyleOf } from '../lib/sparkEdit';
 
-function Draggable({ x, y, box, onMove, onTap, selected, children }) {
+function Draggable({ x, y, rot, box, onMove, onTap, selected, children }) {
   const start = useRef({ x, y }); const moved = useRef(false);
   const pos = useRef({ x, y }); pos.current = { x, y };
   const cfg = useRef({}); cfg.current = { box, onMove, onTap };
@@ -20,7 +20,7 @@ function Draggable({ x, y, box, onMove, onTap, selected, children }) {
     onPanResponderTerminationRequest: () => false,
   })).current;
   return (
-    <View {...pan.panHandlers} style={{ position: 'absolute', left: x * box.width, top: y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+    <View {...pan.panHandlers} style={{ position: 'absolute', left: x * box.width, top: y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }, ...(rot ? [{ rotate: `${rot}deg` }] : [])],
       borderWidth: selected ? 1.5 : 0, borderColor: 'rgba(255,255,255,0.8)', borderStyle: 'dashed', borderRadius: 8, padding: selected ? 4 : 5.5, cursor: 'grab' }}>
       {children}
     </View>
@@ -42,21 +42,22 @@ export default function SparkOverlays({ edit, editable, selected, onSelect, onCh
         if (!sel && !textShown(t, time)) return null;
         const node = <Text style={[textStyleOf(t.style, t.color, t.size * scale), { maxWidth: box.width * 0.9 }]}>{t.t}</Text>;
         return editable ? (
-          <Draggable key={`t${i}`} x={t.x} y={t.y} box={box} selected={sel} onMove={(x, y) => set('texts', i, { x, y })} onTap={() => onSelect?.(sel ? null : { kind: 'texts', i })}>
+          <Draggable key={`t${i}`} x={t.x} y={t.y} rot={t.rot} box={box} selected={sel} onMove={(x, y) => set('texts', i, { x, y })} onTap={() => onSelect?.(sel ? null : { kind: 'texts', i })}>
             {node}
             {sel ? <Pressable onPress={() => remove('texts', i)} hitSlop={8} style={{ position: 'absolute', top: -12, right: -12, width: 24, height: 24, borderRadius: 12, backgroundColor: '#ff5c7a', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="close" size={15} color="#fff" /></Pressable> : null}
           </Draggable>
-        ) : <View key={`t${i}`} style={{ position: 'absolute', left: t.x * box.width, top: t.y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }] }}>{node}</View>;
+        ) : <View key={`t${i}`} style={{ position: 'absolute', left: t.x * box.width, top: t.y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }, ...(t.rot ? [{ rotate: `${t.rot}deg` }] : [])] }}>{node}</View>;
       }) : null}
       {box ? stickers.map((s, i) => {
         const sel = selected?.kind === 'stickers' && selected.i === i;
+        if (!sel && !textShown(s, time)) return null;
         const node = <Text style={{ fontSize: s.size * scale, lineHeight: s.size * scale * 1.15 }}>{s.e}</Text>;
         return editable ? (
-          <Draggable key={`s${i}`} x={s.x} y={s.y} box={box} selected={sel} onMove={(x, y) => set('stickers', i, { x, y })} onTap={() => onSelect?.(sel ? null : { kind: 'stickers', i })}>
+          <Draggable key={`s${i}`} x={s.x} y={s.y} rot={s.rot} box={box} selected={sel} onMove={(x, y) => set('stickers', i, { x, y })} onTap={() => onSelect?.(sel ? null : { kind: 'stickers', i })}>
             {node}
             {sel ? <Pressable onPress={() => remove('stickers', i)} hitSlop={8} style={{ position: 'absolute', top: -12, right: -12, width: 24, height: 24, borderRadius: 12, backgroundColor: '#ff5c7a', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="close" size={15} color="#fff" /></Pressable> : null}
           </Draggable>
-        ) : <View key={`s${i}`} style={{ position: 'absolute', left: s.x * box.width, top: s.y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }] }}>{node}</View>;
+        ) : <View key={`s${i}`} style={{ position: 'absolute', left: s.x * box.width, top: s.y * box.height, transform: [{ translateX: '-50%' }, { translateY: '-50%' }, ...(s.rot ? [{ rotate: `${s.rot}deg` }] : [])] }}>{node}</View>;
       }) : null}
     </View>
   );

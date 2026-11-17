@@ -21,7 +21,8 @@ const once = (el, ev, ms = 8000) => new Promise((res, rej) => {
   el.addEventListener(ev, done); el.addEventListener('error', fail);
 });
 
-/** clips: [{ uri, start, end }] · returns { uri, type, name, seconds } */
+/** clips: [{ uri, start, end, kind?: 'video'|'photo', speed? }] (a photo shows for end - start seconds, slowly zooming)
+ *  · returns { uri, type, name, seconds } */
 export async function joinClips(clips, { transition = 'cut', onProgress } = {}) {
   if (!canJoin()) throw new Error('This browser can’t join clips. Try Chrome, Edge or Safari.');
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -36,11 +37,17 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
   const chunks = [];
   rec.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
   const stopped = new Promise((r) => { rec.onstop = r; });
-  const total = clips.reduce((s, c) => s + Math.max(0, c.end - c.start), 0) || 1;
+  const lenOf = (c) => Math.max(0, c.end - c.start) / (c.kind === 'photo' ? 1 : (c.speed || 1));
+  const total = clips.reduce((s, c) => s + lenOf(c), 0) || 1;
   let done = 0;
 
   // open a clip, ready at its start (sound routed only into the recording, not the speakers)
   const open = async (c) => {
+    if (c.kind === 'photo') {
+      const img = new Image(); img.crossOrigin = 'anonymous'; img.src = c.uri;
+      await once(img, 'load');
+      return { img };
+    }
     const v = document.createElement('video');
     v.src = c.uri; v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'anonymous'; v.muted = false; v.volume = 1;
     await once(v, 'loadeddata');
@@ -49,8 +56,9 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
     v.currentTime = c.start; await once(v, 'seeked', 4000);
     return { v, gain };
   };
-  const draw = (v, shade, white) => {
-    const vw = v.videoWidth || W; const vh = v.videoHeight || H; const s = Math.max(W / vw, H / vh); // fill the 9:16 frame
+  const draw = (v, shade, white, zoom = 1) => {
+    const vw = v.videoWidth || v.naturalWidth || W; const vh = v.videoHeight || v.naturalHeight || H; const s = Math.max(W / vw, H / vh) * zoom; // fill the 9:16 frame
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     g.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     if (shade > 0.001) { g.globalAlpha = Math.min(1, shade); g.fillStyle = white ? '#fff' : '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   };
@@ -59,8 +67,27 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
     let next = open(clips[0]);
     for (let i = 0; i < clips.length; i += 1) {
       const c = clips[i];
-      const { v, gain } = await next;
+      const opened = await next;
       if (i + 1 < clips.length) next = open(clips[i + 1]); // get the next clip ready while this one plays
+      if (opened.img) { // a photo: shown for its seconds with a slow zoom (the transition shading works the same)
+        const secs = lenOf(c); const t0 = performance.now();
+        if (rec.state === 'inactive') rec.start(500); else if (rec.state === 'paused') rec.resume();
+        await new Promise((res) => {
+          const id = setInterval(() => {
+            const into = (performance.now() - t0) / 1000; const left = secs - into;
+            let shade = 0;
+            if (transition !== 'cut') { if (i > 0 && into < T) shade = 1 - into / T; if (i < clips.length - 1 && left < T) shade = Math.max(shade, 1 - left / T); }
+            draw(opened.img, shade, transition === 'flash', 1 + 0.06 * Math.min(1, into / secs));
+            onProgress?.(Math.min(1, (done + into) / total));
+            if (into >= secs) { clearInterval(id); res(); }
+          }, 1000 / FPS);
+        });
+        done += secs;
+        if (i < clips.length - 1 && rec.state === 'recording') rec.pause();
+        continue;
+      }
+      const { v, gain } = opened;
+      v.playbackRate = c.speed || 1;
       await v.play();
       if (v.currentTime < c.start - 0.1) { try { v.currentTime = c.start; } catch { /* not seekable: played through below */ } }
       let live = false; // recording only from the clip's start (some recorded videos can't jump straight there)
@@ -68,7 +95,7 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
         let over = false;
         const resolve = () => { if (over) return; over = true; clearTimeout(guard); v.pause(); res(); };
         v.addEventListener('ended', resolve);
-        const guard = setTimeout(resolve, ((c.end - c.start) + 6) * 1000); // never hang on a stuck clip
+        const guard = setTimeout(resolve, (lenOf(c) + 6) * 1000); // never hang on a stuck clip
         const tick = () => {
           if (over) return;
           const t = v.currentTime;
@@ -82,13 +109,13 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
           }
           draw(v, shade, transition === 'flash');
           gain.gain.value = transition === 'fade' ? 1 - shade : 1;
-          onProgress?.(Math.min(1, (done + Math.max(0, into)) / total));
+          onProgress?.(Math.min(1, (done + Math.max(0, into) / (c.speed || 1)) / total));
           if (t >= c.end - 0.03 || v.ended) { resolve(); return; }
           if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else setTimeout(tick, 1000 / FPS);
         };
         tick();
       });
-      done += c.end - c.start;
+      done += lenOf(c);
       if (i < clips.length - 1 && rec.state === 'recording') rec.pause(); // no frozen frames while the next one starts
       v.removeAttribute('src'); v.load();
     }

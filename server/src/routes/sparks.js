@@ -40,10 +40,10 @@ export const MIC_TOPICS = ['story', 'incident', 'society', 'politics', 'voice', 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const EDIT = z.object({
   trim: z.tuple([z.number().min(0).max(600), z.number().min(0).max(600)]).optional(),
-  speed: z.enum(['0.5', '1', '1.5', '2']).optional(),
+  speed: z.enum(['0.3', '0.5', '1', '1.5', '2', '3']).optional(),
   filter: z.enum(['none', 'warm', 'cool', 'vivid', 'mono', 'vintage', 'dream', 'noir', 'fade']).optional(),
-  texts: z.array(z.object({ t: z.string().trim().min(1).max(80), x: z.number().min(0).max(1), y: z.number().min(0).max(1), color: hex, style: z.enum(['classic', 'neon', 'box', 'bold']), size: z.number().min(12).max(72), from: z.number().min(0).max(600).optional(), to: z.number().min(0).max(600).optional() })).max(10).optional(),
-  stickers: z.array(z.object({ e: z.string().min(1).max(16), x: z.number().min(0).max(1), y: z.number().min(0).max(1), size: z.number().min(20).max(160) })).max(15).optional(),
+  texts: z.array(z.object({ t: z.string().trim().min(1).max(80), x: z.number().min(0).max(1), y: z.number().min(0).max(1), color: hex, style: z.enum(['classic', 'neon', 'box', 'bold']), size: z.number().min(12).max(72), rot: z.number().min(-180).max(180).optional(), from: z.number().min(0).max(600).optional(), to: z.number().min(0).max(600).optional() })).max(10).optional(),
+  stickers: z.array(z.object({ e: z.string().min(1).max(16), x: z.number().min(0).max(1), y: z.number().min(0).max(1), size: z.number().min(20).max(160), rot: z.number().min(-180).max(180).optional(), from: z.number().min(0).max(600).optional(), to: z.number().min(0).max(600).optional() })).max(15).optional(),
   musicStart: z.number().min(0).max(1200).optional(),
   musicVolume: z.number().min(0).max(1).optional(),
   videoVolume: z.number().min(0).max(1).optional(),
@@ -53,6 +53,8 @@ const EDIT = z.object({
   fade: z.object({ in: z.number().min(0).max(3), out: z.number().min(0).max(3) }).partial().optional(),
   voiceVolume: z.number().min(0).max(1).optional(),
   voice: z.string().max(400).optional(), // set by the server from the uploaded voiceover
+  // Soulink Studio: the whole edit (clips, timings, layers) for the video builder; the players don't need it
+  studio: z.record(z.string(), z.any()).refine((x) => JSON.stringify(x).length <= 20000, 'The edit is too big').optional(),
 }).refine((e) => !e.trim || (e.trim[1] > e.trim[0] && e.trim[1] - e.trim[0] <= 61), 'A Spark is up to 60 seconds');
 
 // what each category may carry in "details"

@@ -1,7 +1,7 @@
-// Post a Spark 🎬: 1) pick a category  2) record in Soulink (clips, timer) or choose one or more videos
-// 2b) several videos: put them together in Spark Clips (order, trim, split, transitions) → joined into one video
-// 3) edit in Spark Studio
-// (trim, speed, filters, text, stickers, music, cover)  4) the category's extras + caption.
+// Post a Spark 🎬: 1) pick a category  2) record in Soulink or choose videos and photos
+// 3) edit in Soulink Studio (components/SoulStudio.js): clips and photos on a timeline, split, trim, speed, text,
+//    stickers, music, voiceover, looks, crop, fade, cover, undo / redo, kept as a draft
+// 4) the category's extras + caption.
 // Also used for a Casting Board audition (?casting=<id>) and for this week's Open Mic (?stage=1).
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -15,16 +15,19 @@ import { CATEGORIES, DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, fitChalle
 import SparkVideo from '../../components/SparkVideo';
 import SparkCatBadge from '../../components/SparkCatBadge';
 import SparkRecorder from '../../components/SparkRecorder';
-import SparkStudio from '../../components/SparkStudio';
-import SparkClips, { MAX_SPARK, newClipId } from '../../components/SparkClips';
-import { joinClips } from '../../lib/joinClips';
+import SoulStudio from '../../components/SoulStudio';
+import { canJoin, joinClips } from '../../lib/joinClips';
+import * as Studio from '../../lib/studio';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../lib/api';
-import { cleanEdit, emptyEdit } from '../../lib/sparkEdit';
 import MusicPicker from '../../components/MusicPicker';
 import CityField from '../../components/CityField';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 
 const MAX_MB = 40;
+const DRAFT_KEY = 'soulink.sparkDraft';
+// a draft can be reopened only if its files are still on this phone (web blob: links end when the page closes)
+const keepable = (pr) => pr?.clips?.length && pr.clips.every((c) => !String(c.uri).startsWith('blob:'));
 const Label = ({ children }) => <Text style={{ color: colors.dim, fontSize: 12, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 1, marginTop: space.lg, marginBottom: space.sm }}>{children}</Text>;
 const Field = (props) => (
   <TextInput placeholderTextColor={colors.dim} {...props}
@@ -68,12 +71,12 @@ export default function NewSpark() {
   const micTopic = typeof params.mic === 'string' ? params.mic : null; // Open Mic on video (topic chosen already)
   const [casting, setCasting] = useState(null); // the role you're auditioning for
   const [stage, setStage] = useState(null); // this week's Open Mic theme
-  const [step, setStep] = useState(micTopic ? 'video' : 'category'); // category | video | clips | edit | details
-  const [clips, setClips] = useState([]); // [{ id, uri, type, start, end }] when putting several videos together
-  const [transition, setTransition] = useState('cut');
+  const [step, setStep] = useState(micTopic ? 'video' : 'category'); // category | video | studio | details
+  const [proj, setProj] = useState(null);   // the Soulink Studio project (lib/studio.js)
+  const [studioKey, setStudioKey] = useState(0);
+  const [draft, setDraft] = useState(null); // a Spark you were editing before, on this phone
   const [joining, setJoining] = useState(null); // null, or how far joining the clips has got (0-1)
-  const [edit, setEdit] = useState(emptyEdit());
-  const [clipLen, setClipLen] = useState(0);
+  const [edit, setEdit] = useState({});    // what the players apply (details.edit), made from the project
   const [category, setCategory] = useState(micTopic ? 'openmic' : null);
   const [mode, setMode] = useState(null); // acting: dice | script | scene | dub
   const [dice, setDice] = useState(null);
@@ -92,24 +95,34 @@ export default function NewSpark() {
   const cat = category ? catOf(category) : null;
   const script = scriptOfWeek();
 
+  useEffect(() => { AsyncStorage.getItem(DRAFT_KEY).then((v) => { try { const d = JSON.parse(v || 'null'); if (d && keepable(d.project)) setDraft(d); } catch { /* none */ } }).catch(() => {}); }, []);
+  const saveDraft = (project) => {
+    if (!keepable(project)) return;
+    AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ project, category, savedAt: Date.now() })).catch(() => {});
+  };
+  const clearDraft = () => { setDraft(null); AsyncStorage.removeItem(DRAFT_KEY).catch(() => {}); };
   useEffect(() => {
     if (castingId) api(`/sparks/casting/${castingId}`).then((r) => { setCasting(r.call); setCategory(r.call.category); if (r.call.category === 'acting') setMode('scene'); setStep('video'); }).catch((e) => notice('Casting', e.message));
     if (forStage) api('/sparks/stage').then((r) => setStage(r.theme)).catch(() => {});
   }, [castingId, forStage]);
   // nothing inside a category is required: the dice, script, scene and cards are all optional extras
   const pickCategory = (k) => { setCategory(k); setStep('video'); if (k === 'acting') setDice(rollDice()); };
-  // choose one or more videos; several open Spark Clips to put them together into one Spark
-  const gallery = async () => {
-    const many = Platform.OS === 'web';
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], videoMaxDuration: 180, quality: 0.8, ...(many ? { allowsMultipleSelection: true, selectionLimit: 10 } : {}) });
+  // videos and photos from the phone (several at once): returns studio clips
+  const pickMedia = async () => {
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos', 'images'], videoMaxDuration: 180, quality: 0.85, allowsMultipleSelection: true, selectionLimit: 10, orderedSelection: true });
     const list = r.canceled ? [] : r.assets || [];
-    if (!list.length) return;
-    const ok = list.filter((a) => !(a.duration && a.duration > 181000) && !(a.fileSize && a.fileSize > MAX_MB * 1024 * 1024));
+    if (!list.length) return [];
+    const ok = list.filter((a) => a.type === 'image' || (!(a.duration && a.duration > 181000) && !(a.fileSize && a.fileSize > MAX_MB * 1024 * 1024)));
     if (ok.length < list.length) notice(ok.length ? 'Some videos were left out' : 'Too long or too big', `Each video can be up to 3 minutes and ${MAX_MB} MB.`);
-    if (!ok.length) return;
-    const fresh = ok.map((a) => ({ id: newClipId(), uri: a.uri, type: a.mimeType || 'video/mp4', start: 0, end: a.duration ? Math.min(a.duration / 1000, MAX_SPARK) : null }));
-    addClips(fresh);
+    return ok.map((a) => Studio.makeClip({ uri: a.uri, type: a.mimeType || (a.type === 'image' ? 'image/jpeg' : 'video/mp4'), kind: a.type === 'image' ? 'photo' : 'video', duration: a.duration ? a.duration / 1000 : null }));
   };
+  // open Soulink Studio with these clips (from the gallery, the camera or the Soulink recorder)
+  const openStudio = (clips, oneTake = false) => {
+    if (!clips.length) return;
+    const pr = Studio.addClips(Studio.emptyProject(), clips.map((c) => ({ ...c, ...(oneTake ? { oneTake: true } : {}) })));
+    setProj(pr); setStudioKey((k) => k + 1); setStep('studio');
+  };
+  const gallery = async () => openStudio(await pickMedia());
   // phone app: record with the phone's own camera (front / back, up to 60 s), then on to the editor
   const recordWithCamera = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -117,35 +130,32 @@ export default function NewSpark() {
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: 60, quality: 0.8, cameraType: ImagePicker.CameraType.front });
     const a = r.canceled ? null : r.assets?.[0];
     if (!a) return;
-    addClips([{ id: newClipId(), uri: a.uri, type: a.mimeType || 'video/mp4', start: 0, end: a.duration ? Math.min(a.duration / 1000, MAX_SPARK) : null }], true);
+    openStudio([Studio.makeClip({ uri: a.uri, type: a.mimeType || 'video/mp4', duration: a.duration ? a.duration / 1000 : null })], true);
   };
-  // a new clip (from the phone or recorded in Soulink): one video goes straight to Spark Studio, more open Spark Clips
-  const addClips = (fresh, oneTake = false) => {
-    if (step === 'clips' || step === 'edit' || clips.length + fresh.length > 1) {
-      setClips((c) => [...(step === 'video' ? [] : c), ...fresh]); setStep('clips'); return;
+  // Studio → Next: one video goes as it is with its edits; several clips / photos are joined into one video first
+  const studioNext = async (project) => {
+    setProj(project); setMusic(project.music || null); setVoice(project.voice || null);
+    const recipe = Studio.toRecipe(project);
+    if (Studio.isSingleVideo(project)) {
+      const c = project.clips[0];
+      setVideo({ uri: c.uri, type: c.type, oneTake: !!c.oneTake });
+      setEdit({ ...(Studio.toLegacyEdit(project) || {}), studio: recipe });
+      setStep('details'); return;
     }
-    const a = fresh[0];
-    setClips([a]); setVideo({ uri: a.uri, type: a.type, oneTake }); setEdit(emptyEdit()); setStep('edit');
-  };
-  // Spark Clips → Next: one clip goes on as it is (its trim kept), several are joined into one video first
-  const clipsDone = async () => {
-    if (clips.length === 1) {
-      const c = clips[0];
-      setVideo({ uri: c.uri, type: c.type, oneTake: !!c.oneTake }); setEdit({ ...emptyEdit(), trim: c.end != null ? [c.start, c.end] : null }); setStep('edit'); return;
+    if (!canJoin()) {
+      notice('Almost there', 'Sparks with several clips or photos are put together by the Soulink video builder, which is switched on next. For now you can post them from the Soulink website, or post one video from your phone. Your edit is saved as a draft.');
+      return;
     }
     setJoining(0);
     try {
-      const j = await joinClips(clips.map((c) => ({ uri: c.uri, start: c.start || 0, end: c.end })), { transition, onProgress: setJoining });
-      if (j.size > MAX_MB * 1024 * 1024) { notice('Too big', `The joined Spark is over ${MAX_MB} MB. Trim it a little shorter and try again.`); return; }
+      const j = await joinClips(project.clips.map((c) => ({ uri: c.uri, start: c.in, end: c.out, kind: c.kind, speed: c.speed })), { transition: 'cut', onProgress: setJoining });
+      if (j.size > MAX_MB * 1024 * 1024) { notice('Too big', `The finished Spark is over ${MAX_MB} MB. Make it a little shorter and try again.`); return; }
       setVideo({ uri: j.uri, type: j.type, oneTake: false });
-      setEdit((e) => ({ ...e, trim: null, cover: 0 })); // text, music and filters stay; the length is new
-      setStep('edit');
-    } catch (e) { notice('Couldn’t join the clips', e.message); } finally { setJoining(null); }
-  };
-  // from Spark Studio back to the clips (the video you were editing becomes the first clip if it was a single one)
-  const openClips = () => {
-    if (!clips.length && video) setClips([{ id: newClipId(), uri: video.uri, type: video.type, start: edit.trim?.[0] ?? 0, end: edit.trim?.[1] ?? null, oneTake: video.oneTake }]);
-    setStep('clips');
+      // the joined video already has the trims and speeds in it: the rest of the edit is timed on it directly
+      const flat = { ...project, clips: [{ id: 'joined', kind: 'video', uri: j.uri, type: j.type, src: j.seconds, in: 0, out: j.seconds, speed: 1 }] };
+      setEdit({ ...(Studio.toLegacyEdit(flat) || {}), studio: recipe });
+      setStep('details');
+    } catch (e) { notice('Couldn’t put the clips together', e.message); } finally { setJoining(null); }
   };
   const [musicOpen, setMusicOpen] = useState(false);
   const addMusic = () => setMusicOpen(true); // JioSaavn / Deezer / free music / a song from the phone
@@ -155,7 +165,7 @@ export default function NewSpark() {
   const cue = castingCue || stageCue || micCue || (category === 'acting' ? (mode === 'dice' && dice ? `🎲 ${dice.emotion} · ${dice.situation} · ${dice.character}` : mode === 'script' ? `📜 ${script.title}\n“${script.lines}”` : null)
     : category === 'fitness' && fit.useChallenge ? `💪 ${fitChallengeOfWeek()}` : null);
 
-  const details = () => ({ ...baseDetails(), ...(cleanEdit(edit, clipLen) ? { edit: cleanEdit(edit, clipLen) } : {}) });
+  const details = () => ({ ...baseDetails(), ...(Object.keys(edit || {}).length ? { edit } : {}) });
   const baseDetails = () => {
     if (category === 'openmic') return {};
     if (category === 'travel') return { sound: music ? 'music' : sound };
@@ -179,37 +189,31 @@ export default function NewSpark() {
     try {
       await postSpark({ videoUri: video.uri, videoType: video.type, music, voice, category, caption, place: place.trim(), details: details(), oneTake: video.oneTake, musicTitle: music?.title || music?.name?.replace(/\.[a-z0-9]{2,4}$/i, ''),
         castingId: casting?.id, stage: forStage, mic: micTopic });
+      clearDraft();
       if (casting) router.replace(`/spark/casting/${casting.id}`); else if (forStage || micTopic) router.replace('/spark/stage'); else router.replace('/sparks');
     } catch (e) { notice('Not posted', e.message); } finally { setBusy(false); }
   };
   const back = () => {
     if (step === 'category' || (step === 'video' && (casting || micTopic))) return router.back();
     if (step === 'video') return setStep('category');
-    if (step === 'clips' && video) return setStep('edit'); // came here from Spark Studio: back to it
-    if (step === 'clips' || (step === 'edit' && clips.length <= 1)) { setStep('video'); setVideo(null); setClips([]); setMusic(null); setVoice(null); return undefined; }
-    if (step === 'edit') return setStep('clips'); // several clips: back to putting them together
-    return setStep('edit');
+    if (step === 'studio') { setStep('video'); setVideo(null); setMusic(null); setVoice(null); return undefined; } // the draft stays
+    return setStep('studio');
   };
 
-  // Spark Clips takes the whole screen
-  if (step === 'clips') {
+  // Soulink Studio takes the whole screen
+  if (step === 'studio' && proj) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#07060c' }}>
-        <SparkClips clips={clips} onChange={setClips} transition={transition} onTransition={setTransition} cue={cue}
-          onAdd={gallery} onRecord={Platform.OS === 'web' ? () => setRecording(true) : null} onBack={back} onNext={clipsDone}
-          joining={joining != null} progress={joining || 0} />
-        <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)}
-          onDone={(v) => { setRecording(false); setClips((c) => [...c, { id: newClipId(), uri: v.uri, type: v.type, start: 0, end: v.seconds ? Math.min(v.seconds, MAX_SPARK) : null, oneTake: v.oneTake }]); }} />
-      </SafeAreaView>
-    );
-  }
-
-  // Spark Studio takes the whole screen
-  if (step === 'edit' && video) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#07060c' }}>
-        <SparkStudio video={video} edit={edit} onChange={setEdit} music={music} onMusic={setMusic} voice={voice} onVoice={setVoice} cue={cue} onClips={Platform.OS === 'web' ? openClips : null}
-          onBack={back} onNext={({ duration }) => { setClipLen(duration || 0); setStep('details'); }} />
+        <SoulStudio key={studioKey} initial={proj} cue={cue} onBack={(pr) => { saveDraft(pr); back(); }} onNext={studioNext} onDraft={saveDraft}
+          onAddMedia={pickMedia} />
+        {joining != null ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7,6,12,0.85)', alignItems: 'center', justifyContent: 'center', padding: space.xl }}>
+            <ActivityIndicator color={colors.spark} size="large" />
+            <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 18, marginTop: space.md }}>{`Putting your Spark together · ${Math.round(joining * 100)}%`}</Text>
+            <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginTop: 6, textAlign: 'center' }}>Keep this tab open. It takes about as long as the Spark itself.</Text>
+          </View>
+        ) : null}
+        <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); setProj((pr) => Studio.addClips(pr, [{ ...Studio.makeClip({ uri: v.uri, type: v.type, duration: v.seconds }), oneTake: v.oneTake }])); setStudioKey((k) => k + 1); }} />
       </SafeAreaView>
     );
   }
@@ -305,18 +309,22 @@ export default function NewSpark() {
               {category === 'news' ? (
                 <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginBottom: space.md, lineHeight: 19 }}>Share something that happened: in your area, in India or the world. Record yourself telling it, or a clip you shot. Add the headline and a source link in the next step.</Text>
               ) : null}
+              {draft ? (
+                <BigOption icon="film" title="Continue your draft" text={`${draft.project.clips.length} ${draft.project.clips.length === 1 ? 'clip' : 'clips'} · ${Math.round(Studio.totalLen(draft.project))} s · saved ${new Date(draft.savedAt).toLocaleDateString()}`}
+                  colors={['#42e8c0', '#7c5cfc']} onPress={() => { setProj(draft.project); setStudioKey((k) => k + 1); setStep('studio'); }} />
+              ) : null}
               <Label>Your video · up to 60 seconds</Label>
               {Platform.OS === 'web' ? <BigOption icon="videocam" title="Record in Soulink" text="Record in clips with a timer · one clip gets the ✅ One take badge" colors={['#ff6b9d', '#ff9a5a']} onPress={() => setRecording(true)} />
                 : <BigOption icon="videocam" title="Record a video" text="Opens your camera · up to 60 seconds" colors={['#ff6b9d', '#ff9a5a']} onPress={recordWithCamera} />}
-              <BigOption icon="folder-open" title="Upload from your phone" text={Platform.OS === 'web' ? 'Pick one video, or several to join into one Spark (each up to 3 min)' : `Up to 3 min and ${MAX_MB} MB · trim it to 60 s in the editor`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
-              <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: edit it in Spark Studio (trim, speed, filters, adjust, crop, text, stickers, music, voiceover, fade, cover).</Text>
+              <BigOption icon="folder-open" title="Videos and photos" text={`Pick one or several · each video up to 3 min and ${MAX_MB} MB`} colors={['#7c5cfc', '#b08fff']} onPress={gallery} />
+              <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Next: Soulink Studio. Put clips and photos on a timeline, split, trim, speed, text, stickers, music, voiceover, looks and more.</Text>
             </>
           ) : null}
 
           {step === 'details' && video ? (
             <>
-              <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={cleanEdit(edit, clipLen)} />
-              <Pressable onPress={() => setStep('edit')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
+              <SparkVideo uri={video.uri} musicUri={music?.uri} voiceUri={voice?.uri} local height={420} edit={edit} />
+              <Pressable onPress={() => setStep('studio')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}>
                 <Ionicons name="color-wand-outline" size={16} color={colors.aura} /><Text style={{ marginLeft: 6, fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>Back to editing</Text>
               </Pressable>
               {video.oneTake ? <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, marginTop: 6 }}>✅ One take: recorded in Soulink</Text> : null}
@@ -395,8 +403,8 @@ export default function NewSpark() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={(m) => { setMusic(m); setEdit((e) => ({ ...e, musicStart: m.start || 0 })); }} clip={60} title="Music for your Spark" />
-      <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); addClips([{ id: newClipId(), uri: v.uri, type: v.type, start: 0, end: v.seconds ? Math.min(v.seconds, MAX_SPARK) : null, oneTake: v.oneTake }], v.oneTake); }} />
+      <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={(m) => { setMusic(m); setEdit((e) => ({ ...e, musicStart: m.start || 0 })); setProj((pr) => (pr ? { ...pr, music: { ...m, start: m.start || 0, volume: 1 } } : pr)); }} clip={60} title="Music for your Spark" />
+      <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); openStudio([Studio.makeClip({ uri: v.uri, type: v.type, duration: v.seconds })], v.oneTake); }} />
     </SafeAreaView>
   );
 }
