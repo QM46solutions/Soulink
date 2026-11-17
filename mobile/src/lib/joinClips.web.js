@@ -57,7 +57,8 @@ export async function joinClips(clips, { transition = 'cut', onProgress } = {}) 
     return { v, gain };
   };
   const draw = (v, shade, white, zoom = 1) => {
-    const vw = v.videoWidth || v.naturalWidth || W; const vh = v.videoHeight || v.naturalHeight || H; const s = Math.max(W / vw, H / vh) * zoom; // fill the 9:16 frame
+    // photos fill the 9:16 frame; videos keep their own shape (whole picture, black bars), never cropped
+    const vw = v.videoWidth || v.naturalWidth || W; const vh = v.videoHeight || v.naturalHeight || H; const s = (v.videoWidth ? Math.min(W / vw, H / vh) : Math.max(W / vw, H / vh)) * zoom;
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     g.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     if (shade > 0.001) { g.globalAlpha = Math.min(1, shade); g.fillStyle = white ? '#fff' : '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }

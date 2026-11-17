@@ -30,15 +30,21 @@ export function openAd(ad) {
   else Linking.openURL(ad.ctaUrl).catch(() => {});
 }
 
-/** Put an ad after every `every` items (cycling through the ads). Ads are { __ad, key }. */
+/** Put ads between items. An ad booked with its own frequency (ad.every, set in the team console) shows after
+ *  every `ad.every` items; other ads use this screen's usual spacing (`every`, the first one after `first`).
+ *  At most one ad sits between two items: if two are due at the same place, the second moves to the next gap.
+ *  Ads are { __ad, key }. */
 export function withAds(items, ads, every, first = every) {
   if (!ads?.length || !items?.length) return items || [];
-  const out = []; let k = 0;
-  const start = Math.min(first, items.length); // a short feed still gets one ad, at the end
+  const usual = ads.filter((a) => !a.every); const own = ads.filter((a) => a.every >= 2);
+  const out = []; const due = []; let k = 0;
+  const start = Math.min(first, items.length); // a short feed still gets one of the usual ads, at the end
   items.forEach((it, i) => {
     out.push(it);
     const n = i + 1;
-    if (n >= start && (n - start) % every === 0) { out.push({ __ad: ads[k % ads.length], key: `ad-${n}` }); k += 1; }
+    if (usual.length && n >= start && (n - start) % every === 0) { due.push(usual[k % usual.length]); k += 1; }
+    own.forEach((a) => { if (n % a.every === 0) due.push(a); });
+    if (due.length) out.push({ __ad: due.shift(), key: `ad-${n}` });
   });
   return out;
 }

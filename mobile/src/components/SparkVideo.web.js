@@ -105,7 +105,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     <Pressable onPress={() => (playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
       <video ref={video} src={src} playsInline preload="metadata" onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
         onPause={() => { audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
+        style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}
       {vo ? <audio ref={voice} src={vo} preload="auto" /> : null}
       {fading ? <div ref={shade} style={{ position: 'absolute', inset: 0, background: '#000', opacity: playing ? 0 : 0, pointerEvents: 'none' }} /> : null}

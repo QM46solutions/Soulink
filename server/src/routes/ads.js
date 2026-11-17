@@ -25,6 +25,7 @@ export const adView = (a, admin = false) => ({
   id: a.id, placement: a.placement, brand: a.brand, logoUrl: a.logo_url || null, headline: a.headline, body: a.body || null,
   mediaUrl: a.media_url || null, mediaKind: a.media_kind || null, ctaLabel: a.cta_label || null, ctaUrl: a.cta_url || null,
   argueTopic: a.argue_topic || null,
+  every: a.every_n || null, // show after every N posts / Sparks (null = the screen's usual spacing)
   ...(admin ? {
     city: a.city || null, startsAt: a.starts_at, endsAt: a.ends_at, active: a.active === true || a.active === 1, impressions: a.impressions, clicks: a.clicks,
     owner: a.o_username ? userCard({ id: a.owner_id, username: a.o_username, display_name: a.o_display_name, avatar_url: a.o_avatar_url }) : null,
@@ -41,18 +42,34 @@ async function dailyFor(ids, days = 30) {
 }
 const rupees = (p) => Math.round(p / 100);
 
+// A person's city is saved as the place they picked, e.g. "Kondapur, Hyderabad"; an ad is booked for cities like
+// "Hyderabad" or "Delhi NCR". The ad matches when any part of the person's place is one of the booked cities.
+const CITY_ALIASES = {
+  'delhi ncr': ['delhi', 'new delhi', 'gurugram', 'gurgaon', 'noida', 'greater noida', 'ghaziabad', 'faridabad'],
+  bengaluru: ['bangalore'], mumbai: ['bombay', 'navi mumbai', 'thane'], chennai: ['madras'], kolkata: ['calcutta'],
+};
+const cityNorm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+export function cityMatches(userCity, booked) {
+  const wanted = booked.map(cityNorm).filter(Boolean);
+  if (!wanted.length) return true;                       // no city chosen: everywhere
+  const mine = String(userCity || '').split(',').map(cityNorm).filter(Boolean);
+  if (!mine.length) return false;
+  return wanted.some((w) => mine.includes(w) || (CITY_ALIASES[w] || []).some((a) => mine.includes(a)));
+}
+const bookedCities = (a) => [...String(a.cities_csv || '').split(','), ...(a.city ? [a.city] : [])].filter((x) => x.trim());
+
 r.get('/', ah(async (req, res) => {
   const { placement, n } = z.object({ placement: z.enum(PLACEMENTS), n: z.coerce.number().int().min(1).max(10).default(3) }).parse(req.query);
+  // live ads only: switched on (a console booking is switched on once it's fully paid; paused / cancelled = off),
+  // started and not ended, in a booked hour (Indian time), with budget left
   const rows = await many(
-    `SELECT TOP ${n} * FROM ad_campaigns WHERE placement=$1 AND active=1 AND starts_at <= SYSDATETIMEOFFSET() AND ends_at > SYSDATETIMEOFFSET()
-       AND (city IS NULL OR LTRIM(RTRIM(city)) = N'' OR LOWER(LTRIM(RTRIM(city))) = LOWER(LTRIM(RTRIM($2))))
-       -- hourly bookings from the team console: only in the booked hours (Indian time) and cities
+    `SELECT TOP 60 * FROM ad_campaigns WHERE placement=$1 AND active=1 AND starts_at <= SYSDATETIMEOFFSET() AND ends_at > SYSDATETIMEOFFSET()
        AND (hours_csv IS NULL OR CHARINDEX(N',' + CAST(DATEPART(hour, SWITCHOFFSET(SYSDATETIMEOFFSET(), '+05:30')) AS NVARCHAR(2)) + N',', hours_csv) > 0)
-       AND (cities_csv IS NULL OR CHARINDEX(N',' + LOWER(LTRIM(RTRIM($2))) + N',', cities_csv) > 0)
        AND (budget_paise IS NULL OR cpm_paise IS NULL OR CAST(impressions AS BIGINT) * cpm_paise / 1000 < budget_paise) -- budget used up: stops
-     ORDER BY NEWID()`, [placement, req.user.city || ''],
+     ORDER BY NEWID()`, [placement],
   );
-  res.json({ ads: rows.map((a) => adView(a)) });
+  const ads = rows.filter((a) => cityMatches(req.user.city, bookedCities(a))).slice(0, n);
+  res.json({ ads: ads.map((a) => adView(a)) });
 }));
 const bumpDay = (id, col) => query(`MERGE ad_daily AS t USING (SELECT $1 AS ad_id, ${TODAY} AS day) AS s ON t.ad_id = s.ad_id AND t.day = s.day
   WHEN MATCHED THEN UPDATE SET ${col} = t.${col} + 1
@@ -160,6 +177,7 @@ r.post('/', admin, uploadMemory('post', 40, 2).fields([{ name: 'media', maxCount
     budgetInr: money.optional(),                   // their budget, ₹
     cpmInr: money.optional(),                      // price per 1,000 views, ₹
     paidInr: money.optional(),                     // what they have paid so far, ₹
+    every: z.coerce.number().int().min(2).max(50).optional(), // show after every N posts / Sparks
   }).parse(req.body || {});
   if ((d.budgetInr != null) !== (d.cpmInr != null)) throw badRequest('Set both the budget and the price per 1,000 views (or neither)');
   const ownerId = await ownerOf(d.owner || '');
@@ -169,11 +187,11 @@ r.post('/', admin, uploadMemory('post', 40, 2).fields([{ name: 'media', maxCount
   const logoUrl = logo ? await saveFile(logo, 'ads', 'post') : null;
   const a = await one(
     `INSERT INTO ad_campaigns (placement, brand, logo_url, headline, body, media_url, media_kind, cta_label, cta_url, argue_topic, city, ends_at, created_by,
-       owner_id, budget_paise, cpm_paise, paid_paise)
-     OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, DATEADD(day, $12, SYSDATETIMEOFFSET()), $13, $14, $15, $16, $17)`,
+       owner_id, budget_paise, cpm_paise, paid_paise, every_n)
+     OUTPUT INSERTED.id VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, DATEADD(day, $12, SYSDATETIMEOFFSET()), $13, $14, $15, $16, $17, $18)`,
     [d.placement, d.brand, logoUrl, d.headline, d.body || null, mediaUrl, media ? (media.mimetype.startsWith('video/') ? 'video' : 'image') : null,
       d.ctaLabel || null, d.ctaUrl || null, d.argueTopic || null, d.city || null, d.days, req.user.id,
-      ownerId, d.budgetInr != null ? Math.round(d.budgetInr * 100) : null, d.cpmInr != null ? Math.round(d.cpmInr * 100) : null, Math.round((d.paidInr || 0) * 100)],
+      ownerId, d.budgetInr != null ? Math.round(d.budgetInr * 100) : null, d.cpmInr != null ? Math.round(d.cpmInr * 100) : null, Math.round((d.paidInr || 0) * 100), d.every ?? null],
   );
   res.status(201).json({ ad: adView(await one(`${WITH_OWNER} WHERE a.id=$1`, [a.id]), true) });
 }));

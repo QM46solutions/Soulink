@@ -6,7 +6,7 @@ const v1 = S.makeClip({ uri: 'a.mp4', type: 'video/mp4', duration: 20 });
 const ph = S.makeClip({ uri: 'b.jpg', type: 'image/jpeg' });
 const v2 = S.makeClip({ uri: 'c.mp4', type: 'video/mp4', duration: 90 });
 p = S.addClips(p, [v1, ph, v2]);
-assert.equal(S.totalLen(p), 20 + 3 + 60);
+assert.equal(S.totalLen(p), 20 + 3 + 90); // nothing cut automatically
 assert.deepEqual(S.problems(p).length, 1); // too long
 p = S.trimClip(p, v2.id, 10, 30); assert.equal(S.totalLen(p), 43);
 p = S.setSpeed(p, v1.id, 2); assert.equal(S.clipLen(p.clips[0]), 10); assert.equal(S.totalLen(p), 33);
@@ -34,3 +34,11 @@ assert.deepEqual(L.trim, [5, 25]); assert.equal(L.speed, '2'); assert.equal(L.st
 assert.ok(S.isSingleVideo(q));
 const R = S.toRecipe(q); assert.equal(R.len, 10); assert.ok(!JSON.stringify(R).includes('x.mp4'));
 console.log('all studio tests passed');
+
+// a long video keeps its whole length until the person trims it
+{ let p = S.addClips(S.emptyProject(), [S.makeClip({ uri: 'a.mp4', type: 'video/mp4', duration: 75 })]);
+  assert.equal(S.totalLen(p), 75); assert.ok(S.problems(p).some((m) => /Trim it to 60/.test(m)));
+  p = S.trimClip(p, p.clips[0].id, 10, 65); assert.equal(S.totalLen(p), 55); assert.equal(S.problems(p).length, 0);
+  let q = S.addClips(S.emptyProject(), [S.makeClip({ uri: 'b.mp4', type: 'video/mp4', duration: null })]);
+  q = S.setSourceLength(q, q.clips[0].id, 95); assert.equal(q.clips[0].out, 95); assert.equal(q.clips[0].speed, 1); }
+console.log('long-video tests passed');

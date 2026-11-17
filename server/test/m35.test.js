@@ -78,6 +78,17 @@ test('an hourly booking is priced from the rate card, waits for payment, then sh
   assert.equal(pay.live, true);
   assert.equal(await show(viewer), 1, 'live in Hyderabad in the booked hour');
   assert.equal(await show(other), 0, 'not in a city that was not booked');
+  // people save their area ("Kondapur, Hyderabad"): a Hyderabad booking reaches them too, with its frequency (default: every 5 posts)
+  const area = await makeUser();
+  await query("UPDATE users SET city = N'Kondapur, Hyderabad' WHERE id = $1", [area.user.id]);
+  const seen = (await api().get('/ads?placement=feed').set(area.h).expect(200)).body.ads;
+  assert.equal(seen.length, 1, 'an area inside a booked city'); assert.equal(seen[0].every, 5);
+  await api().put(`/console/ads/bookings/${bk.id}/frequency`).set(H).send({ every: 10 }).expect(200);
+  assert.equal((await api().get('/ads?placement=feed').set(area.h).expect(200)).body.ads[0].every, 10);
+  await api().put(`/console/ads/bookings/${bk.id}/frequency`).set(H).send({ every: 1 }).expect(400);
+  await api().post(`/console/ads/bookings/${bk.id}/pause`).set(H).expect(200);
+  assert.equal(await show(area), 0, 'paused');
+  await api().post(`/console/ads/bookings/${bk.id}/resume`).set(H).expect(200);
   await query('UPDATE ad_campaigns SET hours_csv = $1', [`,${(hourNow + 3) % 24},`]);
   assert.equal(await show(viewer), 0, 'not outside the booked hours');
   const detail = (await api().get(`/console/ads/customers/${c.id}`).set(H).expect(200)).body;

@@ -54,9 +54,9 @@ ${cs.map((c) => `<tr class="click" data-cust="${c.id}"><td><div class="cust"><sp
 <div class="panel mt"><div class="tabs">${[['ads', 'Bookings & performance'], ['pay', 'Payments & invoices']].map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-ctab="${k}">${t}</button>`).join('')}</div>
 ${tab === 'ads' ? `${d.bookings.length ? `<div class="tw"><table><tr><th>Ad</th><th>Where</th><th>Cities</th><th>Schedule</th><th class="n">Hours × rate</th><th class="n">Total</th><th class="n">Views</th><th class="n">Reach</th><th class="n">Clicks</th><th>Status</th><th></th></tr>
  ${d.bookings.map((b) => { const [s, k] = bkStatus(b); return `<tr><td><b>${esc(b.name)}</b><div class="small mu">Invoice ${b.invoice_no}</div></td><td>${PL[b.placement] || b.placement}</td><td>${b.cities.map(esc).join(', ')}</td>
-  <td class="small">${dt(b.start_date)} · ${b.days} day${b.days > 1 ? 's' : ''}<br>${hrs(b.hours)}</td><td class="n">${fmt(b.hours_total)} × ${rs(b.rate)}</td><td class="n">${rs(b.total)}</td>
+  <td class="small">${dt(b.start_date)} · ${b.days} day${b.days > 1 ? 's' : ''}<br>${hrs(b.hours)}<br>${b.every_n ? `Every ${b.every_n} ${b.placement === 'sparks' ? 'Sparks' : 'posts'}` : 'Usual spacing'}</td><td class="n">${fmt(b.hours_total)} × ${rs(b.rate)}</td><td class="n">${rs(b.total)}</td>
   <td class="n">${fmt(b.impressions)}</td><td class="n">${fmt(b.reach)}</td><td class="n">${fmt(b.clicks)}${N(b.impressions) ? `<div class="small mu">${((N(b.clicks) / N(b.impressions)) * 100).toFixed(1)}%</div>` : ''}</td>
-  <td><span class="pill ${k}">${s}</span></td><td>${edit && b.status !== 'cancelled' ? `<select data-act="${b.id}" aria-label="Action"><option value="">…</option>${b.status === 'awaiting' ? '<option value="pay">Record payment</option>' : ''}${s === 'Paused' ? '<option value="resume">Resume</option>' : b.status === 'booked' && s !== 'Finished' ? '<option value="pause">Pause</option>' : ''}<option value="cancel">Cancel booking</option></select>` : ''}</td></tr>`; }).join('')}</table></div>` : '<div class="empty">No bookings yet.</div>'}
+  <td><span class="pill ${k}">${s}</span></td><td>${edit && b.status !== 'cancelled' ? `<select data-act="${b.id}" aria-label="Action"><option value="">…</option>${b.status === 'awaiting' ? '<option value="pay">Record payment</option>' : ''}${s === 'Paused' ? '<option value="resume">Resume</option>' : b.status === 'booked' && s !== 'Finished' ? '<option value="pause">Pause</option>' : ''}<option value="every">Change how often</option><option value="cancel">Cancel booking</option></select>` : ''}</td></tr>`; }).join('')}</table></div>` : '<div class="empty">No bookings yet.</div>'}
  ${days.length ? `<h3 class="mt">Views per day<span class="r">all bookings</span></h3>${columns(days.map((k) => ({ label: new Date(k + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), value: byDay[k] })), { h: 170, every: Math.max(1, Math.ceil(days.length / 10)), col: 'var(--accent2)' })}` : ''}
  ${d.viewers.total >= 10 ? `<h3 class="mt">Who saw these ads<span class="r">${fmt(d.viewers.total)} people · groups under 10 hidden</span></h3><div class="grid k3"><div>${bars(d.viewers.gender.map((x) => [x.key, x.n]), { col: 'var(--accent)' })}<div class="small mu">By gender</div></div><div>${bars(d.viewers.age.map((x) => [x.key, x.n]), { col: 'var(--accent2)' })}<div class="small mu">By age</div></div><div>${bars(d.viewers.city.map((x) => [x.key, x.n]), { col: 'var(--accent3)' })}<div class="small mu">By city</div></div></div>` : (views ? '<div class="small mu mt">Audience breakdown appears once at least 10 people have seen these ads.</div>' : '')}` : ''}
 ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><th>Booking</th><th>Date</th><th class="n">Subtotal</th><th class="n">GST</th><th class="n">Total</th><th class="n">Paid</th><th></th></tr>
@@ -65,6 +65,12 @@ ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><
  <h3 class="mt">Payments received</h3><div class="tw"><table><tr><th>Date</th><th class="n">Amount</th><th>How</th><th>Reference</th><th>Recorded by</th></tr>
  ${d.payments.map((p) => `<tr><td>${dt(p.paid_on)}</td><td class="n">${rs(p.amount)}</td><td>${esc(p.method)}</td><td class="small">${esc(p.reference || '—')}</td><td class="small mu">${esc(p.recorded_by || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No payments yet.</td></tr>'}</table></div>` : ''}
 </div>`;
+  }
+  function everyForm(bookingId) {
+    const b = cur.bookings.find((x) => x.id === bookingId); const u = b.placement === 'sparks' ? 'Sparks' : 'posts';
+    C.modal(`How often · ${b.name}`, `<div class="form"><label>Show the ad after every<input id="e1" type="number" min="2" max="50" step="1" required value="${b.every_n || 5}"></label></div><p class="small mu">${u}, 2 to 50. People see the change the next time they open ${b.placement === 'sparks' ? 'Sparks' : 'Home'}.</p>`,
+    async () => { const every = Number($('#e1').value); if (!(Number.isInteger(every) && every >= 2 && every <= 50)) throw new Error('Choose a whole number from 2 to 50.');
+      await api(`/ads/bookings/${bookingId}/frequency`, { method: 'PUT', body: { every } }); toast(`Shows after every ${every} ${u} now.`); render(); }, 'Save');
   }
   function payForm(bookingId) {
     const b = cur.bookings.find((x) => x.id === bookingId); const left = Math.max(0, N(b.total) - N(b.paid));
@@ -80,7 +86,7 @@ ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><
     const e = $('#editCust'); if (e) e.onclick = () => customerForm(cur.customer);
     document.querySelectorAll('[data-pay]').forEach((b) => { b.onclick = () => payForm(b.dataset.pay); });
     document.querySelectorAll('[data-inv]').forEach((b) => { b.onclick = () => invoicePdf(cur.bookings.find((x) => x.id === b.dataset.inv)); });
-    document.querySelectorAll('[data-act]').forEach((s) => { s.onchange = () => { const v = s.value; s.value = ''; if (!v) return; if (v === 'pay') return payForm(s.dataset.act);
+    document.querySelectorAll('[data-act]').forEach((s) => { s.onchange = () => { const v = s.value; s.value = ''; if (!v) return; if (v === 'pay') return payForm(s.dataset.act); if (v === 'every') return everyForm(s.dataset.act);
       C.modal(v === 'cancel' ? 'Cancel this booking?' : v === 'pause' ? 'Pause this ad?' : 'Resume this ad?', `<p class="mu">${v === 'cancel' ? 'The ad stops and the booking is removed from what the customer owes.' : 'You can change this again any time.'}</p>`,
         async () => { await api(`/ads/bookings/${s.dataset.act}/${v}`, { method: 'POST' }); toast('Done'); render(); }, v === 'cancel' ? 'Cancel booking' : 'Confirm'); }; });
     const p = $('#pdf'); if (p) p.onclick = () => reportPdf(cur);
@@ -166,7 +172,8 @@ ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><
 
   // ---------- new booking ----------
   let card = null;
-  const bk = { customerId: '', name: '', placement: 'feed', cities: ['Hyderabad'], startDate: '', days: 1, hours: [19, 20, 21, 22], brand: '', headline: '', body: '', ctaLabel: 'Reach out', ctaUrl: '' };
+  const bk = { customerId: '', name: '', placement: 'feed', cities: ['Hyderabad'], startDate: '', days: 1, hours: [19, 20, 21, 22], brand: '', headline: '', body: '', ctaLabel: 'Reach out', ctaUrl: '', every: 5 };
+  const unit = (pl) => (pl === 'sparks' ? 'Sparks' : 'posts');
   function quote() { const rate = N(card.rates?.[bk.placement]); const mult = bk.cities.reduce((s, c) => s + (card.cities?.[c] ?? 1), 0); const peak = bk.hours.filter((h) => (card.peakHours || []).includes(h)).length;
     const total = bk.hours.length * bk.days; const sub = Math.round(total * rate * mult + peak * bk.days * rate * mult * N(card.peakExtra)); const gst = Math.round(sub * N(card.gst)); return { rate, mult, total, peak: peak * bk.days, sub, gst }; }
   VIEWS.book = async () => {
@@ -179,6 +186,8 @@ ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><
  <label>Booking name<input id="b2" required maxlength="120" placeholder="Diwali offer" value="${esc(bk.name)}"></label>
  <div class="full"><div class="small mu" style="margin-bottom:6px">Where the ad shows</div><div class="chips">${Object.entries(PL).map(([k, t]) => `<button type="button" class="chip ${k === bk.placement ? 'on' : ''}" data-pl="${k}">${t} · ${rs(card.rates?.[k])}/h</button>`).join('')}<button type="button" class="chip" disabled title="Needs the next app version">In stories · coming next version</button></div></div>
  <div class="full"><div class="small mu" style="margin-bottom:6px">Cities</div><div class="chips">${Object.entries(card.cities || {}).map(([c, m]) => `<button type="button" class="chip ${bk.cities.includes(c) ? 'on' : ''}" data-city="${esc(c)}">${esc(c)}${m !== 1 ? ` ×${m}` : ''}</button>`).join('')}</div></div>
+ <div class="full"><div class="small mu" style="margin-bottom:6px">How often it shows · one ad after every …</div><div class="chips">${[5, 10].map((v) => `<button type="button" class="chip ${bk.every === v ? 'on' : ''}" data-ev="${v}">Every ${v} ${unit(bk.placement)}</button>`).join('')}<button type="button" class="chip ${[5, 10].includes(bk.every) ? '' : 'on'}" data-ev="custom">Custom</button>
+  ${[5, 10].includes(bk.every) ? '' : `<label style="display:inline-flex;align-items:center;gap:6px">Every <input id="bev" type="number" min="2" max="50" step="1" required value="${bk.every}" style="width:72px"> ${unit(bk.placement)}</label>`}</div><div class="small mu" style="margin-top:4px">2 to 50. Fewer means people see the ad more often.</div></div>
  <label>Start date<input id="b3" type="date" required value="${bk.startDate}"></label><label>Number of days<input id="b4" type="number" min="1" max="90" required value="${bk.days}"></label>
  <div class="full"><div class="small mu" style="margin-bottom:6px">Hours each day (Indian time). Dashed = peak hours (+${Math.round(N(card.peakExtra) * 100)}%).</div>
   <div class="tw"><div class="hours" style="min-width:560px"><div></div>${Array.from({ length: 24 }, (_, h) => `<div style="text-align:center">${h % 3 === 0 ? h : ''}</div>`).join('')}<div>Hours</div>${Array.from({ length: 24 }, (_, h) => `<button type="button" class="h ${bk.hours.includes(h) ? 'on' : ''} ${(card.peakHours || []).includes(h) ? 'pk' : ''}" data-hr="${h}" aria-label="${h}:00" title="${h}:00–${h + 1}:00"></button>`).join('')}</div></div>
@@ -197,17 +206,19 @@ ${tab === 'pay' ? `<h3>Invoices</h3><div class="tw"><table><tr><th>Invoice</th><
     $('#bgo').disabled = !(q.total && bk.cities.length); }
   AFTER.book = () => {
     if (!$('#bf')) return; drawQuote();
-    const keep = () => { bk.customerId = $('#b1').value; bk.name = $('#b2').value; bk.startDate = $('#b3').value; bk.days = Math.max(1, Math.min(90, Number($('#b4').value) || 1)); bk.brand = $('#b5').value; bk.headline = $('#b6').value; bk.body = $('#b7').value; bk.ctaLabel = $('#b8').value; bk.ctaUrl = $('#b9').value; };
+    const keep = () => { bk.customerId = $('#b1').value; bk.name = $('#b2').value; bk.startDate = $('#b3').value; bk.days = Math.max(1, Math.min(90, Number($('#b4').value) || 1)); bk.brand = $('#b5').value; bk.headline = $('#b6').value; bk.body = $('#b7').value; bk.ctaLabel = $('#b8').value; bk.ctaUrl = $('#b9').value; if ($('#bev')) bk.every = Number($('#bev').value); };
     $('#bf').addEventListener('input', () => { keep(); drawQuote(); });
     $('#b1').onchange = () => { keep(); const c = st.bookCustomers.find((x) => x.id === bk.customerId); if (c && !bk.brand) { bk.brand = c.name; $('#b5').value = c.name; } };
     if (!bk.brand) { const c = st.bookCustomers.find((x) => x.id === bk.customerId); if (c) { bk.brand = c.name; $('#b5').value = c.name; } }
     const rerender = () => { keep(); render(); };
     document.querySelectorAll('[data-pl]').forEach((b) => { b.onclick = () => { bk.placement = b.dataset.pl; rerender(); }; });
     document.querySelectorAll('[data-city]').forEach((b) => { b.onclick = () => { const c = b.dataset.city; bk.cities = bk.cities.includes(c) ? bk.cities.filter((x) => x !== c) : [...bk.cities, c]; rerender(); }; });
+    document.querySelectorAll('[data-ev]').forEach((b) => { b.onclick = () => { keep(); bk.every = b.dataset.ev === 'custom' ? ([5, 10].includes(bk.every) ? 7 : bk.every) : Number(b.dataset.ev); rerender(); }; });
     document.querySelectorAll('[data-hr]').forEach((b) => { b.onclick = () => { const h = Number(b.dataset.hr); bk.hours = bk.hours.includes(h) ? bk.hours.filter((x) => x !== h) : [...bk.hours, h]; b.classList.toggle('on'); drawQuote(); }; });
     document.querySelectorAll('[data-pre]').forEach((b) => { b.onclick = () => { bk.hours = { all: [...Array(24).keys()], eve: [19, 20, 21, 22], morn: [6, 7, 8], lunch: [12, 13, 14], none: [] }[b.dataset.pre]; rerender(); }; });
     $('#bgo').onclick = async () => { keep(); const f = $('#bf'); if (!f.reportValidity()) return;
-      const fd = new FormData(); ['customerId', 'name', 'placement', 'startDate', 'days', 'brand', 'headline', 'body', 'ctaLabel', 'ctaUrl'].forEach((k) => fd.append(k, bk[k] ?? ''));
+      const fd = new FormData(); if (!(Number.isInteger(bk.every) && bk.every >= 2 && bk.every <= 50)) { toast('How often it shows: choose a whole number from 2 to 50.'); return; }
+      ['customerId', 'name', 'placement', 'startDate', 'days', 'brand', 'headline', 'body', 'ctaLabel', 'ctaUrl', 'every'].forEach((k) => fd.append(k, bk[k] ?? ''));
       fd.append('cities', bk.cities.join(',')); fd.append('hours', bk.hours.join(',')); const file = $('#b10').files[0]; if (file) fd.append('image', file);
       $('#bgo').disabled = true;
       try { const r = await api('/ads/bookings', { method: 'POST', form: fd }); toast(`Booking created · invoice ${r.invoiceNo} · ${rs(r.total)}. Record the payment to make it live.`);

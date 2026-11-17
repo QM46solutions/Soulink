@@ -32,7 +32,8 @@ export function makeClip({ uri, type, kind, duration }) {
   const photo = kind === 'photo' || /^image\//.test(type || '');
   const src = photo ? null : (duration && isFinite(duration) ? duration : null);
   return { id: newId('c'), kind: photo ? 'photo' : 'video', uri, type: type || (photo ? 'image/jpeg' : 'video/mp4'), src,
-    in: 0, out: photo ? PHOTO_SECONDS : (src ? Math.min(src, MAX_LEN) : MAX_LEN), speed: 1 };
+    // a video keeps its whole length: nothing is cut automatically (over 60 s, the editor asks the person to trim it)
+    in: 0, out: photo ? PHOTO_SECONDS : (src || MAX_LEN), speed: 1 };
 }
 /** seconds this clip lasts in the finished Spark */
 export const clipLen = (c) => Math.max(0, (c.out - c.in) / (c.kind === 'photo' ? 1 : (c.speed || 1)));
@@ -54,7 +55,8 @@ export function locate(p, t) {
 /** the source-time of a clip after a source length became known (first load) */
 export function setSourceLength(p, id, duration) {
   if (!duration || !isFinite(duration)) return p;
-  return mapClip(p, id, (c) => (c.src ? c : { ...c, src: duration, out: Math.min(c.out, duration), in: Math.min(c.in, Math.max(0, duration - MIN_CLIP)) }));
+  // the length wasn't known when the clip was added: until now `out` was only a placeholder, so the clip becomes the whole video
+  return mapClip(p, id, (c) => (c.src ? c : { ...c, src: duration, out: duration, in: Math.min(c.in, Math.max(0, duration - MIN_CLIP)) }));
 }
 const mapClip = (p, id, fn) => ({ ...p, clips: p.clips.map((c) => (c.id === id ? fn(c) : c)) });
 

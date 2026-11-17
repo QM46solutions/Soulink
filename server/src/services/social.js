@@ -73,12 +73,13 @@ export const userCard = (u) => ({
   soulType: u.soul_type ?? null,
 });
 
-/** Full profile as seen by someone else. */
-export const publicProfile = (u) => ({
+/** Full profile as seen by someone else.
+ *  Interests and location are for getting to know someone: once two people are connected, neither sees the
+ *  other's interests or city any more. They are left out of the response itself (not just hidden on screen). */
+export const publicProfile = (u, rel = null) => ({
   ...userCard(u),
   bio: u.bio,
-  city: u.city,
-  interests: u.interests,
+  ...(rel?.connected && !rel.isMe ? { aboutHidden: true } : { city: u.city, interests: u.interests }),
   isPremium: u.is_premium,
   college: u.college ?? null,
   company: u.company ?? null,

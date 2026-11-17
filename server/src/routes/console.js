@@ -326,7 +326,7 @@ r.patch('/ads/customers/:id', requireConsole('ads'), ah(async (req, res) => {
 r.get('/ads/customers/:id', requireConsole('ads', 'viewer'), ah(async (req, res) => {
   const c = await one(`${CUSTOMER_SUMMARY} WHERE c.id = $1`, [req.params.id]);
   if (!c) throw notFound('Customer not found');
-  const bookings = await many(`SELECT b.*, a.impressions, a.reach, a.clicks, a.active, a.starts_at, a.ends_at, a.headline, a.media_url,
+  const bookings = await many(`SELECT b.*, a.impressions, a.reach, a.clicks, a.active, a.starts_at, a.ends_at, a.headline, a.media_url, a.every_n,
       (SELECT ISNULL(SUM(amount), 0) FROM ad_payments p WHERE p.booking_id = b.id) AS paid
     FROM ad_bookings b LEFT JOIN ad_campaigns a ON a.id = b.campaign_id WHERE b.customer_id = $1 ORDER BY b.created_at DESC`, [req.params.id]);
   const ids = bookings.map((b) => b.campaign_id).filter(Boolean);
@@ -348,22 +348,24 @@ r.post('/ads/bookings', requireConsole('ads'), uploadMemory('image', 8).single('
     cities: z.array(z.string().max(60)).min(1).max(30), hours: z.array(z.coerce.number().int().min(0).max(23)).min(1).max(24),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), days: z.coerce.number().int().min(1).max(90),
     brand: z.string().trim().min(1).max(80), headline: z.string().trim().min(2).max(120), body: z.string().max(400).optional(),
-    ctaLabel: z.string().max(30).optional(), ctaUrl: z.string().url().max(400).optional().or(z.literal('')) })
-    .parse({ ...b, cities: list(b.cities), hours: list(b.hours) });
+    ctaLabel: z.string().max(30).optional(), ctaUrl: z.string().url().max(400).optional().or(z.literal('')),
+    // how often it shows: after every N posts (Home) or Sparks
+    every: z.coerce.number({ error: 'Choose how often the ad shows' }).int('Use a whole number of posts').min(2, 'Show the ad after at least 2 posts').max(50, 'Show the ad at least once every 50 posts') })
+    .parse({ ...b, cities: list(b.cities), hours: list(b.hours), every: b.every === undefined || b.every === '' ? 5 : b.every });
   const cust = await one('SELECT id, name FROM ad_customers WHERE id=$1', [d.customerId]);
   if (!cust) throw notFound('Customer not found');
   const hours = [...new Set(d.hours)].sort((x, y) => x - y);
   const p = price(await rateCard(), { ...d, hours });
   const media = req.file ? await saveFile(req.file, 'ads', 'image') : null;
   const start = new Date(IST_MIDNIGHT(d.startDate)); const end = new Date(start.getTime() + d.days * 86400_000);
-  const ad = await one(`INSERT INTO ad_campaigns (placement, brand, headline, body, media_url, media_kind, cta_label, cta_url, starts_at, ends_at, active, hours_csv, cities_csv)
-    OUTPUT INSERTED.id VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12)`,
+  const ad = await one(`INSERT INTO ad_campaigns (placement, brand, headline, body, media_url, media_kind, cta_label, cta_url, starts_at, ends_at, active, hours_csv, cities_csv, every_n)
+    OUTPUT INSERTED.id VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12,$13)`,
     [d.placement, d.brand, d.headline, d.body || null, media?.url || media || null, media ? 'image' : null, d.ctaLabel || null, d.ctaUrl || null, start, end,
-      `,${hours.join(',')},`, `,${d.cities.map((c) => c.toLowerCase()).join(',')},`]);
+      `,${hours.join(',')},`, `,${d.cities.map((c) => c.toLowerCase()).join(',')},`, d.every]);
   const bk = await one(`INSERT INTO ad_bookings (customer_id, campaign_id, name, placement, cities, start_date, days, hours, hours_total, rate, subtotal, gst, total, created_by)
     OUTPUT INSERTED.id, INSERTED.invoice_no VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     [d.customerId, ad.id, d.name, d.placement, d.cities.join(','), d.startDate, d.days, hours.join(','), p.hoursTotal, p.rate, p.subtotal, p.gst, p.total, req.cu.name]);
-  log(req, `Booked "${d.name}" for ${cust.name} (${p.hoursTotal} h, ₹${p.total})`);
+  log(req, `Booked "${d.name}" for ${cust.name} (${p.hoursTotal} h, ₹${p.total}, every ${d.every} ${d.placement === 'sparks' ? 'Sparks' : 'posts'})`);
   res.json({ id: bk.id, invoiceNo: bk.invoice_no, ...p });
 }));
 // the ad goes live once the booking is fully paid
@@ -385,6 +387,14 @@ r.post('/ads/payments', requireConsole('ads'), ah(async (req, res) => {
   const live = await settle(b.id);
   log(req, `Recorded ₹${d.amount} (${d.method}) for "${b.name}"${live ? ' · ad is now live' : ''}`);
   res.json({ ok: true, live });
+}));
+// change how often a booked ad shows (takes effect the next time people open Home / Sparks)
+r.put('/ads/bookings/:id/frequency', requireConsole('ads'), ah(async (req, res) => {
+  const { every } = z.object({ every: z.coerce.number().int('Use a whole number of posts').min(2, 'Show the ad after at least 2 posts').max(50, 'Show the ad at least once every 50 posts') }).parse(req.body || {});
+  const b = await one('SELECT id, name, campaign_id FROM ad_bookings WHERE id=$1', [req.params.id]);
+  if (!b?.campaign_id) throw notFound('Booking not found');
+  await query('UPDATE ad_campaigns SET every_n = $2 WHERE id = $1', [b.campaign_id, every]);
+  log(req, `Set "${b.name}" to show after every ${every} posts`); res.json({ ok: true, every });
 }));
 r.post('/ads/bookings/:id/:action', requireConsole('ads'), ah(async (req, res) => {
   const action = z.enum(['pause', 'resume', 'cancel']).parse(req.params.action);

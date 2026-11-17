@@ -40,7 +40,7 @@ export function buildArgs(job, output) {
       graph.push(`anullsrc=r=44100:cl=stereo,atrim=duration=${r3(len)}[a${i}]`);
     } else {
       const sp = c.speed || 1;
-      graph.push(`[${i}:v]trim=start=${r3(c.in)}:end=${r3(c.out)},setpts=(PTS-STARTPTS)/${r3(sp)},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},fps=${FPS},setsar=1,format=yuv420p[v${i}]`);
+      graph.push(`[${i}:v]trim=start=${r3(c.in)}:end=${r3(c.out)},setpts=(PTS-STARTPTS)/${r3(sp)},scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:black,fps=${FPS},setsar=1,format=yuv420p[v${i}]`);
       if (c.hasAudio) graph.push(`[${i}:a]atrim=start=${r3(c.in)}:end=${r3(c.out)},asetpts=PTS-STARTPTS,${[...atempo(sp), 'aresample=44100', 'aformat=sample_fmts=fltp:channel_layouts=stereo'].join(',')}[a${i}]`);
       else graph.push(`anullsrc=r=44100:cl=stereo,atrim=duration=${r3(len)}[a${i}]`);
     }
