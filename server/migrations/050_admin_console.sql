@@ -59,7 +59,7 @@ CREATE TABLE screen_timings (
   platform   NVARCHAR(10) NULL,
   ms         INT NOT NULL,
   app_version NVARCHAR(20) NULL,
-  created_at DATETIMEOFFSET NOT NULL CONSTRAINT df_st_created DEFAULT SYSDATETIMEOFFSET()
+  created_at DATETIMEOFFSET NOT NULL CONSTRAINT df_scrt_created DEFAULT SYSDATETIMEOFFSET()
 );
 GO
 CREATE INDEX ix_screen_timings_created ON screen_timings (created_at);
@@ -112,7 +112,7 @@ CREATE TABLE ad_customers (
   email        NVARCHAR(254) NULL,
   gst          NVARCHAR(20) NULL,
   address      NVARCHAR(300) NULL,
-  created_at   DATETIMEOFFSET NOT NULL CONSTRAINT df_ac_created DEFAULT SYSDATETIMEOFFSET()
+  created_at   DATETIMEOFFSET NOT NULL CONSTRAINT df_adcust_created DEFAULT SYSDATETIMEOFFSET()
 );
 GO
 CREATE TABLE ad_bookings (
