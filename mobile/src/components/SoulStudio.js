@@ -444,7 +444,7 @@ export default function SoulStudio({ initial, onBack, onNext, onAddMedia, onDraf
         <View onLayout={(e) => setBox(e.nativeEvent.layout)} style={{ width: prevW, height: prevH, borderRadius: 20, overflow: 'hidden', backgroundColor: '#000' }}>
           <Pressable onPress={() => { if (sel) { setSel(null); setPanel(null); return; } if (voice.recording) return; playing ? pause() : playFrom(t); }} style={fill} accessibilityLabel={playing ? 'Pause' : 'Play'}>
             <View style={{ flex: 1, ...(WEB ? { filter: videoCss(p) } : {}), ...(zoom.s > 1.001 ? { transform: [{ translateX: (0.5 - zoom.x) * (zoom.s - 1) * prevW * 0.5 }, { translateY: (0.5 - zoom.y) * (zoom.s - 1) * prevH * 0.5 }, { scale: zoom.s }] } : {}) }}>
-              <VideoView player={player} style={[fill, { opacity: cur?.kind === 'video' ? 1 : 0 }]} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} />
+              <VideoView playsInline player={player} style={[fill, { opacity: cur?.kind === 'video' ? 1 : 0 }]} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} />
               {cur?.kind === 'photo' ? <Image source={{ uri: cur.uri }} style={fill} contentFit="cover" /> : null}
             </View>
           </Pressable>

@@ -23,7 +23,7 @@ export default function PostVideo({ uri, thumb, style, standalone, active = true
   return (
     <>
       {!standalone && !thumb ? <PauseOnBlur player={player} /> : null}
-      <VideoView player={player} nativeControls={!thumb} contentFit="cover" allowsPictureInPicture={false} allowsFullscreen={!thumb}
+      <VideoView playsInline player={player} nativeControls={!thumb} contentFit="cover" allowsPictureInPicture={false} allowsFullscreen={!thumb}
         style={[{ width: '100%', height: '100%', backgroundColor: '#000' }, style]} />
     </>
   );

@@ -167,7 +167,7 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, voi
         <Pressable onPress={() => { if (selected) { setSelected(null); return; } if (recording) return; playing ? pause() : play(); }}
           style={{ width: previewW, height: previewH, borderRadius: 18, overflow: 'hidden', backgroundColor: '#000' }}>
           <View style={{ flex: 1, ...(zoom.s > 1.001 ? { transform: [{ translateX: (0.5 - zoom.x) * (zoom.s - 1) * previewW * 0.5 }, { translateY: (0.5 - zoom.y) * (zoom.s - 1) * previewH * 0.5 }, { scale: zoom.s }] } : {}) }}>
-            <VideoView player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} />
+            <VideoView playsInline player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} />
           </View>
           {shade > 0.001 ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}
           <SparkOverlays edit={e} editable selected={selected} onSelect={onSelect} onChange={onChange} time={playing ? now : null} />
