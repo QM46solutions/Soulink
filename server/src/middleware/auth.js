@@ -37,8 +37,7 @@ export async function requireAuth(req, res, next) {
     const user = await loadUser(req);
     if (!user) return next(unauthorized());
     req.user = user;
-    // the login renews itself while it's used: a token older than a day gets a fresh one (same session), so active
-    // people are never logged out (and never lose their notifications) because a week went by
+    // tokens issued before sessions stopped expiring are swapped for a non-expiring one (same session)
     if (req.sessionId && req.tokenIssuedAt && Date.now() / 1000 - req.tokenIssuedAt > 86400) res.setHeader('x-soulink-token', signToken(user.id, req.sessionId));
     markUserActive(user.id); // people per hour, for the team console (in memory)
     // Cheap activity heartbeat (at most once a minute per user)

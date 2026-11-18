@@ -14,7 +14,7 @@ export async function startSession(userId, req) {
 
 /** 'ok' | 'ended' (logged out / account deleted) */
 export async function checkSession(userId, sid) {
-  if (!sid) return 'ok'; // tokens from before sessions existed: valid until they expire (7 days)
+  if (!sid) return 'ok'; // tokens from before sessions existed: valid until they expire (7 days, see verifyToken)
   const s = await one('SELECT revoked_at, last_seen_at FROM user_sessions WHERE id=$1 AND user_id=$2', [sid, userId]);
   if (!s || s.revoked_at) return 'ended';
   if (Date.now() - new Date(s.last_seen_at).getTime() > 60_000) query('UPDATE user_sessions SET last_seen_at=SYSDATETIMEOFFSET() WHERE id=$1', [sid]).catch(() => {});
@@ -23,14 +23,9 @@ export async function checkSession(userId, sid) {
 
 export const endSession = (sid) => query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1 AND revoked_at IS NULL', [sid]);
 
-// A phone's "sign in with fingerprint / face unlock" key belongs to the session that turned it on: logging that
-// device out (from another device, or everywhere) switches it off too, so it can't quietly sign back in.
-const revokeDeviceKeys = (where, params) => query(`UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE revoked_at IS NULL AND ${where}`, params).catch(() => {});
-
 export async function endAllSessions(userId) {
   const rows = await many('SELECT id FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL', [userId]);
   await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE user_id=$1 AND revoked_at IS NULL', [userId]);
-  await revokeDeviceKeys('user_id=$1', [userId]);
   return rows.map((r) => r.id);
 }
 
@@ -54,7 +49,6 @@ export function maskIp(ip) {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(x)) return x.split('.').slice(0, 2).join('.') + '.x.x';
   return x.split(':').slice(0, 2).join(':') + ':…';
 }
-const ACTIVE_DAYS = 30; // a session nobody used for 30 days is shown as ended (the token behind it has expired anyway)
 /** Every device for this account: still logged in first (this one on top), then the ones ended in the last 30 days. */
 export async function listSessions(userId, currentSid) {
   const rows = await many(
@@ -64,11 +58,10 @@ export async function listSessions(userId, currentSid) {
   const cur = String(currentSid || '').toLowerCase();
   const out = rows.map((r) => {
     const d = describeDevice(r.device);
-    const stale = Date.now() - new Date(r.last_seen_at).getTime() > ACTIVE_DAYS * 86400000;
     return {
       id: r.id, device: d.name, kind: d.kind, ip: maskIp(r.ip),
       loggedInAt: r.created_at, lastActiveAt: r.last_seen_at, endedAt: r.revoked_at,
-      active: !r.revoked_at && !stale, current: String(r.id).toLowerCase() === cur,
+      active: !r.revoked_at, current: String(r.id).toLowerCase() === cur,
     };
   });
   return out.sort((a, b) => (b.current - a.current) || (b.active - a.active) || (new Date(b.lastActiveAt) - new Date(a.lastActiveAt)));
@@ -76,13 +69,11 @@ export async function listSessions(userId, currentSid) {
 /** End one of my sessions (not this one: that is Log out). Returns true if it was still active. */
 export async function endMySession(userId, sid) {
   const r = await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL', [sid, userId]);
-  await revokeDeviceKeys('user_id=$1 AND session_id=$2', [userId, sid]);
   return !!(r.rows?.length || r.rowCount);
 }
 /** Log out everywhere else. Returns the ended session ids. */
 export async function endOtherSessions(userId, keepSid) {
   const rows = await many('SELECT id FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL AND ($2 IS NULL OR id<>$2)', [userId, keepSid || null]);
   if (rows.length) await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE user_id=$1 AND revoked_at IS NULL AND ($2 IS NULL OR id<>$2)', [userId, keepSid || null]);
-  await revokeDeviceKeys('user_id=$1 AND (session_id IS NULL OR $2 IS NULL OR session_id<>$2)', [userId, keepSid || null]);
   return rows.map((r) => r.id);
 }

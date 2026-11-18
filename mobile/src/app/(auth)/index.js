@@ -5,7 +5,6 @@ import { LegalLinks } from '../../components/Consent';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ContactEntry from '../../components/ContactEntry';
-import QuickSignIn from '../../components/QuickSignIn';
 import { LinkLine } from '../../components/BrandScreen';
 import { GlassCard, GradientText, MonoTag, PillTag } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
@@ -94,9 +93,6 @@ export default function Welcome() {
   const fade = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 900, useNativeDriver: true }).start(); }, [fade]);
   const rise = fade.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
-  // codes are a fallback once a phone has quick sign-in: null = still checking, true = code form shown
-  const [showCode, setShowCode] = useState(null);
-  const [codeWhy, setCodeWhy] = useState('');
 
   return (
     <View style={{ flex: 1 }}>
@@ -122,13 +118,9 @@ export default function Welcome() {
             <FeatureCarousel />
           </View>
 
-          {/* Log in right here. A phone with quick sign-in uses its own Face ID / fingerprint check; the email code
-              appears only as a fallback (3 failed tries, key no longer valid, another account). Phones without it,
-              new phones and the web go straight to the code. New people tap "Create account". */}
+          {/* Log in right here: choose Email or Phone number, then a 6-digit code. New people tap "Create account". */}
           <View style={{ marginTop: space.xxl }}>
-            {showCode !== true ? <QuickSignIn onReady={(has) => setShowCode(!has)} onNeedCode={(why) => { setCodeWhy(why); setShowCode(true); }} /> : null}
-            {showCode === true && codeWhy ? <Text style={{ color: colors.gold, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginBottom: space.md, lineHeight: 19 }}>{codeWhy}</Text> : null}
-            {showCode === true ? <ContactEntry mode="login" /> : null}
+            <ContactEntry mode="login" />
             <LinkLine text="New to Soulink?" link="Create account" onPress={() => router.push('/signup')} />
             <LegalLinks style={{ marginTop: space.xl }} />
             <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 6 }}>For ages 18+ · © QM46 Solutions Pvt Ltd</Text>

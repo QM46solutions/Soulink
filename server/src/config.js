@@ -20,9 +20,9 @@ export const config = {
     trustServerCertificate: bool(process.env.DB_TRUST_SERVER_CERT, true),
   },
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
-  // A session lasts until logout, "log out of other devices", a ban or deletion; it renews itself while the app is
-  // used, so this is only how long an UNUSED session survives. Then: fingerprint / face sign-in, or a code.
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
+  // Device sessions never time out: logged in until Log out, "log out of other devices", deletion or a ban.
+  // This expiry applies only to old-style tokens without a session (none are issued any more).
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   smsProvider: process.env.SMS_PROVIDER || 'console',
   // Show the login code in the API reply: development and the private test preview only. Never in public production.
   otpDevEcho: bool(process.env.OTP_DEV_ECHO, (process.env.NODE_ENV || 'development') !== 'production'),
@@ -76,8 +76,6 @@ export const config = {
   // The team's own phone numbers / emails (comma list) allowed to use test mode in the cloud: phone sign-in before
   // SMS is live, and (with OTP_DEV_ECHO) the code shown on screen. Nobody else ever gets a code back from the API.
   testLoginTargets: (process.env.TEST_LOGIN_TARGETS || '').split(',').map((s) => s.trim()).filter(Boolean),
-  // "Sign in with fingerprint / face unlock": a phone's key stops working after this many days unused or wrong tries
-  deviceKey: { maxIdleDays: 180, maxFailures: 5, maxPerUser: 5 },
   minAge: 18,
 };
 

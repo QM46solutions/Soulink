@@ -2,13 +2,18 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
 
-/** A login token for one device session (sid). Logging out ends that session; deleting the account ends all of them. */
-export const signToken = (userId, sid) => jwt.sign(sid ? { sub: userId, sid } : { sub: userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+/** A login token for one device session (sid). It has no expiry of its own: the person stays logged in until they log
+ *  out, or the session is ended (log out of other devices, account deleted or banned, a security reset). */
+export const signToken = (userId, sid) => (sid
+  ? jwt.sign({ sub: userId, sid }, config.jwtSecret)
+  : jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn }));
 
-/** Returns { userId, sid } or null. */
+/** Returns { userId, sid } or null. A session token is checked against its session (checkSession), not a clock, so
+ *  tokens issued before this change with an expiry date still work while their session is open. */
 export function verifyToken(token) {
   try {
-    const p = jwt.verify(token, config.jwtSecret);
+    const p = jwt.verify(token, config.jwtSecret, { ignoreExpiration: true });
+    if (!p.sid && p.exp && p.exp * 1000 < Date.now()) return null;
     return { userId: p.sub, sid: p.sid || null, iat: p.iat || 0 };
   } catch {
     return null;

@@ -1,5 +1,5 @@
 // Sign-in update: email codes, phone sign-in kept off until SMS is live, no code shown to the public, verified
-// emails only after a real delivery, adding an email, and "sign in with fingerprint / face unlock" device keys.
+// emails only after a real delivery, adding an email, and sessions that last until logout.
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, query, resetDb, makeUser, closePool } from './helpers.js';
@@ -80,37 +80,32 @@ test('adding an email to a phone account: code to the new address first', async 
   await api().post('/auth/otp/verify').send({ email: 'mine@example.com', code: r.body.devCode }).expect(400);
 });
 
-test('fingerprint / face-unlock sign-in: set up, use, wrong tries, logged out elsewhere, paused account', async () => {
+test('a login lasts until logout: no expiry, old tokens with a date still work, logout ends it', async () => {
+  const jwt = (await import('jsonwebtoken')).default;
   const u = await makeUser();
-  const k = (await api().post('/auth/device-keys').set(u.h).send({ label: 'Test phone' }).expect(201)).body;
-  assert.ok(k.id && k.secret.length >= 40);
-  const stored = (await query('SELECT secret_hash FROM device_keys WHERE id=$1', [k.id])).rows[0].secret_hash;
-  assert.notEqual(stored, k.secret); // only a keyed hash is kept
-
-  const ok = await api().post('/auth/device-keys/unlock').send({ id: k.id, secret: k.secret }).expect(200);
-  assert.ok(ok.body.token);
-  await api().get('/users/me').set({ Authorization: `Bearer ${ok.body.token}` }).expect(200);
-  const list = (await api().get('/auth/device-keys').set(u.h).expect(200)).body.keys;
-  assert.equal(list.length, 1); assert.equal(list[0].label, 'Test phone');
-
-  for (let i = 0; i < 5; i++) await api().post('/auth/device-keys/unlock').send({ id: k.id, secret: `${k.secret}x` }).expect(401);
-  const locked = await api().post('/auth/device-keys/unlock').send({ id: k.id, secret: k.secret }).expect(401); // revoked after 5 wrong tries
-  assert.equal(locked.body.error.code, 'device_key_invalid');
-
-  // a key belongs to the session that set it up: "log out of other devices" switches it off
-  const k2 = (await api().post('/auth/device-keys').set(u.h).send({}).expect(201)).body;
-  const s2 = (await api().post('/auth/device-keys/unlock').send({ id: k2.id, secret: k2.secret }).expect(200)).body.token;
-  await api().post('/account/sessions/end-others').set(u.h).expect(200);
-  await api().post('/auth/device-keys/unlock').send({ id: k2.id, secret: k2.secret }).expect(401);
-  assert.ok(s2);
-
-  // a paused account comes back only through a code sign-in
-  const k3 = (await api().post('/auth/device-keys').set(u.h).send({}).expect(201)).body;
-  await query("UPDATE users SET deactivated_at=SYSDATETIMEOFFSET(), deactivate_reason=N'paused' WHERE id=$1", [u.user.id]);
-  const paused = await api().post('/auth/device-keys/unlock').send({ id: k3.id, secret: k3.secret }).expect(409);
-  assert.equal(paused.body.error.code, 'use_code');
+  const raw = u.token;
+  assert.equal(jwt.decode(raw).exp, undefined); // no expiry of its own
+  // a token issued before this change (30-day expiry, now in the past) still works while its session is open
+  const { sid, sub } = jwt.decode(raw);
+  const old = jwt.sign({ sub, sid, iat: Math.floor(Date.now() / 1000) - 90 * 86400, exp: Math.floor(Date.now() / 1000) - 60 * 86400 }, config.jwtSecret);
+  const r = await api().get('/users/me').set({ Authorization: `Bearer ${old}` }).expect(200);
+  assert.ok(r.headers['x-soulink-token']); // swapped for a token without expiry
+  assert.equal(jwt.decode(r.headers['x-soulink-token']).exp, undefined);
+  // a token without a session still expires (none are issued any more)
+  const noSession = jwt.sign({ sub, iat: Math.floor(Date.now() / 1000) - 30 * 86400, exp: Math.floor(Date.now() / 1000) - 86400 }, config.jwtSecret);
+  await api().get('/users/me').set({ Authorization: `Bearer ${noSession}` }).expect(401);
+  // log out ends it for good
+  await api().post('/auth/logout').set(u.h).expect(200);
+  await api().get('/users/me').set(u.h).expect(401);
+  await api().get('/users/me').set({ Authorization: `Bearer ${old}` }).expect(401);
 });
 
+test('fingerprint / face sign-in is gone', async () => {
+  const u = await makeUser();
+  await api().post('/auth/device-keys').set(u.h).send({}).expect(404);
+  const un = await api().post('/auth/device-keys/unlock').send({ id: '00000000-0000-0000-0000-000000000000', secret: 'x'.repeat(43) });
+  assert.ok([401, 404].includes(un.status)); // no such sign-in any more
+});
 test('a half-made email sign-up does not block adding that email to a finished account', async () => {
   const u = await makeUser();
   const s = await api().post('/auth/otp/request').send({ email: 'half@example.com' }).expect(200);

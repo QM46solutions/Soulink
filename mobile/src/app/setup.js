@@ -17,7 +17,6 @@ import { Button, Chip, ErrorText, Input, s } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { usePhotoPicker } from '../components/PhotoPicker';
 import { TERMS_VERSION } from '../lib/legal';
-import { offerQuickSignIn } from '../lib/biometric';
 import AddEmail from '../components/AddEmail';
 
 const GENDERS = [
@@ -109,8 +108,6 @@ export default function Setup() {
       });
       let me = (await api('/users/me')).user;
       if (avatarUri) me = (await uploadImage('/users/me/avatar', avatarUri)).user;
-      // registration is the only time a code is normally needed: next sign-ins use the phone's Face ID / fingerprint
-      await offerQuickSignIn(me, { atSignup: true });
       setUser(me); // onboarding done → app opens Home
     } catch (e) { setError(e.message); setBusy(false); }
   };

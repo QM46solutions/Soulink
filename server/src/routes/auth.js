@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { many, one, query, tx } from '../db.js';
+import { one, query, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, badRequest, notFound, tooMany, unauthorized, HttpError } from '../lib/errors.js';
-import crypto from 'node:crypto';
-import jwt from 'jsonwebtoken';
 import { normalizeEmail, normalizePhone } from '../lib/auth.js';
-import { describeDevice, startSession, endSession } from '../services/sessions.js';
+import { startSession, endSession } from '../services/sessions.js';
 import { assertChannelOpen, checkCode, isReview, issueCode, realDelivery } from '../services/otp.js';
 import { audit } from '../services/audit.js';
 import { securityLog, clientIp } from '../lib/log.js';
@@ -17,7 +15,6 @@ import { meView } from '../services/social.js';
 import { expireSignup, isExpiredSignup, isRealMember } from '../services/signupCleanup.js';
 
 const r = Router();
-const sessionIdOf = (token) => jwt.decode(token)?.sid || null;
 
 const targetSchema = z
   .object({ phone: z.string().optional(), email: z.string().optional() })
@@ -101,69 +98,6 @@ r.post(
     res.json({ token, isNew: result.isNew, ...(welcomeBack ? { welcomeBack } : {}), user: meView(welcomeBack ? { ...result.user, deactivated_at: null } : result.user) });
   }),
 );
-
-// ---------- Sign in with fingerprint / face unlock (phones) ----------
-// The phone's own biometric prompt unlocks a random secret that the app keeps in the phone's secure storage
-// (Android Keystore / iOS Keychain, locked to the person's fingerprint or face). The server stores only a keyed hash
-// of that secret. No face or fingerprint ever reaches Soulink, and this is not the registration face check: it only
-// proves that whoever unlocked the phone holds a key that was set up after a normal code sign-in.
-const keyHash = (secret) => crypto.createHmac('sha256', config.jwtSecret).update(`device-key:${secret}`).digest('hex');
-const KEY_GONE = "Fingerprint / face sign-in isn't set up for this phone any more. Please sign in with your email code.";
-
-r.post('/device-keys', requireAuth, ah(async (req, res) => {
-  const label = z.string().trim().max(120).optional().parse(req.body?.label) || describeDevice(req.get('user-agent')).name;
-  const active = await many('SELECT id FROM device_keys WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at', [req.user.id]);
-  for (const k of active.slice(0, Math.max(0, active.length - config.deviceKey.maxPerUser + 1))) {
-    await query('UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1', [k.id]); // keep the newest few
-  }
-  const secret = crypto.randomBytes(32).toString('base64url');
-  const row = await one('INSERT INTO device_keys (user_id, secret_hash, label, session_id) OUTPUT INSERTED.id VALUES ($1, $2, $3, $4)',
-    [req.user.id, keyHash(secret), label, req.sessionId || null]);
-  await audit(req, 'device_key_added', { detail: label });
-  res.status(201).json({ id: row.id, secret });
-}));
-
-r.get('/device-keys', requireAuth, ah(async (req, res) => {
-  const keys = await many(`SELECT id, label, created_at, last_used_at FROM device_keys WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC`, [req.user.id]);
-  res.json({ keys: keys.map((k) => ({ id: k.id, label: k.label, addedAt: k.created_at, lastUsedAt: k.last_used_at })) });
-}));
-
-r.delete('/device-keys/:id', requireAuth, ah(async (req, res) => {
-  const id = z.string().uuid().parse(req.params.id);
-  await query('UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL', [id, req.user.id]);
-  await audit(req, 'device_key_removed', { detail: id });
-  res.json({ ok: true });
-}));
-
-r.post('/device-keys/unlock', ah(async (req, res) => {
-  const { id, secret } = z.object({ id: z.string().uuid(), secret: z.string().min(20).max(200) }).parse(req.body || {});
-  const k = await one('SELECT * FROM device_keys WHERE id=$1', [id]);
-  const gone = () => { securityLog('device_key_failed', { ip: clientIp(req) }); return new HttpError(401, KEY_GONE, 'device_key_invalid'); };
-  if (!k || k.revoked_at) throw gone();
-  const idleFrom = new Date(k.last_used_at || k.created_at).getTime();
-  if (Date.now() - idleFrom > config.deviceKey.maxIdleDays * 86400000) {
-    await query('UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1', [id]);
-    throw gone();
-  }
-  const a = Buffer.from(keyHash(secret)); const b = Buffer.from(String(k.secret_hash));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    await query(`UPDATE device_keys SET failures = failures + 1,
-      revoked_at = CASE WHEN failures + 1 >= $2 THEN SYSDATETIMEOFFSET() ELSE revoked_at END WHERE id=$1`, [id, config.deviceKey.maxFailures]);
-    throw gone();
-  }
-  const user = await one('SELECT * FROM users WHERE id=$1', [k.user_id]);
-  if (!user || (isExpiredSignup(user) && !(await isRealMember(user.id)))) {
-    await query('UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1', [id]);
-    throw gone();
-  }
-  // a paused account, or one waiting to be deleted, comes back only through a code sign-in (a deliberate step)
-  if (user.deactivated_at) throw new HttpError(409, 'Your account is paused or scheduled for deletion. Sign in with your email code to continue.', 'use_code');
-  await query('UPDATE device_keys SET last_used_at=SYSDATETIMEOFFSET(), failures=0 WHERE id=$1', [id]);
-  const token = await startSession(user.id, req);
-  await query('UPDATE device_keys SET session_id=$2 WHERE id=$1', [id, sessionIdOf(token)]).catch(() => {});
-  await audit(req, 'login', { actorId: user.id, detail: 'device_key' });
-  res.json({ token, isNew: false, user: meView(user) });
-}));
 
 // Log out: ends this device's session only. Other devices stay logged in.
 r.post(

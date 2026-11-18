@@ -112,9 +112,8 @@ export function createApp() {
     // Limits count per phone, not per laptop: through the phone link every phone arrives via this laptop
     app.use(rateLimit({ windowMs: 60_000, limit: config.testing ? 3000 : 300, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
     app.use('/auth/otp', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 20, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
-    // the same per-device limits for adding an email to an account and for fingerprint / face-unlock sign-in
+    // the same per-device limit for adding an email to an account
     app.use('/account/email', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 20, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
-    app.use('/auth/device-keys/unlock', rateLimit({ windowMs: 15 * 60_000, limit: config.testing ? 300 : 30, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }));
   }
 
   // Private preview gate: every API call needs the access code (photos and the health check don't)

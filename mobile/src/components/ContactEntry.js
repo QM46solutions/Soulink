@@ -1,8 +1,9 @@
 // The email/phone field with the round arrow button. Used on the welcome screen (mode="login")
 // and on Create account (mode="signup"). Arrow or Enter → code is sent → 6-digit code screen.
-// Sign-in: the phone number comes first once SMS codes are live on the server (GET /auth/options), with email as the
-// fallback; until then email comes first, and "Use phone number instead" stays for the store reviewer's test number
-// and the team's test numbers. Create account: email is mandatory, so it starts with email (a phone sign-up, once SMS
+// Sign-in: two choices, Email or Phone number; the person picks one and verifies only that one with a code. Phone
+// codes are switched on by the server once MSG91 + DLT are live (GET /auth/options says so); until then the Phone
+// number choice says text-message sign-in is coming soon, and only the store reviewer's test number and the team's
+// test numbers get past it (the server refuses the rest). Create account: email is mandatory, so it starts with email (a phone sign-up, once SMS
 // is live, adds its email as the first step of profile setup). The answer never says whether an account exists.
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
@@ -44,8 +45,33 @@ export default function ContactEntry({ mode = 'login', initialMethod, initialVal
 
   const swap = () => { setMethod(isPhone ? 'email' : 'phone'); setValue(''); setError(null); };
 
+  const choose = (m) => { if (m === method) return; setTouched(true); setMethod(m); setValue(''); setError(null); };
+  const smsOff = isPhone && !optionsCache?.phone;
+
   return (
     <View>
+      {mode === 'login' ? (
+        <View accessibilityRole="tablist" style={{ flexDirection: 'row', padding: 4, borderRadius: radius.pill, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border, marginBottom: space.md }}>
+          {[{ m: 'email', label: 'Email', icon: 'mail-outline' }, { m: 'phone', label: 'Phone number', icon: 'call-outline' }].map((o) => {
+            const on = method === o.m;
+            return (
+              <Pressable key={o.m} onPress={() => choose(o.m)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={{ flex: 1, height: 44, borderRadius: radius.pill, overflow: 'hidden' }}>
+                {on ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} /> : null}
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={o.icon} size={16} color={on ? '#fff' : colors.muted} style={{ marginRight: 6 }} />
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: on ? '#fff' : colors.muted }}>{o.label}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {mode === 'login' && smsOff ? (
+        <Text style={{ fontFamily: fonts.medium, color: colors.gold, fontSize: 13, lineHeight: 19, textAlign: 'center', marginBottom: space.md }}>
+          Sign-in by text message is coming soon. Please use email for now.
+        </Text>
+      ) : null}
       <View style={{
         flexDirection: 'row', alignItems: 'center', height: 60, borderRadius: radius.pill, paddingLeft: 20, paddingRight: 6,
         backgroundColor: colors.inputBg, borderWidth: 1.5, borderColor: error ? colors.danger : focused ? colors.soul : colors.border,
@@ -85,7 +111,7 @@ export default function ContactEntry({ mode = 'login', initialMethod, initialVal
 
       {error ? <Text style={{ color: colors.danger, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginTop: space.sm }}>{error}</Text> : null}
 
-      {mode === 'login' || optionsCache?.phone || isPhone ? (
+      {mode !== 'login' && (optionsCache?.phone || isPhone) ? (
         <Text onPress={() => { setTouched(true); swap(); }} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', marginTop: space.md }}>
           {isPhone ? 'Use email instead' : 'Use phone number instead'}
         </Text>

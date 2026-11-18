@@ -4,48 +4,39 @@ _Last updated: 19 Nov 2026 (migration 056)._
 
 ## The rule (agreed 19 Nov 2026)
 
-- **New accounts:** an email confirmed with a code is mandatory. Sign-up starts with email; a phone sign-up (once SMS
-  is live) adds and confirms its email as the first step of profile setup. The server refuses to finish a profile
-  without one (`SIGNUP_EMAIL_REQUIRED`, on everywhere except the automated tests).
-- **Existing accounts without email:** reminded once per app launch on Home to add one (Settings › Sign-in &
-  security). A code goes only to the address they type.
-- **Returning people:** opening the app never asks for anything while the session is alive. A session ends only on
-  logout, "log out of other devices", a ban or deletion, or after 30 days unused (`JWT_EXPIRES_IN`, renews itself
-  while the app is used). After that, the phone's own Face ID / fingerprint ("quick sign-in", offered at the end of
-  registration and after a code sign-in) gets them back in. A code is asked only for a fresh login (new phone,
-  reinstall, web, no biometrics, "Not you? Use another account"), recovery (biometrics changed, key switched off,
-  3 failed tries) or a paused / deleting account.
-- **Which code:** the phone number first once SMS is live (`PHONE_LOGIN=true`; the app reads `GET /auth/options`),
-  email as the fallback. Until then, email.
-- **No other codes:** codes are sent only for signing in and for adding / changing an email. Nothing else in the app
-  sends one, and a session never asks for a code again.
+- **Logging in:** two choices, **Email** or **Phone number**. The person picks one and verifies only that one with a
+  6-digit code (email code or SMS code). There is no fingerprint / Face ID sign-in (removed 19 Nov 2026).
+- **Phone codes:** ready but off until MSG91 + DLT are approved (`PHONE_LOGIN=true` turns them on, no app update
+  needed). Until then the Phone number choice says "Sign-in by text message is coming soon. Please use email for
+  now"; only the store reviewer's number and `TEST_LOGIN_TARGETS` get past it.
+- **Staying logged in:** a login never times out. It survives closing the app, restarts and app updates, and ends
+  only on **Log out**, "Log out of other devices" / logging a device out in Settings, account deletion or a ban (or
+  if every session is ended for a security reason). Reinstalling the app or clearing its data removes the saved login.
+- **Sign-up (unchanged):** email + code (mandatory), the one-time face check, then the profile. Accounts without an
+  email are reminded on Home to add one (Settings › Sign-in & security).
+- **No other codes:** codes are sent only for logging in and for adding / changing an email.
 
 ## The flows
 
 | Who | How they get in | What gets marked |
 |---|---|---|
-| New person | Email → 6-digit code by email → face check (one-time, duplicate-account check) → profile | `email_verified_at` (only when the email was really sent) and, after the face check, `face_verified` |
-| Returning person, same phone | **Sign in with fingerprint / face unlock**; email code only as the fallback above | nothing new |
-| Returning person, new phone / biometrics changed | Email code, then they can turn quick sign-in on again | nothing new |
+| New person | Email → 6-digit code → face check (one-time, duplicate-account check) → profile | `email_verified_at` (only when the email was really sent) and, after the face check, `face_verified` |
+| Logged-in person opening the app | Nothing to do: still logged in | nothing new |
+| After Log out / new phone | Email (or, once SMS is live, Phone number) → 6-digit code | nothing new |
 | Phone number (SMS) | **Off** until MSG91 + DLT are live and tested (`PHONE_LOGIN=true`) | `phone_verified_at` only after a real SMS |
 | Store reviewer | `REVIEW_PHONE` + `REVIEW_CODE` (fixed code, nothing is sent) | never marked phone-verified |
-
-**Quick sign-in is not face verification.** The phone's own biometric check only releases a random sign-in key
-stored in the Android Keystore / iOS Keychain. Soulink never receives a fingerprint or face image or template, and
-the unlock says nothing about *whose* face it is, so it never changes `face_verified` or the verified badge.
 
 ## Security rules in the code
 
 - Codes: 6 digits, stored as an HMAC (never plain), expire in 5 min, single use, 5 wrong tries then dead.
 - Limits per address: one code every 30 s, 5 an hour, 10 a day; plus 20 code requests / 15 min per IP
-  (`/auth/otp`, `/account/email`) and 30 quick-sign-in tries / 15 min per IP.
+  (`/auth/otp`, `/account/email`).
 - If the email/SMS fails to send, the code is thrown away and the person gets a clear "couldn't send" message.
 - The code request answers the same whether or not an account exists (no account lookup by email/phone).
 - Codes are shown on screen (`devCode`) **only** in development, or for addresses in `TEST_LOGIN_TARGETS` while
   `OTP_DEV_ECHO=true`. The public never gets a code back from the API.
-- Quick sign-in keys: 32 random bytes; server keeps only an HMAC; max 5 per account; switched off after 5 wrong
-  tries or 180 days unused, when that device is logged out from another device, on "log out of all other
-  devices", and on account deletion. A paused / scheduled-for-deletion account must use an email code.
+- Logins: each device has a session on the server; its token has no expiry of its own and works until the session
+  is ended. Tokens issued earlier with an expiry date keep working while their session is open.
 - Adding or changing an email (Settings › Sign-in & security) needs a code sent to the **new** address; that code
   can't be used to sign in, and a login code can't be used to change an email.
 
@@ -92,10 +83,10 @@ The server logs at start-up which provider it uses and any missing setting (name
 - Codes are never shown on screen on a public server, whatever the settings.
 
 ## Database
-Migration `056_verified_contacts_device_keys.sql` runs automatically on deploy: adds `users.email_verified_at`,
+Migration `057_remove_quick_sign_in.sql` switches off every fingerprint / face sign-in key (the table is kept for
+history only). Migration `056_verified_contacts_device_keys.sql` runs automatically on deploy: adds `users.email_verified_at`,
 `users.phone_verified_at`, `otp_codes.purpose` / `user_id`, and the `device_keys` table. Existing accounts are
 not marked verified retroactively.
 
 ## App builds
-- Android build 4 (1.0.0) already contains the secure-storage module, so the new screens arrive by OTA update.
-- iOS needs a new build (Face ID usage text added to `app.json`).
+- These changes are JavaScript only: Android build 4 (1.0.0) gets them by an over-the-air update; no new build needed.
