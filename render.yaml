@@ -95,6 +95,13 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Optional: Gmail API (Google Workspace only) as the provider or as EMAIL_FALLBACK_PROVIDER
+      - key: EMAIL_FALLBACK_PROVIDER
+        sync: false
+      - key: GMAIL_SERVICE_ACCOUNT
+        sync: false
+      - key: GMAIL_SENDER
+        sync: false
       # Phone sign-in stays off until MSG91 + DLT are live and tested (then "true")
       - key: PHONE_LOGIN
         value: "false"

@@ -121,3 +121,33 @@ test('a half-made email sign-up does not block adding that email to a finished a
   assert.equal(ok.body.user.email, 'half@example.com');
   assert.equal((await query('SELECT COUNT(*) AS n FROM users WHERE id=$1', [half.id])).rows[0].n, 0);
 });
+
+test('a new account cannot finish its profile without an email', async () => {
+  config.signupEmailRequired = true;
+  const r = await api().post('/auth/otp/request').send({ phone: '9876500001' }).expect(200);
+  const t = (await api().post('/auth/otp/verify').send({ phone: '9876500001', code: r.body.devCode }).expect(200)).body.token;
+  const h = { Authorization: `Bearer ${t}` };
+  const body = { username: 'needs.email', displayName: 'Needs Email', birthDate: '1995-05-10' };
+  const no = await api().post('/users/me/complete-onboarding').set(h).send(body).expect(400);
+  assert.equal(no.body.error.code, 'email_required');
+  const e = await api().post('/account/email/request').set(h).send({ email: 'needs@example.com' }).expect(200);
+  await api().post('/account/email/verify').set(h).send({ email: 'needs@example.com', code: e.body.devCode }).expect(200);
+  await api().post('/users/me/complete-onboarding').set(h).send(body).expect(200);
+});
+
+test('email providers: fallback when the first fails, Gmail message headers cannot be injected', async () => {
+  const { sendEmail, mime } = await import('../src/providers/email.js');
+  Object.assign(config, { emailProvider: 'resend', emailFallbackProvider: 'console' });
+  process.env.RESEND_API_KEY = 'test';
+  globalThis.fetch = async () => ({ ok: false, status: 500 });
+  assert.equal(await sendEmail({ to: 'a@example.com', subject: 's', text: 't' }), 'console');
+  const m = mime({ from: 'Soulink <no-reply@qm46.in>', to: 'a@example.com\r\nBcc: evil@example.com', subject: 'Hi\nX: y', text: 'code 123456' });
+  assert.equal(m.split('\r\n\r\n')[0].split('\r\n').length, 6);
+  assert.ok(!/^Bcc:/m.test(m));
+  delete process.env.RESEND_API_KEY;
+});
+
+test('the app can ask which codes are on', async () => {
+  config.phoneLogin = false;
+  assert.deepEqual((await api().get('/auth/options').expect(200)).body, { phone: false, email: true });
+});

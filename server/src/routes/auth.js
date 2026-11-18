@@ -35,6 +35,9 @@ function resolveTarget(body) {
   return { target: e, channel: 'email' };
 }
 
+// Which sign-in codes are on, so the app can offer the phone first once SMS is live (email stays the fallback)
+r.get('/options', (req, res) => res.json({ phone: !!config.phoneLogin, email: true }));
+
 // Step 1: request a code. The same answer whether or not an account exists (no one can test which emails or
 // numbers are on Soulink); after the code, a new person is taken to sign-up and a returning one to Home.
 r.post(

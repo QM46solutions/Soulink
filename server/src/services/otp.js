@@ -3,7 +3,7 @@
 // at most 5 an hour and 10 a day per phone/email. A code that could not be delivered is deleted again.
 // The code is shown back to the app only in development, or for the team's own TEST_LOGIN_TARGETS in test mode.
 import { one, query } from '../db.js';
-import { config } from '../config.js';
+import { config, isPublicProduction } from '../config.js';
 import { HttpError, tooMany } from '../lib/errors.js';
 import { hashCode, normalizeEmail, normalizePhone, randomOtp } from '../lib/auth.js';
 import { sendOtp } from '../providers/sms.js';
@@ -17,7 +17,8 @@ export const reviewTarget = () => (config.reviewPhone && config.reviewCode ? nor
 export const isReview = (target) => !!target && target === reviewTarget();
 /** Codes really reach the person only through a real provider (not the server log). */
 export const realDelivery = (channel) => (channel === 'email' ? config.emailProvider !== 'console' : config.smsProvider !== 'console');
-const echoAllowed = (target) => config.otpDevEcho && (config.isDev || isTestTarget(target));
+// never on a public server (the start-up check also refuses OTP_DEV_ECHO there)
+const echoAllowed = (target) => !isPublicProduction && config.otpDevEcho && (config.isDev || isTestTarget(target));
 
 /** Phone codes are off until SMS (MSG91 + DLT) is live, except for the reviewer number and the team's test numbers. */
 export function assertChannelOpen(target, channel) {

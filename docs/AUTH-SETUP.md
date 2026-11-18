@@ -1,15 +1,24 @@
 # Soulink sign-in: how it works and how to configure it
 
-_Last updated: 18 Nov 2026 (migration 056)._
+_Last updated: 19 Nov 2026 (migration 056)._
 
-## The rule (decided 18 Nov 2026)
+## The rule (agreed 19 Nov 2026)
 
-Codes (email now, phone/WhatsApp later) are for **registration**. After that a person signs in with the phone's own
-Face ID / fingerprint ("quick sign-in", offered with **Turn on** as the last step of registration and after any code
-sign-in). The login screen on a phone with quick sign-in shows only that button (its prompt opens by itself); the code
-form appears only as a fallback: after 3 failed or cancelled tries, when the key no longer works (biometrics changed,
-switched off on the server, 5 wrong server-side tries, 180 days unused), for a paused / deleting account, or via
-"Not you? Use another account". New phones, reinstalls, phones without biometrics and the web use the code.
+- **New accounts:** an email confirmed with a code is mandatory. Sign-up starts with email; a phone sign-up (once SMS
+  is live) adds and confirms its email as the first step of profile setup. The server refuses to finish a profile
+  without one (`SIGNUP_EMAIL_REQUIRED`, on everywhere except the automated tests).
+- **Existing accounts without email:** reminded once per app launch on Home to add one (Settings › Sign-in &
+  security). A code goes only to the address they type.
+- **Returning people:** opening the app never asks for anything while the session is alive. A session ends only on
+  logout, "log out of other devices", a ban or deletion, or after 30 days unused (`JWT_EXPIRES_IN`, renews itself
+  while the app is used). After that, the phone's own Face ID / fingerprint ("quick sign-in", offered at the end of
+  registration and after a code sign-in) gets them back in. A code is asked only for a fresh login (new phone,
+  reinstall, web, no biometrics, "Not you? Use another account"), recovery (biometrics changed, key switched off,
+  3 failed tries) or a paused / deleting account.
+- **Which code:** the phone number first once SMS is live (`PHONE_LOGIN=true`; the app reads `GET /auth/options`),
+  email as the fallback. Until then, email.
+- **No other codes:** codes are sent only for signing in and for adding / changing an email. Nothing else in the app
+  sends one, and a session never asks for a code again.
 
 ## The flows
 
@@ -44,15 +53,30 @@ the unlock says nothing about *whose* face it is, so it never changes `face_veri
 
 Enter secrets only in Render. Never paste them into chat, code or Git.
 
-### Email (Resend) — needed for real email codes
-1. Create a Resend account, add the sending domain (e.g. `qm46.in` or a subdomain such as `mail.qm46.in`) and add
-   the DNS records Resend shows (SPF/DKIM; DMARC recommended) at the domain's DNS host. Wait for "Verified".
-2. Create an API key with **Sending access** only, restricted to that domain.
-3. In Render set:
-   - `EMAIL_PROVIDER` = `resend`
-   - `RESEND_API_KEY` = the key (secret)
-   - `EMAIL_FROM` = `Soulink <no-reply@qm46.in>` (must be on the verified domain)
-4. Save → redeploy. Test with a team email listed in `TEST_LOGIN_TARGETS` first.
+### Email provider (needed for real email codes)
+
+All email goes through `server/src/providers/email.js` (`sendEmail`), so switching provider is a settings change.
+
+| Setting | Value |
+|---|---|
+| `EMAIL_PROVIDER` | `resend` (recommended) or `gmail`; `console` only for development |
+| `EMAIL_FROM` | `Soulink <no-reply@qm46.in>`: must be on the verified domain (Resend) or the Workspace mailbox (Gmail) |
+| `RESEND_API_KEY` | secret, Resend → API Keys, **Sending access** only, limited to the domain |
+| `GMAIL_SERVICE_ACCOUNT` | secret, only for `gmail`: the service-account key file's JSON, base64-encoded |
+| `GMAIL_SENDER` | only for `gmail`: the Google Workspace mailbox to send as, e.g. `no-reply@qm46.in` |
+| `EMAIL_FALLBACK_PROVIDER` | optional: tried once if the main provider fails (e.g. `gmail` behind `resend`) |
+
+**Resend:** add the domain (or a subdomain such as `mail.qm46.in`) in Resend → Domains, add the DNS records it shows
+at the domain's DNS host, wait for "Verified", create the key, set the three settings, **Save and deploy**.
+
+**Gmail API (only with Google Workspace on qm46.in):** a personal @gmail.com can't be used (a service account can
+only act for a Workspace mailbox, and a personal account's OAuth refresh token for an unverified app expires after
+7 days). Steps: Google Cloud project → enable Gmail API → create a service account and a JSON key → Workspace Admin
+console → Security → API controls → Domain-wide delegation → add the service account's client ID with scope
+`https://www.googleapis.com/auth/gmail.send` → base64 the key file (`base64 -i key.json | pbcopy` on a Mac) and paste
+it into `GMAIL_SERVICE_ACCOUNT` in Render, never into chat or Git. Limit: 2,000 messages a day per mailbox.
+
+The server logs at start-up which provider it uses and any missing setting (names only, never values).
 
 ### Team testing (while phone codes are off)
 - `TEST_LOGIN_TARGETS` = comma-separated team numbers / emails, e.g. `98xxxxxxxx,someone@example.com`.
@@ -64,7 +88,8 @@ Enter secrets only in Render. Never paste them into chat, code or Git.
   team numbers, then `PHONE_LOGIN` = `true`.
 
 ### Before public launch (server refuses to start otherwise when `ACCESS_CODE` is empty)
-- `OTP_DEV_ECHO` = `false`, `TEST_LOGIN_TARGETS` empty, `EMAIL_PROVIDER` = `resend`, `PHONE_LOGIN` true only with a real SMS provider.
+- `OTP_DEV_ECHO` = `false`, `TEST_LOGIN_TARGETS` empty, `EMAIL_PROVIDER` = `resend` or `gmail` with its key, `SIGNUP_EMAIL_REQUIRED` not false, `PHONE_LOGIN` true only with a real SMS provider.
+- Codes are never shown on screen on a public server, whatever the settings.
 
 ## Database
 Migration `056_verified_contacts_device_keys.sql` runs automatically on deploy: adds `users.email_verified_at`,

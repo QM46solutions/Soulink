@@ -21,6 +21,7 @@ import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 import { startMetrics } from './services/metrics.js';
 import { moveStoredFilesToBlob } from './providers/storage.js';
+import { emailConfigProblems } from './providers/email.js';
 
 const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
 if (config.env !== 'test') startMetrics(); // health numbers for the team console, written every 5 minutes
@@ -74,6 +75,8 @@ server.listen(config.port, '0.0.0.0', () => {
   const ips = Object.values(os.networkInterfaces()).flat()
     .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
   console.log(`\n✨ Soulink server running`);
+  for (const p of emailConfigProblems()) console.warn(`   ⚠️  Email: ${p} (sign-in codes by email will fail)`);
+  console.log(`   Email codes: ${config.emailProvider}${config.emailFallbackProvider ? ` (fallback ${config.emailFallbackProvider})` : ''}; phone codes: ${config.phoneLogin ? config.smsProvider : 'off'}`);
   console.log(`   On this laptop:  http://localhost:${config.port}`);
   ips.forEach((ip) => console.log(`   From your phone: http://${ip}:${config.port}`));
   console.log(`   Database: SQL Server ${config.db.server}:${config.db.port}/${config.db.database}`);

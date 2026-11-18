@@ -1,9 +1,10 @@
 // The email/phone field with the round arrow button. Used on the welcome screen (mode="login")
 // and on Create account (mode="signup"). Arrow or Enter → code is sent → 6-digit code screen.
-// Email is the default. Phone codes stay switched off on the server until SMS is live (it answers
-// "phone_login_off"); the phone option stays for the store reviewer's test number and the team's test numbers.
-// The answer never says whether an account exists, so both modes behave the same.
-import { useState } from 'react';
+// Sign-in: the phone number comes first once SMS codes are live on the server (GET /auth/options), with email as the
+// fallback; until then email comes first, and "Use phone number instead" stays for the store reviewer's test number
+// and the team's test numbers. Create account: email is mandatory, so it starts with email (a phone sign-up, once SMS
+// is live, adds its email as the first step of profile setup). The answer never says whether an account exists.
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,8 +12,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { colors, fonts, gradients, radius, space } from '../lib/theme';
 
-export default function ContactEntry({ mode = 'login', initialMethod = 'email', initialValue = '' }) {
-  const [method, setMethod] = useState(initialMethod);
+let optionsCache = null; // { phone, email } from the server, fetched once per app launch
+
+export default function ContactEntry({ mode = 'login', initialMethod, initialValue = '' }) {
+  const [method, setMethod] = useState(initialMethod || (mode === 'login' && optionsCache?.phone ? 'phone' : 'email'));
+  const [touched, setTouched] = useState(!!initialMethod);
+  useEffect(() => {
+    if (optionsCache) return;
+    api('/auth/options').then((o) => {
+      optionsCache = o;
+      if (!touched && mode === 'login' && o.phone) setMethod('phone');
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -74,9 +85,11 @@ export default function ContactEntry({ mode = 'login', initialMethod = 'email', 
 
       {error ? <Text style={{ color: colors.danger, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginTop: space.sm }}>{error}</Text> : null}
 
-      <Text onPress={swap} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', marginTop: space.md }}>
-        {isPhone ? 'Use email instead' : 'Use phone number instead'}
-      </Text>
+      {mode === 'login' || optionsCache?.phone || isPhone ? (
+        <Text onPress={() => { setTouched(true); swap(); }} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', marginTop: space.md }}>
+          {isPhone ? 'Use email instead' : 'Use phone number instead'}
+        </Text>
+      ) : null}
     </View>
   );
 }

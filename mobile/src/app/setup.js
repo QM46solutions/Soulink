@@ -1,5 +1,6 @@
 // "Create your soul profile" — shown once, right after a new account's code is verified.
 // Four short steps:  1 Face ID  →  2 Who are you  →  3 About you  →  4 Your vibe
+// Every account needs a confirmed email: someone who signed up with a phone number adds it first.
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Switch, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -17,6 +18,7 @@ import { colors, fonts, gradients, space } from '../lib/theme';
 import { usePhotoPicker } from '../components/PhotoPicker';
 import { TERMS_VERSION } from '../lib/legal';
 import { offerQuickSignIn } from '../lib/biometric';
+import AddEmail from '../components/AddEmail';
 
 const GENDERS = [
   { v: 'male', l: 'Male' }, { v: 'female', l: 'Female' }, { v: 'non_binary', l: 'Non-binary' }, { v: 'prefer_not', l: 'Prefer not to say' },
@@ -115,6 +117,15 @@ export default function Setup() {
 
   const next = () => { setError(null); if (step < STEPS.length - 1) setStep(step + 1); else finish(); };
   const back = () => { setError(null); if (step > 0) setStep(step - 1); else signOut(); };
+
+  if (user?.needsEmail) {
+    return (
+      <BrandScreen back onBack={signOut}>
+        <BrandHeader size={36} title="Add your email" subtitle="It's how you sign in on a new phone and get back into your account. We'll send it a 6-digit code." />
+        <AddEmail compact onDone={setUser} />
+      </BrandScreen>
+    );
+  }
 
   return (
     <BrandScreen back onBack={back} right={<><Progress step={step} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 36, textAlign: 'right' }}>{step + 1}/{STEPS.length}</Text></>}>

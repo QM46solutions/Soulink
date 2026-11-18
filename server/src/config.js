@@ -20,12 +20,18 @@ export const config = {
     trustServerCertificate: bool(process.env.DB_TRUST_SERVER_CERT, true),
   },
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  // A session lasts until logout, "log out of other devices", a ban or deletion; it renews itself while the app is
+  // used, so this is only how long an UNUSED session survives. Then: fingerprint / face sign-in, or a code.
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   smsProvider: process.env.SMS_PROVIDER || 'console',
   // Show the login code in the API reply: development and the private test preview only. Never in public production.
   otpDevEcho: bool(process.env.OTP_DEV_ECHO, (process.env.NODE_ENV || 'development') !== 'production'),
   emailProvider: process.env.EMAIL_PROVIDER || 'console',
   emailFrom: process.env.EMAIL_FROM || 'Soulink <no-reply@soulink.app>',
+  emailFallbackProvider: process.env.EMAIL_FALLBACK_PROVIDER || '',
+  // New accounts must add and confirm an email before the profile can be finished (off only in the automated tests,
+  // whose helper accounts sign up by phone)
+  signupEmailRequired: bool(process.env.SIGNUP_EMAIL_REQUIRED, (process.env.NODE_ENV || 'development') !== 'test'),
   // Websites allowed to call the API from a browser (comma list). The app's own address is always allowed.
   corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
   // Face search (find someone by camera) is on hold
@@ -88,7 +94,10 @@ if (isPublicProduction) {
   if (config.testing) problems.push('TESTING_MODE must be false');
   if (config.phoneLogin && config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91) when PHONE_LOGIN is on');
   if (config.testLoginTargets.length) problems.push('TEST_LOGIN_TARGETS must be empty');
-  if (config.emailProvider === 'console') problems.push('EMAIL_PROVIDER must be a real provider (resend)');
+  if (!['resend', 'gmail'].includes(config.emailProvider)) problems.push('EMAIL_PROVIDER must be a real provider (resend or gmail)');
+  if ([config.emailProvider, config.emailFallbackProvider].includes('resend') && !process.env.RESEND_API_KEY) problems.push('RESEND_API_KEY must be set');
+  if ([config.emailProvider, config.emailFallbackProvider].includes('gmail') && !(process.env.GMAIL_SERVICE_ACCOUNT && process.env.GMAIL_SENDER)) problems.push('GMAIL_SERVICE_ACCOUNT and GMAIL_SENDER must be set');
+  if (!config.signupEmailRequired) problems.push('SIGNUP_EMAIL_REQUIRED must be true');
   if (!process.env.FACE_KEY || Buffer.from(process.env.FACE_KEY, 'base64').length !== 32) problems.push('FACE_KEY must be 32 random bytes, base64');
   if (config.premiumFreeTrial) problems.push('PREMIUM_FREE_TRIAL must be false');
   if (problems.length) throw new Error(`Soulink will not start in production:\n - ${problems.join('\n - ')}`);

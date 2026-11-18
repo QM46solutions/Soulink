@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useRealtime } from '../../lib/realtime';
 import { useAuth } from '../../lib/auth';
+import { confirm } from '../../lib/confirm';
 import { mediaUrl } from '../../lib/api';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
@@ -17,7 +19,24 @@ import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
 const icon = (name) => ({ focused }) => <TabIcon name={name} focused={focused} />;
 
+// Accounts made before email was mandatory: remind once per app launch to add and confirm an email (it's how they
+// sign in on a new phone and recover the account). No code is sent until they enter the address themselves.
+let emailReminded = false;
+function useEmailReminder(user) {
+  useEffect(() => {
+    if (emailReminded || !user?.onboardingDone || !user.needsEmail) return undefined;
+    const t = setTimeout(async () => {
+      emailReminded = true;
+      const yes = await confirm('Add your email', "Every Soulink account now needs an email. It's how you sign in on a new phone and get back into your account. It takes a minute: we'll send it a 6-digit code.", { confirmText: 'Add now', cancelText: 'Later' });
+      if (yes) router.push('/settings/sign-in');
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [user?.onboardingDone, user?.needsEmail]);
+}
+
 export default function TabsLayout() {
+  const { user } = useAuth();
+  useEmailReminder(user);
   const { refreshUnread } = useRealtime();
   const insets = useSafeAreaInsets();
   return (

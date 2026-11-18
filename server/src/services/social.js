@@ -1,6 +1,7 @@
 import { one, many, query } from '../db.js';
 import { ageFrom } from '../lib/auth.js';
 import { isAdmin } from '../lib/payments.js';
+import { isReview } from './otp.js';
 
 /** True if either user has blocked the other. */
 export async function isBlockedEither(a, b) {
@@ -102,6 +103,8 @@ export const meView = (u) => ({
   email: u.email,
   // true only when a code really reached that inbox / phone (never in test mode or for the reviewer number)
   emailVerified: !!u.email_verified_at,
+  // every account needs an email, except the store reviewer's test number (it can't receive one)
+  needsEmail: !u.email && !isReview(u.phone),
   phoneVerified: !!u.phone_verified_at,
   birthDate: u.birth_date,
   age: u.birth_date ? ageFrom(u.birth_date) : null,
