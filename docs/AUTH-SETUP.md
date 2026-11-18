@@ -2,12 +2,21 @@
 
 _Last updated: 18 Nov 2026 (migration 056)._
 
+## The rule (decided 18 Nov 2026)
+
+Codes (email now, phone/WhatsApp later) are for **registration**. After that a person signs in with the phone's own
+Face ID / fingerprint ("quick sign-in", offered with **Turn on** as the last step of registration and after any code
+sign-in). The login screen on a phone with quick sign-in shows only that button (its prompt opens by itself); the code
+form appears only as a fallback: after 3 failed or cancelled tries, when the key no longer works (biometrics changed,
+switched off on the server, 5 wrong server-side tries, 180 days unused), for a paused / deleting account, or via
+"Not you? Use another account". New phones, reinstalls, phones without biometrics and the web use the code.
+
 ## The flows
 
 | Who | How they get in | What gets marked |
 |---|---|---|
 | New person | Email → 6-digit code by email → face check (one-time, duplicate-account check) → profile | `email_verified_at` (only when the email was really sent) and, after the face check, `face_verified` |
-| Returning person, same phone | **Sign in with fingerprint / face unlock** (if they turned it on) — or email code | nothing new |
+| Returning person, same phone | **Sign in with fingerprint / face unlock**; email code only as the fallback above | nothing new |
 | Returning person, new phone / biometrics changed | Email code, then they can turn quick sign-in on again | nothing new |
 | Phone number (SMS) | **Off** until MSG91 + DLT are live and tested (`PHONE_LOGIN=true`) | `phone_verified_at` only after a real SMS |
 | Store reviewer | `REVIEW_PHONE` + `REVIEW_CODE` (fixed code, nothing is sent) | never marked phone-verified |

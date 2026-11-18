@@ -98,22 +98,22 @@ export async function quickSignIn() {
   }
 }
 
-const ASKED = 'soulink.quickSignIn.asked';
-
 /**
- * After a code sign-in: offer once per phone to turn on fingerprint / face unlock for next time.
- * Only for people who finished setting up their profile, on phones that support it, and not if it's already on.
+ * Codes are for registration; after that Soulink signs in with the phone's own Face ID / fingerprint check.
+ * Called at the end of registration (atSignup) and after any code sign-in on a phone that doesn't have it yet.
+ * Returns true when it was turned on. Phones without a fingerprint / face set up are skipped (they use codes).
  */
-export async function offerQuickSignIn(user) {
+export async function offerQuickSignIn(user, { atSignup = false } = {}) {
   try {
-    if (!user?.onboardingDone || !canUseQuickSignIn() || (await savedQuickSignIn())) return;
-    if (await SecureStore.getItemAsync(ASKED)) return;
-    await SecureStore.setItemAsync(ASKED, '1');
+    if (!canUseQuickSignIn() || (await savedQuickSignIn())) return false;
+    if (!atSignup && !user?.onboardingDone) return false;
     const yes = await confirm(
-      `Sign in faster next time?`,
-      `Use your phone's ${quickSignInLabel()} to sign in to Soulink instead of waiting for an email code.\n\nYour phone does the check: Soulink never sees or stores your fingerprint or face. You can turn this off any time in Settings.`,
+      atSignup ? `Sign in with ${quickSignInLabel()}` : 'Sign in without codes next time?',
+      `From now on you sign in to Soulink with your phone's ${quickSignInLabel()}. We only email you a code if that doesn't work, or on a new phone.\n\nYour phone does the check: Soulink never sees or stores your fingerprint or face.`,
       { confirmText: 'Turn on', cancelText: 'Not now' },
     );
-    if (yes) await enableQuickSignIn(user.displayName || user.username);
-  } catch { /* optional: they can turn it on in Settings › Sign-in & security */ }
+    if (!yes) return false;
+    await enableQuickSignIn(user?.displayName || user?.username);
+    return true;
+  } catch { return false; /* they can turn it on in Settings › Sign-in & security */ }
 }
