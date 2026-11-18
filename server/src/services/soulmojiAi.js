@@ -122,20 +122,29 @@ export function warmSoulmojiAi() { if (remoteHas('edit')) return; if (localInsta
 process.on('exit', () => { try { child?.kill(); } catch { /* already gone */ } });
 
 // ---------- chat translator (NLLB-200 model in the same local service) ----------
-export const TRANSLATE_LANGS = ['en', 'hi', 'te', 'bn'];
+// Same list and detection as the app (mobile/src/lib/languages.js). Kashmiri is text-only (no Azure voice for it).
+export const TRANSLATE_LANGS = ['en', 'hi', 'te', 'ta', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'or', 'as', 'ur', 'ks'];
 export const translatorInstalled = () => serviceInstalled() && fs.existsSync(path.join(DIR, 'models', 'nllb-200-distilled-600M', 'config.json'));
 
-/** Which of our languages a message is written in, from its script (Devanagari = Hindi, Telugu, Bengali, else English). */
+const BLOCKS = [
+  ['hi', 0x0900, 0x097f], ['bn', 0x0980, 0x09ff], ['pa', 0x0a00, 0x0a7f], ['gu', 0x0a80, 0x0aff], ['or', 0x0b00, 0x0b7f],
+  ['ta', 0x0b80, 0x0bff], ['te', 0x0c00, 0x0c7f], ['kn', 0x0c80, 0x0cff], ['ml', 0x0d00, 0x0d7f], ['ur', 0x0600, 0x06ff],
+];
+/** Which of our languages a message is written in, from its script. Shared scripts are told apart by letters only one
+ *  language uses: Marathi ळ ऱ (Devanagari), Assamese ৰ ৱ (Bengali script), Kashmiri ٲ ٳ ۄ ؠ ێ (Arabic script). */
 export function detectLanguage(text) {
-  const counts = { hi: 0, te: 0, bn: 0, en: 0 };
-  for (const ch of text) {
+  const counts = { en: 0 };
+  for (const ch of String(text || '')) {
     const c = ch.codePointAt(0);
-    if (c >= 0x0900 && c <= 0x097f) counts.hi += 1;
-    else if (c >= 0x0c00 && c <= 0x0c7f) counts.te += 1;
-    else if (c >= 0x0980 && c <= 0x09ff) counts.bn += 1;
+    const b = BLOCKS.find(([, lo, hi]) => c >= lo && c <= hi);
+    if (b) counts[b[0]] = (counts[b[0]] || 0) + 1;
     else if (/[a-z]/i.test(ch)) counts.en += 1;
   }
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  if (top === 'hi' && /[ळऱ]/.test(text)) return 'mr';
+  if (top === 'bn' && /[ৰৱ]/.test(text)) return 'as';
+  if (top === 'ur' && /[ٲٳۄؠێ]/.test(text)) return 'ks';
+  return top;
 }
 
 // Online (cloud) version: the laptop's translation model can't run on the free server (it needs ~2.5 GB),
@@ -252,17 +261,24 @@ export async function aiTranslate(text, from, to) {
 const SPEECH_KEY = () => (process.env.NODE_ENV === 'test' ? '' : process.env.AZURE_SPEECH_KEY || '');
 const SPEECH_REGION = () => (process.env.AZURE_SPEECH_REGION || 'centralindia').toLowerCase().replace(/\s+/g, '');
 const azureVoiceOn = () => !!SPEECH_KEY();
-const LOCALE = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN', bn: 'bn-IN' };
-const NEURAL_VOICE = { en: 'en-IN-NeerjaNeural', hi: 'hi-IN-SwaraNeural', te: 'te-IN-ShrutiNeural', bn: 'bn-IN-TanishaaNeural' };
+const LOCALE = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN', bn: 'bn-IN', ta: 'ta-IN', kn: 'kn-IN', ml: 'ml-IN', mr: 'mr-IN', gu: 'gu-IN', pa: 'pa-IN', or: 'or-IN', as: 'as-IN', ur: 'ur-IN' };
+const NEURAL_VOICE = {
+  en: 'en-IN-NeerjaNeural', hi: 'hi-IN-SwaraNeural', te: 'te-IN-ShrutiNeural', bn: 'bn-IN-TanishaaNeural', ta: 'ta-IN-PallaviNeural', kn: 'kn-IN-SapnaNeural',
+  ml: 'ml-IN-SobhanaNeural', mr: 'mr-IN-AarohiNeural', gu: 'gu-IN-DhwaniNeural', pa: 'pa-IN-VaaniNeural', or: 'or-IN-SubhasiniNeural', as: 'as-IN-YashicaNeural', ur: 'ur-IN-GulNeural',
+};
+/** Languages with a speaking voice (Kashmiri has none on Azure yet: text translation only). */
+export const VOICE_LANGS = Object.keys(LOCALE);
+// voice notes: the language is detected among a few candidates (the speaker's own language first)
+const voiceCandidates = (hint) => [...new Set([LOCALE[hint], 'en-IN', 'hi-IN', 'te-IN'].filter(Boolean))];
 const AUDIO_TYPE = { '.webm': 'audio/webm', '.m4a': 'audio/mp4', '.mp4': 'audio/mp4', '.aac': 'audio/aac', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.3gp': 'audio/3gpp', '.amr': 'audio/amr' };
 const xml = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 /** Azure fast transcription: one request, any common voice-note format, language detected among our four. */
-export async function azureTranscribe(srcPath, lang) {
+export async function azureTranscribe(srcPath, lang, hint) {
   const form = new FormData();
   const type = AUDIO_TYPE[path.extname(srcPath).toLowerCase()] || 'application/octet-stream';
   form.append('audio', new Blob([fs.readFileSync(srcPath)], { type }), path.basename(srcPath));
-  form.append('definition', JSON.stringify({ locales: lang && LOCALE[lang] ? [LOCALE[lang]] : Object.values(LOCALE), profanityFilterMode: 'None' }));
+  form.append('definition', JSON.stringify({ locales: lang && LOCALE[lang] ? [LOCALE[lang]] : voiceCandidates(hint), profanityFilterMode: 'None' }));
   for (let attempt = 0; ; attempt += 1) {
     const r = await fetch(`https://${SPEECH_REGION()}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2024-11-15`, {
       method: 'POST', headers: { 'Ocp-Apim-Subscription-Key': SPEECH_KEY() }, body: form, signal: AbortSignal.timeout(90000),
@@ -315,8 +331,8 @@ async function voiceCall(route, body, timeoutMs) {
 }
 
 /** Voice note file -> what was said (auto-detects English / Hindi / Telugu / Bengali unless `lang` is given). */
-export async function aiTranscribe(srcPath, lang) {
-  if (azureVoiceOn()) return azureTranscribe(srcPath, lang);
+export async function aiTranscribe(srcPath, lang, hint) {
+  if (azureVoiceOn()) return azureTranscribe(srcPath, lang, hint);
   // older setup: the voice models on the all-in-one AI Space
   if (remoteHas('voice')) return (await remotePost('/transcribe', { audio: fs.readFileSync(srcPath).toString('base64'), ext: path.extname(srcPath) || '.webm', lang: lang || null })).text;
   return (await voiceCall('/transcribe', { src: srcPath, lang: lang || null }, 240000)).text;

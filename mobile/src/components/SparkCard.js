@@ -19,6 +19,7 @@ import { BottomSheet, CommentsSheet } from './PostSheets';
 import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
+import { feedback } from '../lib/feedback';
 
 const ago = (iso) => { const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (m < 60) return `${m}m`; const h = Math.round(m / 60); return h < 24 ? `${h}h` : `${Math.round(h / 24)}d`; };
 const Chip = ({ icon, text, color = colors.text, onPress }) => (
@@ -66,11 +67,12 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
         else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
       } else await Share.share({ message });
       const r = await api(`/sparks/${spark.id}/share`, { method: 'POST', body: {} });
-      setShares(r.shareCount); setShared(true); bump('share');
+      feedback('share'); setShares(r.shareCount); setShared(true); bump('share');
     } catch { /* cancelled */ }
   };
 
   const react = async () => {
+    feedback(reacted ? 'unlike' : 'like');
     setReacted(!reacted); setReactions((n) => n + (reacted ? -1 : 1));
     try { const r = await api(`/sparks/${spark.id}/react`, { method: 'POST' }); setReacted(r.reacted); setReactions(r.reactions); } catch { setReacted(reacted); setReactions(spark.reactions); }
   };
@@ -191,7 +193,7 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
         onClose={() => setReportOpen(false)} onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title={spark.mine ? 'Share this Spark' : 'Spread this Spark around'}
         options={[
-          { label: 'Send in a chat', onPress: () => { bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
+          { label: 'Send in a chat', onPress: () => { feedback('share'); bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]} />
       {spark.mine ? <SpreadSheet visible={spreadOpen} onClose={() => setSpreadOpen(false)} spark={spark} /> : null}

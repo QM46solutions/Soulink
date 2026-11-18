@@ -111,3 +111,7 @@ To look at the data: SQL Server Management Studio → connect to `localhost\SQLE
 - Pulse meter: score in `server/src/services/pulse.js` (weights, 30-day window, 10-day half-life), profile views table `server/migrations/012_pulse.sql`, returned by `/users/me` and `/users/u/:username`; app `mobile/src/components/PulseMeter.js` inside `ProfileHeader.js`. Tests: `server/test/m8.test.js`.
 - Post actions (👌🏻 like, share, offense, suspension after 75): `server/src/routes/posts.js` (OFFENSE_LIMIT), `server/migrations/013_post_offense_share.sql`; app `mobile/src/components/PostCard.js`, `mobile/src/app/share-post.js`, post bubble in `components/chat.js`. Tests: `server/test/m9.test.js`.
 - `INSTALL-SOULMOJI-AI.bat` + `tools/soulmoji-ai/` — one-time install of the free local Soulmoji AI (LivePortrait). The server starts it automatically (`server/src/services/soulmojiAi.js`); without it Soulmoji uses the built-in warp engine.
+
+## Decks, docs and design pages
+
+`docs/artifacts/` holds copies of every Soulink page and document made in Claude (pitch decks, fundraising playbook, legal plan, security policy, delivery flow, app screens, store assets). Start with `docs/artifacts/README.md`. The latest investor deck is `docs/investors/soulink-investor-deck.html`.

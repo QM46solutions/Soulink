@@ -9,6 +9,9 @@ import { checkPassword, checkTotp, hashPassword, newTotpSecret, otpauthUrl, requ
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { onlineNow } from '../realtime.js';
 import { liveActivity } from '../services/metrics.js';
+import { audit } from '../services/audit.js';
+import { banAccount, BAN_DAYS } from '../services/lifecycle.js';
+import { actOnOrder, addOrder, CATEGORIES, grievanceView, legalSummary, ORDER_HOURS, orderView, updateGrievance } from '../services/legal.js';
 
 const r = Router();
 const OWNER = requireConsole(); // owner-only when no extra roles are given
@@ -266,6 +269,79 @@ r.post('/safety/reports/:id', requireConsole('support'), ah(async (req, res) => 
   const d = z.object({ status: z.enum(['reviewed', 'actioned', 'dismissed']) }).parse(req.body);
   await query('UPDATE reports SET status=$2 WHERE id=$1', [req.params.id, d.status]);
   log(req, `Marked a report ${d.status}`); res.json({ ok: true });
+}));
+
+// ---------- legal: complaints, lawful orders, bans ----------
+// Complaints and orders: support + owner. Bans erase an account, so only the owner can ban or lift one.
+r.get('/legal', requireConsole('support'), ah(async (req, res) => {
+  const status = z.enum(['open', 'closed', 'all']).default('open').parse(req.query.status || 'open');
+  const gWhere = status === 'open' ? "WHERE status IN (N'open', N'in_progress')" : status === 'closed' ? "WHERE status IN (N'resolved', N'rejected')" : '';
+  const oWhere = status === 'open' ? "WHERE status = N'open'" : status === 'closed' ? "WHERE status <> N'open'" : '';
+  const complaints = await many(`SELECT TOP 100 * FROM grievances ${gWhere} ORDER BY ${status === 'open' ? 'urgent DESC, due_at' : 'created_at DESC'}`);
+  const orders = await many(`SELECT TOP 100 * FROM legal_orders ${oWhere} ORDER BY ${status === 'open' ? 'due_at' : 'created_at DESC'}`);
+  const bans = await many(`SELECT TOP 200 id, username, display_name, reason, banned_at, expires_at, CASE WHEN face_embedding IS NULL THEN 0 ELSE 1 END AS has_face
+    FROM banned_identities WHERE kind = N'ban' AND lifted_at IS NULL AND expires_at > SYSDATETIMEOFFSET() ORDER BY banned_at DESC`);
+  const sum = await legalSummary();
+  res.json({
+    summary: Object.fromEntries(Object.entries(sum || {}).map(([k, v]) => [k, n(v)])),
+    complaints: complaints.map(grievanceView), orders: orders.map(orderView), categories: CATEGORIES, orderHours: ORDER_HOURS,
+    // bans: no phone or email here; the console shows only what's needed to recognise the ban
+    bans: bans.map((b) => ({ id: b.id, username: b.username, name: b.display_name, reason: b.reason, bannedAt: b.banned_at, expiresAt: b.expires_at, face: !!b.has_face })),
+  });
+}));
+
+r.patch('/legal/complaints/:id', requireConsole('support'), ah(async (req, res) => {
+  const d = z.object({ status: z.enum(['in_progress', 'resolved', 'rejected']), resolution: z.string().trim().max(2000).optional(), removeContent: z.boolean().optional() })
+    .refine((x) => !['resolved', 'rejected'].includes(x.status) || (x.resolution || '').length >= 10, { message: 'Write the decision for the person (at least 10 characters). It is emailed to them.' })
+    .parse(req.body);
+  const g = await one('SELECT * FROM grievances WHERE id=$1', [req.params.id]);
+  if (!g) throw notFound('Complaint not found');
+  const out = await updateGrievance(g, d, req);
+  log(req, `Complaint #${g.ticket_no} → ${d.status}${out.removed ? ' (content removed)' : ''}`);
+  res.json({ ok: true, ...out });
+}));
+
+const orderBody = z.object({
+  source: z.enum(['court', 'government', 'police', 'cert_in', 'other']), authority: z.string().trim().min(3).max(200),
+  orderRef: z.string().trim().max(120).optional(), orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  kind: z.enum(['takedown', 'info_request', 'preserve']), receivedAt: z.string().datetime({ offset: true }).optional(),
+  contentUrls: z.array(z.string().trim().min(10).max(500)).max(50).optional(), targetUsername: z.string().trim().max(41).transform((v) => v.replace(/^@/, '')).optional(),
+  summary: z.string().trim().min(10).max(2000), verified: z.boolean(),
+});
+r.post('/legal/orders', requireConsole('support'), ah(async (req, res) => {
+  const d = orderBody.parse(req.body);
+  if (!d.verified) throw badRequest('Check the order is genuine first (official email domain, signed order, or call back the office) and tick "Verified".', 'not_verified');
+  const o = await addOrder(d, req);
+  log(req, `Logged legal order L${o.ref_no} (${d.kind}) from ${d.authority}`);
+  res.status(201).json({ ok: true, order: orderView(o) });
+}));
+r.post('/legal/orders/:id', requireConsole('support'), ah(async (req, res) => {
+  const d = z.object({ action: z.enum(['remove', 'done', 'reject']), note: z.string().trim().max(2000).optional() })
+    .refine((x) => x.action === 'remove' || (x.note || '').length >= 10, { message: 'Write what was done (or why it was refused), at least 10 characters.' })
+    .parse(req.body);
+  const o = await one('SELECT * FROM legal_orders WHERE id=$1', [req.params.id]);
+  if (!o) throw notFound('Order not found');
+  const out = await actOnOrder(o, d, req);
+  log(req, `Legal order L${o.ref_no}: ${d.action}${out.removed ? ` (${out.removed} removed)` : ''}`);
+  res.json({ ok: true, ...out });
+}));
+
+r.post('/legal/bans', OWNER, ah(async (req, res) => {
+  const d = z.object({ username: z.string().trim().max(41).transform((v) => v.replace(/^@/, '')), reason: z.string().trim().min(10).max(500), days: z.number().int().min(30).max(BAN_DAYS * 2).optional(), confirm: z.literal(true) }).parse(req.body);
+  const u = await one('SELECT * FROM users WHERE username=$1', [d.username]);
+  if (!u) throw notFound('No account with that username');
+  await banAccount(u, { reason: `${d.reason} (console: ${req.cu.name})`, days: d.days || BAN_DAYS }, req);
+  log(req, `Banned @${u.username}`);
+  res.json({ ok: true });
+}));
+r.post('/legal/bans/:id/lift', OWNER, ah(async (req, res) => {
+  const d = z.object({ reason: z.string().trim().min(10).max(500) }).parse(req.body);
+  const b = await one(`SELECT id, username FROM banned_identities WHERE id=$1 AND kind=N'ban' AND lifted_at IS NULL`, [req.params.id]);
+  if (!b) throw notFound('Ban not found or already lifted');
+  await query('UPDATE banned_identities SET lifted_at=SYSDATETIMEOFFSET(), face_embedding=NULL WHERE id=$1', [b.id]);
+  await audit(req, 'ban_lifted', { actorId: null, detail: `${b.id} @${b.username} by ${req.cu.name}: ${d.reason}` });
+  log(req, `Lifted the ban on @${b.username}`);
+  res.json({ ok: true });
 }));
 
 // ---------- revenue ----------

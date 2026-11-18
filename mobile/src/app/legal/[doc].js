@@ -23,7 +23,8 @@ export default function LegalDoc() {
           {paras.map((p) => <Text key={p} style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 14, lineHeight: 21, marginBottom: space.sm }}>{p}</Text>)}
         </View>
       ))}
-      {key === 'grievance' ? <Button title="Report a copyright problem" variant="ghost" icon="musical-notes-outline" onPress={() => router.push('/copyright')} style={{ marginTop: space.lg }} /> : null}
+      {key === 'grievance' ? <Button title="Raise a complaint" icon="chatbox-ellipses-outline" onPress={() => router.push('/complaint')} style={{ marginTop: space.lg }} /> : null}
+      {key === 'grievance' ? <Button title="Report a copyright problem" variant="ghost" icon="musical-notes-outline" onPress={() => router.push('/copyright')} style={{ marginTop: space.sm }} /> : null}
     </ScrollView>
   );
 }

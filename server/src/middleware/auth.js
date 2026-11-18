@@ -51,6 +51,12 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+/** Sets req.user when a valid login is sent, otherwise carries on without one (public forms). */
+export async function optionalAuth(req, res, next) {
+  try { req.user = (await loadUser(req)) || undefined; } catch { req.user = undefined; }
+  next();
+}
+
 /** Blocks connecting (follow, requests, new chats) until the person has created their Soul DNA. */
 export function requireSoul(req, res, next) {
   if (config.soulRequired && !req.user?.soul_ready) {

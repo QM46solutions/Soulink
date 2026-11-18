@@ -7,6 +7,7 @@ import { notice } from '../../lib/confirm';
 import { disablePush, enablePush, pushEnabled, pushSupport, sendTestPush } from '../../lib/push';
 import { MenuRow, Note, Section, Toggle } from '../../components/SettingsUI';
 import { ErrorText, s } from '../../components/ui';
+import { feedbackPrefs, setFeedbackPrefs } from '../../lib/feedback';
 
 const KINDS = [
   ['messages', 'Messages', 'New chat messages'],
@@ -24,6 +25,7 @@ export default function NotificationSettings() {
   const [phoneOn, setPhoneOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const support = pushSupport();
+  const [fx, setFx] = useState(feedbackPrefs()); // sounds & vibration (this phone only)
   useEffect(() => { pushEnabled().then(setPhoneOn); }, []);
 
   const togglePhone = async (on) => {
@@ -55,6 +57,10 @@ export default function NotificationSettings() {
       <Section>Notify me about</Section>
       {KINDS.map(([k, title, text]) => <Toggle key={k} title={title} text={text} value={prefs[k] !== false} onChange={(v) => setPref(k, v)} />)}
       <Note>These choices apply to every phone you're signed in on. You'll still see everything in the Notifications tab inside Soulink.</Note>
+      <Section>Sounds & vibration</Section>
+      <Toggle title="Sounds" text="A short sound when you Connect, like, comment or share" value={fx.sound} onChange={(v) => { setFx({ ...fx, sound: v }); setFeedbackPrefs({ sound: v }); }} />
+      <Toggle title="Vibration" text="A light buzz for the same actions" value={fx.vibrate} onChange={(v) => { setFx({ ...fx, vibrate: v }); setFeedbackPrefs({ vibrate: v }); }} />
+      <Note>Sounds and vibration are set for this phone only.</Note>
     </ScrollView>
   );
 }

@@ -12,6 +12,7 @@ import { IntentChip, ScorePill } from '../../components/Choice';
 import { Avatar, Button, Empty, ErrorText, VerifiedBadge } from '../../components/ui';
 import { HOLDS, INTENTS, KNOWN, fmtDate, intentOf } from '../../lib/intents';
 import { colors, fonts, radius, space } from '../../lib/theme';
+import { feedback } from '../../lib/feedback';
 
 function Tabs({ value, onChange, counts }) {
   return (
@@ -57,6 +58,7 @@ function Incoming({ r, onDone }) {
 
   const accept = (asIntent) => run(async () => {
     const res = await api(`/connections/requests/${r.id}/accept`, { method: 'POST', body: asIntent ? { asIntent } : {} });
+    feedback('connect');
     if (res.mutual && res.conversationId) { onDone(); router.push(`/chat/${res.conversationId}`); return; }
     // they're now connected to you: ask to connect back (both ways = Connections, and a chat opens)
     const back = await confirm(`Connect back with ${first}?`,

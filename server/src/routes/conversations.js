@@ -13,11 +13,14 @@ import { pushTo } from '../services/push.js';
 import { connectionBetween, heldBetween } from '../services/connections.js';
 import { ownsSoulmoji } from './soulmoji.js';
 import { paymentsLive, testPaymentsAllowed } from '../lib/payments.js';
-import { aiSpeak, aiTranscribe, aiTranslate, canTranslate, detectLanguage, TRANSLATE_LANGS, voiceInstalled } from '../services/soulmojiAi.js';
+import { aiSpeak, aiTranscribe, aiTranslate, canTranslate, detectLanguage, TRANSLATE_LANGS, VOICE_LANGS, voiceInstalled } from '../services/soulmojiAi.js';
+const noVoiceFor = (lang) => new HttpError(400, 'There is no speaking voice for this language yet. Choose Text as the output.', 'voice_language');
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { sendsReceipts, showsActivity } from '../services/privacy.js';
+import { newGame, play } from '../services/oxGame.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -84,7 +87,7 @@ export function serializeMessage(m) {
     post: !deleted && m.kind === 'post' && m.body ? (() => { try { return JSON.parse(m.body); } catch { return null; } })() : null,
     // "+" menu attachments: location { lat, lon, label }, contact { userId, username, displayName, avatarUrl },
     // document { name, size }, poll { question, options[] } (votes are added in enrich)
-    ...(!deleted && ['location', 'contact', 'document', 'poll'].includes(m.kind) && m.body ? (() => { try { return { [m.kind]: JSON.parse(m.body) }; } catch { return {}; } })() : {}),
+    ...(!deleted && ['location', 'contact', 'document', 'poll', 'game'].includes(m.kind) && m.body ? (() => { try { return { [m.kind]: JSON.parse(m.body) }; } catch { return {}; } })() : {}),
     vanish: !!m.vanish, // sent in private chat: disappears after it's seen
     savedAt: m.saved_at ?? null,
     // a reply to someone's Moment: small preview of that Moment
@@ -154,7 +157,7 @@ async function enrichBase(messages, meId) {
     return {
       ...m,
       reactions: Object.entries(counts).map(([emoji, count]) => ({ emoji, count, mine: mine.some((x) => x.emoji === emoji && x.user_id === meId) })),
-      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.kind === 'post' ? '📮 Post' : rp.kind === 'location' ? '📍 Location' : rp.kind === 'contact' ? '👤 Contact' : rp.kind === 'document' ? '📄 Document' : rp.kind === 'poll' ? '📊 Poll' : rp.body } : null,
+      replyTo: rp ? { id: rp.id, senderId: rp.sender_id, kind: rp.kind, text: rp.deleted_at ? 'Message unsent' : rp.kind === 'image' ? '📷 Photo' : rp.kind === 'voice' ? '🎤 Voice message' : rp.kind === 'soulmoji' ? '✨ Soulmoji' : rp.kind === 'post' ? '📮 Post' : rp.kind === 'location' ? '📍 Location' : rp.kind === 'contact' ? '👤 Contact' : rp.kind === 'document' ? '📄 Document' : rp.kind === 'poll' ? '📊 Poll' : rp.kind === 'game' ? '🎮 OX game' : rp.body } : null,
     };
   });
 }
@@ -172,6 +175,7 @@ function preview(m, meId) {
   else if (m.kind === 'contact') text = `👤 ${m.contact?.displayName || 'Contact'}`;
   else if (m.kind === 'document') text = `📄 ${m.document?.name || 'Document'}`;
   else if (m.kind === 'poll') text = `📊 ${m.poll?.question || 'Poll'}`;
+  else if (m.kind === 'game') text = '🎮 OX game';
   else if (m.momentRef) text = `↩︎ Moment: ${m.body}`;
   else text = m.body;
   const safe = m.kind === 'moment' ? { ...m, body: null, mediaUrl: null } : m; // a Moment's content never travels in the inbox
@@ -188,8 +192,13 @@ function serializeConversation(c, members, meId, lastMessage = null, unread = 0)
     isGroup: !!c.is_group,
     title: direct ? (other ? displayName(other) : 'Soulink user') : (c.title || others.map(displayName).slice(0, 3).join(', ') || 'Group'),
     avatarUrl: direct ? other?.avatar_url ?? null : c.avatar_url,
-    other: other ? { ...userCard(other), chatLanguage: other.chat_language || null } : null, // chatLanguage: default for the message-box translator
-    members: members.map((m) => ({ ...userCard(m), role: m.role, lastReadAt: m.last_read_at })),
+    // chatLanguage: default for the message-box translator. activeAt: "Active now / 2h ago", only when both people
+    // share their activity status (Settings › Privacy)
+    other: other ? { ...userCard(other), chatLanguage: other.chat_language || null,
+      activeAt: showsActivity(other) && showsActivity(mine) ? other.last_active_at || null : null } : null,
+    // "Seen": read receipts are two-way, so if either person turned them off, the other's read time isn't shared
+    members: members.map((m) => ({ ...userCard(m), role: m.role,
+      lastReadAt: m.id === meId || (sendsReceipts(m) && sendsReceipts(mine)) ? m.last_read_at : null })),
     myRole: mine?.role ?? null,
     isRequest: !!mine?.is_request,
     privateMode: !!c.private_mode,
@@ -266,7 +275,7 @@ async function pushMessage(conv, senderId, members, kind, body) {
   if (!others.length) return;
   const s = await one('SELECT username, display_name FROM users WHERE id=$1', [senderId]);
   const who = s?.display_name || s?.username || 'Someone';
-  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : kind === 'moment' ? '📸 Sent you a Moment' : kind === 'location' ? '📍 Shared a location' : kind === 'contact' ? '👤 Shared a contact' : kind === 'document' ? '📄 Sent a document' : kind === 'poll' ? '📊 Started a poll' : 'New message';
+  const what = kind === 'text' ? String(body || '').slice(0, 140) : kind === 'image' ? '📷 Photo' : kind === 'voice' ? '🎤 Voice message' : kind === 'soulmoji' ? '😊 Soulmoji' : kind === 'post' ? '📌 Shared a post' : kind === 'moment' ? '📸 Sent you a Moment' : kind === 'location' ? '📍 Shared a location' : kind === 'contact' ? '👤 Shared a contact' : kind === 'document' ? '📄 Sent a document' : kind === 'poll' ? '📊 Started a poll' : kind === 'game' ? '🎮 Wants to play OX' : 'New message';
   const title = conv.is_group && conv.title ? `${who} · ${conv.title}` : who;
   for (const id of others) await pushTo(id, 'messages', { title, body: what, url: `/chat/${conv.id}`, tag: `chat-${conv.id}` });
 }
@@ -552,8 +561,9 @@ r.post('/:id/messages', ah(async (req, res) => {
     location: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180), label: z.string().trim().max(150).optional() }).optional(),
     contact: z.object({ userId: uuid }).optional(),
     poll: z.object({ question: z.string().trim().min(1, 'Ask a question').max(200), options: z.array(z.string().trim().min(1).max(80)).min(2, 'Add at least 2 options').max(6) }).optional(),
+    game: z.object({ type: z.literal('ox') }).optional(),
     replyToId: uuid.optional(),
-  }).refine((d) => [d.body, d.soulmoji, d.voice, d.location, d.contact, d.poll].filter(Boolean).length === 1, 'Send one thing at a time').parse(req.body);
+  }).refine((d) => [d.body, d.soulmoji, d.voice, d.location, d.contact, d.poll, d.game].filter(Boolean).length === 1, 'Send one thing at a time').parse(req.body);
   await assertCanSend(conv, req.user.id);
   if (data.replyToId && !(await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [data.replyToId, conv.id]))) throw badRequest('That message is not in this chat');
   if (data.soulmoji?.imageUrl && !(await ownsSoulmoji(req.user.id, data.soulmoji.imageUrl))) throw badRequest('That Soulmoji is not yours', 'not_your_soulmoji');
@@ -566,7 +576,15 @@ r.post('/:id/messages', ah(async (req, res) => {
     if (!u) throw notFound('That person is not on Soulink');
     contactCard = { userId: u.id, username: u.username, displayName: u.display_name || u.username, avatarUrl: u.avatar_url || null };
   }
-  const payload = data.location ? { kind: 'location', body: JSON.stringify({ lat: Math.round(data.location.lat * 1e5) / 1e5, lon: Math.round(data.location.lon * 1e5) / 1e5, label: data.location.label || null }) }
+  let gameBody = null;
+  if (data.game) {
+    // OX is for two: a 1:1 chat. Whoever starts plays X and moves first.
+    const ids = await memberIds(conv.id);
+    if (conv.is_group || ids.length !== 2) throw badRequest('OX is for two people. Play it in a 1:1 chat.', 'game_two_players');
+    const other = ids.find((x) => String(x).toLowerCase() !== String(req.user.id).toLowerCase());
+    gameBody = JSON.stringify(newGame(req.user.id, other));
+  }
+  const payload = gameBody ? { kind: 'game', body: gameBody } : data.location ? { kind: 'location', body: JSON.stringify({ lat: Math.round(data.location.lat * 1e5) / 1e5, lon: Math.round(data.location.lon * 1e5) / 1e5, label: data.location.label || null }) }
     : contactCard ? { kind: 'contact', body: JSON.stringify(contactCard) }
     : data.poll ? { kind: 'poll', body: JSON.stringify({ question: data.poll.question, options: data.poll.options }) }
     : data.voice
@@ -633,6 +651,7 @@ r.post('/:id/translate-draft', ah(async (req, res) => {
   }
   let voice = null;
   if (data.output === 'voice') {
+    if (!VOICE_LANGS.includes(data.to)) throw noVoiceFor(data.to);
     if (!voiceInstalled()) throw voiceMissing();
     voice = await makeVoiceClip(req.user.id, text, data.to);
   }
@@ -651,12 +670,13 @@ r.post('/:id/voice-translate', uploadMemory('media', 25).single('file'), ah(asyn
   const tmp = path.join(dir, `${crypto.randomUUID()}${path.extname(req.file.originalname || '') || '.webm'}`);
   await fs.writeFile(tmp, req.file.buffer);
   let original;
-  try { original = await aiTranscribe(tmp); }
+  try { original = await aiTranscribe(tmp, null, req.user.chat_language); }
   catch (e) { throw new HttpError(502, e.message || "Couldn't understand this voice note. Try again.", 'voice_failed'); }
   finally { fs.unlink(tmp).catch(() => {}); }
   if (!original) throw badRequest("Couldn't hear anything. Try again a little closer to the mic.", 'no_speech');
   const from = detectLanguage(original);
   const text = from === to ? original : await aiTranslate(original, from, to);
+  if (output === 'voice' && !VOICE_LANGS.includes(to)) throw noVoiceFor(to);
   const voice = output === 'voice' ? await makeVoiceClip(req.user.id, text, to) : null;
   res.json({ from, to, original, text, same: from === to, voice });
 }));
@@ -760,6 +780,22 @@ r.post('/:id/messages/:messageId/vote', ah(async (req, res) => {
   res.json({ counts, total: rows.length, myVote: mineNow ? Number(mineNow.option_idx) : null });
 }));
 
+// POST /conversations/:id/messages/:messageId/move { cell 0-8 } → play your turn in an OX game
+r.post('/:id/messages/:messageId/move', ah(async (req, res) => {
+  const { conv } = await loadConversation(req);
+  const messageId = uuid.parse(req.params.messageId);
+  const { cell } = z.object({ cell: z.number().int().min(0).max(8) }).parse(req.body || {});
+  const m = await one("SELECT * FROM messages WHERE id=$1 AND conversation_id=$2 AND kind=N'game' AND deleted_at IS NULL", [messageId, conv.id]);
+  if (!m) throw notFound('Game not found');
+  let next;
+  try { next = play(JSON.parse(m.body), req.user.id, cell); } catch (e) { throw new HttpError(409, e.message, e.code || 'bad_move'); }
+  // only if nobody moved in the meantime (both tapping at once)
+  const upd = await one('UPDATE messages SET body=$3 OUTPUT INSERTED.id WHERE id=$1 AND body=$2', [m.id, m.body, JSON.stringify(next)]);
+  if (!upd) throw new HttpError(409, 'The board just changed. Look again and play your move.', 'game_changed');
+  emitToUsers(await memberIds(conv.id), 'message:game', { conversationId: conv.id, messageId: m.id, game: next });
+  res.json({ game: next });
+}));
+
 // ---------- Private chat (tap 3 times in the chat) ----------
 // POST /conversations/:id/private { on } → turn private chat on/off for everyone in the chat
 r.post('/:id/private', ah(async (req, res) => {
@@ -796,7 +832,8 @@ r.post('/:id/leave', ah(async (req, res) => {
 r.post('/:id/read', ah(async (req, res) => {
   const { conv } = await loadConversation(req);
   const row = await one('UPDATE conversation_members SET last_read_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.last_read_at WHERE conversation_id=$1 AND user_id=$2', [conv.id, req.user.id]);
-  emitToUsers(await memberIds(conv.id), 'read', { conversationId: conv.id, userId: req.user.id, at: row.last_read_at });
+  // read receipts off: only my own devices hear about it (my unread count still clears)
+  emitToUsers(sendsReceipts(req.user) ? await memberIds(conv.id) : [req.user.id], 'read', { conversationId: conv.id, userId: req.user.id, at: row.last_read_at });
   res.json({ ok: true });
 }));
 

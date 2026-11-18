@@ -60,7 +60,8 @@ export function requireConsole(...roles) {
       let p; try { p = jwt.verify(token, SECRET()); } catch { throw new HttpError(401, 'Your console session ended. Sign in again.', 'console_signin'); }
       const u = await one('SELECT id, email, name, role, disabled_at FROM console_users WHERE id=$1', [p.cid]);
       if (!u || u.disabled_at) throw new HttpError(401, 'This console account is turned off', 'console_signin');
-      if (u.role !== 'owner' && roles.length && !roles.includes(u.role)) throw new HttpError(403, "Your role can't open this page", 'console_role');
+      // owner can open everything; with no roles listed the route is owner-only
+      if (u.role !== 'owner' && !roles.includes(u.role)) throw new HttpError(403, "Your role can't open this page", 'console_role');
       req.cu = u;
       next();
     } catch (e) { next(e); }

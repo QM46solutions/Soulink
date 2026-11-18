@@ -153,6 +153,10 @@ function RootStack() {
         <Stack.Screen name="settings/viewers" options={{ title: 'Who viewed my profile' }} />
         <Stack.Screen name="settings/devices" options={{ title: "Where you're logged in" }} />
         <Stack.Screen name="settings/privacy" options={{ title: 'Account privacy' }} />
+        <Stack.Screen name="settings/hidden-words" options={{ title: 'Hidden words' }} />
+        <Stack.Screen name="settings/limits" options={{ title: 'Limit interactions' }} />
+        <Stack.Screen name="settings/people" options={{ title: '' }} />
+        <Stack.Screen name="settings/saved" options={{ title: '' }} />
         <Stack.Screen name="settings/status" options={{ title: 'Account status' }} />
         <Stack.Screen name="settings/app-permissions" options={{ title: 'App permissions' }} />
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
@@ -175,6 +179,7 @@ function RootStack() {
       {/* public: readable before and after login. Listed last so a redirect never lands here */}
       <Stack.Screen name="legal/[doc]" options={{ title: '' }} />
       <Stack.Screen name="copyright" options={{ title: 'Report copyright' }} />
+      <Stack.Screen name="complaint" options={{ title: 'Raise a complaint' }} />
     </Stack>
     {showBar ? <BottomBar active={active} /> : null}
     {loggedIn && onboarded && user.termsVersion !== TERMS_VERSION && top !== 'legal' ? <TermsGate /> : null}

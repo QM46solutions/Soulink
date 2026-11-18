@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api, shareBase, mediaUrl } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import ActionSheet from './ActionSheet';
+import ReportModal from './ReportModal';
 import OffenseSheet from './OffenseSheet';
 import { CommentsSheet, LikesSheet } from './PostSheets';
 import { MusicChip, MusicSheet } from './PostMusic';
@@ -17,6 +18,7 @@ import PostVideo from './PostVideo';
 export const isVideo = (u) => /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i.test(String(u || ''));
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
+import { feedback } from '../lib/feedback';
 
 export const LIKE_EMOJI = '👌🏻';
 // long words / links wrap instead of running off the screen (web needs this explicitly)
@@ -148,6 +150,10 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   const [shared, setShared] = useState(!!post.shared);
   const [shareMenu, setShareMenu] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [reportOpen2, setReportOpen2] = useState(false); // Report to the Soulink team (law / safety), separate from the ❗ mark
+  const [saved, setSaved] = useState(!!post.saved);
+  const [pinned, setPinned] = useState(!!post.pinned);
+  const [archived, setArchived] = useState(!!post.archived);
   const [caption, setCaption] = useState(post.caption);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(post.caption || '');
@@ -202,6 +208,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         Animated.timing(wave, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: ND }),
       ]).start();
     }
+    feedback(liked ? 'unlike' : 'like');
     setLiked(!liked); setLikes((n) => (n === null ? null : n + (liked ? -1 : 1)));
     try { const r = await api(`/posts/${post.id}/like`, { method: 'POST' }); setLiked(r.liked); setLikes(r.likeCount); } catch { setLiked(liked); setLikes(post.likeCount); }
   };
@@ -222,7 +229,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         else { await navigator.clipboard.writeText(message); notice('Copied', 'Paste it anywhere to share.'); }
       } else await Share.share({ message });
       const r = await api(`/posts/${post.id}/share`, { method: 'POST', body: {} });
-      setShares(r.shareCount); setShared(true); bump('share');
+      feedback('share'); setShares(r.shareCount); setShared(true); bump('share');
     } catch { /* cancelled */ }
   };
   const del = async () => {
@@ -239,20 +246,55 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   const copyText = async () => {
     try { if (Platform.OS === 'web') await navigator.clipboard.writeText(caption || ''); else await Share.share({ message: caption || '' }); } catch { /* cancelled */ }
   };
+  // ⋯ menu actions
+  const link = () => `${shareBase()}/p/${post.id}`;
+  const copyLink = async () => {
+    try {
+      if (Platform.OS === 'web') { await navigator.clipboard.writeText(link()); notice('Link copied'); }
+      else await Share.share({ message: link() });
+    } catch { /* cancelled */ }
+  };
+  const toggle = async (path, apply, done) => {
+    try { const r = await api(`/posts/${post.id}/${path}`, { method: 'POST' }); apply(r); if (done) done(r); }
+    catch (e) { notice("Couldn't do that", e.message); }
+  };
+  const save = () => toggle('save', (r) => setSaved(r.saved), (r) => notice(r.saved ? 'Saved' : 'Removed from Saved', r.saved ? 'Find it in Settings › Saved. Only you can see it.' : undefined));
+  const pin = () => toggle('pin', (r) => setPinned(r.pinned), (r) => notice(r.pinned ? 'Pinned to your profile' : 'Unpinned'));
+  const archive = () => toggle('archive', (r) => setArchived(r.archived), (r) => {
+    notice(r.archived ? 'Archived' : 'Back on your profile', r.archived ? "It's hidden from your profile and feeds. Find it in Settings › Archive." : undefined);
+    if (r.archived) onDeleted?.(post.id);
+  });
+  const notInterested = () => toggle('hide', () => {}, () => { notice("You won't see this post again"); onDeleted?.(post.id); });
+  const mute = async () => {
+    try {
+      await api(`/privacy/people/${post.author.id}`, { method: 'PUT', body: { mutePosts: true } });
+      notice(`Muted ${post.author.username}`, "You won't see their posts in your feed. They aren't told. Undo in Settings › Account privacy › Muted.");
+      onDeleted?.(post.id);
+    } catch (e) { notice("Couldn't mute", e.message); }
+  };
   // Instagram-style ⋯ menu: your own post vs someone else's
   const options = post.mine
     ? [
+      { label: pinned ? 'Unpin from profile' : 'Pin to your profile', onPress: pin },
+      { label: archived ? 'Show on profile' : 'Archive', onPress: archive },
       { label: 'Edit', onPress: () => { setDraft(caption || ''); setEditing(true); } },
       { label: hideLikes ? 'Show like count' : 'Hide like count', onPress: () => setOption({ hideLikes: !hideLikes }) },
       { label: commentsOff ? 'Turn on commenting' : 'Turn off commenting', onPress: () => setOption({ commentsOff: !commentsOff }) },
       { label: music ? 'Change music' : 'Add music', onPress: () => setMusicOpen(true) },
+      { label: saved ? 'Remove from Saved' : 'Save', onPress: save },
+      { label: 'Copy link', onPress: copyLink },
       { label: 'Delete', destructive: true, onPress: del },
     ]
     : [
-      { label: offended ? 'Remove offense mark' : 'Mark as offensive', destructive: !offended, onPress: offense },
+      { label: saved ? 'Remove from Saved' : 'Save', onPress: save },
       { label: 'Share', onPress: () => setShareMenu(true) },
+      { label: 'Copy link', onPress: copyLink },
       ...(caption ? [{ label: 'Copy text', onPress: copyText }] : []),
+      { label: 'Not interested', onPress: notInterested },
+      { label: `Mute ${post.author.username}`, onPress: mute },
       { label: 'About this account', onPress: () => router.push(`/user/${post.author.username}`) },
+      { label: offended ? 'Remove offense mark' : 'Mark as offensive', onPress: offense },
+      { label: 'Report', destructive: true, onPress: () => setReportOpen2(true) },
     ];
   const textOnly = !view.media?.length && !view.reveal;
 
@@ -327,12 +369,13 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
         onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
       {post.mine ? <MusicSheet visible={musicOpen} onClose={() => setMusicOpen(false)} post={{ id: post.id, music }} onChanged={applyPost} /> : null}
       <ActionSheet visible={optionsOpen} onClose={() => setOptionsOpen(false)} title={post.mine ? 'Your post' : post.author.username} options={options} />
+      <ReportModal visible={reportOpen2} onClose={() => setReportOpen2(false)} targetType="post" targetId={post.id} />
       <ActionSheet
         visible={shareMenu}
         onClose={() => setShareMenu(false)}
         title="Share this post"
         options={[
-          { label: 'Send in a chat', onPress: () => { bump('share'); router.push({ pathname: '/share-post', params: { id: post.id } }); } },
+          { label: 'Send in a chat', onPress: () => { feedback('share'); bump('share'); router.push({ pathname: '/share-post', params: { id: post.id } }); } },
           { label: 'Share outside Soulink', onPress: shareOutside },
         ]}
       />
@@ -403,6 +446,7 @@ export function PostGrid({ posts, tall }) {
               {isVideo(p.media[0]) ? <Ionicons name="videocam" size={14} color="#fff" style={{ position: 'absolute', top: 6, left: 6 }} /> : null}
               {p.reveal ? <View style={{ position: 'absolute', left: 4, top: 4, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="time" size={13} color={colors.spark} /></View> : null}
               {p.media.length > 1 ? <Ionicons name="copy" size={14} color="#fff" style={{ position: 'absolute', top: 6, right: 6 }} /> : null}
+              {p.pinned ? <Ionicons name="pin" size={14} color="#fff" style={{ position: 'absolute', bottom: 6, right: 6 }} accessibilityLabel="Pinned" /> : null}
               {p.suspended ? <View style={{ position: 'absolute', left: 4, bottom: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(8,7,13,0.75)' }}><Ionicons name="eye-off" size={11} color={colors.spark} /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: '#fff', marginLeft: 3 }}>Suspended</Text></View> : null}
             </View>
           ) : (

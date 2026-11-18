@@ -16,6 +16,7 @@ import { purgeDeletedAccounts } from './services/account.js';
 import { purgeAuditLog } from './services/audit.js';
 import { purgeExpiredBans, runScheduledDeletions } from './services/lifecycle.js';
 import { remindPendingReports, runCopyrightRestores } from './services/copyright.js';
+import { remindLegalDeadlines } from './services/legal.js';
 import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 import { startMetrics } from './services/metrics.js';
@@ -52,7 +53,7 @@ const server = http.createServer(createApp());
 // Background jobs (30-day deletions, purges, copyright restores and reminders) run only while people are using
 // Soulink, at most once an hour. The free Azure database pauses itself when nobody uses it; a job that woke it
 // every hour would keep it awake all month and use up the free allowance in days.
-const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); purgeDeletedAccounts(); purgeAuditLog(); };
+const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); remindLegalDeadlines(); purgeDeletedAccounts(); purgeAuditLog(); };
 let lastJobs = 0;
 setInterval(() => { if (recentlyActive(10 * 60_000) && isDbReady() && Date.now() - lastJobs > 3600_000) { lastJobs = Date.now(); jobs(); } }, 60_000).unref?.();
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute

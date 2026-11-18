@@ -34,6 +34,7 @@ import { REF_RE, playPath } from '../services/music.js';
 import { paymentMode, takePayment } from '../lib/payments.js';
 import { OFFENSE_REASONS, OFFENSE_LIMIT } from './posts.js';
 import { sharePostToChat } from './conversations.js';
+import { commentGate } from '../services/privacy.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -504,7 +505,9 @@ async function visible(req) {
   const id = uuid.parse(req.params.id);
   const x = await one(`${SELECT} WHERE ${VISIBLE} AND s.id = $2`, [req.user.id, id]);
   if (!x) {
-    const gone = await one("SELECT TOP 1 1 AS x FROM sparks WHERE id=$1 AND suspended_reason=N'copyright' AND deleted_at IS NULL", [id]);
+    const gone = await one("SELECT TOP 1 suspended_reason AS why FROM sparks WHERE id=$1 AND suspended_reason IN (N'copyright', N'legal', N'complaint') AND deleted_at IS NULL", [id]);
+    if (gone?.why === 'legal') throw notFound('This Spark is unavailable because of a legal order.', 'legal_removed');
+    if (gone?.why === 'complaint') throw notFound('This Spark was removed after a complaint to our Grievance Officer.', 'complaint_removed');
     throw gone ? notFound(UNAVAILABLE, 'copyright_removed') : notFound('Spark not found');
   }
   return x;
@@ -631,9 +634,11 @@ r.post('/:id/comments', ah(async (req, res) => {
     if (!parent) throw notFound('That comment was deleted');
     if (parent.parent_id) parent = (await one('SELECT * FROM spark_comments WHERE id=$1', [parent.parent_id])) || parent; // replies stay one level deep
   }
-  const c = await one('INSERT INTO spark_comments (spark_id, author_id, body, parent_id) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4)', [x.id, req.user.id, body, parent?.id || null]);
-  if (!same(x.author_id, req.user.id)) await notify(x.author_id, req.user.id, 'spark_comment', x.id, { preview: body.slice(0, 80) }).catch(() => {});
-  if (parent && !same(parent.author_id, x.author_id) && !same(parent.author_id, req.user.id)) await notify(parent.author_id, req.user.id, 'spark_comment_reply', x.id, { preview: body.slice(0, 80) }).catch(() => {});
+  // Restrict / Hidden words / who can comment (Settings › Privacy): hidden comments are seen only by their writer
+  const gate = await commentGate(await one('SELECT * FROM users WHERE id=$1', [x.author_id]), req.user, body);
+  const c = await one('INSERT INTO spark_comments (spark_id, author_id, body, parent_id, hidden_at) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5)', [x.id, req.user.id, body, parent?.id || null, gate.hide ? new Date() : null]);
+  if (!gate.hide && !same(x.author_id, req.user.id)) await notify(x.author_id, req.user.id, 'spark_comment', x.id, { preview: body.slice(0, 80) }).catch(() => {});
+  if (parent && !gate.hide && !same(parent.author_id, x.author_id) && !same(parent.author_id, req.user.id)) await notify(parent.author_id, req.user.id, 'spark_comment_reply', x.id, { preview: body.slice(0, 80) }).catch(() => {});
   res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), parentId: parent?.id || null,
     likeCount: 0, liked: false, offenseCount: 0, offended: false, offenseReason: null, hidden: false, mine: true, canDelete: true } });
 }));

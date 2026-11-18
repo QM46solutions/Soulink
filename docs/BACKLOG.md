@@ -4,10 +4,12 @@ Internal work list. Not for pitch decks.
 
 ## Launch
 - Public launch with Premium on Azure (switch the database to paid)
-- Razorpay payments at go-live (KYC, GST)
+- Razorpay payments at go-live: KYC planned (GST registration for QM46 already done)
 - DPIIT startup recognition
 - Lawyer review of Terms, Privacy, Guidelines, Refunds
-- Add the full registered office address to `mobile/src/lib/legal.js`
+- CERT-In point of contact: email the Annexure II details to info@cert-in.org.in (in progress, Sai)
+- Watch: MeitY proposed cutting the DPDP deadline from 13 May 2027 to an earlier date; re-check before launch
+- Optional: point GRIEVANCE_EMAIL (Render env) to a grievance@ mailbox once the domain email exists
 
 ## Growth
 - Campus pilot in Hyderabad (300–500 students)
@@ -17,11 +19,9 @@ Internal work list. Not for pitch decks.
 ## Product
 - Music licences (IPRS/PPL, or a licensed music API) before turning on film/label songs, JioSaavn, Deezer or phone song uploads in production (MUSIC_DEEZER, MUSIC_PHONE)
 - Copyright: a "Copy link" option on every Spark and post if missing, so owners can paste the link in the report form
-- Admin screen for bans (the server part is done: POST /admin/users/:username/ban, GET /admin/bans, POST /admin/bans/:id/lift)
 - Restore photos and posts too: include media files in Download my data (a ZIP), then restore them
 - Restore on the phone apps (file picker); today restore works in the browser
-- DLT templates for SMS notices: MSG91_DELETION_SCHEDULED_TEMPLATE_ID, MSG91_ACCOUNT_DELETED_TEMPLATE_ID
-- Face search (find someone by photo or live camera): ON HOLD — revisit once the app is stable; needs a legal review first. Switched off in app and server (FACE_SEARCH=false)
+- SMS / OTP provider: moving from Jio DLT to AiSensy (in progress, Sai). The notice templates (deletion scheduled, account deleted) move with it
 - Anonymous messages: decide gating
 - Soul DNA: re-tune the score spread (CALIBRATION in server/src/services/mind/match.js) from real users' answers once there are ~50; learn from outcomes (accepted requests, long chats, ratings after chatting)
 - Soul DNA: grow the scenario bank from the typed "Anything else" answers (they are kept in soul_dna.answers)
@@ -32,6 +32,7 @@ Internal work list. Not for pitch decks.
 - Argue referee AI in the cloud (today laptop only; online uses the basic judge). Options: Claude Haiku API, or Llama in a sleeping Azure container
 
 ## Done (recently)
+- Legal (17 Nov 2026): in-app Raise a complaint form (ticket emailed at once, 7-day deadline, 2-hour clock for intimate / impersonation), console Legal & compliance page (complaints, police / court / government orders with 3 h and 72 h clocks, bans with owner-only ban and lift), removal emails to the poster, ban emails with the reason and how to appeal, Soulmoji 'AI-generated' label plus an AI marker inside the image file. Test: m36
 - Private files: every photo, video, voice note, document and selfie opens only through a signed link that expires (1-2 h), for people allowed to see it; ad pictures stay public. Shared posts / Sparks: 15-second preview without an account, then log in. Group invite links (admins: create, reset, turn off); nothing else from chats can be shared. No save / long-press / download on media, media blur when the app goes to the background
 - Separate face key (FACE_KEY): faces locked with the old key are re-locked with it at start-up (MAKE-FACE-KEY.bat makes the key)
 - Ads dashboard: each ad has a customer, budget and price per 1,000 views (stops when used up); customer sees My ads (spent, left, paid, views, people reached, taps, day by day, advice); Ads Manager shows revenue (booked, earned, received, to collect, boosts)

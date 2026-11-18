@@ -27,7 +27,7 @@ test('first owner needs the setup key and a working authenticator code; then sig
   await api().post('/console/auth/setup').send({ setupKey: 'setup-key-for-tests', email: 'sai@qm46.in', name: 'Sai', password: PW, secret, code: '000000' }).expect(400);
   const s = (await api().post('/console/auth/setup').send({ setupKey: 'setup-key-for-tests', email: 'sai@qm46.in', name: 'Sai', password: PW, secret, code: code(secret) }).expect(200)).body;
   assert.equal(s.me.role, 'owner');
-  await api().post('/console/auth/setup').send({ setupKey: 'setup-key-for-tests', email: 'x@qm46.in', name: 'X', password: PW, secret, code: code(secret) }).expect(409);
+  await api().post('/console/auth/setup').send({ setupKey: 'setup-key-for-tests', email: 'x@qm46.in', name: 'Xavier', password: PW, secret, code: code(secret) }).expect(409);
   await api().post('/console/auth/login').send({ email: 'sai@qm46.in', password: PW, code: '123456' }).expect(401);
   const t = (await api().post('/console/auth/login').send({ email: 'sai@qm46.in', password: PW, code: code(secret) }).expect(200)).body.token;
   // an app token never works on the console

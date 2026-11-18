@@ -1,0 +1,216 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Soulink App Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap">
+<style>
+  /* Single dark theme on purpose: it matches the Soulink app and pitch site. */
+  :root {
+    color-scheme: dark;
+    --void: #08070d; --deep: #0e0c16; --card: #1a1828; --border: #2a2740;
+    --soul: #7c5cfc; --aura: #b08fff; --spark: #ff6b9d; --mint: #42e8c0; --gold: #f5c842;
+    --text: #e9e7f2; --muted: #8b88a0; --dim: #5a5773;
+    --display: 'Syne', 'Arial Black', system-ui, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'Space Mono', ui-monospace, Consolas, monospace;
+  }
+  html { background: var(--void); }
+  body {
+    margin: 0; background: var(--void); color: var(--text); font-family: var(--body);
+    background-image: radial-gradient(ellipse 80% 50% at 20% 0%, rgba(124,92,252,.16), transparent 70%),
+                      radial-gradient(ellipse 60% 40% at 90% 30%, rgba(255,107,157,.07), transparent 70%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+  header { display: grid; gap: 14px; max-width: 720px; }
+  .tag { font: 400 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  h1 {
+    font: 800 clamp(40px, 8vw, 72px)/1 var(--display); letter-spacing: -.03em; margin: 0;
+    background: linear-gradient(135deg, #fff 0%, var(--aura) 45%, var(--spark) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { color: var(--muted); font-size: 16px; line-height: 1.6; margin: 0; max-width: 62ch; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .fact { border: 1px solid var(--border); background: rgba(26,24,40,.6); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; color: var(--muted); }
+  .fact b { color: var(--text); font-weight: 600; }
+
+  nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 32px; padding-block: 10px;
+        background: rgba(8,7,13,.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);
+        display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  nav a { flex: none; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 999px; border: 1px solid transparent; }
+  nav a:hover, nav a:focus-visible { color: var(--text); border-color: var(--border); outline: none; }
+
+  section { margin-top: 44px; scroll-margin-top: 70px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  h2 { font: 700 24px/1.2 var(--display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .sec-note { color: var(--muted); font-size: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 28px 20px; }
+  figure { margin: 0; display: grid; gap: 10px; }
+  .phone {
+    all: unset; cursor: zoom-in; display: block; border-radius: 30px; padding: 7px;
+    background: linear-gradient(160deg, #2c2842, #141220 60%); border: 1px solid #34304d;
+    box-shadow: 0 20px 40px -20px rgba(124,92,252,.45); transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .phone:hover, .phone:focus-visible { transform: translateY(-4px); box-shadow: 0 26px 50px -18px rgba(255,107,157,.45); }
+  .phone:focus-visible { outline: 2px solid var(--aura); outline-offset: 3px; }
+  .phone img { display: block; width: 100%; max-width: 100%; aspect-ratio: 390 / 844; border-radius: 24px; background: var(--deep); }
+  figcaption { display: grid; gap: 3px; padding-inline: 4px; }
+  .num { font: 400 10.5px/1 var(--mono); color: var(--dim); letter-spacing: .1em; }
+  .cap-title { font-weight: 600; font-size: 14.5px; }
+  .cap-desc { color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .soon { color: var(--gold); }
+
+  footer { margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 70ch; }
+
+  /* Lightbox */
+  .lb { position: fixed; inset: 0; z-index: 20; background: rgba(5,4,9,.92); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 20px 16px; }
+  .lb[hidden] { display: none !important; }
+  .lb-main { display: grid; justify-items: center; gap: 12px; min-height: 0; height: 100%; align-content: center; }
+  .lb img { max-height: calc(100vh - 150px); max-width: 100%; border-radius: 28px; border: 7px solid #221f33; }
+  .lb-cap { text-align: center; display: grid; gap: 4px; max-width: 420px; }
+  .lb-btn { all: unset; cursor: pointer; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); color: var(--text); font-size: 20px; background: rgba(26,24,40,.8); }
+  .lb-btn:hover, .lb-btn:focus-visible { border-color: var(--aura); }
+  .lb-close { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; }
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 12px; }
+    .phone { border-radius: 22px; padding: 5px; } .phone img { border-radius: 18px; }
+    .lb { grid-template-columns: 1fr; } .lb-prev, .lb-next { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .phone { transition: none; } .phone:hover { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="tag">// milestones 1–2 · build of 24 Sep 2026</span>
+    <h1>Soulink</h1>
+    <p class="lede">Every screen built so far, captured at phone size from the working app. Milestone 1 screens run on the real server and database. The chat screens show the real chat screens filled with sample conversations, so you can see photos, voice notes and groups at once. Tap any phone to see it full size.</p>
+    <div class="facts">
+      <span class="fact"><b>28</b> screens</span>
+      <span class="fact">Built with <b>React Native + Expo</b></span>
+      <span class="fact">Runs on <b>Android</b> and iOS</span>
+      <span class="fact">Captured at <b>390 × 844</b></span>
+    </div>
+  </header>
+
+  <nav aria-label="Sections">
+    <a href="#chat">Chat · new</a>
+    <a href="#signup">Sign up</a>
+    <a href="#tabs">Main tabs</a>
+    <a href="#people">Connecting</a>
+    <a href="#account">Account &amp; safety</a>
+  </nav>
+
+  <main id="sections"></main>
+
+  <footer>
+    These are real screens from the app, captured in a browser at phone size. On your phone it looks the same, using the system date picker and photo picker. Posts and stories, Soul DNA, face search and the Argue referee are the next milestones. The screens that mention them show where they will appear.
+  </footer>
+</div>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Screen preview">
+  <button class="lb-btn lb-close" id="lbClose" aria-label="Close">✕</button>
+  <button class="lb-btn lb-prev" id="lbPrev" aria-label="Previous screen">‹</button>
+  <div class="lb-main">
+    <img id="lbImg" alt="">
+    <div class="lb-cap"><span class="num" id="lbNum"></span><span class="cap-title" id="lbTitle"></span><span class="cap-desc" id="lbDesc"></span></div>
+  </div>
+  <button class="lb-btn lb-next" id="lbNext" aria-label="Next screen">›</button>
+</div>
+
+<script>
+const GROUPS = [
+  { id: 'chat', title: 'Chat', note: 'Milestone 2 (new): 1:1 and group chats, requests, photos and voice notes.',
+    screens: [
+      ['m2-inbox', 'Messages', 'Your chats, newest first. Bold rows and pink counters mark unread messages.'],
+      ['m2-chat', '1:1 chat', 'Text, photos and voice notes. "Seen" appears once they have read your latest message.'],
+      ['m2-group', 'Group chat', 'Names and photos show who said what. System lines record changes to the group.'],
+      ['m2-requests', 'Message requests', 'Messages from people you don’t follow wait here until you accept.'],
+      ['m2-chat-request', 'Accept or delete a request', 'Accept to reply, or Delete or Block. The sender isn’t told you saw it until you accept.'],
+      ['m2-new-group', 'New message or group', 'Pick one person for a chat, or two or more to start a group.'],
+      ['m2-group-info', 'Group details', 'Admins rename the group and add or remove people. Anyone can leave.'],
+      ['m2-unsend', 'Unsend a message', 'Long-press your own message to unsend it. Long-press theirs to report it.'],
+    ] },
+  { id: 'signup', title: 'Sign up', note: 'A new user goes from download to a finished profile.',
+    screens: [
+      ['01-welcome', 'Welcome', 'First screen: the four pillars, then Create your account or Log in.'],
+      ['03-login', 'Sign up or log in', 'Enter a mobile number to get a 6-digit code. Google sign-in comes with the cloud launch.'],
+      ['04-otp', 'Enter the code', 'Verify the code. In test mode it fills in automatically.'],
+      ['05-setup-empty', 'Create your soul profile', 'Photo, username (checked live), name and date of birth. 18+ only.'],
+      ['06-setup-filled', 'Profile setup, filled in', 'Gender, city, bio, interests, and the Private account switch.'],
+    ] },
+  { id: 'tabs', title: 'Main tabs', note: 'The five tabs along the bottom of the app.',
+    screens: [
+      ['07-home', 'Home', 'Greeting and first steps. The paper-plane icon opens Messages; the badge counts unread chats.'],
+      ['08-search', 'Search', 'Find people by name or @username.'],
+      ['09-search-results', 'Search results', 'Results update as you type. People you follow come first.'],
+      ['20-discover', 'Discover', 'Soul Match, face search and Argue, coming in Milestones 4–6.', true],
+      ['15-activity', 'Activity', 'New followers, follow requests and accepted requests.'],
+      ['16-my-profile', 'My profile', 'Your photo in the Soulink ring, counts, bio and interests.'],
+    ] },
+  { id: 'people', title: 'Connecting with people', note: 'Private accounts work like Instagram: a follow needs approval.',
+    screens: [
+      ['10-profile-private', 'Private profile', "Nikhil's account is private, so posts and followers stay hidden."],
+      ['11-profile-requested', 'Follow requested', 'After tapping Follow, the button shows Requested.'],
+      ['12-profile-following', 'Following', 'Nikhil accepted. His followers and lists are now visible.'],
+      ['17-followers', 'Followers list', 'Your followers. Remove anyone; they are not told.'],
+    ] },
+  { id: 'account', title: 'Account & safety', note: 'Editing, privacy switches, reporting and blocking.',
+    screens: [
+      ['18-edit-profile', 'Edit profile', 'The setup form, filled with your details.'],
+      ['19-settings', 'Settings', 'Private account, Discover visibility, face search opt-in, activity tracking consent.'],
+      ['13-menu', 'Profile menu', 'The ··· menu on anyone’s profile: Report or Block.'],
+      ['14-report', 'Report', 'Choose a reason. Reports go to a review queue.'],
+      ['02-server', 'Server address', 'Testing only: connects the app to the server on your laptop.'],
+    ] },
+];
+
+const flat = [];
+const main = document.getElementById('sections');
+GROUPS.forEach((g) => {
+  const sec = document.createElement('section');
+  sec.id = g.id;
+  sec.innerHTML = `<div class="sec-head"><h2>${g.title}</h2><span class="sec-note">${g.note}</span></div><div class="grid"></div>`;
+  const grid = sec.querySelector('.grid');
+  g.screens.forEach(([file, title, desc, soon]) => {
+    const i = flat.length;
+    flat.push({ src: `screens/${file}.jpg`, title, desc });
+    const fig = document.createElement('figure');
+    fig.innerHTML = `
+      <button class="phone" data-i="${i}" aria-label="Open ${title} full size"><img src="screens/${file}.jpg" alt="${title} screen" loading="lazy" width="390" height="844"></button>
+      <figcaption><span class="num">SCREEN ${String(i + 1).padStart(2, '0')}</span><span class="cap-title">${title}${soon ? ' <span class="soon">· preview</span>' : ''}</span><span class="cap-desc">${desc}</span></figcaption>`;
+    grid.appendChild(fig);
+  });
+  main.appendChild(sec);
+});
+
+const lb = document.getElementById('lb');
+const lbImg = document.getElementById('lbImg');
+let cur = 0, lastFocus = null;
+function show(i) {
+  cur = (i + flat.length) % flat.length;
+  const s = flat[cur];
+  lbImg.src = s.src; lbImg.alt = `${s.title} screen`;
+  document.getElementById('lbNum').textContent = `SCREEN ${String(cur + 1).padStart(2, '0')} OF ${flat.length}`;
+  document.getElementById('lbTitle').textContent = s.title;
+  document.getElementById('lbDesc').textContent = s.desc;
+}
+function open(i) { lastFocus = document.activeElement; show(i); lb.hidden = false; document.getElementById('lbClose').focus(); }
+function close() { lb.hidden = true; lastFocus && lastFocus.focus(); }
+main.addEventListener('click', (e) => { const b = e.target.closest('.phone'); if (b) open(+b.dataset.i); });
+document.getElementById('lbClose').onclick = close;
+document.getElementById('lbPrev').onclick = () => show(cur - 1);
+document.getElementById('lbNext').onclick = () => show(cur + 1);
+lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
+let sx = null;
+lb.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+lb.addEventListener('touchend', (e) => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) show(cur + (dx < 0 ? 1 : -1)); sx = null; });
+document.addEventListener('keydown', (e) => {
+  if (lb.hidden) return;
+  if (e.key === 'Escape') close();
+  if (e.key === 'ArrowRight') show(cur + 1);
+  if (e.key === 'ArrowLeft') show(cur - 1);
+});
+</script>
+
+</body></html>

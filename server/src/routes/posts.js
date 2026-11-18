@@ -30,6 +30,7 @@ import { REF_RE, playPath } from '../services/music.js';
 import { canViewContent, isBlockedEither, notify, relationship, userCard } from '../services/social.js';
 import { sharePostToChat } from './conversations.js';
 import { makeTeaser } from '../services/teaser.js';
+import { commentGate } from '../services/privacy.js';
 
 export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
 export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'child_safety', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
@@ -42,7 +43,7 @@ const media = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v 
 const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.created_at AS post_at,
     (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS like_count,
     (SELECT TOP 1 lu.username FROM post_likes l2 JOIN users lu ON lu.id = l2.user_id WHERE l2.post_id = p.id AND l2.user_id <> $1 ORDER BY l2.created_at DESC) AS liked_by,
-    (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL) AS comment_count,
+    (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL AND (c.hidden_at IS NULL OR c.author_id = $1)) AS comment_count,
     CASE WHEN EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = $1) THEN 1 ELSE 0 END AS liked,
     (SELECT COUNT(*) FROM post_offenses o WHERE o.post_id = p.id) AS offense_count,
     CASE WHEN EXISTS (SELECT 1 FROM post_offenses o WHERE o.post_id = p.id AND o.user_id = $1) THEN 1 ELSE 0 END AS offended,
@@ -50,6 +51,7 @@ const SELECT = `SELECT p.id AS post_id, p.author_id, p.caption, p.media_urls, p.
     (SELECT COUNT(*) FROM post_shares sh WHERE sh.post_id = p.id) AS share_count, p.suspended_at,
     CASE WHEN EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id AND c2.author_id = $1 AND c2.deleted_at IS NULL) THEN 1 ELSE 0 END AS commented,
     CASE WHEN EXISTS (SELECT 1 FROM post_shares s2 WHERE s2.post_id = p.id AND s2.user_id = $1) THEN 1 ELSE 0 END AS shared,
+    CASE WHEN EXISTS (SELECT 1 FROM saved_posts sv WHERE sv.post_id = p.id AND sv.user_id = $1) THEN 1 ELSE 0 END AS saved, p.pinned_at, p.archived_at,
     p.suspended_reason, p.hide_likes, p.comments_off, p.music_url, p.music_title, p.music_start, p.place, p.reveal_at, p.teaser_url,
     u.id, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM posts p JOIN users u ON u.id = p.author_id`;
@@ -70,6 +72,7 @@ export const postView = (x, meId) => {
     reveal: locked ? { at: revealAt.toISOString(), teaser: x.teaser_url || null, locked: !mine } : null,
     hideLikes: on(x.hide_likes),
     commentsOff: on(x.comments_off),
+    saved: !!x.saved, pinned: !!x.pinned_at, archived: mine && !!x.archived_at,
     music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music', start: x.music_start || 0 } : null,
     place: x.place || null,
   };
@@ -102,7 +105,8 @@ async function loadVisible(req) {
   const x = await one(`${SELECT} WHERE p.id = $2 AND p.deleted_at IS NULL`, [req.user.id, id]);
   if (!x) throw notFound('Post not found');
   if (String(x.author_id).toLowerCase() !== String(req.user.id).toLowerCase()) {
-    if (x.suspended_at) throw x.suspended_reason === 'copyright' ? notFound(UNAVAILABLE, 'copyright_removed') : notFound('This post was suspended after many people found it offensive', 'post_suspended');
+    if (x.suspended_at) throw x.suspended_reason === 'copyright' ? notFound(UNAVAILABLE, 'copyright_removed') : x.suspended_reason === 'legal' ? notFound('This post is unavailable because of a legal order.', 'legal_removed') : x.suspended_reason === 'complaint' ? notFound('This post was removed after a complaint to our Grievance Officer.', 'complaint_removed') : notFound('This post was suspended after many people found it offensive', 'post_suspended');
+    if (x.archived_at) throw notFound('Post not found'); // archived: only its owner sees it
     if (await isBlockedEither(req.user.id, x.author_id)) throw notFound('Post not found');
     const author = await one('SELECT * FROM users WHERE id=$1', [x.author_id]);
     if (!canViewContent(author, await relationship(req.user.id, author.id))) throw forbidden('This account is private', 'private_account');
@@ -145,12 +149,61 @@ r.get('/user/:userId', ah(async (req, res) => {
   if (!author) throw notFound('User not found');
   if (await isBlockedEither(req.user.id, author.id)) throw notFound('User not found');
   if (!canViewContent(author, await relationship(req.user.id, author.id))) return res.json({ posts: [], private: true });
-  const rows = await many(`${SELECT} WHERE p.author_id = $2 AND p.deleted_at IS NULL AND p.is_anonymous = 0 AND (p.suspended_at IS NULL OR p.author_id = $1) ORDER BY p.created_at DESC`, [req.user.id, author.id]);
+  // pinned posts first (newest pin first), then the rest; archived posts are only in the owner's Archive
+  const rows = await many(`${SELECT} WHERE p.author_id = $2 AND p.deleted_at IS NULL AND p.is_anonymous = 0 AND p.archived_at IS NULL AND (p.suspended_at IS NULL OR p.author_id = $1)
+    ORDER BY CASE WHEN p.pinned_at IS NULL THEN 1 ELSE 0 END, p.pinned_at DESC, p.created_at DESC`, [req.user.id, author.id]);
+  res.json({ posts: rows.map((x) => postView(x, req.user.id)) });
+}));
+
+// ---------- the ⋯ menu: save, archive, pin to profile, not interested ----------
+r.get('/saved', ah(async (req, res) => {
+  const rows = await many(`${SELECT} JOIN saved_posts sv2 ON sv2.post_id = p.id AND sv2.user_id = $1
+    WHERE p.deleted_at IS NULL AND p.is_anonymous = 0 AND (p.archived_at IS NULL OR p.author_id = $1) AND (p.suspended_at IS NULL OR p.author_id = $1)
+      AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=p.author_id) OR (b.blocker_id=p.author_id AND b.blocked_id=$1))
+    ORDER BY sv2.created_at DESC`, [req.user.id]);
+  res.json({ posts: rows.map((x) => postView(x, req.user.id)) });
+}));
+r.get('/archived', ah(async (req, res) => {
+  const rows = await many(`${SELECT} WHERE p.author_id = $1 AND p.deleted_at IS NULL AND p.archived_at IS NOT NULL ORDER BY p.archived_at DESC`, [req.user.id]);
   res.json({ posts: rows.map((x) => postView(x, req.user.id)) });
 }));
 
 r.get('/:id', ah(async (req, res) => {
   res.json({ post: postView(await loadVisible(req), req.user.id) });
+}));
+
+// save / unsave (only you see what you saved)
+r.post('/:id/save', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  const had = await one('DELETE FROM saved_posts OUTPUT DELETED.post_id WHERE user_id=$1 AND post_id=$2', [req.user.id, x.post_id]);
+  if (!had) await query('INSERT INTO saved_posts (user_id, post_id) VALUES ($1, $2)', [req.user.id, x.post_id]);
+  res.json({ saved: !had });
+}));
+// "Not interested": hide this post from my feed
+r.post('/:id/hide', ah(async (req, res) => {
+  const x = await loadVisible(req);
+  await query('IF NOT EXISTS (SELECT 1 FROM hidden_posts WHERE user_id=$1 AND post_id=$2) INSERT INTO hidden_posts (user_id, post_id) VALUES ($1, $2)', [req.user.id, x.post_id]);
+  res.json({ hidden: true });
+}));
+const PIN_MAX = 3;
+// archive / unarchive (my post): hidden from my profile and every feed, kept in Settings › Archive
+r.post('/:id/archive', ah(async (req, res) => {
+  const p = await myPost(req);
+  const row = await one('SELECT archived_at FROM posts WHERE id=$1', [p.id]);
+  const archived = !row.archived_at;
+  await query(`UPDATE posts SET archived_at=${archived ? 'SYSDATETIMEOFFSET()' : 'NULL'}, pinned_at=${archived ? 'NULL' : 'pinned_at'} WHERE id=$1`, [p.id]);
+  res.json({ archived });
+}));
+// pin / unpin to the top of my profile (up to 3)
+r.post('/:id/pin', ah(async (req, res) => {
+  const p = await myPost(req);
+  const row = await one('SELECT pinned_at, archived_at FROM posts WHERE id=$1', [p.id]);
+  if (row.pinned_at) { await query('UPDATE posts SET pinned_at=NULL WHERE id=$1', [p.id]); return res.json({ pinned: false }); }
+  if (row.archived_at) throw badRequest('Unarchive this post first, then pin it.', 'archived');
+  const n = await one('SELECT COUNT(*) AS n FROM posts WHERE author_id=$1 AND pinned_at IS NOT NULL AND deleted_at IS NULL', [req.user.id]);
+  if (Number(n?.n || 0) >= PIN_MAX) throw badRequest(`You can pin up to ${PIN_MAX} posts. Unpin one first.`, 'pin_limit');
+  await query('UPDATE posts SET pinned_at=SYSDATETIMEOFFSET() WHERE id=$1', [p.id]);
+  res.json({ pinned: true });
 }));
 
 r.delete('/:id', ah(async (req, res) => {
@@ -314,15 +367,17 @@ r.post('/:id/comments', ah(async (req, res) => {
   const x = await loadVisible(req);
   const { body, parentId } = z.object({ body: z.string().trim().min(1).max(2200), parentId: uuid.optional() }).parse(req.body);
   if (on(x.comments_off)) throw forbidden('Commenting is turned off for this post', 'comments_off');
+  const gate = await commentGate(await one('SELECT * FROM users WHERE id=$1', [x.author_id]), req.user, body);
   let parent = null;
   if (parentId) {
     parent = await one('SELECT * FROM comments WHERE id=$1 AND post_id=$2 AND deleted_at IS NULL', [parentId, x.post_id]);
     if (!parent) throw notFound('That comment was deleted');
     if (parent.parent_id) parent = (await one('SELECT * FROM comments WHERE id=$1', [parent.parent_id])) || parent; // replies stay one level deep
   }
-  const c = await one('INSERT INTO comments (post_id, author_id, body, parent_id) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4)', [x.post_id, req.user.id, body, parent?.id || null]);
-  await notify(x.author_id, req.user.id, 'post_comment', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
-  if (parent && !same(parent.author_id, x.author_id)) await notify(parent.author_id, req.user.id, 'comment_reply', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
+  // Restrict / Hidden words: saved but hidden, so only its writer sees it (and nobody is notified)
+  const c = await one('INSERT INTO comments (post_id, author_id, body, parent_id, hidden_at) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5)', [x.post_id, req.user.id, body, parent?.id || null, gate.hide ? new Date() : null]);
+  if (!gate.hide) await notify(x.author_id, req.user.id, 'post_comment', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
+  if (parent && !gate.hide && !same(parent.author_id, x.author_id)) await notify(parent.author_id, req.user.id, 'comment_reply', x.post_id, { preview: body.slice(0, 80) }).catch(() => {});
   res.status(201).json({ comment: { id: c.id, body: c.body, createdAt: c.created_at, author: userCard(req.user), parentId: parent?.id || null,
     likeCount: 0, liked: false, offenseCount: 0, offended: false, offenseReason: null, hidden: false, mine: true, canDelete: true } });
 }));

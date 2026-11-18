@@ -1,7 +1,7 @@
 // Chat building blocks: group avatar, inbox row, message bubbles (text, photo, voice, system),
 // typing dots and the composer (text, photo, voice note).
 import { memo, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,11 +16,11 @@ import { colors, fonts, gradients, radius, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
 import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
-import { CHAT_LANGS, langName } from '../lib/languages';
+import { CHAT_LANGS, hasVoice, langName } from '../lib/languages';
 import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
 import { confirm, notice } from '../lib/confirm';
-import { AttachSheet, ContactContent, ContactPicker, DocumentContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
+import { AttachSheet, ContactContent, ContactPicker, DocumentContent, GameContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
 
 // ---------- avatars ----------
 
@@ -277,7 +277,7 @@ export function HeartFlight({ mine, area, onLanded }) {
   );
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo, onVote }) {
+export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo, onVote, meId, onGameMove, onRematch, names }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
@@ -354,6 +354,8 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
     content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><ContactContent c={message.contact} mine={mine} /></BubbleShell></Pressable>;
   } else if (message.kind === 'document' && message.document) {
     content = <Pressable onPress={tap} onLongPress={onMenu}><BubbleShell mine={mine}><DocumentContent doc={message.document} url={message.mediaUrl} mine={mine} /></BubbleShell></Pressable>;
+  } else if (message.kind === 'game' && message.game) {
+    content = <Pressable onLongPress={onMenu}><BubbleShell mine={mine}><GameContent game={message.game} meId={meId} mine={mine} names={names} onMove={live && onGameMove ? (cell) => onGameMove(message, cell) : undefined} onRematch={live ? onRematch : undefined} /></BubbleShell></Pressable>;
   } else if (message.kind === 'poll' && message.poll) {
     content = <Pressable onLongPress={onMenu}><BubbleShell mine={mine}><PollContent poll={message.poll} mine={mine} onVote={live && onVote ? (i) => onVote(message, i) : undefined} /></BubbleShell></Pressable>;
   } else if (message.kind === 'image') {
@@ -460,7 +462,7 @@ export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend
         ) : null}
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: 12, borderRadius: 18, backgroundColor: mine ? 'rgba(124,92,252,0.35)' : colors.card, marginBottom: space.md }}>
           <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>
-            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : message.kind === 'location' ? '📍 Location' : message.kind === 'contact' ? '👤 Contact' : message.kind === 'document' ? '📄 Document' : message.kind === 'poll' ? '📊 Poll' : '🎤 Voice message'}
+            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : message.kind === 'game' ? '🎮 OX game' : message.kind === 'location' ? '📍 Location' : message.kind === 'contact' ? '👤 Contact' : message.kind === 'document' ? '📄 Document' : message.kind === 'poll' ? '📊 Poll' : '🎤 Voice message'}
           </Text>
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', minWidth: 200, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
@@ -579,13 +581,15 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
             Type or speak in your own language. Soulink sends it in the language you pick, and you see it before it goes.
           </Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send in</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: space.md }}>
-            {CHAT_LANGS.map((l) => <OptionChip half key={l.key} label={l.native} sub={l.native !== l.label ? l.label : null} active={to === l.key} onPress={() => setTo(l.key)} />)}
-          </View>
+          <ScrollView style={{ maxHeight: 280, marginBottom: space.md }} nestedScrollEnabled>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              {CHAT_LANGS.map((l) => <OptionChip half key={l.key} label={l.native} sub={l.native !== l.label ? l.label : null} active={to === l.key} onPress={() => { setTo(l.key); if (!hasVoice(l.key)) setOutput('text'); }} />)}
+            </View>
+          </ScrollView>
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send as</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
             <OptionChip icon="text-outline" label="Text" active={output === 'text'} onPress={() => setOutput('text')} />
-            {voiceOk ? <OptionChip icon="mic-outline" label="Voice note" active={output === 'voice'} onPress={() => setOutput('voice')} /> : null}
+            {voiceOk && hasVoice(to) ? <OptionChip icon="mic-outline" label="Voice note" active={output === 'voice'} onPress={() => setOutput('voice')} /> : null}
           </View>
           <Pressable onPress={() => onStart({ to, output })} style={({ hovered }) => ({ height: 46, borderRadius: 23, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', transform: [{ scale: hovered ? 1.01 : 1 }] })}>
             <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -643,7 +647,7 @@ function useKeyboardOpen() {
   return open;
 }
 
-export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll, privateMode }) {
+export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll, onSendGame, privateMode }) {
   const safe = useSafeAreaInsets();
   const keyboardOpen = useKeyboardOpen();
   const insets = keyboardOpen ? { ...safe, bottom: 0 } : safe;
@@ -714,6 +718,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
     if (k === 'photos') pickPhoto(false);
     else if (k === 'contact') setContactOpen(true);
     else if (k === 'poll') setPollOpen(true);
+    else if (k === 'game') { if (await confirm('Play OX?', "You're ✕ and go first. They get a turn as soon as they open the chat.", { confirmText: 'Start game' })) onSendGame?.(); }
     else if (k === 'document') { const f = await pickDocument(); if (f) onSendDocument?.(f); }
     else if (k === 'location') {
       try { const loc = await getMyLocation(); if (await confirm('Send your current location?', loc.label || 'Your location right now', { confirmText: 'Send' })) onSendLocation?.(loc); }
@@ -857,7 +862,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
       )}
     </View>
     <AttachSheet visible={attach} onClose={() => setAttach(false)} onPick={pickAttach}
-      only={['photos', onSendLocation && 'location', onSendContact && 'contact', onSendDocument && 'document', onSendPoll && 'poll'].filter(Boolean)} />
+      only={['photos', onSendLocation && 'location', onSendContact && 'contact', onSendDocument && 'document', onSendPoll && 'poll', onSendGame && 'game'].filter(Boolean)} />
     <ContactPicker visible={contactOpen} onClose={() => setContactOpen(false)} onSend={(u) => onSendContact?.(u)} />
     <PollComposer visible={pollOpen} onClose={() => setPollOpen(false)} onSend={(p) => onSendPoll?.(p)} />
     </View>

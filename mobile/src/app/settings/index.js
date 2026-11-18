@@ -57,10 +57,12 @@ export default function Settings() {
       <MenuRow icon="hourglass-outline" title="Time management" text="Daily time on Soulink, limits and breaks" onPress={go('/settings/time')} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="notifications" title="Notifications" text="Phone alerts and what you hear about" onPress={go('/settings/notifications')} tint={['#ff6b9d', '#ff9a5a']} />
       <MenuRow icon="git-network" title="Retake Soul DNA" text={user.isPremium ? 'Premium 💎 · answer everything again' : 'Premium 💎 · start your Soul DNA again'} onPress={() => retakeSoulDna(user)} tint={['#f5c842', '#ff6b9d']} />
+      <MenuRow icon="bookmark" title="Saved" text="Posts you saved · only you see them" onPress={go('/settings/saved?kind=saved')} tint={['#3fa9f5', '#7c5cfc']} />
+      <MenuRow icon="archive" title="Archive" text="Posts you hid from your profile" onPress={go('/settings/saved?kind=archive')} tint={['#8b88a0', '#5b46d6']} />
       <MenuRow icon="eye" title="Who viewed my profile" text="Top 3 free · everyone with Premium 💎" onPress={go('/settings/viewers')} tint={['#b08fff', '#ff6b9d']} />
 
       <Section>Privacy & safety</Section>
-      <MenuRow icon="lock-closed" title="Account privacy" text="Private account, Discover, Pulse meter" onPress={go('/settings/privacy')} tint={['#5b46d6', '#7c5cfc']} />
+      <MenuRow icon="lock-closed" title="Account privacy" text="Comments, requests, activity, hidden words, restrict and mute" onPress={go('/settings/privacy')} tint={['#5b46d6', '#7c5cfc']} />
       <MenuRow icon="phone-portrait" title="Where you're logged in" text="Every device on your account · log one out" onPress={go('/settings/devices')} tint={['#3fa9f5', '#7c5cfc']} />
       <MenuRow icon="ban" title="Blocked contacts" text="People you've blocked" onPress={go('/blocked')} tint={['#8b88a0', '#4a4760']} />
       <MenuRow icon="shield-checkmark" title="Account status" text="Verification, warnings and reports" onPress={go('/settings/status')} tint={['#42e8c0', '#2bb673']} />

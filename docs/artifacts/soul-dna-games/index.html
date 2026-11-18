@@ -1,0 +1,349 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Soul DNA Games</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: a phone-sized game column with a tab to switch to "The science" reference. */
+:root{
+  --bg:#F6F4F8; --card:#FFFFFF; --ink:#1E1A2B; --muted:#6C6680; --line:#E3DEEA;
+  --accent:#D13D67; --accent-soft:#FBE4EB; --teal:#177A72; --teal-soft:#DDF1EE; --amber:#B36B00; --amber-soft:#FCEFD8;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14111C; --card:#1E1A29; --ink:#F1EEF6; --muted:#A49DB5; --line:#332D42;
+  --accent:#FF6F93; --accent-soft:#3A1E2A; --teal:#4CC2B6; --teal-soft:#16302D; --amber:#F2B04F; --amber-soft:#3A2B14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14111C; --card:#1E1A29; --ink:#F1EEF6; --muted:#A49DB5; --line:#332D42;
+  --accent:#FF6F93; --accent-soft:#3A1E2A; --teal:#4CC2B6; --teal-soft:#16302D; --amber:#F2B04F; --amber-soft:#3A2B14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.wrap.wide{max-width:820px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;align-self:flex-start}
+.tabs button{border:0;background:none;color:var(--muted);font:600 14px var(--body);padding:8px 14px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted)}
+.screen{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;min-height:520px}
+.prog{display:flex;flex-direction:column;gap:6px}
+.prog .row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.game{font:700 13px var(--body);color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.q{font-family:var(--display);font-size:22px;font-weight:700;line-height:1.25}
+.hint{font-size:13px;color:var(--muted);margin-top:-6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:10px;cursor:pointer;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;gap:6px;position:relative}
+.tile .pic{aspect-ratio:4/3;max-width:100%;border-radius:10px;background:var(--accent-soft);display:grid;place-items:center;font-size:38px}
+.tile:nth-child(2) .pic{background:var(--teal-soft)}.tile:nth-child(3) .pic{background:var(--amber-soft)}.tile:nth-child(4) .pic{background:var(--line)}
+.tile .cap{font-size:13px;font-weight:600;line-height:1.3}
+.tile.most{border-color:var(--teal)}.tile.least{border-color:var(--accent)}
+.badge{position:absolute;top:6px;right:6px;font:700 11px var(--body);padding:3px 8px;border-radius:999px;color:#fff}
+.most .badge{background:var(--teal)}.least .badge{background:var(--accent)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:14px;padding:12px 14px;font:500 15px var(--body);text-align:left;cursor:pointer;display:flex;gap:10px;align-items:center}
+.opt .e{font-size:24px;line-height:1}
+.opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.vs .or{align-self:center;font:800 13px var(--display);color:var(--muted)}
+.vs .opt{flex-direction:column;justify-content:center;text-align:center;min-height:110px;font-weight:600}
+.dial{display:flex;flex-direction:column;gap:8px}
+.dial .lab{font-size:13px;font-weight:600;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:10px 4px;font:600 13px var(--body);cursor:pointer}
+.seg button.on[data-v="0"]{border-color:var(--teal);background:var(--teal-soft)}
+.seg button.on[data-v="1"]{border-color:var(--amber);background:var(--amber-soft)}
+.seg button.on[data-v="2"]{border-color:var(--accent);background:var(--accent-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:8px 12px;font:600 14px var(--body);cursor:pointer}
+.chip.on{border-color:var(--teal);background:var(--teal-soft)}
+.chip.must{border-color:var(--teal);background:var(--teal-soft)}
+.chip.never{border-color:var(--accent);background:var(--accent-soft)}
+.chip small{font-weight:700;margin-left:6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.slot{display:flex;flex-direction:column;gap:6px}
+.slot .lab{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.icons{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.icons button{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:8px 2px;font:500 11px var(--body);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.icons button span{font-size:22px}
+.icons button.on{border-color:var(--accent);background:var(--accent-soft)}
+.foot{margin-top:auto;display:flex;gap:8px;align-items:center}
+.next{flex:1;border:0;background:var(--ink);color:var(--bg);border-radius:14px;padding:14px;font:700 15px var(--body);cursor:pointer}
+.next:disabled{opacity:.35;cursor:not-allowed}
+.why{border:1px solid var(--line);background:none;color:var(--muted);border-radius:14px;padding:13px 12px;font:600 13px var(--body);cursor:pointer}
+.whybox{background:var(--teal-soft);border-radius:14px;padding:12px 14px;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.whybox b{color:var(--teal)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.toggle{display:flex;gap:6px}
+.toggle button{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 12px;font:600 13px var(--body);cursor:pointer}
+.toggle button.on{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.res{display:flex;flex-direction:column;gap:12px}
+.res .blk{border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.res h3{font-size:16px}
+.trait{display:grid;grid-template-columns:110px 1fr 34px;gap:8px;align-items:center;font-size:13px}
+.trait .t{height:8px;background:var(--line);border-radius:8px;position:relative}
+.trait .t i{position:absolute;top:0;bottom:0;background:var(--teal);border-radius:8px}
+.trait .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;border-top:1px solid var(--line);padding-top:6px}
+.kv:first-of-type{border-top:0;padding-top:0}
+.kv span:last-child{font-weight:600;text-align:right}
+/* science view */
+.sci{display:flex;flex-direction:column;gap:16px}
+.sci p{margin:0;max-width:68ch}
+.tblw{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:680px;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+th{font:700 12px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.lic{display:inline-block;font:700 11px var(--body);padding:3px 8px;border-radius:999px;white-space:nowrap}
+.lic.ok{background:var(--teal-soft);color:var(--teal)}.lic.idea{background:var(--amber-soft);color:var(--amber)}.lic.no{background:var(--accent-soft);color:var(--accent)}
+.callout{background:var(--amber-soft);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.callout b{color:var(--amber)}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:70ch}
+a{color:var(--accent)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap" id="app">
+  <div class="top">
+    <h1>Soul DNA Games</h1>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-play" aria-selected="true">Play</button>
+      <button role="tab" id="tab-sci" aria-selected="false">The science</button>
+    </div>
+  </div>
+  <div id="view"></div>
+  <div class="note" id="foot-note">Preview only. Emoji tiles stand in for real photos, and nothing here is saved or sent.</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+/* ---------- CONTENT ---------- */
+const STEPS=[];
+// Step 0: Intent
+STEPS.push({game:"Before we start",cat:"Intent",type:"multi",items:[
+ {q:"What are you looking for?",opts:[["💍","Marriage"],["❤️","A serious relationship"],["🤝","Friendship"],["🧭","Still exploring"]],key:"look"},
+ {q:"When would you like to settle down?",opts:[["⏱️","Within 1 year"],["📅","In 1 to 3 years"],["🌊","No rush"],["🚫","Not for me"]],key:"time"},
+ {q:"Kids someday?",opts:[["👶","Want kids"],["🙅","Don't want kids"],["🤔","Open"]],key:"kids"}],
+ why:["Intent and life goals","Mismatched goals (marriage vs exploring, kids vs no kids) are among the most common relationship deal-breakers.","Jonason et al. (2015), relationship dealbreakers research"]});
+// 1 Personality: forced-choice Big Five
+const P=[
+ {q:"At a party, which one is you?",o:[["🕺","In the middle, the life of the party","E"],["🫶","Making sure the new person feels included","A"],["⏰","Arrived on time, left on time","C"],["💭","Deep talk about ideas with a stranger","O"]]},
+ {q:"Planning a trip, which one is you?",o:[["🗂️","Plan ready weeks ahead","C"],["🧭","Somewhere new nobody has been","O"],["👥","Whatever the group wants","A"],["😌","Flight delayed? I stay calm","S"]]},
+ {q:"Bad news day, which one is you?",o:[["🧘","Stay calm and handle it","S"],["📞","Call friends right away","E"],["🤲","Still check on how others are","A"],["📝","Make a plan to fix it","C"]]},
+ {q:"Free weekend, which one is you?",o:[["🎨","Try something new: a class, a place, a cuisine","O"],["🎉","Out with a big group","E"],["✅","Finish my to-do list first","C"],["☀️","Enjoy it without overthinking Monday","S"]]},
+ {q:"In a team, which one is you?",o:[["📣","Speak up and lead","E"],["🕊️","Keep the peace","A"],["💡","Bring the wild idea","O"],["⚓","Steady under pressure","S"]]}];
+P.forEach((s,i)=>STEPS.push({game:"Game 1 · Which one is you?",cat:"Personality",type:"mostleast",q:s.q,o:s.o,round:i+1,rounds:5,
+ why:["Big Five personality (extraversion, agreeableness, conscientiousness, openness, emotional stability)","Each trait appears 4 times across 5 screens. Picking “most me” and “least me” is a forced-choice format, which is harder to fake than rating yourself 1 to 5.","IPIP Big Five / Mini-IPIP (public domain); forced-choice method"]}));
+// 2 Emotional style
+const EM=[
+ {q:"Your partner hasn't replied in 6 hours.",o:[["😌","They're busy, no worries","sec"],["😟","Something feels wrong…","anx"],["📱","Text again… and again","anx2"],["🙄","Fine, I won't reply either","avo"],["🤷","Didn't even notice","ind"]]},
+ {q:"You had a terrible day. Your partner asks, “What's wrong?”",o:[["🗣️","Tell them everything","exp"],["🙂","“I'm fine.”","sup"],["🤗","No talking, just a hug","sec"],["🚪","I need some space first","avo"],["😤","Snap at them","dys"]]},
+ {q:"Early on, your partner says “I love you” first.",o:[["🥰","Say it back happily","sec"],["😳","Freeze","avo"],["😬","Feel pressured and pull back","avo2"],["🥺","“Do you really mean it?”","anx"],["😊","Smile, say it when I'm ready","sec"]]},
+ {q:"Your weekend plans get cancelled last minute.",o:[["🔁","Find a new plan","reap"],["😑","Hide that I'm upset","sup"],["😢","Feel it, then move on","exp"],["😠","Stay annoyed all day","dys"],["🙃","Make a joke about it","reap"]]},
+ {q:"Your partner wants to spend every evening together.",o:[["😍","Love it","close"],["🙂","Nice, but I need me-time too","sec"],["😰","Feels suffocating","avo"],["🥺","Finally, someone who wants me","anx"],["🤝","Let's plan it together","sec"]]}];
+EM.forEach((s,i)=>STEPS.push({game:"Game 2 · React",cat:"Emotional style",type:"react",q:s.q,o:s.o,round:i+1,rounds:5,
+ why:["Attachment (anxiety and avoidance) and emotion regulation (reappraisal vs suppression)","We also time how fast you tap. A gut reaction is more honest than a considered one. Attachment insecurity is one of the few individual traits that reliably predicts relationship quality.","Attachment dimensions from ECR-R / ECR-RS (Fraley et al.); emotion regulation from Gross & John (2003). Own wording, not the original items."]}));
+// 3 Values
+const V=[
+ {a:["✈️","A dream job abroad","achieve"],b:["🏡","Staying close to family","family"]},
+ {a:["💰","Big pay, long hours","achieve"],b:["🌿","Less pay, more life","balance"]},
+ {a:["🦋","Live by my own rules","freedom"],b:["🪔","Respect how things have always been done","tradition"]},
+ {a:["🪞","Tell a hard truth","honesty"],b:["🕊️","Keep the peace with a small white lie","harmony"]},
+ {a:["🎒","Spend on experiences","growth"],b:["🏦","Save for security","security"]},
+ {a:["👨‍👩‍👧","My family's approval of my partner matters","tradition"],b:["🙋","My choice, my life","freedom"]},
+ {check:0,a:["🧳","Move cities for my partner's career","achieve"],b:["🏠","Stay for my family","family"]}];
+V.forEach((s,i)=>STEPS.push({game:"Game 3 · Which matters more?",cat:"Values",type:"vs",a:s.a,b:s.b,check:s.check,round:i+1,rounds:7,
+ why:s.check!==undefined?["Consistency check","This repeats card 1 in different words. In the app it only appears when an earlier answer was very fast or marked non-negotiable. A mismatch lowers the confidence on your profile, never your score.","Standard practice in personality testing (inconsistency scales)"]:
+ ["Core values, and how firmly you hold them","The cards pit opposite values against each other, as in Schwartz's model, so you can't say “both”. The dial tells us whether it's a preference or a line you won't cross.","Schwartz theory of basic human values. Own wording; the PVQ questionnaire itself is not used."]}));
+// 4 Loyalty
+const LP=[
+ {q:"An ex texts: “Happy birthday, I miss talking to you.”",o:[["Reply warmly",0],["Reply politely and tell my partner",2],["Ignore it",2],["Block them",3]],k:"boundary"},
+ {q:"Your partner asks to see your phone.",o:[["Hand it over",3],["Okay, but I'd feel uneasy",2],["No, privacy matters",0],["Ask why first",1]],k:"openness"},
+ {q:"Someone attractive at work flirts with you.",o:[["Shut it down",3],["Harmless fun",0],["Tell my partner",2],["Depends on the person",1]],k:"boundary"},
+ {q:"Your partner chats daily with a close friend of the opposite gender.",o:[["Totally fine",0],["Fine if I know them",1],["Makes me uneasy",2],["Not okay",3]],k:"jealousy"},
+ {q:"Your relationship hits a rough patch for months.",o:[["Work through it together",3],["Take a break",2],["Start looking elsewhere",0],["End it cleanly",1]],k:"commit"},
+ {q:"Someone badmouths your partner when they're not around.",o:[["Defend them right away",3],["Stay quiet",1],["Agree a little",0],["Tell my partner later",2]],k:"allegiance"},
+ {q:"You made a mistake your partner will never find out about.",o:[["Confess anyway",3],["Confess if asked",2],["Keep it to myself",0],["Depends how big",1]],k:"honesty"},
+ {check:2,q:"A stranger keeps complimenting you in your DMs.",o:[["Shut it down",3],["Enjoy it, it's harmless",0],["Mention it to my partner",2],["Depends who it is",1]],k:"boundary"}];
+const LF=[
+ {q:"Your best friend's rival invites you to a big party.",o:[["Decline",3],["Go, but tell my friend",2],["Go quietly",0],["Ask my friend first",2]],k:"allegiance"},
+ {q:"A friend tells you a secret. Others push you to share.",o:[["Never share",3],["Drop a hint",1],["Share if it's harmless",1],["Share it",0]],k:"trust"},
+ {q:"A friend needs ₹20,000 urgently.",o:[["Give it",3],["Lend it with a return date",2],["Give part of it",1],["Say no",0]],k:"support"},
+ {q:"Your friend is criticised in a group chat.",o:[["Defend them there",3],["Message my friend privately",2],["Stay out of it",1],["Agree a little",0]],k:"allegiance"},
+ {q:"Your friend hasn't replied for weeks.",o:[["Check on them",3],["Wait for them",1],["Let it drift",0],["Ask what's going on",2]],k:"commit"},
+ {q:"You get an opportunity your friend also wanted.",o:[["Tell them first",3],["Take it, tell them later",1],["Take it quietly",0],["Step aside for them",2]],k:"honesty"},
+ {q:"A friend's mistake hurts you.",o:[["Talk it out",3],["Forgive silently",2],["Keep my distance",1],["End the friendship",0]],k:"commit"},
+ {check:1,q:"A friend shares something private in a voice note. Someone asks you to forward it.",o:[["Never",3],["Just a summary",1],["Forward if it's harmless",1],["Forward it",0]],k:"trust"}];
+for(let i=0;i<8;i++)STEPS.push({game:"Game 4 · Loyalty & commitment",cat:"Loyalty",type:"loyal",idx:i,round:i+1,rounds:8});
+// 5 Flexibility
+const CHIPS=["Smokes","Drinks","Has pets","Wants kids","Lives with family after marriage","Willing to move cities","Vegetarian","Practises a faith","Loves night-outs"];
+STEPS.push({game:"Game 5 · Three boxes",cat:"Flexibility",type:"me",round:1,rounds:2,q:"Tap everything that describes you.",
+ why:["Your side of the deal-breakers","We need to know what you are as well as what you want, so two people's boxes can be checked against each other.","Jonason et al. (2015) dealbreakers"]});
+STEPS.push({game:"Game 5 · Three boxes",cat:"Flexibility",type:"boxes",round:2,rounds:2,q:"For a partner: tap a chip to move it to Must, Never or Flexible.",
+ why:["Deal-breakers and must-haves","A “Never” the other person matches caps the match score. Research shows people weigh deal-breakers more heavily than nice-to-haves.","Jonason et al. (2015) dealbreakers"]});
+// 6 Lifestyle
+STEPS.push({game:"Game 6 · Build my day",cat:"Lifestyle",type:"day",round:1,rounds:1,q:"Build your ideal day.",
+ slots:[["Morning",[["🌅","Up before 6"],["☕","Easy 7–8 start"],["😴","Snooze till 9+"],["🏃","Workout first"]]],
+ ["Work style",[["💼","Long hours, big goals"],["⚖️","9 to 6, then off"],["🏠","Remote, flexible"],["🎨","My own business"]]],
+ ["Evening",[["🍳","Cook at home"],["🍻","Out with friends"],["📺","Shows or games"],["📚","Learn something"]]],
+ ["Late night",[["🛌","Asleep by 10:30"],["🌙","Around midnight"],["🦉","2 am owl"],["📞","Late-night calls"]]],
+ ["Weekend",[["🏔️","Trip or adventure"],["🛋️","Recharge at home"],["👨‍👩‍👧","Family time"],["🎉","Parties, events"]]]],
+ why:["Daily rhythm, chronotype and social energy","Partners whose sleep and free time barely overlap get less time together. Morning vs evening type is a stable trait.","Morningness–eveningness research (Horne & Östberg; reduced rMEQ). Own wording."]});
+// 7 Conflict
+const CF=[
+ {q:"They spent a lot of money without telling you.",o:[["💬","“Let's talk about it calmly.”","solve"],["👉","“You never think before you spend!”","criticise"],["🧱","“Whatever. Do what you want.”","stonewall"],["🫥","“Fine, it's your money.”","yield"]]},
+ {q:"They point out something you did wrong.",o:[["🙏","“You're right, sorry.”","accept"],["🛡️","“But you also…”","defend"],["🚶","Go quiet and walk away","stonewall"],["⚖️","“Let me explain my side, then I'll hear yours.”","solve"]]},
+ {q:"After a fight, who makes the first move?",o:[["🤗","Me, with a joke or a hug","repair"],["☝️","Whoever was wrong","score"],["⏳","I wait for them","wait"],["🌬️","We both cool off, then talk","repair"]]}];
+CF.forEach((s,i)=>STEPS.push({game:"Game 7 · Your move",cat:"Conflict",type:"react",q:s.q,o:s.o,round:i+1,rounds:3,
+ why:["Conflict style and repair","Criticism, defensiveness and stonewalling are well-studied warning signs; quick repair after a fight is a protective one. Two people's picks are revealed to each other only after they connect.","Gottman's couples research (concepts only); dual-concern model of conflict (Pruitt & Rubin)"]}));
+
+/* ---------- STATE ---------- */
+let i=0, rel="partner", showWhy=false, t0=Date.now();
+const A={intent:{},pers:[],emo:[],val:[],loyal:[],me:new Set(),box:{},day:{},conf:[],rts:[]};
+const cur={};
+function resetCur(){for(const k in cur)delete cur[k];t0=Date.now();showWhy=false}
+
+/* ---------- RENDER PLAY ---------- */
+function stepWhy(s){if(s.type==="loyal")return ["Loyalty, trust and commitment","Your answers are matched against the other person's lines, not judged. Nobody is ever labelled “disloyal”. People see “Loyalty match: strong / mixed”, never your raw answers. Felt commitment is the strongest known predictor of relationship quality.","Rusbult Investment Model (commitment); jealousy research (Pfeiffer & Wong); Joel et al. (2020, PNAS). Own wording."];return s.why}
+function header(s){
+  const pct=Math.round(i/STEPS.length*100);
+  return `<div class="prog"><div class="row"><span>${s.cat}</span><span>${s.rounds?`${s.round} of ${s.rounds}`:""}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div><div class="game">${s.game}</div>`}
+function whyBox(s){const w=stepWhy(s);return showWhy?`<div class="whybox"><b>What this tells us: ${w[0]}</b><span>${w[1]}</span><span><i>Based on: ${w[2]}</i></span></div>`:""}
+function foot(ok){return `<div class="foot"><button class="why" id="whyb">${showWhy?"Hide":"Why we ask"}</button><button class="next" id="nextb" ${ok?"":"disabled"}>${i===STEPS.length-1?"See what we learned":"Next"}</button></div>`}
+function dial(v){return `<div class="dial"><div class="lab">How firm are you on this?</div><div class="seg">${["Flexible","Firm","Non-negotiable"].map((l,k)=>`<button data-dial="${k}" data-v="${k}" class="${v===k?"on":""}">${l}</button>`).join("")}</div></div>`}
+
+function renderPlay(){
+  const s=STEPS[i]; let h=header(s), ok=false;
+  if(s.type==="multi"){
+    h+=s.items.map((it,n)=>`<div class="slot"><div class="q" style="font-size:18px">${it.q}</div><div class="chips">${it.opts.map((o,k)=>`<button class="chip ${A.intent[it.key]===k?"on":""}" data-int="${it.key}" data-k="${k}">${o[0]} ${o[1]}</button>`).join("")}</div></div>`).join("");
+    ok=s.items.every(it=>A.intent[it.key]!==undefined);
+  } else if(s.type==="mostleast"){
+    h+=`<div class="q">${s.q}</div><div class="hint">Tap once for “Most me”, then another for “Least me”.</div><div class="grid2">${s.o.map((o,k)=>{const c=cur.most===k?"most":cur.least===k?"least":"";return `<button class="tile ${c}" data-ml="${k}">${c?`<span class="badge">${c==="most"?"Most me":"Least me"}</span>`:""}<div class="pic" aria-hidden="true">${o[0]}</div><div class="cap">${o[1]}</div></button>`}).join("")}</div>`;
+    ok=cur.most!==undefined&&cur.least!==undefined;
+  } else if(s.type==="react"){
+    h+=`<div class="q">${s.q}</div><div class="opts">${s.o.map((o,k)=>`<button class="opt ${cur.pick===k?"on":""}" data-pick="${k}"><span class="e">${o[0]}</span>${o[1]}</button>`).join("")}</div>`;
+    ok=cur.pick!==undefined;
+  } else if(s.type==="vs"){
+    h+=`<div class="q">${s.check!==undefined?"One more, quickly.":"Which matters more to you?"}</div><div class="vs"><button class="opt ${cur.pick===0?"on":""}" data-pick="0"><span class="e">${s.a[0]}</span>${s.a[1]}</button><span class="or">OR</span><button class="opt ${cur.pick===1?"on":""}" data-pick="1"><span class="e">${s.b[0]}</span>${s.b[1]}</button></div>${cur.pick!==undefined&&s.check===undefined?dial(cur.dial):""}`;
+    ok=cur.pick!==undefined&&(s.check!==undefined||cur.dial!==undefined);
+  } else if(s.type==="loyal"){
+    const L=(rel==="partner"?LP:LF)[s.idx];
+    h+=`${s.idx===0?`<div class="toggle" aria-label="Relation type"><button class="${rel==="partner"?"on":""}" data-rel="partner">Partner</button><button class="${rel==="friend"?"on":""}" data-rel="friend">Friend</button></div><div class="hint" style="margin-top:0">The questions change with the relation you're looking for.</div>`:""}
+    <div class="q">${L.q}</div><div class="opts">${L.o.map((o,k)=>`<button class="opt ${cur.pick===k?"on":""}" data-pick="${k}">${o[0]}</button>`).join("")}</div>${cur.pick!==undefined&&L.check===undefined?dial(cur.dial):""}`;
+    ok=cur.pick!==undefined&&(L.check!==undefined||cur.dial!==undefined);
+  } else if(s.type==="me"){
+    h+=`<div class="q">${s.q}</div><div class="chips">${CHIPS.map((c,k)=>`<button class="chip ${A.me.has(k)?"on":""}" data-me="${k}">${c}</button>`).join("")}</div><div class="hint" style="margin-top:0">Skip anything that doesn't apply.</div>`;ok=true;
+  } else if(s.type==="boxes"){
+    h+=`<div class="q" style="font-size:19px">${s.q}</div><div class="chips">${CHIPS.map((c,k)=>{const v=A.box[k]||"flex";return `<button class="chip ${v==="must"?"must":v==="never"?"never":""}" data-box="${k}">${c}<small>${v==="must"?"Must":v==="never"?"Never":"Flexible"}</small></button>`}).join("")}</div><div class="hint" style="margin-top:0">Everything starts as Flexible. Change only what matters.</div>`;ok=true;
+  } else if(s.type==="day"){
+    h+=`<div class="q">${s.q}</div>${s.slots.map((sl,n)=>`<div class="slot"><div class="lab">${sl[0]}</div><div class="icons">${sl[1].map((o,k)=>`<button class="${A.day[n]===k?"on":""}" data-day="${n}" data-k="${k}"><span>${o[0]}</span>${o[1]}</button>`).join("")}</div></div>`).join("")}`;
+    ok=s.slots.every((_,n)=>A.day[n]!==undefined);
+  }
+  h+=whyBox(s)+foot(ok);
+  $("#view").innerHTML=`<div class="screen">${h}</div>`;
+  bindPlay();
+}
+function bindPlay(){
+  const s=STEPS[i];
+  document.querySelectorAll("[data-int]").forEach(b=>b.onclick=()=>{A.intent[b.dataset.int]=+b.dataset.k;renderPlay()});
+  document.querySelectorAll("[data-ml]").forEach(b=>b.onclick=()=>{const k=+b.dataset.ml;
+    if(cur.most===k)delete cur.most;else if(cur.least===k)delete cur.least;else if(cur.most===undefined)cur.most=k;else if(cur.least===undefined)cur.least=k;else cur.least=k;renderPlay()});
+  document.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{if(cur.pick===undefined)cur.rt=Date.now()-t0;cur.pick=+b.dataset.pick;renderPlay()});
+  document.querySelectorAll("[data-dial]").forEach(b=>b.onclick=()=>{cur.dial=+b.dataset.dial;renderPlay()});
+  document.querySelectorAll("[data-rel]").forEach(b=>b.onclick=()=>{rel=b.dataset.rel;delete cur.pick;delete cur.dial;renderPlay()});
+  document.querySelectorAll("[data-me]").forEach(b=>b.onclick=()=>{const k=+b.dataset.me;A.me.has(k)?A.me.delete(k):A.me.add(k);renderPlay()});
+  document.querySelectorAll("[data-box]").forEach(b=>b.onclick=()=>{const k=+b.dataset.box,v=A.box[k]||"flex";A.box[k]=v==="flex"?"must":v==="must"?"never":"flex";renderPlay()});
+  document.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{A.day[+b.dataset.day]=+b.dataset.k;renderPlay()});
+  $("#whyb").onclick=()=>{showWhy=!showWhy;renderPlay()};
+  $("#nextb").onclick=()=>{save(s);if(i<STEPS.length-1){i++;resetCur();renderPlay();scrollTo(0,0)}else renderResults()};
+}
+function save(s){
+  if(cur.rt)A.rts.push(cur.rt);
+  if(s.type==="mostleast")A.pers.push([s.o[cur.most][2],s.o[cur.least][2]]);
+  if(s.type==="react"&&s.cat==="Emotional style")A.emo.push(s.o[cur.pick][2]);
+  if(s.type==="react"&&s.cat==="Conflict")A.conf.push(s.o[cur.pick][2]);
+  if(s.type==="vs")A.val.push({tag:(cur.pick===0?s.a:s.b)[2],label:(cur.pick===0?s.a:s.b)[1],dial:cur.dial,check:s.check,pick:cur.pick});
+  if(s.type==="loyal"){const L=(rel==="partner"?LP:LF)[s.idx];A.loyal.push({k:L.k,v:L.o[cur.pick][1],dial:cur.dial,check:L.check,pick:cur.pick,label:L.o[cur.pick][0]})}
+}
+
+/* ---------- RESULTS ---------- */
+function renderResults(){
+  const T={E:"Extraversion",A:"Agreeableness",C:"Conscientiousness",O:"Openness",S:"Emotional stability"},sc={E:0,A:0,C:0,O:0,S:0};
+  A.pers.forEach(([m,l])=>{sc[m]++;sc[l]--});
+  const traits=Object.keys(T).map(k=>{const v=sc[k],pct=(v+4)/8*100;return `<div class="trait"><span>${T[k]}</span><div class="t"><i style="left:0;width:${pct}%"></i></div><span class="n">${v>0?"+":""}${v}</span></div>`}).join("");
+  const cnt=t=>A.emo.filter(x=>x.startsWith(t)).length;
+  const anx=cnt("anx"),avo=cnt("avo")+cnt("ind"),att=anx>=2&&avo>=2?"Mixed: worries and pulls away":anx>=2?"Leans anxious: values reassurance":avo>=2?"Leans independent: values space":"Secure: comfortable with closeness";
+  const reg=cnt("reap")>cnt("sup")+cnt("dys")?"Reframes and moves on":cnt("sup")>0?"Tends to hold feelings in":cnt("dys")>0?"Feels things strongly in the moment":"Expresses feelings openly";
+  const main=A.val.filter(v=>v.check===undefined), firm=["Flexible","Firm","Non-negotiable"];
+  const vchk=A.val.find(v=>v.check!==undefined), vcons=vchk&&main[vchk.check]? (main[vchk.check].pick===vchk.pick):true;
+  const lm=A.loyal.filter(l=>l.check===undefined), lchk=A.loyal.find(l=>l.check!==undefined);
+  const lcons=lchk&&lm[lchk.check]?Math.abs(lm[lchk.check].v-lchk.v)<=1:true;
+  const lscore=Math.round(lm.reduce((a,l)=>a+l.v,0)/(lm.length*3)*100);
+  const lnn=lm.filter(l=>l.dial===2).length;
+  const musts=CHIPS.filter((_,k)=>A.box[k]==="must"),nevers=CHIPS.filter((_,k)=>A.box[k]==="never"),me=CHIPS.filter((_,k)=>A.me.has(k));
+  const chron=A.day[0]===2||A.day[3]===2?"Night owl":A.day[0]===0||A.day[3]===0?"Early bird":"In between";
+  const neg=A.conf.filter(c=>["criticise","defend","stonewall"].includes(c)).length;
+  const conf=neg===0?"Constructive: talks it out and repairs":neg===1?"Mostly constructive, one warning sign":"Several warning signs (criticism, defensiveness or stonewalling)";
+  const rt=A.rts.length?(A.rts.reduce((a,b)=>a+b,0)/A.rts.length/1000).toFixed(1):"–";
+  const confd=(vcons&&lcons)?"High":"Medium (one answer didn't match its check)";
+  const I=STEPS[0].items, iv=k=>{const it=I.find(x=>x.key===k);return it.opts[A.intent[k]][1]};
+  $("#view").innerHTML=`<div class="screen"><div class="game">Done in about 6 minutes</div><div class="q">What Soulink learned about you</div>
+  <div class="hint" style="margin-top:0">This is the internal profile used for matching. Users see a friendlier summary, never these raw labels.</div>
+  <div class="res">
+   <div class="blk"><h3>Intent</h3><div class="kv"><span>Looking for</span><span>${iv("look")}</span></div><div class="kv"><span>Timeline</span><span>${iv("time")}</span></div><div class="kv"><span>Kids</span><span>${iv("kids")}</span></div></div>
+   <div class="blk"><h3>Personality (Big Five)</h3>${traits}</div>
+   <div class="blk"><h3>Emotional style</h3><div class="kv"><span>Closeness</span><span>${att}</span></div><div class="kv"><span>When upset</span><span>${reg}</span></div></div>
+   <div class="blk"><h3>Values</h3>${main.map(v=>`<div class="kv"><span>${v.label}</span><span>${firm[v.dial]}</span></div>`).join("")}</div>
+   <div class="blk"><h3>Loyalty & commitment (${rel})</h3><div class="kv"><span>Boundary strictness</span><span>${lscore} / 100</span></div><div class="kv"><span>Non-negotiable lines</span><span>${lnn}</span></div></div>
+   <div class="blk"><h3>Deal-breakers</h3><div class="kv"><span>About me</span><span>${me.join(", ")||"None"}</span></div><div class="kv"><span>Must</span><span>${musts.join(", ")||"None"}</span></div><div class="kv"><span>Never</span><span>${nevers.join(", ")||"None"}</span></div></div>
+   <div class="blk"><h3>Rhythm and conflict</h3><div class="kv"><span>Chronotype</span><span>${chron}</span></div><div class="kv"><span>Conflict style</span><span>${conf}</span></div></div>
+   <div class="blk"><h3>Answer quality</h3><div class="kv"><span>Average answer time</span><span>${rt}s</span></div><div class="kv"><span>Consistency</span><span>${confd}</span></div></div>
+  </div>
+  <div class="foot"><button class="next" id="again">Play again</button></div></div>`;
+  $("#again").onclick=()=>{i=0;Object.assign(A,{intent:{},pers:[],emo:[],val:[],loyal:[],me:new Set(),box:{},day:{},conf:[],rts:[]});resetCur();renderPlay();scrollTo(0,0)};
+}
+
+/* ---------- SCIENCE VIEW ---------- */
+function renderSci(){
+  $("#view").innerHTML=`<div class="sci">
+  <p>Every game measures a construct from published psychology research. Where an instrument is public domain we can use its items directly. Where it's copyrighted, we use only the theory behind it and write our own scenarios, because ideas can be reused freely but exact question wording can't.</p>
+  <div class="tblw"><table><thead><tr><th>Step</th><th>What it measures</th><th>Based on</th><th>Licence</th></tr></thead><tbody>
+   <tr><td><b>Intent</b><br>3 taps</td><td>Relationship goal, timeline, kids</td><td>Dealbreakers research (Jonason et al., 2015)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>1 · Which one is you?</b><br>5 screens</td><td>Big Five: extraversion, agreeableness, conscientiousness, openness, emotional stability</td><td>IPIP / Mini-IPIP (Donnellan et al., 2006), as forced-choice</td><td><span class="lic ok">Public domain</span></td></tr>
+   <tr><td><b>2 · React</b><br>5 scenes</td><td>Attachment anxiety and avoidance; reappraisal vs suppression; gut-reaction time</td><td>ECR-R / ECR-RS (Fraley et al.); Emotion Regulation Questionnaire (Gross & John, 2003)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>3 · Which matters more?</b><br>6 cards + 1 check</td><td>Values on opposite poles, with firmness</td><td>Schwartz theory of basic human values</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>4 · Loyalty & commitment</b><br>7 questions + 1 check</td><td>Boundaries, openness, jealousy, commitment, allegiance, honesty</td><td>Rusbult Investment Model (Rusbult, Martz & Agnew, 1998); Multidimensional Jealousy Scale (Pfeiffer & Wong, 1989)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>5 · Three boxes</b><br>2 screens</td><td>What you are vs what you need: Must / Never / Flexible</td><td>Dealbreakers research (Jonason et al., 2015)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>6 · Build my day</b><br>5 slots</td><td>Chronotype, work style, social energy</td><td>Morningness–Eveningness Questionnaire (Horne & Östberg; reduced rMEQ)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>7 · Your move</b><br>3 scenes</td><td>Criticism, defensiveness, stonewalling, repair</td><td>Gottman's couples research; dual-concern model (Pruitt & Rubin)</td><td><span class="lic idea">Ideas only</span></td></tr>
+   <tr><td><b>Left out</b></td><td>“Love languages”</td><td>Popular, but weak research support</td><td><span class="lic no">Not used</span></td></tr>
+  </tbody></table></div>
+  <h2 style="font-size:20px">How two profiles become a match score</h2>
+  <ol class="steps">
+   <li><b>Gate first.</b> Different intent (e.g. marriage vs exploring), a crossed “Never”, or a crossed non-negotiable value or loyalty line caps the score.</li>
+   <li><b>Similarity</b> on values and loyalty lines. Rare shared answers count for more, and answers marked Firm or Non-negotiable weigh more.</li>
+   <li><b>Personality.</b> Higher emotional stability and agreeableness help any pair. Extraversion and openness work best when close, though a small gap is fine.</li>
+   <li><b>Dynamics.</b> An anxious plus an avoidant pairing is flagged as a harder fit. Two people who both criticise or stonewall score lower; a good repairer lifts the pair.</li>
+   <li><b>Rhythm.</b> Overlap in sleep and free time.</li>
+   <li><b>Stage weights.</b> Lifestyle counts most for first meetings; loyalty, conflict and values count most for serious relationships.</li>
+   <li><b>Confidence.</b> Consistency checks and answer speed set how sure we are. A low-confidence match is shown as “Getting to know you”.</li>
+   <li><b>Learning after connecting.</b> The one-tap “Did you two vibe?” and, later, “Do they seem serious about you?” (felt commitment, the top predictor in Joel et al., 2020).</li>
+  </ol>
+  <div class="callout"><b>Psychologist approval</b><span>No psychologist has reviewed these games yet. I've built them on established instruments, but turning them into playful formats changes how they measure. Before launch, they should be reviewed by a licensed psychologist (in India, an RCI-registered clinical or counselling psychologist), followed by a small pilot: about 50 users play the games and also take the free 20-item Mini-IPIP, so we can check the two agree. Soul DNA is a matching aid, not a psychological diagnosis, and the app will say so.</span></div>
+  <p class="note">Sources: <a href="https://www.ipip.ori.org/" target="_blank" rel="noopener">IPIP</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/16768595/" target="_blank" rel="noopener">Mini-IPIP (Donnellan et al., 2006)</a> · <a href="https://labs.psychology.illinois.edu/~rcfraley/measures/relstructures.htm" target="_blank" rel="noopener">ECR-RS (Fraley)</a> · <a href="https://faculty.wcas.northwestern.edu/eli-finkel/documents/60_RusbultMartzAgnew1998_PersonalRelationships.pdf" target="_blank" rel="noopener">Investment Model Scale (1998)</a> · <a href="https://socialinteractionlab.psych.umn.edu/sites/socialinteractionlab.psych.umn.edu/files/2020-12/joel_et_al._pnas_2020.pdf" target="_blank" rel="noopener">Joel et al., PNAS 2020</a></p>
+  </div>`;
+}
+
+/* ---------- TABS ---------- */
+function setTab(t){$("#tab-play").setAttribute("aria-selected",t==="play");$("#tab-sci").setAttribute("aria-selected",t==="sci");
+  $("#app").classList.toggle("wide",t==="sci");$("#foot-note").hidden=t==="sci";t==="play"?renderPlay():renderSci()}
+$("#tab-play").onclick=()=>setTab("play");$("#tab-sci").onclick=()=>setTab("sci");
+renderPlay();
+</script>
+
+</body></html>
