@@ -38,7 +38,10 @@ export default function AccessGate({ children }) {
       setState('open');
     } catch { setState('waking'); setTimeout(check, 3000); } // the web server itself is still waking up
   };
-  useEffect(() => { check(); }, []);
+  // the legal pages (privacy policy, terms, child safety standards…) must be readable by anyone, including
+  // Google Play reviewers and people without an access code, so on the website they open without the code
+  const publicPage = Platform.OS === 'web' && typeof window !== 'undefined' && /^\/legal(\/|$)/.test(window.location.pathname);
+  useEffect(() => { if (publicPage) setState('open'); else check(); }, []);
   useEffect(() => { if (state === 'locked' || state === 'offline' || state === 'waking') SplashScreen.hideAsync().catch(() => {}); }, [state]);
 
   const submit = async () => {
