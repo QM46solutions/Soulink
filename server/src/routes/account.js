@@ -21,6 +21,7 @@ import { badRequest, notFound, HttpError } from '../lib/errors.js';
 import { tx } from '../db.js';
 import { normalizeEmail } from '../lib/auth.js';
 import { checkCode, issueCode, realDelivery } from '../services/otp.js';
+import { expireSignup, isRealMember } from '../services/signupCleanup.js';
 
 export const FREE_VIEWERS = 3; // free accounts see this many profile viewers; the rest is Premium
 const r = Router();
@@ -129,13 +130,30 @@ r.post('/email/verify', ah(async (req, res) => {
   const out = await tx(async (c) => {
     const chk = await checkCode(c, { target: email, code, purpose: 'add_email', userId: req.user.id });
     if (chk.error) return chk;
-    const other = (await c.query('SELECT TOP 1 id FROM users WHERE email=$1 AND id<>$2', [email, req.user.id])).rows[0];
-    if (other) return { error: new HttpError(409, 'Another Soulink account already uses this email. Use a different email.', 'email_taken') };
+    const other = (await c.query('SELECT TOP 1 * FROM users WHERE email=$1 AND id<>$2', [email, req.user.id])).rows[0];
+    if (other) {
+      // A half-made sign-up with this email (code checked, profile never finished) doesn't own it: the person who
+      // just proved the email is theirs gets it, and the half-made sign-up is erased (same as when it expires).
+      if (other.onboarding_done || other.deactivated_at || (await isRealMember(other.id))) {
+        return { error: new HttpError(409, 'Another Soulink account already uses this email. Use a different email.', 'email_taken') };
+      }
+      return { clear: other };
+    }
     const u = (await c.query(`UPDATE users SET email=$2, email_verified_at=${realDelivery('email') ? 'SYSDATETIMEOFFSET()' : 'NULL'}
       OUTPUT INSERTED.* WHERE id=$1`, [req.user.id, email])).rows[0];
     return { user: u };
   });
   if (out.error) throw out.error;
+  if (out.clear) {
+    await expireSignup(out.clear, 'unfinished_signup_email_claimed');
+    const again = await tx(async (c) => {
+      // the code was already used above; the email is free now
+      const u = (await c.query(`UPDATE users SET email=$2, email_verified_at=${realDelivery('email') ? 'SYSDATETIMEOFFSET()' : 'NULL'}
+        OUTPUT INSERTED.* WHERE id=$1`, [req.user.id, email])).rows[0];
+      return { user: u };
+    });
+    out.user = again.user;
+  }
   await audit(req, 'email_changed', { detail: email.replace(/^(.{2}).*@/, '$1•••@') });
   res.json({ user: meView(out.user) });
 }));

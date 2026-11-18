@@ -110,3 +110,14 @@ test('fingerprint / face-unlock sign-in: set up, use, wrong tries, logged out el
   const paused = await api().post('/auth/device-keys/unlock').send({ id: k3.id, secret: k3.secret }).expect(409);
   assert.equal(paused.body.error.code, 'use_code');
 });
+
+test('a half-made email sign-up does not block adding that email to a finished account', async () => {
+  const u = await makeUser();
+  const s = await api().post('/auth/otp/request').send({ email: 'half@example.com' }).expect(200);
+  const half = (await api().post('/auth/otp/verify').send({ email: 'half@example.com', code: s.body.devCode }).expect(200)).body.user;
+  await query("UPDATE otp_codes SET created_at = DATEADD(MINUTE, -1, created_at) WHERE target='half@example.com'");
+  const r = await api().post('/account/email/request').set(u.h).send({ email: 'half@example.com' }).expect(200);
+  const ok = await api().post('/account/email/verify').set(u.h).send({ email: 'half@example.com', code: r.body.devCode }).expect(200);
+  assert.equal(ok.body.user.email, 'half@example.com');
+  assert.equal((await query('SELECT COUNT(*) AS n FROM users WHERE id=$1', [half.id])).rows[0].n, 0);
+});
