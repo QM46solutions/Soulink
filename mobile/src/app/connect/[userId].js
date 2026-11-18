@@ -14,6 +14,7 @@ import { ChoiceCard, IntentBadge, IntentCard, ScorePill } from '../../components
 import { Button, ErrorText, Loading, s } from '../../components/ui';
 import { INTENTS, KNOWN, intentOf } from '../../lib/intents';
 import { colors, fonts, space } from '../../lib/theme';
+import { feedback } from '../../lib/feedback';
 
 function PairQuestion({ q, value, onPick }) {
   return (
@@ -75,7 +76,7 @@ export default function Connect() {
       }
       const body = knows === 'known' ? { toUserId: userId, knows: true, knownAs } : { toUserId: userId, knows: false, intent };
       const r = await api('/connections/requests', { method: 'POST', body });
-      setSent(r.request);
+      feedback('connect'); setSent(r.request);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 

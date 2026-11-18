@@ -69,11 +69,16 @@ export async function reactivateOnLogin(u, req) {
 
 /** Erase now (also used at the end of the 7 days). The 1-year identity record is kept by deleteAccount; a person who
  *  deleted their own account also gets a 6-month "rejoin" record (encrypted face fingerprint, phone, email). */
-export async function eraseAccount(u, req, reason = 'user') {
+export async function eraseAccount(u, req, reason = 'user', banReason = '') {
   await signOutAll(u, req, 'account:deleted');
   if (reason !== 'banned') await holdRejoin(u).catch(() => {});
   await deleteAccount(u.id, reason);
   await audit(req, 'account_deleted', { actorId: req?.user?.id ?? null, targetUserId: u.id, detail: `${reason}${u.username ? ` @${u.username}` : ''}` });
+  if (reason === 'banned') {
+    // IT Rules 2021: tell the person what was done and why, and how to appeal (not the 'welcome back' text)
+    notify(u, 'Your Soulink account has been removed', `Your Soulink account${u.username ? ` @${u.username}` : ''} was removed on ${day(Date.now())} for serious or repeated breaks of our Terms of Use and Community Guidelines${banReason ? `: ${banReason}` : ''}.\n\nYou have been logged out everywhere and a new account can't be created with the same face, phone number or email. As Indian law requires, we keep your name, contact details and an encrypted face fingerprint only to enforce this.\n\nIf you think this is a mistake, reply to our Grievance Officer within 30 days and we will review it. You can also appeal to the Grievance Appellate Committee at gac.gov.in.`, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID');
+    return;
+  }
   notify(u, 'Your Soulink account has been deleted', `Your Soulink account${u.username ? ` @${u.username}` : ''} was deleted on ${day(Date.now())}. You have been logged out on every phone and browser.\n\nYour profile, photos, face data, Soul DNA, posts, Sparks and chats have been erased. As Indian law requires, we keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests, then delete them.\n\nFor 6 months your face fingerprint, phone number and email are kept encrypted so they can't be used to create a new Soulink account. After that they are erased and you are welcome back.\n\nIf you did not do this, write to our Grievance Officer.`, 'MSG91_ACCOUNT_DELETED_TEMPLATE_ID');
 }
 
@@ -105,7 +110,7 @@ export async function banAccount(u, { reason, days = BAN_DAYS }, req) {
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, DATEADD(DAY, $9, SYSDATETIMEOFFSET()))`,
   [u.id, u.username, u.display_name, u.phone, u.email, vec ? sealFace(vec) : null, reason, req?.user?.id || null, days]);
   await audit(req, 'account_banned', { targetUserId: u.id, detail: reason });
-  await eraseAccount(u, req, 'banned');
+  await eraseAccount(u, req, 'banned', reason.replace(/ \(console: .*\)$/, ''));
 }
 
 /** Is this phone or email banned? */

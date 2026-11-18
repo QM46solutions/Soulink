@@ -12,6 +12,7 @@ import { BottomSheet } from './PostSheets';
 import { OFFENSE_REASONS } from './OffenseSheet';
 import { Avatar } from './ui';
 import { colors, fonts, space } from '../lib/theme';
+import { feedback } from '../lib/feedback';
 
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 const LIKE = '👌🏻';
@@ -36,6 +37,7 @@ export function useComments(postId, { onCount, base } = {}) {
   const patch = (id, ch) => setComments((list) => list.map((c) => (c.id === id ? { ...c, ...ch } : c)));
   const add = async (body, parentId) => {
     const r = await api(`${root}/comments`, { method: 'POST', body: { body, ...(parentId ? { parentId } : {}) } });
+    feedback('comment');
     setComments((c) => { const n = [...(c || []), r.comment]; onCount?.(n.length, true); return n; });
     return r.comment;
   };
@@ -46,6 +48,7 @@ export function useComments(postId, { onCount, base } = {}) {
   };
   const like = async (c) => {
     patch(c.id, { liked: !c.liked, likeCount: c.likeCount + (c.liked ? -1 : 1) }); // feels instant; corrected below
+    feedback(c.liked ? 'unlike' : 'like');
     try { const r = await api(`${root}/comments/${c.id}/like`, { method: 'POST' }); patch(c.id, { liked: r.liked, likeCount: r.likeCount }); }
     catch (e) { patch(c.id, { liked: c.liked, likeCount: c.likeCount }); setError(e.message); }
   };

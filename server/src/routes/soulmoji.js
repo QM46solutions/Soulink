@@ -19,6 +19,7 @@ import { faceDistance } from '../services/faceEngine.js';
 import { openFace } from '../lib/faceCrypto.js';
 import { frameAiResult, prepareFace } from '../services/soulmojiFace.js';
 import { decode, encodeJpeg, renderMood, RENDER_MOODS, shrinkPhoto } from '../services/soulmojiRender.js';
+import { markAiJpeg } from '../lib/aiMark.js';
 import { aiEdit, aiInstalled, warmSoulmojiAi } from '../services/soulmojiAi.js';
 import crypto from 'node:crypto';
 
@@ -91,7 +92,7 @@ r.post('/render', rateLimit({ windowMs: 60_000, limit: config.env === 'test' ? 1
   if (cached) return res.json({ imageUrl: cached.url, mood, ai: false, pending });
   const img = decode(await fs.readFile(await ensureLocal(faceUrl)));
   const out = renderMood(img, points, mood);
-  const url = await saveFile({ buffer: Buffer.from(encodeJpeg(out, 95)), mimetype: 'image/jpeg' }, 'soulmoji');
+  const url = await saveFile({ buffer: markAiJpeg(Buffer.from(encodeJpeg(out, 95))), mimetype: 'image/jpeg' }, 'soulmoji');
   await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [req.user.id, faceUrl, `${mood}@${ENGINE}`, url]);
   res.json({ imageUrl: url, mood, ai: false, pending });
 }));
@@ -132,7 +133,7 @@ async function renderWithAi(user, mood) {
     // framed exactly like the Soulmoji face (same square, same size), whatever photo it came from
     const framed = frameAiResult(await fs.readFile(tmp), src.rect);
     // saveFile keeps it in the database too on the cloud host (the disk there is wiped on restart)
-    const url = await saveFile({ buffer: framed, mimetype: 'image/jpeg' }, 'soulmoji');
+    const url = await saveFile({ buffer: markAiJpeg(framed), mimetype: 'image/jpeg' }, 'soulmoji');
     await fs.rm(tmp, { force: true });
     await query('INSERT INTO soulmoji_renders (user_id, face_url, mood, url) VALUES ($1, $2, $3, $4)', [user.id, user.soulmoji_face_url, `${mood}@${AI_TAG}`, url]);
     return url;

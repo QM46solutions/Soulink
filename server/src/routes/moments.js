@@ -20,6 +20,7 @@ import { isBlockedEither, userCard } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';
 import { config } from '../config.js';
 import { assertCanSend, getOrCreateDirect, postMessage } from './conversations.js';
+import { hidesMomentsFrom, MOMENT_VISIBLE } from '../services/privacy.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -34,6 +35,7 @@ const view = (m, seen) => ({ id: m.id, mediaUrl: m.media_url || null, text: m.te
 async function canSee(viewerId, authorId) {
   if (same(viewerId, authorId)) return true;
   if (await isBlockedEither(viewerId, authorId)) return false;
+  if (await hidesMomentsFrom(authorId, viewerId)) return false; // Settings › Privacy › Hide my Moments from
   // Moments are for Connections only. A plain Follow (public profile) sees posts and reels, never Moments.
   return !!(await connectionBetween(viewerId, authorId));
 }
@@ -83,7 +85,8 @@ r.get('/feed', ah(async (req, res) => {
        LEFT JOIN moment_views v ON v.moment_id = m.id AND v.viewer_id = $1
       WHERE m.is_story = 1 AND m.deleted_at IS NULL AND m.expires_at > SYSDATETIMEOFFSET()
         AND NOT EXISTS (SELECT 1 FROM users du WHERE du.id = m.author_id AND du.deactivated_at IS NOT NULL)
-        AND (m.author_id = $1 OR EXISTS (SELECT 1 FROM connections c WHERE (c.user_a = $1 AND c.user_b = m.author_id) OR (c.user_a = m.author_id AND c.user_b = $1)))
+        AND (m.author_id = $1 OR (EXISTS (SELECT 1 FROM connections c WHERE (c.user_a = $1 AND c.user_b = m.author_id) OR (c.user_a = m.author_id AND c.user_b = $1))
+          AND ${MOMENT_VISIBLE}))
         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = $1 AND b.blocked_id = m.author_id) OR (b.blocker_id = m.author_id AND b.blocked_id = $1))
       ORDER BY m.created_at ASC`, [me]);
   const authorIds = [...new Set(rows.map((x) => String(x.author_id).toLowerCase()))];
@@ -148,6 +151,8 @@ r.post('/:id/reply', requireSoul, ah(async (req, res) => {
   const m = await visibleMoment(req);
   if (same(m.author_id, req.user.id)) throw badRequest("You can't reply to your own Moment");
   const { text } = z.object({ text: z.string().trim().min(1).max(1000) }).parse(req.body || {});
+  const author = await one('SELECT moment_replies, display_name, username FROM users WHERE id=$1', [m.author_id]);
+  if (author && (author.moment_replies === false || author.moment_replies === 0)) throw forbidden(`${author.display_name || author.username} has turned off replies to their Moments.`, 'moment_replies_off');
   if (config.connectRequired && !(await connectionBetween(req.user.id, m.author_id))) {
     throw forbidden('You can reply once you two are Connections.', 'not_connected');
   }

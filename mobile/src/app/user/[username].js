@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
 import ProfileMoments from '../../components/ProfileMoments';
-import ShowScoreButton from '../../components/ShowScoreButton';
+import MatchPanel from '../../components/MatchPanel';
 import ConnectSheet from '../../components/ConnectSheet';
 import PaidMessageSheet from '../../components/PaidMessageSheet';
 import { PostGrid } from '../../components/PostCard';
@@ -31,8 +31,13 @@ export default function UserProfile() {
   const [conn, setConn] = useState(null);
   const [posts, setPosts] = useState(null);
   const [anon, setAnon] = useState(null);
-  const [tab, setTab] = useState('posts'); // posts | moments
+  const [tab, setTab] = useState('posts'); // posts | moments | soul
   const [connectOpen, setConnectOpen] = useState(false);
+  const [priv, setPriv] = useState(null); // what I've set for this person: restricted / muted / Moments hidden
+  const setPerson = async (patch, title, text) => {
+    try { setPriv(await api(`/privacy/people/${data.user.id}`, { method: 'PUT', body: patch })); notice(title, text || undefined); }
+    catch (e) { notice("Couldn't change that", e.message); }
+  };
   const load = useCallback(async () => {
     try {
       const d = await api(`/users/u/${encodeURIComponent(username)}`);
@@ -47,7 +52,10 @@ export default function UserProfile() {
 
   const target = data?.user;
 
-  const openMenu = useCallback(() => setMenu(true), []);
+  const openMenu = useCallback(() => {
+    setMenu(true);
+    if (data?.user?.id && !data.relationship?.isMe) api(`/privacy/people/${data.user.id}`).then(setPriv).catch(() => {});
+  }, [data]);
 
   const block = async () => {
     const ok = await confirm(`Block ${target.username}?`, "They won't be able to find your profile or see your content. They won't be told you blocked them.", { confirmText: 'Block', destructive: true });
@@ -153,17 +161,19 @@ export default function UserProfile() {
       {conn?.connected ? (
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
-      {/* Soul Score: shown when you tap it, before and after you're connected */}
-      {rel.isMe ? null : data.match ? (
-        <ShowScoreButton match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
-      ) : !rel.isMe && me.soulReady ? (
-        <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12.5, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Your Soul Score shows once {(target.displayName || target.username).split(' ')[0]} takes the new Soul DNA.</Text>
-      ) : !rel.isMe && !me.soulReady ? (
-        <Text onPress={() => router.push('/soul')} style={{ fontFamily: fonts.semibold, color: colors.aura, fontSize: 13, textAlign: 'center', paddingHorizontal: space.xl, marginBottom: space.md }}>Create your Soul DNA to see your Soul Score →</Text>
-      ) : null}
       {conn?.theyConnect && !conn?.connected && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Connected to you · connect back to become Connections</Text> : null}
-      {data.canViewContent ? <ProfileTabs tab={tab} onChange={setTab} /> : null}
-      {data.canViewContent
+      {/* Posts · Moments · Soul Score. The Soul Score tab shows before and after you're connected, even on private accounts */}
+      {data.canViewContent || !rel.isMe ? <ProfileTabs tab={tab} onChange={setTab} items={rel.isMe ? undefined : [['posts', 'Posts'], ['moments', 'Moments'], ['soul', 'Soul Score']]} /> : null}
+      {tab === 'soul' && !rel.isMe ? (
+        <View style={{ paddingTop: space.lg }}>
+          {data.match ? <MatchPanel match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
+            : me.soulReady ? <Empty icon="sparkles-outline" title="No Soul Score yet" text={`Your Soul Score shows once ${(target.displayName || target.username).split(' ')[0]} takes the new Soul DNA.`} />
+              : <View style={{ alignItems: 'center' }}>
+                <Empty icon="sparkles-outline" title="See how you match" text="Create your Soul DNA to see your Soul Score with anyone." />
+                <Button title="Create my Soul DNA" onPress={() => router.push('/soul')} style={{ marginTop: space.sm, alignSelf: 'center' }} />
+              </View>}
+        </View>
+      ) : data.canViewContent
         ? (tab === 'moments' ? <ProfileMoments userId={target.id} isMe={rel.isMe} name={(target.displayName || target.username).split(' ')[0]} />
           : posts?.length ? <PostGrid posts={posts} tall /> : <Empty icon="camera-outline" title="No posts yet" />)
         : <Empty icon="lock-closed-outline" title="This account is private" text="Connect with this account to see their photos and Connections." />}
@@ -171,7 +181,14 @@ export default function UserProfile() {
         visible={menu}
         onClose={() => setMenu(false)}
         title={target.username}
-        options={[{ label: 'Report', onPress: () => setReporting(true) }, { label: 'Block', destructive: true, onPress: block }]}
+        options={[
+          ...(priv ? [
+            { label: priv.restricted ? 'Unrestrict' : 'Restrict', onPress: () => setPerson({ restricted: !priv.restricted }, priv.restricted ? 'Unrestricted' : 'Restricted', priv.restricted ? null : "Their new comments on your posts are seen only by them. They aren't told.") },
+            { label: priv.mutePosts || priv.muteMoments ? 'Unmute' : 'Mute posts and Moments', onPress: () => { const on = !(priv.mutePosts || priv.muteMoments); setPerson({ mutePosts: on, muteMoments: on }, on ? 'Muted' : 'Unmuted', on ? "You won't see their posts or Moments in your feed. They aren't told." : null); } },
+            { label: priv.momentsHidden ? 'Show my Moments to them' : 'Hide my Moments from them', onPress: () => setPerson({ momentsHidden: !priv.momentsHidden }, priv.momentsHidden ? 'Moments shown' : 'Moments hidden', priv.momentsHidden ? null : "They won't see your Moments. They aren't told.") },
+          ] : []),
+          { label: 'Report', onPress: () => setReporting(true) }, { label: 'Block', destructive: true, onPress: block },
+        ]}
       />
       <PaidMessageSheet visible={paidOpen} onClose={() => setPaidOpen(false)} user={target} />
       <ConnectSheet visible={connectOpen} onClose={() => setConnectOpen(false)} user={target} onSent={load} />

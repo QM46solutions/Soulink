@@ -11,6 +11,7 @@ export const LEGAL = {
   address: 'Flat No. 501, Plot No. 31 & 48, Sri Venkateshwara Nilyam, L B Nagar, Hyderabad 500074, Telangana, India', // registered office
   grievanceOfficer: 'Sai Raghava Ragishetty',
   grievanceEmail: 'quantum46solutions@gmail.com',
+  grievancePhone: '+91 81438 88593',
   founder: 'Nikhil Cheedella',
   updated: '13 November 2026',
 };
@@ -127,7 +128,7 @@ export const DOCS = {
         'Soulink is only for people 18 and older. We do not knowingly process children\'s data; if we learn we have, we delete it.',
       ]],
       ['Contact', [
-        `${G.grievanceOfficer}, Grievance Officer and data protection contact, ${G.company}, ${G.address}. Email: ${G.grievanceEmail}.`,
+        `${G.grievanceOfficer}, Grievance Officer and data protection contact, ${G.company}, ${G.address}. Email: ${G.grievanceEmail}. Phone: ${G.grievancePhone}.`,
       ]],
     ],
   },
@@ -161,11 +162,12 @@ export const DOCS = {
     title: 'Grievance Officer',
     intro: 'If you have a complaint about content, your account or your personal data, contact our Grievance Officer.',
     sections: [
-      ['Contact', [`${G.grievanceOfficer}`, `Email: ${G.grievanceEmail}`, `${G.company}, ${G.address}`]],
+      ['Contact', [`${G.grievanceOfficer}`, `Email: ${G.grievanceEmail}`, `Phone: ${G.grievancePhone}`, `${G.company}, ${G.address}`]],
       ['What happens next', [
-        'We acknowledge your complaint within 24 hours and resolve it within 7 days.',
+        'We acknowledge your complaint within 24 hours (complaints made in the app are acknowledged at once) and resolve it within 7 days.',
         'Content showing nudity, sexual acts or impersonation of you, or a deepfake of you, is removed within 2 hours of your complaint.',
-        'Tell us your username, a link or screenshot of the content, and what you want us to do.',
+        'The quickest way is Raise a complaint below: you get a ticket number by email straight away. You can also email us. Tell us your username, a link to the content, and what you want us to do.',
+        'If we remove something you posted, or limit or remove your account, we tell you why and you can ask us to review it.',
       ]],
       ['Copyright', [`Copyright owners: use the "It uses my copyrighted work" option on the Spark or post, or the Report copyright page. Or email ${G.grievanceEmail}. We decide within 36 hours.`]],
       ['Not satisfied?', ['You can appeal to the Grievance Appellate Committee (gac.gov.in) for content decisions, or complain to the Data Protection Board of India about personal data.']],

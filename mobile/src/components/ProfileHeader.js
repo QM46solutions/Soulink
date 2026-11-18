@@ -146,11 +146,12 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
   );
 }
 
-/** Posts | Moments tabs under the profile header */
-export function ProfileTabs({ tab, onChange }) {
+/** Posts | Moments tabs under the profile header (someone else's profile adds a Soul Score tab) */
+const DEFAULT_TABS = [['posts', 'Posts'], ['moments', 'Moments']];
+export function ProfileTabs({ tab, onChange, items = DEFAULT_TABS }) {
   return (
     <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginTop: space.xs }}>
-      {[['posts', 'Posts'], ['moments', 'Moments']].map(([k, label]) => {
+      {items.map(([k, label]) => {
         const on = tab === k;
         return (
           <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }}

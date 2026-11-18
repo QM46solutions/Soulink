@@ -21,6 +21,7 @@ const ITEMS = [
   ['contact', 'Contact', 'account-box', ['#3fa9f5', '#58a0e6']],
   ['document', 'Document', 'file-document', ['#ff9a5a', '#f5c842']],
   ['poll', 'Poll', 'poll', ['#ff6b9d', '#d6336c']],
+  ['game', 'Game', 'gamepad-variant', ['#f5c842', '#ff6b9d']],
 ];
 
 export function AttachSheet({ visible, onClose, onPick, only }) {
@@ -224,6 +225,51 @@ export function PollContent({ poll, mine, onVote }) {
         );
       })}
       <Text style={{ fontFamily: fonts.body, fontSize: 12, color: sub(mine), marginTop: 2 }}>{total === 1 ? '1 vote' : `${total} votes`} · tap to vote</Text>
+    </View>
+  );
+}
+
+// ---------- OX (noughts and crosses): two people, one board, inside the chat ----------
+const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+export function GameContent({ game, meId, mine, names = {}, onMove, onRematch }) {
+  const meX = same(game.x, meId);
+  const myTurn = !game.winner && same(game.turn, meId);
+  const players = same(game.x, meId) || same(game.o, meId);
+  const markOf = (c) => (c === 'x' ? '✕' : c === 'o' ? '◯' : '');
+  const fg = mine ? '#fff' : colors.text;
+  const status = game.winner === 'draw' ? "It's a draw 🤝"
+    : game.winner ? ((game.winner === 'x') === meX && players ? 'You won! 🎉' : `${names[game.winner === 'x' ? game.x : game.o] || 'They'} won`)
+    : myTurn ? 'Your turn' : players ? `${names[game.turn] || 'Their'} turn…` : 'Playing…';
+  return (
+    <View style={{ width: 222 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <MaterialCommunityIcons name="gamepad-variant" size={16} color={mine ? '#fff' : colors.aura} style={{ marginRight: 6 }} />
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: fg }}>OX</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: myTurn ? colors.mint : mine ? 'rgba(255,255,255,0.8)' : colors.muted }}>{status}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 222, borderRadius: 14, overflow: 'hidden', backgroundColor: mine ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.04)' }}>
+        {game.board.split('').map((c, i) => {
+          const win = game.line?.includes(i);
+          const can = myTurn && c === '.' && !!onMove;
+          return (
+            <Pressable key={i} disabled={!can} onPress={() => onMove(i)} accessibilityLabel={c === '.' ? `Square ${i + 1}, empty` : `Square ${i + 1}, ${c.toUpperCase()}`}
+              style={({ pressed, hovered }) => ({ width: 74, height: 74, alignItems: 'center', justifyContent: 'center',
+                borderRightWidth: i % 3 < 2 ? 1 : 0, borderBottomWidth: i < 6 ? 1 : 0, borderColor: mine ? 'rgba(255,255,255,0.25)' : colors.border,
+                backgroundColor: win ? 'rgba(66,232,192,0.25)' : pressed ? 'rgba(255,255,255,0.12)' : hovered && can ? 'rgba(255,255,255,0.06)' : 'transparent' })}>
+              <Text style={{ fontSize: 34, fontFamily: fonts.bold, color: c === 'x' ? '#ff6b9d' : '#42e8c0' }}>{markOf(c)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: mine ? 'rgba(255,255,255,0.75)' : colors.dim, marginTop: 6 }}>
+        {players ? `You're ${meX ? '✕' : '◯'} · ${meX ? '✕' : '◯'} ${meX ? 'moves first' : 'moves second'}` : ''}
+      </Text>
+      {game.winner && onRematch && players ? (
+        <Pressable onPress={onRematch} style={({ hovered }) => ({ marginTop: 8, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', transform: [{ scale: hovered ? 1.02 : 1 }] })}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <Text style={{ fontFamily: fonts.semibold, color: '#fff', fontSize: 14 }}>Play again</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

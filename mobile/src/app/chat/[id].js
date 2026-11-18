@@ -49,6 +49,16 @@ function HeldBar({ held, name, onChanged }) {
   );
 }
 
+// "Active now" / "Active 12m ago" / "Active 3h ago" (only when both people share their activity status)
+function activeText(at) {
+  if (!at) return null;
+  const m = Math.floor((Date.now() - new Date(at).getTime()) / 60000);
+  if (m < 5) return 'Active now';
+  if (m < 60) return `Active ${m}m ago`;
+  if (m < 24 * 60) return `Active ${Math.floor(m / 60)}h ago`;
+  return null;
+}
+
 export default function Chat() {
   const headerH = useSafeAreaInsets().top + 46; // same height as the app's top bar (root _layout.js)
   const { id } = useLocalSearchParams();
@@ -123,7 +133,7 @@ export default function Chat() {
               {!conv.isGroup && conv.other?.verified ? <VerifiedBadge size={13} /> : null}
             </View>
             <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 12 }}>
-              {typingUntil > Date.now() ? 'typing…' : conv.isGroup ? `${conv.members.length} members` : `@${conv.other?.username ?? ''}`}
+              {typingUntil > Date.now() ? 'typing…' : conv.isGroup ? `${conv.members.length} members` : activeText(conv.other?.activeAt) || `@${conv.other?.username ?? ''}`}
             </Text>
           </View>
         </Pressable>
@@ -224,6 +234,10 @@ export default function Chat() {
     if (conversationId !== id) return;
     setMessages((cur) => cur.map((m) => (m.id === messageId && m.moment ? { ...m, moment: { ...m.moment, status: status === 'saved' || m.moment.mine ? status : m.moment.status } } : m)));
   });
+  useLiveEvent('message:game', ({ conversationId, messageId, game }) => {
+    if (conversationId !== id) return;
+    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, game } : m)));
+  });
   useLiveEvent('message:poll', ({ conversationId, messageId, counts, total, votes }) => {
     if (conversationId !== id) return;
     const mineV = votes?.find((v) => String(v.userId).toLowerCase() === String(me.id).toLowerCase());
@@ -256,7 +270,7 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState(null);
   const [soulmojiOpen, setSoulmojiOpen] = useState(false);
   const nameOfSender = (senderId) => (senderId === me.id ? 'yourself' : (conv?.members.find((x) => x.id === senderId)?.displayName || 'them').split(' ')[0]);
-  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.kind === 'post' ? '📮 Post' : m.kind === 'location' ? '📍 Location' : m.kind === 'contact' ? '👤 Contact' : m.kind === 'document' ? '📄 Document' : m.kind === 'poll' ? '📊 Poll' : m.body);
+  const previewOf = (m) => (m.kind === 'image' ? '📷 Photo' : m.kind === 'voice' ? '🎤 Voice message' : m.kind === 'soulmoji' ? '✨ Soulmoji' : m.kind === 'post' ? '📮 Post' : m.kind === 'game' ? '🎮 OX game' : m.kind === 'location' ? '📍 Location' : m.kind === 'contact' ? '👤 Contact' : m.kind === 'document' ? '📄 Document' : m.kind === 'poll' ? '📊 Poll' : m.body);
 
   const sendText = async (body, retryId) => {
     const tmpId = retryId || `tmp-${++tmpSeq}`;
@@ -290,6 +304,20 @@ export default function Chat() {
   const sendLocation = (loc) => sendExtra('location', { location: loc }, { location: loc });
   const sendContact = (u) => sendExtra('contact', { contact: { userId: u.id } }, { contact: { userId: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl } });
   const sendPoll = (p) => sendExtra('poll', { poll: p }, { poll: { ...p, counts: p.options.map(() => 0), total: 0, myVote: null } });
+  // OX game: I start as ✕; each move updates the same message for both of us (live)
+  const sendGame = () => sendExtra('game', { game: { type: 'ox' } }, { game: { type: 'ox', board: '.........', x: me.id, o: conv?.other?.id, turn: me.id, winner: null, line: null } });
+  const gameMove = async (m, cell) => {
+    const was = m.game;
+    const mark = String(was.x).toLowerCase() === String(me.id).toLowerCase() ? 'x' : 'o';
+    setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, game: { ...was, board: was.board.slice(0, cell) + mark + was.board.slice(cell + 1), turn: null } } : x)));
+    try {
+      const r = await api(`/conversations/${id}/messages/${m.id}/move`, { method: 'POST', body: { cell } });
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, game: r.game } : x)));
+    } catch (e) {
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, game: was } : x)));
+      notice('Move not played', e.message);
+    }
+  };
   const sendDocument = async (f) => {
     const tmpId = `tmp-${++tmpSeq}`;
     setMessages((cur) => [{ id: tmpId, conversationId: id, senderId: me.id, kind: 'document', document: { name: f.name, size: f.size }, createdAt: new Date().toISOString(), status: 'sending' }, ...cur]);
@@ -438,6 +466,7 @@ export default function Chat() {
   if (!conv) return <Loading />;
 
   const membersById = Object.fromEntries(conv.members.map((m) => [m.id, m]));
+  const firstNames = Object.fromEntries(conv.members.map((m) => [m.id, (m.displayName || m.username || '').split(' ')[0]]));
   const typing = typingUntil > Date.now();
 
   const renderItem = ({ item, index }) => {
@@ -452,6 +481,10 @@ export default function Chat() {
         {!older || !sameDay(older.createdAt, item.createdAt) ? <DaySeparator label={dayLabel(item.createdAt)} /> : null}
         <MessageBubble
           onVote={vote}
+          meId={me.id}
+          onGameMove={gameMove}
+          onRematch={sendGame}
+          names={firstNames}
           message={item}
           mine={mine}
           status={item.status}
@@ -559,6 +592,7 @@ export default function Chat() {
           onSendContact={sendContact}
           onSendDocument={sendDocument}
           onSendPoll={sendPoll}
+          onSendGame={conv?.isGroup ? undefined : sendGame}
           onTranslateText={translateText}
           onTranslateVoice={translateVoice}
           onSendTranslated={sendTranslated}

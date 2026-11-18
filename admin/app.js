@@ -29,7 +29,7 @@
   }
 
   // ---------- sign-in / setup / accept invite ----------
-  function authCard(inner) { $('#root').innerHTML = `<div class="auth"><div class="card"><div class="brand" style="color:var(--fg);padding:0 0 10px"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><circle cx="15" cy="20" r="10" stroke="#9b7bff" stroke-width="3.5"/><circle cx="25" cy="20" r="10" stroke="#f0679a" stroke-width="3.5"/></svg><div>Soulink<small style="color:var(--dim)">TEAM CONSOLE</small></div></div>${inner}</div></div>`; }
+  function authCard(inner) { $('#root').innerHTML = `<div class="auth"><div class="card"><div class="brand" style="color:var(--fg);padding:0 0 10px"><img class="logo" src="logo.png" alt="Soulink" width="34" height="34"><div>Soulink<small style="color:var(--dim)">TEAM CONSOLE</small></div></div>${inner}</div></div>`; }
   async function showAuth() {
     let st = { needsSetup: false, setupEnabled: false };
     try { st = await api('/auth/state'); } catch (e) { authCard(`<h1>Can’t connect</h1><p class="small mu">${esc(e.message)}</p><button class="btn pri" id="retry">Try again</button>`); $('#retry').onclick = showAuth; return; }
@@ -88,7 +88,7 @@
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', gauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>',
     bug: '<rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 8V5M9 5l1.5 1.5M15 5l-1.5 1.5M3 13h4M17 13h4M4 19l3-2M20 19l-3-2"/>', tag: '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     mega: '<path d="M3 10v4l11 5V5z"/><path d="M14 8a4 4 0 0 1 0 8M6 14l1 6h3l-1-5"/>', cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', funnel: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
+    scale: '<path d="M12 3v18M5 21h14M4 7h16M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>', shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', funnel: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
     rupee: '<path d="M6 4h12M6 8h12M14 20L7 12h3a4 4 0 0 0 0-8"/>', key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>', card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>'
   };
   const PAGES = [
@@ -104,6 +104,7 @@
     { id: 'rates', t: 'Ad rate card', i: 'card', g: 'Business', roles: ['owner', 'ads', 'viewer'], s: 'Hourly prices per placement and city' },
     { id: 'revenue', t: 'Revenue', i: 'rupee', g: 'Business', roles: ['owner', 'viewer'], s: 'Money in from ads, paid messages and Spark boosts' },
     { id: 'safety', t: 'Safety & reports', i: 'shield', g: 'Trust', roles: ['owner', 'support'], s: 'Reported users and content, copyright notices and bans' },
+    { id: 'legal', t: 'Legal & compliance', i: 'scale', g: 'Trust', roles: ['owner', 'support'], s: 'Complaints to the Grievance Officer, police and court orders, and bans, with their legal deadlines' },
     { id: 'team', t: 'Team & access', i: 'key', g: 'Trust', roles: ['owner'], s: 'Who can sign in to this console, and what each person did' }
   ];
   const ROLE = { owner: 'Owner · full access', ads: 'Ads manager', support: 'Support & safety', viewer: 'Viewer · read-only' };
@@ -114,7 +115,7 @@
   function shell() {
     let g = ''; let nav = '';
     PAGES.filter(can).forEach((p) => { if (p.g !== g) { g = p.g; nav += `<div class="nav-h">${g}</div>`; } nav += `<a href="#${p.id}" data-id="${p.id}"><svg viewBox="0 0 24 24">${ic[p.i]}</svg>${p.t}<span class="ct" data-ct="${p.id}" hidden></span></a>`; });
-    $('#root').innerHTML = `<div class="app"><aside class="rail" id="rail"><div class="brand"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><circle cx="15" cy="20" r="10" stroke="#9b7bff" stroke-width="3.5"/><circle cx="25" cy="20" r="10" stroke="#f0679a" stroke-width="3.5"/></svg><div>Soulink<small>TEAM CONSOLE</small></div></div>
+    $('#root').innerHTML = `<div class="app"><aside class="rail" id="rail"><div class="brand"><img class="logo" src="logo.png" alt="Soulink" width="34" height="34"><div>Soulink<small>TEAM CONSOLE</small></div></div>
       <nav class="nav">${nav}</nav><div class="who"><b>${esc(me.name)}</b><span>${ROLE[me.role]}</span><br><button id="out">Sign out</button></div></aside>
       <main><div class="top"><button class="btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="sp"></div><span class="live" id="live" hidden></span><span class="stamp" id="stamp"></span><button class="btn sm" id="refresh">↻ Refresh</button></div><div id="view"></div></main></div>`;
     $('#out').onclick = () => { timers.forEach(clearInterval); timers = []; saveToken(null); me = null; showAuth(); };
@@ -147,7 +148,7 @@
   // ---------- live: the strip refreshes every 15 s, the page every 60 s ----------
   // Pages with forms (new booking, rate card, team) never refresh by themselves, and nothing refreshes while
   // a pop-up is open, someone is typing, a customer is open, or the tab is in the background.
-  const AUTO = new Set(['overview', 'users', 'activity', 'growth', 'performance', 'issues', 'releases', 'revenue', 'safety', 'ads']);
+  const AUTO = new Set(['overview', 'users', 'activity', 'growth', 'performance', 'issues', 'releases', 'revenue', 'safety', 'legal', 'ads']);
   function canAutoRefresh() {
     if (document.hidden || !me || document.querySelector('.modal')) return false;
     const f = document.activeElement; if (f && /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)) return false;

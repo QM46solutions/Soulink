@@ -10,6 +10,7 @@ setup-log-*.txt
 face-report.txt
 backup-2026-09-29/
 tools/
+tools.zip
 server/face-debug.log
 _to_delete/
 server/cloud.env
@@ -17,3 +18,6 @@ Claude outputs/
 
 # local test run output (RUN-TESTS.bat)
 test-results.txt
+
+# macOS folder files
+.DS_Store

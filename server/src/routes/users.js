@@ -1,3 +1,4 @@
+import { TRANSLATE_LANGS } from '../services/soulmojiAi.js';
 import { Router } from 'express';
 import { pulseFor, recordProfileView } from '../services/pulse.js';
 import { prefsOf } from '../services/push.js';
@@ -48,7 +49,7 @@ const profileSchema = z.object({
   profession: z.string().trim().max(80).nullable().optional(),
   isCreator: z.boolean().optional(),
   languages: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
-  chatLanguage: z.enum(['en', 'hi', 'te', 'bn']).nullable().optional(),
+  chatLanguage: z.enum(TRANSLATE_LANGS).nullable().optional(),
 }).strict();
 
 const COLS = {

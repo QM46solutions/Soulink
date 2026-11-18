@@ -10,6 +10,7 @@ import { INTENTS, intentOf } from '../lib/intents';
 import { BottomSheet } from './PostSheets';
 import { IntentBadge } from './Choice';
 import { colors, fonts, gradients, space } from '../lib/theme';
+import { feedback } from '../lib/feedback';
 
 function Who({ icon, title, text, onPress }) {
   return (
@@ -39,7 +40,7 @@ export default function ConnectSheet({ visible, onClose, user, onSent, startStep
     setBusy(true); setError(null);
     try {
       await api('/connections/requests', { method: 'POST', body: { toUserId: user.id, intent, knows: knows === 'known' } });
-      setSent(true); onSent?.();
+      feedback('connect'); setSent(true); onSent?.();
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 

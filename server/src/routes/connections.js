@@ -11,6 +11,7 @@ import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, closeHeldChat, con
 import { directKey, getOrCreateDirect, postMessage, systemMessage } from './conversations.js';
 import { scoreFor } from '../services/soulStore.js';
 import { nudgeDueTimer } from '../services/dueTimer.js';
+import { connectGate } from '../services/privacy.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -112,6 +113,7 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
   // ("Open to" was removed from settings: every intent can be sent; the receiver chooses when answering)
 
   const score = await scoreBetween(me, to, data.intent);
+  connectGate(to, score, data.knows); // Settings › Privacy: who can send me Connect requests, Limit interactions
   const q = await one(
     `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score, known_as) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score, data.knows ? data.knownAs || null : null],

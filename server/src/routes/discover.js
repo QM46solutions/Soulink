@@ -15,6 +15,7 @@ import { compatAll, relationOf } from '../services/soulDna.js';
 import { loadDna } from '../services/soulStore.js';
 import { distanceKm, placeCoords } from '../services/places.js';
 import { INTENT_KEYS } from '../services/connections.js';
+import { showsActivity } from '../services/privacy.js';
 
 export const MIN_MATCH = 75; // Discover shows people who match above this Soul Score
 
@@ -170,7 +171,7 @@ r.post('/search', ah(async (req, res) => {
       sharedInterests: p.shared,
       openTo: p.openTo,
       college: p.u.college, company: p.u.company,
-      activeRecently: p.u.last_active_at ? Date.now() - new Date(p.u.last_active_at).getTime() < 86400000 : false,
+      activeRecently: showsActivity(p.u) && showsActivity(req.user) && p.u.last_active_at ? Date.now() - new Date(p.u.last_active_at).getTime() < 86400000 : false,
     })),
   });
 }));
