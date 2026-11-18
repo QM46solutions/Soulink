@@ -23,9 +23,14 @@ export async function checkSession(userId, sid) {
 
 export const endSession = (sid) => query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE id=$1 AND revoked_at IS NULL', [sid]);
 
+// A phone's "sign in with fingerprint / face unlock" key belongs to the session that turned it on: logging that
+// device out (from another device, or everywhere) switches it off too, so it can't quietly sign back in.
+const revokeDeviceKeys = (where, params) => query(`UPDATE device_keys SET revoked_at=SYSDATETIMEOFFSET() WHERE revoked_at IS NULL AND ${where}`, params).catch(() => {});
+
 export async function endAllSessions(userId) {
   const rows = await many('SELECT id FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL', [userId]);
   await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE user_id=$1 AND revoked_at IS NULL', [userId]);
+  await revokeDeviceKeys('user_id=$1', [userId]);
   return rows.map((r) => r.id);
 }
 
@@ -71,11 +76,13 @@ export async function listSessions(userId, currentSid) {
 /** End one of my sessions (not this one: that is Log out). Returns true if it was still active. */
 export async function endMySession(userId, sid) {
   const r = await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() OUTPUT INSERTED.id WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL', [sid, userId]);
+  await revokeDeviceKeys('user_id=$1 AND session_id=$2', [userId, sid]);
   return !!(r.rows?.length || r.rowCount);
 }
 /** Log out everywhere else. Returns the ended session ids. */
 export async function endOtherSessions(userId, keepSid) {
   const rows = await many('SELECT id FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL AND ($2 IS NULL OR id<>$2)', [userId, keepSid || null]);
   if (rows.length) await query('UPDATE user_sessions SET revoked_at=SYSDATETIMEOFFSET() WHERE user_id=$1 AND revoked_at IS NULL AND ($2 IS NULL OR id<>$2)', [userId, keepSid || null]);
+  await revokeDeviceKeys('user_id=$1 AND (session_id IS NULL OR $2 IS NULL OR session_id<>$2)', [userId, keepSid || null]);
   return rows.map((r) => r.id);
 }

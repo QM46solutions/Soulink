@@ -40,15 +40,13 @@ describe('Auth: OTP sign-up / login', () => {
     await api().post('/auth/otp/verify').send({ email: 'test@example.com', code: a.body.devCode }).expect(400);
   });
 
-  test('Log in only sends a code when the account exists', async () => {
-    const r1 = await api().post('/auth/otp/request').send({ phone: '9111111111', intent: 'login' }).expect(404);
-    assert.equal(r1.body.error.code, 'no_account');
-    const r2 = await api().post('/auth/otp/request').send({ phone: '9111111111', intent: 'signup' }).expect(200);
-    assert.equal(r2.body.accountExists, false);
-    await api().post('/auth/otp/verify').send({ phone: '9111111111', code: r2.body.devCode }).expect(200);
+  test('the code request answers the same whether or not an account exists', async () => {
+    const r1 = await api().post('/auth/otp/request').send({ phone: '9111111111', intent: 'login' }).expect(200);
+    assert.equal(r1.body.accountExists, undefined);
+    await api().post('/auth/otp/verify').send({ phone: '9111111111', code: r1.body.devCode }).expect(200);
     await query('UPDATE otp_codes SET created_at = DATEADD(MINUTE, -1, SYSDATETIMEOFFSET())');
-    const r3 = await api().post('/auth/otp/request').send({ phone: '9111111111', intent: 'login' }).expect(200);
-    assert.equal(r3.body.accountExists, true);
+    const r2 = await api().post('/auth/otp/request').send({ phone: '9111111111', intent: 'login' }).expect(200);
+    assert.deepEqual(Object.keys(r1.body).sort(), Object.keys(r2.body).sort());
     await api().post('/auth/otp/request').send({ email: 'x@example.com', intent: 'hack' }).expect(400);
   });
 

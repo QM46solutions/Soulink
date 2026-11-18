@@ -5,6 +5,7 @@ import { LegalLinks } from '../../components/Consent';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ContactEntry from '../../components/ContactEntry';
+import QuickSignIn from '../../components/QuickSignIn';
 import { LinkLine } from '../../components/BrandScreen';
 import { GlassCard, GradientText, MonoTag, PillTag } from '../../components/brand';
 import { colors, fonts, space } from '../../lib/theme';
@@ -118,8 +119,10 @@ export default function Welcome() {
             <FeatureCarousel />
           </View>
 
-          {/* Log in right here. New people tap "Create account". */}
+          {/* Log in right here: fingerprint / face unlock when this phone has it on, otherwise (or as fallback) an
+              email code. New people tap "Create account". */}
           <View style={{ marginTop: space.xxl }}>
+            <QuickSignIn />
             <ContactEntry mode="login" />
             <LinkLine text="New to Soulink?" link="Create account" onPress={() => router.push('/signup')} />
             <LegalLinks style={{ marginTop: space.xl }} />

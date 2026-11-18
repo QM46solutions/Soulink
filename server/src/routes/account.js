@@ -17,7 +17,10 @@ import { INTENTS } from '../services/connections.js';
 import { endMySession, endOtherSessions, listSessions } from '../services/sessions.js';
 import { disconnectSession } from '../realtime.js';
 import { audit } from '../services/audit.js';
-import { badRequest, notFound } from '../lib/errors.js';
+import { badRequest, notFound, HttpError } from '../lib/errors.js';
+import { tx } from '../db.js';
+import { normalizeEmail } from '../lib/auth.js';
+import { checkCode, issueCode, realDelivery } from '../services/otp.js';
 
 export const FREE_VIEWERS = 3; // free accounts see this many profile viewers; the rest is Premium
 const r = Router();
@@ -105,6 +108,37 @@ r.delete('/location', ah(async (req, res) => {
 }));
 
 export default r;
+
+// ---------- Settings › Email: add or change the account's email (it becomes a way to sign in) ----------
+// A code goes to the new address first; the email is saved (and counted as verified) only after that code.
+// The request step answers the same whether or not the address is used elsewhere.
+const emailBody = (b) => {
+  const e = normalizeEmail(z.object({ email: z.string().max(254) }).parse(b || {}).email);
+  if (!e) throw badRequest('Enter a valid email address', 'invalid_email');
+  return e;
+};
+r.post('/email/request', ah(async (req, res) => {
+  const email = emailBody(req.body);
+  if (email === req.user.email && req.user.email_verified_at) throw badRequest('This email is already on your account', 'email_same');
+  const sent = await issueCode({ target: email, channel: 'email', purpose: 'add_email', userId: req.user.id, req });
+  res.json({ sent: true, email, ...sent });
+}));
+r.post('/email/verify', ah(async (req, res) => {
+  const email = emailBody(req.body);
+  const code = z.string().regex(/^\d{6}$/, 'Code must be 6 digits').parse(req.body?.code);
+  const out = await tx(async (c) => {
+    const chk = await checkCode(c, { target: email, code, purpose: 'add_email', userId: req.user.id });
+    if (chk.error) return chk;
+    const other = (await c.query('SELECT TOP 1 id FROM users WHERE email=$1 AND id<>$2', [email, req.user.id])).rows[0];
+    if (other) return { error: new HttpError(409, 'Another Soulink account already uses this email. Use a different email.', 'email_taken') };
+    const u = (await c.query(`UPDATE users SET email=$2, email_verified_at=${realDelivery('email') ? 'SYSDATETIMEOFFSET()' : 'NULL'}
+      OUTPUT INSERTED.* WHERE id=$1`, [req.user.id, email])).rows[0];
+    return { user: u };
+  });
+  if (out.error) throw out.error;
+  await audit(req, 'email_changed', { detail: email.replace(/^(.{2}).*@/, '$1•••@') });
+  res.json({ user: meView(out.user) });
+}));
 
 // ---------- Settings › Where you're logged in ----------
 r.get('/sessions', ah(async (req, res) => {

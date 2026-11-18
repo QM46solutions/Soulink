@@ -100,6 +100,9 @@ export const meView = (u) => ({
   ...publicProfile(u),
   phone: u.phone,
   email: u.email,
+  // true only when a code really reached that inbox / phone (never in test mode or for the reviewer number)
+  emailVerified: !!u.email_verified_at,
+  phoneVerified: !!u.phone_verified_at,
   birthDate: u.birth_date,
   age: u.birth_date ? ageFrom(u.birth_date) : null,
   gender: u.gender,

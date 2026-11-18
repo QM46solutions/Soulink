@@ -88,3 +88,17 @@ services:
         sync: false
       - key: REVIEW_CODE
         sync: false
+      # Sign-in codes by email (Resend). Set these three in the Render dashboard; see docs/AUTH-SETUP.md
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Phone sign-in stays off until MSG91 + DLT are live and tested (then "true")
+      - key: PHONE_LOGIN
+        value: "false"
+      # Team test numbers / emails (comma-separated) that may sign in while phone codes are off, and see the
+      # code on screen in test mode. Must be empty before public launch.
+      - key: TEST_LOGIN_TARGETS
+        sync: false

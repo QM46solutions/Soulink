@@ -62,7 +62,16 @@ export const config = {
   // Testing mode (on until launch): roomy request limits so a group of testers on one Wi-Fi or the phone link
   // never gets blocked. Set TESTING_MODE=false at launch for the strict limits. ("One face, one account" is always on.)
   testing: bool(process.env.TESTING_MODE, (process.env.NODE_ENV || 'development') !== 'production' || !!process.env.ACCESS_CODE),
-  otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30 },
+  // codes per phone/email: 5 min life, 5 wrong tries, 30 s between codes, at most 5 an hour and 10 a day
+  otp: { ttlSeconds: 300, maxAttempts: 5, resendCooldownSeconds: 30, maxPerHour: 5, maxPerDay: 10 },
+  // Phone sign-in by SMS code. Off in production until MSG91 + DLT are set up and tested (then PHONE_LOGIN=true);
+  // always on in development and the automated tests. The reviewer number and TEST_LOGIN_TARGETS work regardless.
+  phoneLogin: bool(process.env.PHONE_LOGIN, (process.env.NODE_ENV || 'development') !== 'production'),
+  // The team's own phone numbers / emails (comma list) allowed to use test mode in the cloud: phone sign-in before
+  // SMS is live, and (with OTP_DEV_ECHO) the code shown on screen. Nobody else ever gets a code back from the API.
+  testLoginTargets: (process.env.TEST_LOGIN_TARGETS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  // "Sign in with fingerprint / face unlock": a phone's key stops working after this many days unused or wrong tries
+  deviceKey: { maxIdleDays: 180, maxFailures: 5, maxPerUser: 5 },
   minAge: 18,
 };
 
@@ -77,7 +86,8 @@ if (isPublicProduction) {
   const problems = [];
   if (config.otpDevEcho) problems.push('OTP_DEV_ECHO must be false (login codes are sent by SMS or email only)');
   if (config.testing) problems.push('TESTING_MODE must be false');
-  if (config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91)');
+  if (config.phoneLogin && config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91) when PHONE_LOGIN is on');
+  if (config.testLoginTargets.length) problems.push('TEST_LOGIN_TARGETS must be empty');
   if (config.emailProvider === 'console') problems.push('EMAIL_PROVIDER must be a real provider (resend)');
   if (!process.env.FACE_KEY || Buffer.from(process.env.FACE_KEY, 'base64').length !== 32) problems.push('FACE_KEY must be 32 random bytes, base64');
   if (config.premiumFreeTrial) problems.push('PREMIUM_FREE_TRIAL must be false');

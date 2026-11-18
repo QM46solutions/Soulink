@@ -152,6 +152,7 @@ function RootStack() {
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="settings/viewers" options={{ title: 'Who viewed my profile' }} />
         <Stack.Screen name="settings/devices" options={{ title: "Where you're logged in" }} />
+        <Stack.Screen name="settings/sign-in" options={{ title: 'Sign-in & security' }} />
         <Stack.Screen name="settings/privacy" options={{ title: 'Account privacy' }} />
         <Stack.Screen name="settings/hidden-words" options={{ title: 'Hidden words' }} />
         <Stack.Screen name="settings/limits" options={{ title: 'Limit interactions' }} />

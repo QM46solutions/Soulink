@@ -95,7 +95,7 @@
       "./plugins/no-background-services",
       "expo-router",
       "expo-image",
-      "expo-secure-store",
+      ["expo-secure-store", { "faceIDPermission": "Soulink uses Face ID only to unlock your sign-in on this iPhone. Soulink never sees or stores your face." }],
       "@react-native-community/datetimepicker",
       [
         "expo-image-picker",

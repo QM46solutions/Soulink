@@ -1,11 +1,14 @@
 // Step 2 of sign-in: the 6-digit code. It checks itself as soon as the 6th digit is typed (no button to press).
-// New people then go to "Create your soul profile"; returning people go straight to Home.
+// New people then go to "Create your soul profile"; returning people go straight to Home (and, once per phone, are
+// offered fingerprint / face unlock for next time). The screen reads the same for both: the code request never
+// says whether an account exists.
 import { notice } from '../../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { offerQuickSignIn } from '../../lib/biometric';
 import { MonoTag } from '../../components/brand';
 import { BrandHeader, BrandScreen } from '../../components/BrandScreen';
 import OtpInput from '../../components/OtpInput';
@@ -18,7 +21,6 @@ export default function Verify() {
   const params = useLocalSearchParams();
   const target = String(params.target || '');
   const isPhone = params.channel !== 'email';
-  const returning = params.exists === '1';
   const { signIn } = useAuth();
   const [code, setCode] = useState('');
   const [devCode, setDevCode] = useState(params.dev ? String(params.dev) : null);
@@ -41,6 +43,7 @@ export default function Verify() {
     try {
       const r = await api('/auth/otp/verify', { method: 'POST', body: { ...(isPhone ? { phone: target } : { email: target }), code: c } });
       await signIn(r.token, r.user);
+      if (!r.isNew && !r.welcomeBack) offerQuickSignIn(r.user);
       if (r.welcomeBack === 'deleting') notice('Welcome back', 'Your account deletion is cancelled. Everything is as you left it.');
       else if (r.welcomeBack === 'paused') notice('Welcome back', 'Your account is active again.'); // app switches to Home or profile setup by itself
     } catch (e) { setError(e.message); setCode(''); setBusy(false); }
@@ -56,8 +59,8 @@ export default function Verify() {
 
   return (
     <BrandScreen back>
-      <BrandHeader title={returning ? 'Welcome back' : "Let's verify it's you"} subtitle="Enter the 6-digit code sent to">
-        <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }} accessibilityLabel="Change number">
+      <BrandHeader title={isPhone ? "Let's verify it's you" : 'Check your email'} subtitle={isPhone ? 'Enter the 6-digit code sent to' : 'Enter the 6-digit code we emailed to'}>
+        <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }} accessibilityLabel={isPhone ? 'Change number' : 'Change email'}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.text }}>{isPhone ? pretty(target) : target}</Text>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.aura, marginLeft: 8 }}>Edit</Text>
         </Pressable>
@@ -78,7 +81,7 @@ export default function Verify() {
       ) : null}
 
       <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, textAlign: 'center', marginTop: space.xl }}>
-        {cooldown ? `Didn't get it? Resend in 0:${String(cooldown).padStart(2, '0')}` : "Didn't get it? "}
+        {cooldown ? `Didn't get it?${isPhone ? '' : ' Check spam.'} Resend in 0:${String(cooldown).padStart(2, '0')}` : `Didn't get it?${isPhone ? '' : ' Check spam, or'} `}
         {cooldown ? null : <Text onPress={resend} style={{ color: colors.aura, fontFamily: fonts.semibold }}>Resend code</Text>}
       </Text>
     </BrandScreen>
