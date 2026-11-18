@@ -5,6 +5,7 @@ import { colors, space, fonts } from '../lib/theme';
 import { ErrorText } from './ui';
 
 const REASONS = [
+  ['child_safety', 'Child sexual abuse or exploitation'],
   ['spam', 'Spam'], ['fake_account', 'Fake account'], ['harassment', 'Bullying or harassment'],
   ['hate_speech', 'Hate speech'], ['nudity', 'Nudity or sexual content'], ['violence', 'Violence or threats'],
   ['scam', 'Scam or fraud'], ['underage', 'May be under 18'], ['other', 'Something else'],

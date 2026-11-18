@@ -8,6 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { galleryAccess } from '../lib/gallery';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { api, mediaUrl } from '../lib/api';
 import { bgOf } from '../lib/moments';
@@ -696,7 +697,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
   };
 
   const pickPhoto = async (camera) => {
-    const perm = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const perm = camera ? await ImagePicker.requestCameraPermissionsAsync() : await galleryAccess();
     if (!perm.granted) return;
     const r = camera
       ? await ImagePicker.launchCameraAsync({ quality: 0.8 })

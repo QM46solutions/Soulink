@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { galleryAccess } from '../lib/gallery';
 import ActionSheet from './ActionSheet';
 import CropPhoto from './CropPhoto';
 
@@ -18,7 +19,7 @@ export function usePhotoPicker({ onPicked, onRemove, onError, hasPhoto }) {
   const [cropping, setCropping] = useState(null);
 
   const gallery = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const perm = await galleryAccess();
     if (!perm.granted) { onError?.('Allow photo access to choose a profile picture'); return; }
     const r = await ImagePicker.launchImageLibraryAsync(OPTS);
     if (!r.canceled && r.assets?.[0]) setCropping(r.assets[0].uri);

@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { galleryAccess } from '../lib/gallery';
 import { createPost } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { AuraAvatar } from '../components/ProfileHeader';
@@ -34,7 +35,7 @@ export default function CreatePost() {
 
   const gallery = async () => {
     setError(null);
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const perm = await galleryAccess();
     if (!perm.granted) { setError('Allow photo access to add photos'); return; }
     const left = MAX - photos.length;
     if (left <= 0) { setError(`Up to ${MAX} photos per post`); return; }

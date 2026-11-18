@@ -173,4 +173,40 @@ export const DOCS = {
   },
 };
 
-export const DOC_KEYS = ['terms', 'privacy', 'guidelines', 'refunds', 'grievance'];
+// Child safety standards: public page Google Play asks social apps for (link: /legal/child-safety).
+DOCS['child-safety'] = {
+  title: 'Child Safety Standards',
+  updated: '18 November 2026',
+  intro: `${G.brand} is for adults aged 18 and over. We do not allow child sexual abuse and exploitation (CSAE) or child sexual abuse material (CSAM) of any kind, and we act on it as our top safety priority. These standards apply to everyone who uses ${G.brand}, which is run by ${G.company}.`,
+  sections: [
+    ['What is not allowed', [
+      'Any content that sexualises a child (anyone under 18): images, videos, drawings, AI-generated or edited content, text or links.',
+      'Grooming: contacting a child to build trust for sexual purposes, asking a child for sexual images or to meet, or sextortion.',
+      'Sharing, asking for, selling or pointing to child sexual abuse material anywhere on Soulink, including in private chats.',
+      'Any other content or behaviour that puts a child at risk of sexual abuse, exploitation or trafficking.',
+    ]],
+    ['Adults only', [
+      'Soulink is only for people aged 18 and over. Everyone gives their date of birth when signing up, and accounts under 18 cannot be created.',
+      'Every account also needs a face scan at sign-up, so one person can have only one account and someone we remove cannot simply come back with a new one.',
+      'If you think someone on Soulink is under 18, report them with "May be under 18". We remove accounts that belong to children.',
+    ]],
+    ['How to report', [
+      'In the app: on a profile or in a chat, open the menu, choose Report and pick "Child sexual abuse or exploitation". On a post or Spark, tap ❗ and pick the same reason.',
+      `By email: write to ${G.grievanceEmail} with the username and, if you can, a link to the content. Please do not send us copies of abusive images; describe what you saw instead.`,
+      'If a child is in immediate danger, call 112 (India) or your local emergency number first. You can also report to the National Cybercrime Reporting Portal (cybercrime.gov.in) or call 1930.',
+    ]],
+    ['What we do', [
+      'Our team reviews child-safety reports before all other reports.',
+      'We remove the content and permanently ban the accounts involved. A banned person\'s face fingerprint stays blocked so they cannot open a new account.',
+      'We report child sexual abuse material and child sexual exploitation to the authorities as Indian law requires (including the POCSO Act, 2012 and the IT Rules, 2021), and to the National Center for Missing & Exploited Children (NCMEC) in the United States. We keep the related records needed by the police for as long as the law requires.',
+    ]],
+    ['Child safety contact', [
+      `${G.grievanceOfficer}, Grievance Officer and child safety contact, ${G.company}.`,
+      `Email: ${G.grievanceEmail}`,
+      `${G.address}`,
+      'Law enforcement and child-protection organisations can use this contact for urgent requests.',
+    ]],
+  ],
+};
+
+export const DOC_KEYS = ['terms', 'privacy', 'guidelines', 'refunds', 'grievance', 'child-safety'];

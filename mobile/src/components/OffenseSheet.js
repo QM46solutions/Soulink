@@ -14,6 +14,7 @@ export const OFFENSE_REASONS = [
   { key: 'dislike', label: "I just don't like it" },
   { key: 'bullying', label: 'Bullying or unwanted contact' },
   { key: 'hate', label: 'Hate speech or symbols' },
+  { key: 'child_safety', label: 'Child sexual abuse or exploitation' },
   { key: 'nudity', label: 'Nudity or sexual activity' },
   { key: 'violence', label: 'Violence or dangerous people' },
   { key: 'self_harm', label: 'Suicide, self-injury or eating disorders' },

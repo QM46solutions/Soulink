@@ -35,7 +35,7 @@ r.get('/blocks', ah(async (req, res) => {
   res.json({ users: rows.map(userCard) });
 }));
 
-export const REPORT_REASONS = ['spam', 'fake_account', 'harassment', 'hate_speech', 'nudity', 'violence', 'scam', 'underage', 'other'];
+export const REPORT_REASONS = ['child_safety', 'spam', 'fake_account', 'harassment', 'hate_speech', 'nudity', 'violence', 'scam', 'underage', 'other'];
 
 r.post('/reports', ah(async (req, res) => {
   const data = z.object({

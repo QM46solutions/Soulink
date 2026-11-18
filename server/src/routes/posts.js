@@ -32,7 +32,7 @@ import { sharePostToChat } from './conversations.js';
 import { makeTeaser } from '../services/teaser.js';
 
 export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
-export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
+export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'child_safety', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
 
 const r = Router();
 r.use(requireAuth);

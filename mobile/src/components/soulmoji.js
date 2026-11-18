@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { galleryAccess } from '../lib/gallery';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -167,7 +168,7 @@ export function SoulmojiPanel({ onSend, onClose }) {
     setError(null);
     try {
       if (Platform.OS !== 'web') {
-        const perm = fromGallery ? await ImagePicker.requestMediaLibraryPermissionsAsync() : await ImagePicker.requestCameraPermissionsAsync();
+        const perm = fromGallery ? await galleryAccess() : await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) { setError(fromGallery ? 'Allow photo access to choose a selfie' : 'Allow camera access to take your selfie'); return; }
       }
       const opts = { mediaTypes: ['images'], quality: 0.9, cameraType: ImagePicker.CameraType.front };

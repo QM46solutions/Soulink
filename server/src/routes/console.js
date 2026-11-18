@@ -257,7 +257,8 @@ r.get('/safety', requireConsole('support'), ah(async (req, res) => {
   const byReason = await many(`SELECT reason, target_type, COUNT(*) AS n FROM reports WHERE status = N'open' GROUP BY reason, target_type ORDER BY COUNT(*) DESC`);
   const queue = await many(`SELECT TOP 50 r.id, r.target_type, r.reason, r.created_at, t.username AS target_user,
       (SELECT COUNT(*) FROM reports r2 WHERE r2.target_id = r.target_id AND r2.status = N'open') AS times
-    FROM reports r LEFT JOIN users t ON r.target_type = N'user' AND t.id = r.target_id WHERE r.status = N'open' ORDER BY r.created_at`);
+    FROM reports r LEFT JOIN users t ON r.target_type = N'user' AND t.id = r.target_id WHERE r.status = N'open'
+    ORDER BY CASE WHEN r.reason = N'child_safety' THEN 0 ELSE 1 END, r.created_at`); // child-safety reports first
   const copyright = await many(`SELECT TOP 30 id, rights_owner, content_kind, created_at FROM copyright_reports WHERE status = N'received' ORDER BY created_at`);
   res.json({ summary: s, byReason, queue, copyright });
 }));
