@@ -113,7 +113,7 @@ export default function Sparks() {
           keyExtractor={(s) => s.key || s.id}
           ListHeaderComponent={chips}
           renderItem={({ item }) => (item.__ad ? <SparkAd ad={item.__ad} />
-            : <SparkCard spark={item} active={listOn === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+            : <SparkCard spark={item} active={(listOn ?? data[0]?.id) === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
           onViewableItemsChanged={listViewable}
           viewabilityConfig={listViewConfig}
           onEndReached={loadMore}

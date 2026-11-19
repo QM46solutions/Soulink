@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Asset } from 'expo-asset';
+import { duckSparks } from './sparkSound';
 
 let Haptics = null;
 try { Haptics = require('expo-haptics'); } catch { Haptics = null; }
@@ -78,6 +79,6 @@ export function tick() {
 /** feedback('like' | 'unlike' | 'comment' | 'share' | 'connect') */
 export function feedback(action) {
   const [sound, vib] = KIND[action] || [];
-  if (sound && prefs.sound) play(sound);
+  if (sound && prefs.sound) { if (sound === 'like') duckSparks(); play(sound); } // a playing Spark dips its sound so the 👌🏻 is heard
   if (vib && prefs.vibrate) buzz(vib);
 }

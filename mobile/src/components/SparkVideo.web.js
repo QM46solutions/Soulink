@@ -9,6 +9,7 @@ import { mediaUrl } from '../lib/api';
 import { fadeAt, videoCss, zoomCss } from '../lib/sparkEdit';
 import SparkOverlays from './SparkOverlays';
 import SparkControls from './SparkControls';
+import { useSparkDuck } from '../lib/sparkSound';
 
 let current = null; // { owner, pause } of the Spark playing now: one Spark plays at a time
 
@@ -19,8 +20,10 @@ let current = null; // { owner, pause } of the Spark playing now: one Spark play
 // onDoubleTap: a quick second tap (like ❤️ on Reels); a single tap still pauses / plays after a short wait.
 // controls: YouTube-style controls (a tap shows them: play / pause, 10 s back / forward, progress bar, time, sound,
 // full screen); onControls(shown) tells the parent so it can step its own overlays aside.
+// mini: the feed look: only a pause / play button in the middle and sound on / off in the bottom-right corner;
+// a tap anywhere else calls onOpen (open the Spark big). timeRef gets the current second; startAt starts there.
 export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onAutoMuted, onDoubleTap,
-  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls }) {
+  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14 }) {
   const video = useRef(null); const audio = useRef(null); const voice = useRef(null); const shade = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [soundOff, setSoundOff] = useState(false); // autoplay had to start muted
@@ -57,7 +60,9 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     current = { owner: self.current, pause };
     try {
       const v = video.current;
-      if (v && (v.currentTime < t0 || (t1 && v.currentTime >= t1))) v.currentTime = t0;
+      if (v && startAt != null && !started.current) v.currentTime = t0 + startAt; // opened big: carry on from the feed
+      else if (v && (v.currentTime < t0 || (t1 && v.currentTime >= t1))) v.currentTime = t0;
+      if (controls && !started.current) flash(); // opened big: show the controls for a moment
       try { await v?.play(); } catch (err) {
         // the browser blocks sound until the person taps the page once: start muted instead
         if (!autoPlay || !v || err?.name !== 'NotAllowedError') throw err;
@@ -103,12 +108,13 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [playing, fading, timedText]); // eslint-disable-line react-hooks/exhaustive-deps
-  const onMeta = () => { const v = video.current; if (v && v.duration && isFinite(v.duration)) setDur(Math.max(0, (t1 || v.duration) - t0)); if (v && !playing) { v.currentTime = e.cover ?? t0; if (timedText) setTime(v.currentTime); } };
+  const onMeta = () => { const v = video.current; if (v && v.duration && isFinite(v.duration)) setDur(Math.max(0, (t1 || v.duration) - t0)); if (v && !playing) { v.currentTime = startAt != null ? t0 + startAt : (e.cover ?? t0); if (timedText) setTime(v.currentTime); } };
   // stay inside the trim: loop back to the start (and the music / voice with it)
   const onTime = () => {
     const v = video.current; if (!v) return;
     if (t1 && v.currentTime >= t1) { v.currentTime = t0; syncAudio(); }
     if (controls && !scrubbing.current) setCur(Math.max(0, v.currentTime - t0));
+    if (timeRef) timeRef.current = Math.max(0, v.currentTime - t0);
   };
   // the end: loop back to the start (it's still playing, so the play button stays hidden)
   const onEnded = () => { const v = video.current; if (v) { v.currentTime = t0; v.play().then(() => setPlaying(true)).catch(() => setPlaying(false)); syncAudio(); voice.current?.play().catch(() => {}); } };
@@ -140,6 +146,22 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     if (audio.current) audio.current.muted = false; if (voice.current) voice.current.muted = false;
     if (soundOff) { if (playing) soundOn(); } else v.muted = base.current.video === 0;
   }, [muted]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a sound effect (the 👌🏻 like) is playing: turn this Spark down for a moment so it's heard
+  const duckT = useRef(null);
+  const onDuck = useCallback((ms) => {
+    const v = video.current; if (!v) return; const b = base.current; const k = 0.2;
+    v.volume = Math.min(1, b.video) * k;
+    if (audio.current) audio.current.volume = b.music * k;
+    if (voice.current) voice.current.volume = b.voice * k;
+    clearTimeout(duckT.current);
+    duckT.current = setTimeout(() => {
+      const w = video.current; if (w) w.volume = Math.min(1, base.current.video);
+      if (audio.current) audio.current.volume = base.current.music;
+      if (voice.current) voice.current.volume = base.current.voice;
+    }, ms);
+  }, []);
+  useSparkDuck(onDuck);
+  useEffect(() => () => clearTimeout(duckT.current), []);
   const toggle = () => (soundOff && playing && !onAutoMuted ? soundOn() : playing ? pause() : play());
   // controls: show for 3 s after a tap (they stay while paused)
   const flash = (keep) => {
@@ -156,6 +178,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     v.currentTime = t0 + x; setCur(x); syncAudio(); flash();
   };
   const single = () => {
+    if (onOpen) { onOpen(); return; }
     if (!controls) { toggle(); return; }
     if (ctlVisible && playing) { clearTimeout(hideTimer.current); setShown(false); } else flash();
   };
@@ -182,13 +205,27 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
           onSkip={(d) => seekTo(cur + d)} onSeek={seekTo} onScrub={(on) => { scrubbing.current = on; if (on) clearTimeout(hideTimer.current); }}
           onMute={onToggleMute || (soundOff ? soundOn : null)} onFullscreen={onFullscreen} />
       ) : null}
+      {mini ? (<>
+        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable onPress={toggle} hitSlop={12} accessibilityLabel={playing ? 'Pause' : 'Play'}
+            style={({ pressed, hovered }) => ({ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.38)', opacity: pressed ? 0.6 : 1 })}>
+            <Ionicons name={playing ? 'pause' : 'play'} size={30} color="rgba(255,255,255,0.92)" style={playing ? null : { marginLeft: 3 }} />
+          </Pressable>
+        </View>
+        {onToggleMute ? (
+          <Pressable onPress={onToggleMute} hitSlop={10} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+            style={{ position: 'absolute', right: 12, bottom: miniBottom, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+          </Pressable>
+        ) : null}
+      </>) : null}
       {soundOff && playing && !onAutoMuted ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: fill ? 58 : 12, right: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.55)' }}>
           <Ionicons name="volume-mute" size={15} color="#fff" />
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>Tap for sound</Text>
         </View>
       ) : null}
-      {!playing && !controls ? (
+      {!playing && !controls && !mini ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="play" size={34} color="#fff" style={{ marginLeft: 4 }} />

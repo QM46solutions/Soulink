@@ -64,8 +64,10 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   const [follow, setFollow] = useState(spark.followState || 'none');
   const muted = useSparksMuted();
   const [full, setFull] = useState(false); // YouTube-style full screen
-  const [ctl, setCtl] = useState(false);   // the video's controls are showing: step the overlays aside
+  const timeRef = useRef(0); // where the feed video is, so opening it big carries on from there
   const burst = useRef(new Animated.Value(0)).current;
+  const pop = useRef(new Animated.Value(1)).current;  // the 👌🏻 pops and waves when you give it (like posts)
+  const wave = useRef(new Animated.Value(0)).current;
   const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
   const toggleOffense = async (reason) => {
     try {
@@ -89,6 +91,17 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   };
 
   const react = async () => {
+    if (!reacted) {
+      const ND = Platform.OS !== 'web';
+      wave.setValue(0);
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pop, { toValue: 1.35, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+          Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: ND }),
+        ]),
+        Animated.timing(wave, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: ND }),
+      ]).start();
+    }
     feedback(reacted ? 'unlike' : 'like');
     setReacted(!reacted); setReactions((n) => n + (reacted ? -1 : 1));
     try { const r = await api(`/sparks/${spark.id}/react`, { method: 'POST' }); setReacted(r.reacted); setReactions(r.reactions); } catch { setReacted(reacted); setReactions(spark.reactions); }
@@ -195,7 +208,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
           : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} fill autoPlay height={height} onFirstPlay={onFirstPlay}
               muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike}
-              controls onToggleMute={toggleSparksMuted} onFullscreen={() => setFull(true)} onControls={setCtl} />}
+              mini onToggleMute={toggleSparksMuted} onOpen={() => setFull(true)} timeRef={timeRef} miniBottom={18} />}
 
         {/* double-tap pop */}
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
@@ -204,17 +217,10 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           <Text style={{ fontSize: 110 }}>{LIKE_EMOJI}</Text>
         </Animated.View>
 
-        {/* sound on / off for every Spark */}
-        {!spark.voice && !ctl ? (
-          <Pressable onPress={toggleSparksMuted} hitSlop={8} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-            style={{ position: 'absolute', top: 56, right: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
-          </Pressable>
-        ) : null}
 
         <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%' }} />
 
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 60, top: 58, flexDirection: 'row', flexWrap: 'wrap', ...(ctl ? { display: 'none' } : null) }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 60, top: 58, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
           {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
@@ -222,10 +228,10 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           {spark.micTopic && !spark.voice ? <Chip icon="mic" text={`${micTopicOf(spark.micTopic).emoji} ${micTopicOf(spark.micTopic).label}`} color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
         </View>
 
-        {/* actions down the right, like Reels (they step aside while the video's controls show) */}
-        <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 20, alignItems: 'center', ...(ctl ? { opacity: 0, display: 'none' } : null) }}>
+        {/* actions down the right, like Reels (the bottom-right corner is the sound button) */}
+        <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 66, alignItems: 'center' }}>
           <Action style={rail} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : '#fff'}>
-            <Text style={{ fontSize: 26, opacity: reacted ? 1 : 0.9, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Text>
+            <Animated.Text style={{ fontSize: 26, opacity: reacted ? 1 : 0.9, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
           </Action>
           <Action style={rail} onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color="#fff">
             <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} size={26} />
@@ -248,7 +254,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
         </View>
 
         {/* who, what, caption and the category's extras at the bottom */}
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 72, bottom: 18, ...(ctl ? { display: 'none' } : null) }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 72, bottom: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => router.push(`/user/${spark.author.username}`)} style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
               <Avatar uri={spark.author.avatarUrl} name={spark.author.username} size={34} />
@@ -287,7 +293,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           </View>
         </View>
         {sheets}
-        <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} />
+        <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} startAt={timeRef.current} />
         <ActionSheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={spark.mine ? 'Your Spark' : spark.author.username} options={menu} />
         <ReportModal visible={teamReport} onClose={() => setTeamReport(false)} targetType="spark" targetId={spark.id} />
         <BottomSheet visible={editOpen} onClose={() => setEditOpen(false)} title="Edit caption">
@@ -328,8 +334,13 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View>
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} onFirstPlay={onFirstPlay}
-              controls muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={() => setFull(true)} />}
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} autoPlay onFirstPlay={onFirstPlay}
+              mini muted={muted} onToggleMute={toggleSparksMuted} onAutoMuted={() => setSparksMuted(true)} onOpen={() => setFull(true)} onDoubleTap={doubleTapLike} timeRef={timeRef} />}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
+          opacity: burst.interpolate({ inputRange: [0, 0.2, 1, 2], outputRange: [0, 1, 1, 0] }),
+          transform: [{ scale: burst.interpolate({ inputRange: [0, 1, 2], outputRange: [0.3, 1, 1.25] }) }] }}>
+          <Text style={{ fontSize: 96 }}>{LIKE_EMOJI}</Text>
+        </Animated.View>
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
@@ -355,7 +366,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       {/* the same actions as a post: like (the category's reaction), comment, share, offense — plus Spread around on your own */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, paddingHorizontal: 4 }}>
         <Action onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : undefined}>
-          <Text style={{ fontSize: 22, opacity: reacted ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Text>
+          <Animated.Text style={{ fontSize: 22, opacity: reacted ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         <Action onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
           <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} />
@@ -403,7 +414,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       ) : null}
 
       {sheets}
-      <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} />
+      <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} startAt={timeRef.current} />
     </View>
   );
 }

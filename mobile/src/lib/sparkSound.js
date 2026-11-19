@@ -16,3 +16,10 @@ export function useSparksMuted() {
   useEffect(() => { listeners.add(setM); setM(muted); return () => { listeners.delete(setM); }; }, []);
   return m;
 }
+
+// "Duck": while a sound effect plays (the 👌🏻 like), Sparks turn their own sound down for a moment so it's heard.
+const duckers = new Set();
+export function duckSparks(ms = 900) { duckers.forEach((fn) => fn(ms)); }
+export function useSparkDuck(onDuck) {
+  useEffect(() => { duckers.add(onDuck); return () => { duckers.delete(onDuck); }; }, [onDuck]);
+}

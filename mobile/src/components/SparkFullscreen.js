@@ -1,5 +1,6 @@
 // A Spark full screen, YouTube style: the whole video on black with all the controls. The rotate button turns it
 // sideways so a landscape video fills the phone held on its side (works without changing the app's orientation).
+// It carries on from where the feed was (startAt) and has all the controls: 10 s back / forward, progress, sound.
 import { useState } from 'react';
 import { Modal, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SparkVideo from './SparkVideo';
 import { toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 
-export default function SparkFullscreen({ visible, onClose, spark, onFirstPlay }) {
+export default function SparkFullscreen({ visible, onClose, spark, onFirstPlay, startAt }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [rot, setRot] = useState(false);
@@ -25,7 +26,7 @@ export default function SparkFullscreen({ visible, onClose, spark, onFirstPlay }
     <Modal visible animationType="fade" onRequestClose={close} supportedOrientations={['portrait', 'landscape']} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
         <View style={{ width: w, height: h, transform: rot ? [{ rotate: '90deg' }] : [] }}>
-          <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={spark.details?.edit} height={h} fill autoPlay active controls fullscreen
+          <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={spark.details?.edit} height={h} fill autoPlay active controls fullscreen startAt={startAt}
             muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={close} onFirstPlay={onFirstPlay} />
           <View pointerEvents="box-none" style={{ position: 'absolute', top: rot ? 12 : insets.top + 8, right: rot ? insets.top + 12 : 12, flexDirection: 'row' }}>
             <Btn icon="phone-rotate-landscape" label={rot ? 'Turn back upright' : 'Turn sideways for landscape'} onPress={() => setRot((r) => !r)} mci />
