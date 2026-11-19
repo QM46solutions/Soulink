@@ -90,7 +90,8 @@ if (isPublicProduction) {
   const problems = [];
   if (config.otpDevEcho) problems.push('OTP_DEV_ECHO must be false (login codes are sent by SMS or email only)');
   if (config.testing) problems.push('TESTING_MODE must be false');
-  if (config.phoneLogin && config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91) when PHONE_LOGIN is on');
+  if (config.phoneLogin && config.smsProvider === 'console') problems.push('SMS_PROVIDER must be a real provider (msg91 or messagecentral) when PHONE_LOGIN is on');
+  if (config.smsProvider === 'messagecentral' && !(process.env.MESSAGECENTRAL_CUSTOMER_ID && (process.env.MESSAGECENTRAL_PASSWORD || process.env.MESSAGECENTRAL_KEY))) problems.push('MESSAGECENTRAL_CUSTOMER_ID and MESSAGECENTRAL_PASSWORD must be set');
   if (config.testLoginTargets.length) problems.push('TEST_LOGIN_TARGETS must be empty');
   if (!['resend', 'gmail'].includes(config.emailProvider)) problems.push('EMAIL_PROVIDER must be a real provider (resend or gmail)');
   if ([config.emailProvider, config.emailFallbackProvider].includes('resend') && !process.env.RESEND_API_KEY) problems.push('RESEND_API_KEY must be set');

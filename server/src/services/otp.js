@@ -6,7 +6,7 @@ import { one, query } from '../db.js';
 import { config, isPublicProduction } from '../config.js';
 import { HttpError, tooMany } from '../lib/errors.js';
 import { hashCode, normalizeEmail, normalizePhone, randomOtp } from '../lib/auth.js';
-import { sendOtp } from '../providers/sms.js';
+import { checkProviderCode, sendOtp } from '../providers/sms.js';
 import { securityLog, clientIp } from '../lib/log.js';
 
 const normTarget = (t) => normalizePhone(t) || normalizeEmail(t);
@@ -20,7 +20,7 @@ export const realDelivery = (channel) => (channel === 'email' ? config.emailProv
 // never on a public server (the start-up check also refuses OTP_DEV_ECHO there)
 const echoAllowed = (target) => !isPublicProduction && config.otpDevEcho && (config.isDev || isTestTarget(target));
 
-/** Phone codes are off until SMS (MSG91 + DLT) is live, except for the reviewer number and the team's test numbers. */
+/** Phone codes are off until SMS is live (PHONE_LOGIN, with MSG91 + DLT or Message Central), except for the reviewer number and the team's test numbers. */
 export function assertChannelOpen(target, channel) {
   if (channel !== 'phone' || config.phoneLogin || isReview(target) || isTestTarget(target)) return;
   throw new HttpError(403, "Sign-in with a phone number isn't available yet. Please use your email address.", 'phone_login_off');
@@ -48,10 +48,18 @@ export async function issueCode({ target, channel, purpose = 'login', userId = n
        VALUES ($1, $2, $3, DATEADD(SECOND, $4, SYSDATETIMEOFFSET()), $5, $6)`,
     [target, channel, hashCode(target, code), config.otp.ttlSeconds, purpose, userId],
   );
+  let providerMade = false; // Message Central creates the code itself: we keep its verificationId, not our code
   if (!review) {
-    try { await sendOtp({ target, channel, code }); } catch (e) {
+    try {
+      const sent = await sendOtp({ target, channel, code });
+      if (sent?.ref) {
+        providerMade = true;
+        await query('UPDATE otp_codes SET provider_ref=$1 WHERE id=$2', [sent.ref, row.id]);
+      }
+    } catch (e) {
       await query('DELETE FROM otp_codes WHERE id=$1', [row.id]).catch(() => {}); // no wait, no count for a failed send
       securityLog('otp_delivery_failed', { channel, ip: clientIp(req), error: String(e.message || e).slice(0, 120) });
+      if (e instanceof HttpError) throw e; // a clear reason from the provider (wait a minute, number not supported)
       throw new HttpError(503, channel === 'email'
         ? "We couldn't send the email right now. Please try again in a minute."
         : "We couldn't send the SMS right now. Please try again in a minute.", 'otp_not_sent');
@@ -60,7 +68,7 @@ export async function issueCode({ target, channel, purpose = 'login', userId = n
   // only the newest code works: earlier unused codes for this address are cancelled once the new one is on its way
   await query(`UPDATE otp_codes SET consumed_at=SYSDATETIMEOFFSET() WHERE target=$1 AND purpose=$2 AND consumed_at IS NULL AND id<>$3`, [target, purpose, row.id]).catch(() => {});
   securityLog('otp_requested', { channel, purpose, ip: clientIp(req) });
-  return { expiresIn: config.otp.ttlSeconds, ...(echoAllowed(target) ? { devCode: code } : {}) };
+  return { expiresIn: config.otp.ttlSeconds, ...(echoAllowed(target) && !providerMade ? { devCode: code } : {}) };
 }
 
 /** Checks a code inside a transaction. Returns { ok } or { error } (errors are returned so the try counter commits). */
@@ -72,7 +80,18 @@ export async function checkCode(c, { target, code, purpose = 'login', userId = n
   )).rows[0];
   if (!otp || new Date(otp.expires_at) < new Date()) return { error: new HttpError(400, 'Code expired. Request a new one', 'otp_expired') };
   if (otp.attempts >= config.otp.maxAttempts) return { error: tooMany('Too many wrong attempts. Request a new code') };
-  if (otp.code_hash !== hashCode(target, code)) {
+  if (otp.provider_ref) { // a code Message Central made and checks
+    const verdict = await checkProviderCode(otp.provider_ref, code);
+    if (verdict === 'wrong') {
+      await c.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id=$1', [otp.id]);
+      return { error: new HttpError(400, 'Wrong code', 'otp_wrong') };
+    }
+    if (verdict === 'limit') return { error: tooMany('Too many wrong attempts. Request a new code') };
+    if (verdict === 'expired') {
+      await c.query('UPDATE otp_codes SET consumed_at = SYSDATETIMEOFFSET() WHERE id=$1', [otp.id]);
+      return { error: new HttpError(400, 'Code expired. Request a new one', 'otp_expired') };
+    }
+  } else if (otp.code_hash !== hashCode(target, code)) {
     await c.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id=$1', [otp.id]);
     return { error: new HttpError(400, 'Wrong code', 'otp_wrong') };
   }
