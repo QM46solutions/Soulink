@@ -1,11 +1,17 @@
-// Soul Shop: Soulink Originals. Three drops for now, each shown as a turning 3D product on a glowing stage.
+// Soul Shop: Soulink Originals. Four drops for now, each shown on a glowing stage.
+// The jacket and hoodie use their turntable videos: drag to turn front to back, pinch to zoom (Product3DViewer).
+// The shoe and band still turn on their own (Spin3D).
 // Payments aren't set up yet, so items are "Coming soon"; the heart saves one to your wishlist on this device.
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Spin3D from '../../components/Spin3D';
+import Product3DViewer, { touchScreen } from '../../components/Product3DViewer';
+import ShopDetails from '../../components/ShopDetails';
+import SHOP3D from '../../components/shop3dAssets';
 import { GradientText } from '../../components/brand';
 import { useAuth } from '../../lib/auth';
 import { colors, fonts, gradients, space } from '../../lib/theme';
@@ -15,10 +21,18 @@ const ND = !web;
 
 const SHOP_ITEMS = [
   {
-    key: 'jacket', name: 'Soul Jackets', product: 'Soul Puffer', sheet: require('../../../assets/shop-jacket.webp'),
-    tagline: 'A quilted puffer in Soul Violet, with a little gold heart worn over yours.',
-    glow: ['#7c5cfc', '#3a2a9c'], accent: colors.aura, colourway: 'Soul Violet · Spark ribbing',
-    features: [['weather-windy', 'Light, warm quilting'], ['cards-heart', 'Gold heart emblem'], ['shimmer', 'Gold front zip']],
+    key: 'jacket', name: 'Soul Jackets', product: 'Soul Puffer', model: SHOP3D.jacket,
+    tagline: 'A quilted white puffer with Soul Violet to Spark Pink sleeves, a dual collar and Soulink on the back of the neck.',
+    glow: ['#5634e8', '#ff45b4'], accent: colors.aura, colourway: 'Cloud White · Soul Violet to Spark Pink',
+    swatches: ['#f2f2f5', '#5634e8', '#ff45b4'],
+    features: [['weather-windy', 'Quilted, puffy channels'], ['layers-triple-outline', 'Dual collar, violet lining'], ['zip-box', 'Zip hand pockets, adjustable hem']],
+  },
+  {
+    key: 'hoodie', name: 'Soul Hoodies', product: 'Soul Hoodie', model: SHOP3D.hoodie,
+    tagline: 'Forever Hyderabad. A soft white hoodie with Soul Violet to Spark Pink panels on the sleeves and a violet-to-pink hood lining.',
+    glow: ['#7c5cfc', '#ff45b4'], accent: colors.spark, colourway: 'Cloud White · Soul Violet to Spark Pink',
+    swatches: ['#f2f2f5', '#5634e8', '#ff45b4', '#1a28a0'],
+    features: [['hanger', 'Violet-to-pink lined hood'], ['hand-back-right-outline', 'Kangaroo pocket and drawcords'], ['draw', 'Forever Hyderabad back print']],
   },
   {
     key: 'shoe', name: 'Soul Shoes', product: 'Soul Runner', sheet: require('../../../assets/shop-shoe.webp'),
@@ -42,7 +56,14 @@ function Glow({ c, size }) {
   return <View pointerEvents="none" style={[st, web ? { filter: `blur(${Math.round(size / 5)}px)` } : { opacity: 0.18 }]} />;
 }
 
-function Stage({ item, wished, onWish }) {
+function Stage({ item, wished, onWish, onInteract }) {
+  const { width } = useWindowDimensions();
+  const viewer = useRef(null);
+  const m = item.model;
+  // portrait frames: as wide as the stage allows, but never taller than 470
+  const aspect = m?.aspect || 1;
+  const vsize = Math.round(Math.min(width - 2 * space.lg - 16, 400, 470 / aspect));
+  const vh = Math.round(vsize * aspect);
   const float = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -50,9 +71,9 @@ function Stage({ item, wished, onWish }) {
       Animated.timing(float, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: ND }),
       Animated.timing(float, { toValue: 0, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: ND }),
     ]));
-    loop.start();
+    if (!m) loop.start();
     return () => loop.stop();
-  }, [float]);
+  }, [float, m]);
   useEffect(() => {
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: ND }).start();
@@ -61,7 +82,7 @@ function Stage({ item, wished, onWish }) {
   const shadow = float.interpolate({ inputRange: [0, 1], outputRange: [1, 0.82] });
   const idx = SHOP_ITEMS.indexOf(item) + 1;
   return (
-    <View style={{ height: 380, borderRadius: 30, overflow: 'hidden', marginHorizontal: space.lg, borderWidth: 1, borderColor: 'rgba(176,143,255,0.22)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(14,12,22,0.78)' }}>
+    <View style={{ height: m ? vh + 96 : 380, borderRadius: 30, overflow: 'hidden', marginHorizontal: space.lg, borderWidth: 1, borderColor: 'rgba(176,143,255,0.22)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(14,12,22,0.78)' }}>
       <LinearGradient colors={['rgba(124,92,252,0.20)', 'rgba(8,7,13,0)', 'rgba(255,107,157,0.10)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={FILL} />
       <View style={{ position: 'absolute', top: 60, alignItems: 'center', justifyContent: 'center' }}><Glow c={item.glow[0]} size={260} /></View>
       <View style={{ position: 'absolute', bottom: 40, right: 20 }}><Glow c={item.glow[1]} size={160} /></View>
@@ -73,13 +94,19 @@ function Stage({ item, wished, onWish }) {
       </Animated.View>
       <View style={{ position: 'absolute', bottom: 57, width: 130, height: 12, borderRadius: 65, backgroundColor: 'rgba(8,7,13,0.4)', ...(web ? { filter: 'blur(6px)' } : {}) }} />
 
-      <Animated.View style={{ opacity: fade, transform: [{ translateY: y }, { scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }], marginTop: -20 }}>
-        <Spin3D key={item.key} sheet={item.sheet} size={290} />
-      </Animated.View>
+      {m ? (
+        <Animated.View style={{ opacity: fade, marginTop: 14 }}>
+          <Product3DViewer key={item.key} ref={viewer} rows={m.rows} poster={m.poster} size={vsize} height={vh} startRow={0} loop={m.loop !== false} label={item.product} onInteract={onInteract} />
+        </Animated.View>
+      ) : (
+        <Animated.View style={{ opacity: fade, transform: [{ translateY: y }, { scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }], marginTop: -20 }}>
+          <Spin3D key={item.key} sheet={item.sheet} size={290} />
+        </Animated.View>
+      )}
 
       <View style={{ position: 'absolute', top: 16, left: 18, flexDirection: 'row', alignItems: 'baseline' }}>
         <Text style={{ fontFamily: fonts.monoBold, fontSize: 14, color: colors.text }}>{String(idx).padStart(2, '0')}</Text>
-        <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted }}> / 03</Text>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted }}> / {String(SHOP_ITEMS.length).padStart(2, '0')}</Text>
       </View>
       <View style={{ position: 'absolute', top: 14, right: 14, flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center', backgroundColor: 'rgba(245,200,66,0.14)', borderWidth: 1, borderColor: 'rgba(245,200,66,0.45)', marginRight: 8 }}>
@@ -90,9 +117,11 @@ function Stage({ item, wished, onWish }) {
           <MaterialCommunityIcons name={wished ? 'heart' : 'heart-outline'} size={18} color={wished ? colors.spark : colors.text} />
         </Pressable>
       </View>
-      <View style={{ position: 'absolute', bottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-        <MaterialCommunityIcons name="rotate-3d-variant" size={14} color={colors.muted} />
-        <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: colors.muted, marginLeft: 6 }}>360° VIEW</Text>
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+        <MaterialCommunityIcons name={m ? 'gesture-swipe-horizontal' : 'rotate-3d-variant'} size={14} color={colors.muted} />
+        <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: colors.muted, marginLeft: 6 }}>
+          {m ? `${m.loop === false ? '180° · ' : ''}${touchScreen ? 'DRAG TO TURN · PINCH TO ZOOM' : 'DRAG TO TURN · SCROLL TO ZOOM'}` : '360° VIEW'}
+        </Text>
       </View>
     </View>
   );
@@ -105,11 +134,11 @@ function Picker({ active, onPick }) {
         const on = it.key === active;
         return (
           <Pressable key={it.key} onPress={() => onPick(it.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-            style={({ hovered, pressed }) => ({ flex: 1, marginLeft: i ? 10 : 0, borderRadius: 20, padding: 1.2, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { cursor: 'pointer', outlineStyle: 'none' } : {}), opacity: on || hovered ? 1 : 0.78 })}>
+            style={({ hovered, pressed }) => ({ flex: 1, marginLeft: i ? 8 : 0, borderRadius: 20, padding: 1.2, transform: [{ scale: pressed ? 0.96 : 1 }], ...(web ? { cursor: 'pointer', outlineStyle: 'none' } : {}), opacity: on || hovered ? 1 : 0.78 })}>
             {on ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[FILL, { borderRadius: 20 }]} /> : <View style={[FILL, { borderRadius: 20, backgroundColor: 'rgba(176,143,255,0.18)' }]} />}
             <View style={{ borderRadius: 19, backgroundColor: on ? 'rgba(20,16,36,0.94)' : 'rgba(14,12,22,0.9)', alignItems: 'center', paddingTop: 6, paddingBottom: 10 }}>
-              <Spin3D sheet={it.sheet} size={74} frame={4} />
-              <Text numberOfLines={1} style={{ fontFamily: on ? fonts.bold : fonts.semibold, fontSize: 12, color: on ? colors.text : colors.muted, marginTop: 2 }}>{it.name}</Text>
+              {it.model ? <Image source={it.model.poster} style={{ width: 74, height: 74, borderRadius: 12 }} contentFit="cover" contentPosition="top" transition={0} /> : <Spin3D sheet={it.sheet} size={74} frame={4} />}
+              <Text numberOfLines={1} style={{ fontFamily: on ? fonts.bold : fonts.semibold, fontSize: SHOP_ITEMS.length > 3 ? 11 : 12, color: on ? colors.text : colors.muted, marginTop: 2 }}>{it.name}</Text>
             </View>
           </Pressable>
         );
@@ -134,16 +163,18 @@ export default function Shop() {
     return next;
   });
   const wished = !!wish[item.key];
+  const [scrollOn, setScrollOn] = useState(true);
+  const onInteract = useCallback((busy) => setScrollOn(!busy), []);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} scrollEnabled={scrollOn}>
       <View style={{ alignItems: 'center', paddingTop: space.md, paddingBottom: space.lg, paddingHorizontal: space.xl }}>
         <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 2.4, color: colors.aura }}>SOULINK ORIGINALS</Text>
         <GradientText style={{ fontFamily: fonts.display, fontSize: 36, lineHeight: 44, marginTop: 4 }}>Soul Shop</GradientText>
         <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.muted, textAlign: 'center', marginTop: 4 }}>Wear your vibe. Made for the Soulink family.</Text>
       </View>
 
-      <Stage item={item} wished={wished} onWish={() => toggle(item.key)} />
+      <Stage item={item} wished={wished} onWish={() => toggle(item.key)} onInteract={onInteract} />
       <Picker active={active} onPick={setActive} />
 
       <View style={{ marginHorizontal: space.lg, marginTop: space.lg, borderRadius: 24, padding: space.lg, backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(176,143,255,0.16)' }}>
@@ -152,7 +183,7 @@ export default function Shop() {
         <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.text, marginTop: 6 }}>{item.tagline}</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}>
-          {item.glow.concat(colors.gold).map((c, i) => (
+          {(item.swatches || item.glow.concat(colors.gold)).map((c, i) => (
             <View key={i} style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: c, marginRight: 6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' }} />
           ))}
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.muted, marginLeft: 4, flex: 1 }} numberOfLines={1}>{item.colourway}</Text>
@@ -177,6 +208,7 @@ export default function Shop() {
         </Pressable>
         <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 10 }}>Dropping soon on Soulink. Prices and sizes at launch.</Text>
       </View>
+      {item.model ? <ShopDetails key={item.key} items={item.model.details} accent={item.accent} /> : null}
     </ScrollView>
   );
 }
