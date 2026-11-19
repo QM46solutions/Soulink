@@ -2,7 +2,7 @@
 // Shows a product as a sequence of frames taken evenly round it (rows = camera heights, if there are several).
 // Drag left/right to turn it, up/down to change height (only when there is more than one row), pinch or
 // mouse wheel / trackpad to zoom, Reset to go back to the start. loop=false means the frames cover only part
-// of a turn (e.g. front to back): turning stops at each end and a small marker shows where you are.
+// of a turn (e.g. front to back): turning stops at each end and a small marker (ends[0] — ends[1]) shows where you are.
 // Plain images + touch handling only: works on Android, iPhone and the web with no new native code.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, PanResponder, Platform, Pressable, Text, View } from 'react-native';
@@ -26,7 +26,7 @@ export const touchScreen = !web || (typeof window !== 'undefined' && ('ontouchst
  * rows: array of camera heights (low → high), each an array of frames going round the product.
  * poster: still image used while loading and as the fallback.
  */
-function Product3DViewer({ rows, poster, size = 320, height: hgt, startRow: sr = 1, loop = true, label = 'product', onInteract }, ref) {
+function Product3DViewer({ rows, poster, size = 320, height: hgt, startRow: sr = 1, loop = true, ends = ['FRONT', 'BACK'], label = 'product', onInteract }, ref) {
   const frames = rows[0].length;
   const startRow = clamp(sr, 0, rows.length - 1);
   const H = hgt || size;
@@ -161,7 +161,7 @@ function Product3DViewer({ rows, poster, size = 320, height: hgt, startRow: sr =
     accessibilityRole: 'adjustable',
     accessibilityLabel: `3D view of the ${label}`,
     accessibilityHint: 'Swipe up or down to turn it',
-    accessibilityValue: loop ? { text: `${fi * (360 / frames)} degrees` } : { min: 0, max: lastYaw, now: fi, text: fi === 0 ? 'front' : fi === lastYaw ? 'back' : 'side' },
+    accessibilityValue: loop ? { text: `${fi * (360 / frames)} degrees` } : { min: 0, max: lastYaw, now: fi, text: fi === 0 ? ends[0].toLowerCase() : fi === lastYaw ? ends[1].toLowerCase() : 'turning' },
     accessibilityActions: [{ name: 'increment' }, { name: 'decrement' }],
     onAccessibilityAction: (ev) => setView((c) => ({ ...c, yaw: fitYaw(Math.round(c.yaw) + (ev.nativeEvent.actionName === 'increment' ? 3 : -3)) })),
   };
@@ -195,11 +195,11 @@ function Product3DViewer({ rows, poster, size = 320, height: hgt, startRow: sr =
 
       {state === 'ready' && !loop ? (
         <View pointerEvents="none" style={{ position: 'absolute', left: 12, top: 12, flexDirection: 'row', alignItems: 'center', height: 24, paddingHorizontal: 10, borderRadius: 12, backgroundColor: 'rgba(8,7,13,0.72)' }}>
-          <Text style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: fi === 0 ? colors.text : colors.muted }}>FRONT</Text>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: fi === 0 ? colors.text : colors.muted }}>{ends[0]}</Text>
           <View style={{ width: 54, height: 3, borderRadius: 2, marginHorizontal: 7, backgroundColor: 'rgba(255,255,255,0.18)' }}>
             <View style={{ position: 'absolute', top: -2.5, left: (fi / lastYaw) * 46, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.aura }} />
           </View>
-          <Text style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: fi === lastYaw ? colors.text : colors.muted }}>BACK</Text>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: fi === lastYaw ? colors.text : colors.muted }}>{ends[1]}</Text>
         </View>
       ) : null}
       {state === 'ready' && moved ? (

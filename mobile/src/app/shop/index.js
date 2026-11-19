@@ -34,10 +34,11 @@ const SHOP_ITEMS = [
     features: [['hanger', 'Violet-to-pink lined hood'], ['hand-back-right-outline', 'Kangaroo pocket and drawcords'], ['draw', 'Forever Hyderabad back print']],
   },
   {
-    key: 'shoe', name: 'Soul Shoes', product: 'Soul Runner', sheet: require('../../../assets/shop-shoe.webp'),
-    tagline: 'Cloud-soft sneakers with a heartbeat running down each side.',
-    glow: ['#b08fff', '#ff6b9d'], accent: colors.spark, colourway: 'Aura Lilac · Spark sole',
-    features: [['shoe-sneaker', 'Cushioned everyday sole'], ['heart-pulse', 'Heartbeat side line'], ['feather', 'Light and breathable']],
+    key: 'shoe', name: 'Soul Shoes', product: 'Soul Runner', model: SHOP3D.sneaker,
+    tagline: 'Chunky, cloud-soft sneakers in white and lilac with Soul Violet and Spark Pink overlays.',
+    glow: ['#b08fff', '#ff6b9d'], accent: colors.spark, colourway: 'Cloud White · Aura Lilac · Spark Pink',
+    swatches: ['#f2f2f5', '#c9b6ff', '#5b2fd6', '#ff3fa8'],
+    features: [['shoe-sneaker', 'Chunky sculpted sole'], ['tag-outline', 'Soulink on the side, S on the tongue'], ['feather', 'Light, breathable mesh']],
   },
   {
     key: 'band', name: 'Soul Wearables', product: 'Soul Band', sheet: require('../../../assets/shop-band.webp'),
@@ -95,7 +96,7 @@ function Stage({ item, wished, onWish, onInteract }) {
 
       {m ? (
         <Animated.View style={{ opacity: fade, marginTop: 14 }}>
-          <Product3DViewer key={item.key} ref={viewer} rows={m.rows} poster={m.poster} size={vsize} height={vh} startRow={0} loop={m.loop !== false} label={item.product} onInteract={onInteract} />
+          <Product3DViewer key={item.key} ref={viewer} rows={m.rows} poster={m.poster} size={vsize} height={vh} startRow={0} loop={m.loop !== false} ends={m.ends} label={item.product} onInteract={onInteract} />
         </Animated.View>
       ) : (
         <Animated.View style={{ opacity: fade, transform: [{ translateY: y }, { scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }], marginTop: -20 }}>
@@ -119,7 +120,7 @@ function Stage({ item, wished, onWish, onInteract }) {
       <View pointerEvents="none" style={{ position: 'absolute', bottom: 14, flexDirection: 'row', alignItems: 'center' }}>
         <MaterialCommunityIcons name={m ? 'gesture-swipe-horizontal' : 'rotate-3d-variant'} size={14} color={colors.muted} />
         <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: colors.muted, marginLeft: 6 }}>
-          {m ? `${m.loop === false ? '180° · ' : ''}${touchScreen ? 'DRAG TO TURN · PINCH TO ZOOM' : 'DRAG TO TURN · SCROLL TO ZOOM'}` : '360° VIEW'}
+          {m ? `${m.span ? `${m.span} · ` : ''}${touchScreen ? 'DRAG TO TURN · PINCH TO ZOOM' : 'DRAG TO TURN · SCROLL TO ZOOM'}` : '360° VIEW'}
         </Text>
       </View>
     </View>
