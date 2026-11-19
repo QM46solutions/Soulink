@@ -9,6 +9,9 @@ import { checkPassword, checkTotp, hashPassword, newTotpSecret, otpauthUrl, requ
 import { uploadMemory, saveFile } from '../providers/storage.js';
 import { onlineNow } from '../realtime.js';
 import { liveActivity } from '../services/metrics.js';
+import nodePath from 'node:path';
+import { ensureLocal } from '../providers/storage.js';
+import { appStoreUrl, compareVersions, getUpdatePolicy, isVersion, setUpdatePolicy } from '../services/appUpdate.js';
 import { audit } from '../services/audit.js';
 import { normalizeEmail, normalizePhone } from '../lib/auth.js';
 import { expireSignup, isRealMember } from '../services/signupCleanup.js';
@@ -233,6 +236,41 @@ r.patch('/issues/:id', requireConsole('support'), ah(async (req, res) => {
   await query(`UPDATE app_issues SET status = ISNULL($2, status), severity = ISNULL($3, severity), owner = ISNULL($4, owner), fixed_in = ISNULL($5, fixed_in), updated_at = SYSDATETIMEOFFSET() WHERE id=$1`,
     [id, d.status || null, d.severity || null, d.owner || null, d.fixedIn || null]);
   log(req, `Updated issue SL-${id}${d.status ? ` → ${d.status}` : ''}`); res.json({ ok: true });
+}));
+
+// ---------- Update App policy (read by the phone apps from GET /app/version) ----------
+r.get('/app-update', requireConsole('viewer', 'support', 'ads'), ah(async (req, res) => res.json({ policy: await getUpdatePolicy(), appStoreLinked: !!appStoreUrl() })));
+r.put('/app-update', OWNER, ah(async (req, res) => {
+  const v = z.string().trim().refine(isVersion, 'Use a version like 1.0.1');
+  const plat = z.object({ latest: v, minimum: v }).refine((x) => compareVersions(x.minimum, x.latest) <= 0, 'The minimum version can’t be newer than the latest');
+  const d = z.object({ android: plat, ios: plat, message: z.string().trim().max(300).default(''), mandatory: z.boolean().default(false) }).parse(req.body);
+  const policy = await setUpdatePolicy(d);
+  log(req, `Update policy: Android ${d.android.latest} (min ${d.android.minimum}), iPhone ${d.ios.latest} (min ${d.ios.minimum})${d.mandatory ? ', mandatory' : ''}`);
+  res.json({ ok: true, policy });
+}));
+
+// ---------- app health by version: crashes, slow screens, slow / failed requests ----------
+r.get('/app-health', requireConsole('support', 'viewer'), ah(async (req, res) => {
+  const crashes = await many(`SELECT ISNULL(app_version, N'?') AS version, ISNULL(platform, N'?') AS platform,
+      SUM(CASE WHEN ISNULL(fatal, 1) = 1 THEN reports ELSE 0 END) AS crashes, SUM(CASE WHEN fatal = 0 THEN reports ELSE 0 END) AS errors,
+      COUNT(DISTINCT user_id) AS people
+    FROM app_issues WHERE source = N'crash' AND created_at > DATEADD(day, -30, SYSDATETIMEOFFSET()) GROUP BY app_version, platform ORDER BY app_version DESC`);
+  const screens = await many(`SELECT ISNULL(app_version, N'?') AS version, screen, COUNT(*) AS n, AVG(ms) AS avg_ms FROM screen_timings
+    WHERE created_at > DATEADD(day, -7, SYSDATETIMEOFFSET()) GROUP BY app_version, screen HAVING COUNT(*) >= 3 ORDER BY AVG(ms) DESC`);
+  const api = await many(`SELECT path, method, COUNT(*) AS n, AVG(ms) AS avg_ms, MAX(ms) AS max_ms, SUM(CASE WHEN status = 0 OR status >= 500 THEN 1 ELSE 0 END) AS failed
+    FROM api_timings WHERE created_at > DATEADD(day, -7, SYSDATETIMEOFFSET()) GROUP BY path, method ORDER BY COUNT(*) DESC`);
+  const active = await many(`SELECT ISNULL(app_version, N'?') AS version, COUNT(*) AS opens FROM screen_timings
+    WHERE created_at > DATEADD(day, -7, SYSDATETIMEOFFSET()) GROUP BY app_version`);
+  res.json({ crashes, screens: screens.slice(0, 40), api: api.slice(0, 40), opens: active });
+}));
+
+// the screenshot a person attached to "Report a problem" (private file: streamed only to signed-in team members)
+r.get('/issues/:id/screenshot', requireConsole('support', 'viewer'), ah(async (req, res) => {
+  const id = z.coerce.number().int().parse(req.params.id);
+  const x = await one('SELECT screenshot_url FROM app_issues WHERE id=$1', [id]);
+  if (!x?.screenshot_url || !String(x.screenshot_url).startsWith('/uploads/reports/')) throw notFound('No screenshot');
+  res.set('Cache-Control', 'private, no-store');
+  res.sendFile(nodePath.resolve(await ensureLocal(x.screenshot_url)));
 }));
 
 // ---------- releases ----------

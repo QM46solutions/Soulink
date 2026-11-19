@@ -17,6 +17,7 @@ import DialogHost from '../components/DialogHost';
 import AccessGate from '../components/AccessGate';
 import SharePreview, { sharedLinkTarget } from '../components/SharePreview';
 import TermsGate from '../components/TermsGate';
+import UpdateRequired from '../components/UpdateRequired';
 import { TERMS_VERSION } from '../lib/legal';
 import { useUsageTracker } from '../lib/usage';
 import { installCrashReporting, sendPendingCrash, useScreenTimings } from '../lib/telemetry';
@@ -164,6 +165,7 @@ function RootStack() {
         <Stack.Screen name="settings/device-permissions" options={{ title: 'Device permissions' }} />
         <Stack.Screen name="settings/about" options={{ title: 'About' }} />
         <Stack.Screen name="settings/report-problem" options={{ title: 'Report a problem' }} />
+        <Stack.Screen name="settings/update-app" options={{ title: 'Update App' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete my account' }} />
         <Stack.Screen name="settings/pause-account" options={{ title: 'Pause my account' }} />
         <Stack.Screen name="settings/restore-data" options={{ title: 'Restore my data' }} />
@@ -184,6 +186,7 @@ function RootStack() {
     </Stack>
     {showBar ? <BottomBar active={active} /> : null}
     {loggedIn && onboarded && user.termsVersion !== TERMS_VERSION && top !== 'legal' ? <TermsGate /> : null}
+    {Platform.OS !== 'web' ? <UpdateRequired /> : null}
     </View>
   );
 }

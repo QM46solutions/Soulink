@@ -126,7 +126,7 @@ ${bars(steps.map(([l, v], i) => [l, v, i >= 4 ? 'var(--accent2)' : 'var(--accent
   };
 
   VIEWS.performance = async () => {
-    const d = await api('/performance'); const s = d.series || []; const rec = d.recent || []; const m = d.server?.latest;
+    const [d, h] = await Promise.all([api('/performance'), api('/app-health').catch(() => null)]); const s = d.series || []; const rec = d.recent || []; const m = d.server?.latest;
     const last = rec.slice(-72);
     return `<div class="grid k4">${kpi('Typical response', m ? `${N(m.p50_ms)} ms` : '—', m ? `slowest 5%: ${N(m.p95_ms)} ms` : 'collecting')}${kpi('Requests, last 5 min', m ? fmt(m.requests) : '—', m ? `${N(m.errors)} errors` : '')}${kpi('Server load (CPU)', m ? `${N(m.cpu_pct)}%` : '—', `memory ${d.server?.rssMb ?? '—'} MB`)}${kpi('Database size', d.dbMb != null ? `${fmt(d.dbMb)} MB` : '—', 'Azure SQL Basic allows 2,048 MB', d.dbMb > 1600 ? 'wa' : 'mu')}</div>
 ${rec.length ? '' : `<div class="mt">${collecting('Server health')}</div>`}
@@ -140,8 +140,19 @@ ${rec.length ? '' : `<div class="mt">${collecting('Server health')}</div>`}
 </div>
 <div class="panel mt"><h3>Slowest screens in the app<span class="r">time until the screen is usable · last 7 days · target 1.5 s</span></h3>
 ${d.screens.length ? `<div class="tw"><table><tr><th>Screen</th><th>Phone</th><th class="n">Average</th><th class="n">Slowest</th><th class="n">Times opened</th><th></th></tr>${d.screens.map((x) => `<tr><td><b>${esc(x.screen)}</b></td><td>${esc(PLAT[x.platform]?.[0] || x.platform || '—')}</td><td class="n">${(N(x.avg_ms) / 1000).toFixed(2)} s</td><td class="n">${(N(x.max_ms) / 1000).toFixed(1)} s</td><td class="n">${fmt(x.n)}</td><td>${N(x.avg_ms) > 1500 ? '<span class="pill p-warn">Over target</span>' : '<span class="pill p-good">OK</span>'}</td></tr>`).join('')}</table></div>`
-  : '<div class="note">Screen timings come from the app itself. They start arriving once phones have the next app version, which measures every screen and sends the numbers here.</div>'}</div>`;
+  : '<div class="note">Screen timings come from the app itself. They start arriving once phones have the next app version, which measures every screen and sends the numbers here.</div>'}</div>${h ? appHealth(h) : ''}`;
   };
+  // crashes, slow screens and slow / failed requests per app version (last 30 / 7 days)
+  function appHealth(h) {
+    const opens = Object.fromEntries((h.opens || []).map((x) => [x.version, N(x.opens)]));
+    const tbl = (head, rows) => `<div class="tw"><table><tr>${head.map((x) => `<th${/^#/.test(x) ? ' class="n"' : ''}>${x.replace(/^#/, '')}</th>`).join('')}</tr>${rows || `<tr><td colspan="${head.length}" class="empty">Nothing yet</td></tr>`}</table></div>`;
+    return `<div class="grid k2 mt">
+ <div class="panel"><h3>Crashes by app version<span class="r">last 30 days</span></h3>${tbl(['Version', 'Phone', '#Crashes', '#Non-fatal', '#People', '#Screen opens (7 d)'], h.crashes.map((x) => `<tr><td><b>${esc(x.version)}</b></td><td>${esc(PLAT[x.platform]?.[0] || x.platform)}</td><td class="n">${fmt(x.crashes)}</td><td class="n">${fmt(x.errors)}</td><td class="n">${fmt(x.people)}</td><td class="n">${fmt(opens[x.version] || 0)}</td></tr>`).join(''))}
+ <p class="small mu">A version with many crashes for its number of screen opens is the one to stop in Play Console and fix.</p></div>
+ <div class="panel"><h3>Slow or failed requests from phones<span class="r">2 s+ or no answer · last 7 days</span></h3>${tbl(['Request', '#Times', '#Average', '#Slowest', '#Failed'], h.api.map((x) => `<tr><td class="small">${esc(x.method)} ${esc(x.path)}</td><td class="n">${fmt(x.n)}</td><td class="n">${N(x.avg_ms)} ms</td><td class="n">${N(x.max_ms)} ms</td><td class="n">${fmt(x.failed)}</td></tr>`).join(''))}</div>
+</div>
+<div class="panel mt"><h3>Screen times by app version<span class="r">last 7 days · at least 3 opens</span></h3>${tbl(['Version', 'Screen', '#Opens', '#Average'], h.screens.map((x) => `<tr><td>${esc(x.version)}</td><td><b>${esc(x.screen)}</b></td><td class="n">${fmt(x.n)}</td><td class="n">${N(x.avg_ms)} ms</td></tr>`).join(''))}</div>`;
+  }
 
   const SEV = { critical: 'p-bad', high: 'p-bad', medium: 'p-warn', low: 'p-dim' };
   const STS = { new: ['New', 'p-acc'], progress: ['In progress', 'p-warn'], fixed: ['Fixed · waiting release', 'p-good'], released: ['Fixed · released', 'p-good'], wontfix: ["Won't fix", 'p-dim'] };
@@ -153,7 +164,7 @@ ${d.screens.length ? `<div class="tw"><table><tr><th>Screen</th><th>Phone</th><t
     return `<div class="grid k4">${kpi('Reported, all time', fmt(s.total), 'users, crashes and team')}${kpi('Open now', fmt(s.open_), 'new + in progress', N(s.open_) ? 'wa' : 'up')}${kpi('Fixed, waiting release', fmt(s.waiting), 'goes out with the next update')}${kpi('Fixed, last 30 days', fmt(s.fixed30), '', 'up')}</div>
 <div class="panel mt"><h3><span class="tabs" style="border:0;margin:0">${[['open', 'Open'], ['fixed', 'Fixed'], ['all', 'All']].map(([k, t]) => `<button class="${k === f ? 'on' : ''}" data-f="${k}">${t}</button>`).join('')}</span><span class="r">${edit ? '<button class="btn sm pri" id="addIssue">+ Add issue</button>' : ''}</span></h3>
 <div class="tw"><table><tr><th>ID</th><th>Problem</th><th>From</th><th class="n">Reports</th><th>Priority</th><th>Status</th><th>Owner</th><th>Updated</th></tr>
-${list.map((x) => `<tr><td class="n" style="text-align:left">SL-${x.id}</td><td><b>${esc(x.title)}</b>${x.app_version ? `<div class="small mu">${esc(x.platform || '')} · app ${esc(x.app_version)}</div>` : ''}</td><td class="mu">${SRC[x.source]}</td><td class="n">${x.reports}</td>
+${list.map((x) => `<tr><td class="n" style="text-align:left">SL-${x.id}</td><td><b>${esc(x.title)}</b>${x.app_version || x.device || x.screen ? `<div class="small mu">${[x.platform, x.app_version && `app ${x.app_version}`, x.build && x.build !== 'store' && `code ${x.build}`, x.device, x.os_version && `OS ${x.os_version}`, x.screen && `on ${x.screen}`, x.source === 'crash' && x.fatal === false ? 'non-fatal' : ''].filter(Boolean).map(esc).join(' · ')}</div>` : ''}${x.comments ? `<div class="small" style="margin-top:4px">“${esc(x.comments)}”</div>` : ''}${x.details && x.source === 'user' && x.details !== x.title ? `<details class="small mu"><summary>Full report</summary><div style="white-space:pre-wrap">${esc(x.details)}</div></details>` : ''}${x.screenshot_url ? `<button class="btn sm" data-shot="${x.id}" style="margin-top:4px">View screenshot</button>` : ''}</td><td class="mu">${SRC[x.source]}</td><td class="n">${x.reports}</td>
  <td>${edit ? `<select data-sev="${x.id}" aria-label="Priority">${['critical', 'high', 'medium', 'low'].map((v) => `<option ${v === x.severity ? 'selected' : ''}>${v}</option>`).join('')}</select>` : `<span class="pill ${SEV[x.severity]}">${x.severity}</span>`}</td>
  <td>${edit ? `<select data-st="${x.id}" aria-label="Status">${Object.entries(STS).map(([k, [tt]]) => `<option value="${k}" ${k === x.status ? 'selected' : ''}>${tt}</option>`).join('')}</select>` : `<span class="pill ${STS[x.status][1]}">${STS[x.status][0]}</span>`}</td>
  <td>${esc(x.owner || '—')}</td><td class="mu small">${ago(x.updated_at)}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Nothing here.</td></tr>'}
@@ -163,6 +174,10 @@ ${list.map((x) => `<tr><td class="n" style="text-align:left">SL-${x.id}</td><td>
     document.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { st.issueF = b.dataset.f; render(); }; });
     document.querySelectorAll('[data-st]').forEach((s) => { s.onchange = async () => { await api('/issues/' + s.dataset.st, { method: 'PATCH', body: { status: s.value } }); toast('Status updated'); }; });
     document.querySelectorAll('[data-sev]').forEach((s) => { s.onchange = async () => { await api('/issues/' + s.dataset.sev, { method: 'PATCH', body: { severity: s.value } }); toast('Priority updated'); }; });
+    document.querySelectorAll('[data-shot]').forEach((b) => { b.onclick = async () => {
+      try { const blob = await C.apiBlob('/issues/' + b.dataset.shot + '/screenshot'); const url = URL.createObjectURL(blob);
+        modal('Screenshot from the report', `<img src="${url}" alt="Screenshot" style="max-width:100%;max-height:70vh;border-radius:10px;display:block;margin:0 auto">`, null);
+      } catch (e) { toast(e.message || 'Could not load the screenshot'); } }; });
     const add = $('#addIssue'); if (add) add.onclick = () => modal('Add an issue', `<div class="form"><label class="full">Problem<input id="m1" maxlength="200" required></label><label class="full">Details<textarea id="m2" rows="4" maxlength="2000"></textarea></label><label>Priority<select id="m3"><option>high</option><option selected>medium</option><option>low</option><option>critical</option></select></label></div>`,
       async () => { await api('/issues', { method: 'POST', body: { title: $('#m1').value, details: $('#m2').value, severity: $('#m3').value } }); toast('Issue added'); render(); });
   };
@@ -171,11 +186,16 @@ ${list.map((x) => `<tr><td class="n" style="text-align:left">SL-${x.id}</td><td>
   VIEWS.releases = async () => {
     const r = (await api('/releases')).releases; const latest = (ch) => r.find((x) => x.channel === ch);
     const play = latest('play'); const apple = latest('appstore'); const ota = latest('ota');
+    const up = await api('/app-update').catch(() => null); st.upd = up?.policy; const P = up?.policy;
     return `<div class="grid k3">${kpi('Play Store', play ? esc(play.version) : '—', play ? `${esc(play.track || '')} · ${esc(play.status)}` : '')}${kpi('App Store', apple ? esc(apple.version) : '—', apple ? esc(apple.status) : 'Apple account not set up yet', apple ? 'mu' : 'wa')}${kpi('Newest over-the-air update', ota ? dt(ota.released_on) : '—', ota ? esc(ota.version) : '')}</div>
 <div class="panel mt"><h3>Release history<span class="r">${canEdit() ? '<button class="btn sm pri" id="addRel">+ Add release</button>' : ''}</span></h3><div class="tl">
 ${r.map((x) => `<div class="rel"><div class="meta"><span class="ver">${esc(x.version)}</span><span class="pill ${/live/i.test(x.status) ? 'p-good' : /progress|review/i.test(x.status) ? 'p-warn' : 'p-dim'}">${esc(x.status)}</span><span class="small mu">${CH[x.channel]}${x.track ? ' · ' + esc(x.track) : ''} · ${dt(x.released_on)}</span>${canEdit() ? `<button class="btn sm" data-rs="${x.id}">Change status</button>` : ''}</div>
  <ul>${x.features.map((f) => `<li><b style="color:var(--fg)">New:</b> ${esc(f)}</li>`).join('')}${x.fixes.map((f) => `<li><b style="color:var(--fg)">Fixed:</b> ${esc(f)}</li>`).join('')}</ul></div>`).join('') || '<div class="empty">No releases yet</div>'}
-</div><p class="small mu">Store versions need Google or Apple review. Over-the-air updates change screens and logic straight away, with no review. Icon, permissions and native changes still need a store version.</p></div>`;
+</div>${P ? `<div class="panel mt"><h3>Update policy<span class="r">read by Settings › Update App${canEdit() ? ' · <button class="btn sm" id="editUpd">Edit</button>' : ''}</span></h3>
+<div class="grid k2"><div><b>Android</b><div class="small mu">Latest on Google Play: <b>${esc(P.android.latest)}</b> · oldest still allowed: <b>${esc(P.android.minimum)}</b></div></div>
+<div><b>iPhone</b><div class="small mu">Latest on the App Store: <b>${esc(P.ios.latest)}</b> · oldest still allowed: <b>${esc(P.ios.minimum)}</b>${up.appStoreLinked ? '' : ' · App Store link not set (APP_STORE_ID)'}</div></div></div>
+${P.mandatory ? '<p class="small"><span class="pill p-bad">Mandatory</span> everyone below the latest version must update</p>' : ''}${P.message ? `<p class="small mu">Message: ${esc(P.message)}</p>` : ''}
+<p class="small mu">Set "latest" only after the store version is live for everyone. Phones older than "oldest still allowed" see a full-screen "Please update" page, so raise it only for a serious problem.</p></div>` : ''}<p class="small mu">Store versions need Google or Apple review. Over-the-air updates change screens and logic straight away, with no review. Icon, permissions and native changes still need a store version.</p></div>`;
   };
   AFTER.releases = () => {
     const a = $('#addRel'); if (a) a.onclick = () => modal('Add a release', `<div class="form"><label>Version<input id="m1" placeholder="1.0.0 (4)" required></label><label>Where<select id="m2"><option value="play">Play Store</option><option value="appstore">App Store</option><option value="ota">Over-the-air</option><option value="apk">Test APK</option></select></label>
@@ -183,6 +203,12 @@ ${r.map((x) => `<div class="rel"><div class="meta"><span class="ver">${esc(x.ver
       <label class="full">New features (one per line)<textarea id="m6" rows="4"></textarea></label><label class="full">Fixes (one per line)<textarea id="m7" rows="3"></textarea></label></div>`,
       async () => { const lines = (id) => $(id).value.split('\n').map((x) => x.trim()).filter(Boolean);
         await api('/releases', { method: 'POST', body: { version: $('#m1').value, channel: $('#m2').value, track: $('#m3').value, status: $('#m4').value, releasedOn: $('#m5').value, features: lines('#m6'), fixes: lines('#m7') } }); toast('Release added'); render(); });
+    const eu = $('#editUpd'); if (eu) eu.onclick = () => { const P = st.upd; modal('Update policy', `<div class="form">
+      <label>Android latest<input id="u1" value="${esc(P.android.latest)}" required></label><label>Android oldest allowed<input id="u2" value="${esc(P.android.minimum)}" required></label>
+      <label>iPhone latest<input id="u3" value="${esc(P.ios.latest)}" required></label><label>iPhone oldest allowed<input id="u4" value="${esc(P.ios.minimum)}" required></label>
+      <label class="full">Message shown with the update (optional)<input id="u5" maxlength="300" value="${esc(P.message || '')}"></label>
+      <label class="full"><span><input type="checkbox" id="u6" ${P.mandatory ? 'checked' : ''}> Mandatory: everyone below the latest version must update</span></label></div>`,
+      async () => { await api('/app-update', { method: 'PUT', body: { android: { latest: $('#u1').value.trim(), minimum: $('#u2').value.trim() }, ios: { latest: $('#u3').value.trim(), minimum: $('#u4').value.trim() }, message: $('#u5').value.trim(), mandatory: $('#u6').checked } }); toast('Update policy saved'); render(); }); };
     document.querySelectorAll('[data-rs]').forEach((b) => { b.onclick = () => modal('Change status', `<label class="small mu">Status<input id="m1" value="Live" required></label>`, async () => { await api('/releases/' + b.dataset.rs, { method: 'PATCH', body: { status: $('#m1').value } }); toast('Updated'); render(); }); });
   };
 

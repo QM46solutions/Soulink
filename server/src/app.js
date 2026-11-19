@@ -42,6 +42,7 @@ import grievanceRoutes from './routes/grievances.js';
 import privacyRoutes from './routes/privacy.js';
 import consoleRoutes from './routes/console.js';
 import telemetryRoutes from './routes/telemetry.js';
+import appVersionRoutes from './routes/appVersion.js';
 import { timeRequests } from './services/metrics.js';
 import { securityLog, clientIp } from './lib/log.js';
 
@@ -169,6 +170,7 @@ export function createApp() {
   });
   app.use('/console', consoleRoutes); // the team console (admin.qm46.in): its own sign-in
   app.use('/telemetry', telemetryRoutes); // screen times, Report a problem, crashes (from the app)
+  app.use('/app', appVersionRoutes); // Update App: latest / minimum versions and the official store links
   app.use('/auth', authRoutes);
   app.use('/users', userRoutes);
   app.use('/admin', adminRoutes);

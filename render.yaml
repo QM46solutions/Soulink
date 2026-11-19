@@ -100,6 +100,9 @@ services:
         sync: false
       - key: GMAIL_SENDER
         sync: false
+      # Update App: the iPhone app's numeric Apple ID once it's on the App Store (then Update App opens its listing)
+      - key: APP_STORE_ID
+        sync: false
       # No free Premium for public users (Premium features only; login is always free)
       - key: PREMIUM_FREE_TRIAL
         value: "false"

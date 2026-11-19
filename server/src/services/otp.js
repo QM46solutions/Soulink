@@ -57,6 +57,8 @@ export async function issueCode({ target, channel, purpose = 'login', userId = n
         : "We couldn't send the SMS right now. Please try again in a minute.", 'otp_not_sent');
     }
   }
+  // only the newest code works: earlier unused codes for this address are cancelled once the new one is on its way
+  await query(`UPDATE otp_codes SET consumed_at=SYSDATETIMEOFFSET() WHERE target=$1 AND purpose=$2 AND consumed_at IS NULL AND id<>$3`, [target, purpose, row.id]).catch(() => {});
   securityLog('otp_requested', { channel, purpose, ip: clientIp(req) });
   return { expiresIn: config.otp.ttlSeconds, ...(echoAllowed(target) ? { devCode: code } : {}) };
 }

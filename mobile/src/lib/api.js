@@ -114,10 +114,20 @@ let inflight = 0; let netChangedAt = Date.now();
 export const netState = () => ({ inflight, changedAt: netChangedAt });
 const netDone = () => { inflight = Math.max(0, inflight - 1); netChangedAt = Date.now(); };
 
+// lib/telemetry.js listens here to note slow or failed requests (path, method, status, time only: never bodies)
+let requestObserver = null;
+export const setRequestObserver = (fn) => { requestObserver = fn; };
+
 async function apiOnce(path, opts = {}) {
   const counted = !path.startsWith('/telemetry');
   if (counted) { inflight += 1; netChangedAt = Date.now(); }
-  try { return await apiRequest(path, opts); } finally { if (counted) netDone(); }
+  const t0 = Date.now(); let status = 200;
+  try { return await apiRequest(path, opts); } catch (e) { status = e?.status ?? 0; throw e; } finally {
+    if (counted) {
+      netDone();
+      try { requestObserver?.({ path, method: opts.method || 'GET', status, ms: Date.now() - t0 }); } catch { /* never affects the request */ }
+    }
+  }
 }
 
 async function apiRequest(path, { method = 'GET', body, form, timeoutMs = 15000 } = {}) {

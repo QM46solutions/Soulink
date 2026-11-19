@@ -28,6 +28,13 @@
     return data;
   }
 
+  // a private file (e.g. a report's screenshot), fetched with the console sign-in
+  async function apiBlob(path) {
+    const res = await fetch(API + '/console' + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error(`Couldn't load it (${res.status})`);
+    return res.blob();
+  }
+
   // ---------- sign-in / setup / accept invite ----------
   function authCard(inner) { $('#root').innerHTML = `<div class="auth"><div class="card"><div class="brand" style="color:var(--fg);padding:0 0 10px"><img class="logo" src="logo.png" alt="Soulink" width="34" height="34"><div>Soulink<small style="color:var(--dim)">TEAM CONSOLE</small></div></div>${inner}</div></div>`; }
   async function showAuth() {
@@ -180,6 +187,6 @@
   }
   const kpi = (l, v, d = '', cls = 'mu', sp = '') => `<div class="panel kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d ${cls}">${d}</div>${sp}</div>`;
   const VIEWS = {}; const AFTER = {};
-  window.__console = { api, VIEWS, AFTER, st, kpi, rs, N, pct, dt, dtt, ago, todayIST, toast, render, canEdit, me: () => me, $ };
+  window.__console = { api, apiBlob, VIEWS, AFTER, st, kpi, rs, N, pct, dt, dtt, ago, todayIST, toast, render, canEdit, me: () => me, $ };
   document.addEventListener('DOMContentLoaded', boot);
 })();
