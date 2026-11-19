@@ -28,8 +28,6 @@ services:
         value: basic
       - key: SMS_PROVIDER
         value: console
-      - key: OTP_DEV_ECHO
-        value: "true"
       - key: DB_PORT
         value: "1433"
       - key: DB_ENCRYPT
@@ -102,6 +100,9 @@ services:
         sync: false
       - key: GMAIL_SENDER
         sync: false
+      # No free Premium for public users (Premium features only; login is always free)
+      - key: PREMIUM_FREE_TRIAL
+        value: "false"
       # Phone sign-in stays off until MSG91 + DLT are live and tested (then "true")
       - key: PHONE_LOGIN
         value: "false"
