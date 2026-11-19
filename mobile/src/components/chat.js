@@ -558,6 +558,41 @@ function OptionChip({ label, sub, active, onPress, icon, half }) {
   );
 }
 
+/** One field showing the chosen language; tap it to open the full list (scrolls), tap a language to pick it. */
+function LanguageDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const cur = CHAT_LANGS.find((l) => l.key === value) || CHAT_LANGS[0];
+  return (
+    <View style={{ marginBottom: space.md }}>
+      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityLabel={`Send in ${cur.label}. Change language`} accessibilityState={{ expanded: open }}
+        style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', height: 48, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1,
+          borderColor: open || hovered ? colors.aura : colors.border, backgroundColor: 'rgba(26,24,40,0.9)' })}>
+        <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 15 }}>{cur.native}</Text>
+        {cur.native !== cur.label ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginLeft: 8 }}>{cur.label}</Text> : null}
+        <View style={{ flex: 1 }} />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+      </Pressable>
+      {open ? (
+        <ScrollView style={{ maxHeight: 240, marginTop: 6, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: '#1a1828' }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+          {CHAT_LANGS.map((l, i) => {
+            const on = l.key === cur.key;
+            return (
+              <Pressable key={l.key} onPress={() => { onChange(l.key); setOpen(false); }} accessibilityRole="menuitem" accessibilityState={{ selected: on }}
+                style={({ hovered, pressed }) => ({ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 16,
+                  borderTopWidth: i ? 1 : 0, borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: on ? 'rgba(124,92,252,0.22)' : pressed || hovered ? 'rgba(255,255,255,0.05)' : 'transparent' })}>
+                <Text style={{ fontFamily: on ? fonts.semibold : fonts.medium, color: colors.text, fontSize: 15 }}>{l.native}</Text>
+                {l.native !== l.label ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginLeft: 8 }}>{l.label}</Text> : null}
+                <View style={{ flex: 1 }} />
+                {on ? <Ionicons name="checkmark" size={18} color={colors.aura} /> : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
 /** "Translate my message": which language to send in, and as text or as a voice note. */
 // what the translator can do on this server (the online version translates text; voice needs the laptop)
 let trCaps = null;
@@ -581,11 +616,7 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
             Type or speak in your own language. Soulink sends it in the language you pick, and you see it before it goes.
           </Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send in</Text>
-          <ScrollView style={{ maxHeight: 280, marginBottom: space.md }} nestedScrollEnabled>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              {CHAT_LANGS.map((l) => <OptionChip half key={l.key} label={l.native} sub={l.native !== l.label ? l.label : null} active={to === l.key} onPress={() => { setTo(l.key); if (!hasVoice(l.key)) setOutput('text'); }} />)}
-            </View>
-          </ScrollView>
+          <LanguageDropdown value={to} onChange={(k) => { setTo(k); if (!hasVoice(k)) setOutput('text'); }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.muted, marginBottom: 8 }}>Send as</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: space.lg }}>
             <OptionChip icon="text-outline" label="Text" active={output === 'text'} onPress={() => setOutput('text')} />

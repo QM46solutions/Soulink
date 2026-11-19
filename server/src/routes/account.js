@@ -19,8 +19,9 @@ import { disconnectSession } from '../realtime.js';
 import { audit } from '../services/audit.js';
 import { badRequest, notFound, HttpError } from '../lib/errors.js';
 import { tx } from '../db.js';
-import { normalizeEmail } from '../lib/auth.js';
+import { normalizeEmail, normalizePhone } from '../lib/auth.js';
 import { checkCode, issueCode, realDelivery } from '../services/otp.js';
+import { config } from '../config.js';
 import { expireSignup, isRealMember } from '../services/signupCleanup.js';
 
 export const FREE_VIEWERS = 3; // free accounts see this many profile viewers; the rest is Premium
@@ -118,6 +119,48 @@ const emailBody = (b) => {
   if (!e) throw badRequest('Enter a valid email address', 'invalid_email');
   return e;
 };
+// ---- Phone number (Settings › Sign-in & security) ----
+// While SMS codes are off the number is saved as "pending": shown to the person, never used to sign in. Once SMS is live
+// (PHONE_LOGIN=true and a real SMS provider) the same call sends a code, and /phone/verify makes it the sign-in number.
+const phoneCodesLive = () => config.phoneLogin && realDelivery('phone');
+const phoneBody = (b) => normalizePhone(z.string().trim().min(10, 'Enter your 10-digit mobile number').max(20).parse(b?.phone));
+const takenPhone = async (phone, myId) => {
+  const other = await one('SELECT id FROM users WHERE phone=$1 AND id<>$2', [phone, myId]);
+  if (other) throw new HttpError(409, 'Another Soulink account already uses this number.', 'phone_taken');
+};
+r.post('/phone', ah(async (req, res) => {
+  const phone = phoneBody(req.body);
+  if (phone === req.user.phone) throw badRequest('This number is already on your account', 'phone_same');
+  await takenPhone(phone, req.user.id);
+  if (phoneCodesLive()) {
+    const sent = await issueCode({ target: phone, channel: 'phone', purpose: 'add_phone', userId: req.user.id, req });
+    return res.json({ verify: true, phone, ...sent });
+  }
+  const u = await one('UPDATE users SET phone_pending=$2 OUTPUT INSERTED.* WHERE id=$1', [req.user.id, phone]);
+  await audit(req, 'phone_pending_set', { detail: phone.replace(/\d(?=\d{3})/g, '•') });
+  res.json({ verify: false, user: meView(u) });
+}));
+r.post('/phone/verify', ah(async (req, res) => {
+  if (!phoneCodesLive()) throw badRequest("Phone codes aren't available yet. Your number is saved and will be confirmed later.", 'phone_codes_off');
+  const phone = phoneBody(req.body);
+  const code = z.string().regex(/^\d{6}$/, 'Code must be 6 digits').parse(req.body?.code);
+  const out = await tx(async (c) => {
+    const chk = await checkCode(c, { target: phone, code, purpose: 'add_phone', userId: req.user.id });
+    if (chk.error) return chk;
+    const other = (await c.query('SELECT TOP 1 id FROM users WHERE phone=$1 AND id<>$2', [phone, req.user.id])).rows[0];
+    if (other) return { error: new HttpError(409, 'Another Soulink account already uses this number.', 'phone_taken') };
+    const u = (await c.query('UPDATE users SET phone=$2, phone_verified_at=SYSDATETIMEOFFSET(), phone_pending=NULL OUTPUT INSERTED.* WHERE id=$1', [req.user.id, phone])).rows[0];
+    return { user: u };
+  });
+  if (out.error) throw out.error;
+  await audit(req, 'phone_changed', { detail: phone.replace(/\d(?=\d{3})/g, '•') });
+  res.json({ user: meView(out.user) });
+}));
+r.delete('/phone/pending', ah(async (req, res) => {
+  const u = await one('UPDATE users SET phone_pending=NULL OUTPUT INSERTED.* WHERE id=$1', [req.user.id]);
+  res.json({ user: meView(u) });
+}));
+
 r.post('/email/request', ah(async (req, res) => {
   const email = emailBody(req.body);
   if (email === req.user.email && req.user.email_verified_at) throw badRequest('This email is already on your account', 'email_same');
