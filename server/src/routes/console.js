@@ -10,8 +10,11 @@ import { uploadMemory, saveFile } from '../providers/storage.js';
 import { onlineNow } from '../realtime.js';
 import { liveActivity } from '../services/metrics.js';
 import { audit } from '../services/audit.js';
+import { normalizeEmail, normalizePhone } from '../lib/auth.js';
+import { expireSignup, isRealMember } from '../services/signupCleanup.js';
+import { sendEmail } from '../providers/email.js';
 import { banAccount, BAN_DAYS } from '../services/lifecycle.js';
-import { actOnOrder, addOrder, CATEGORIES, grievanceView, legalSummary, ORDER_HOURS, orderView, updateGrievance } from '../services/legal.js';
+import { actOnOrder, addOrder, CATEGORIES, GRIEVANCE_EMAIL, grievanceView, legalSummary, ORDER_HOURS, orderView, updateGrievance } from '../services/legal.js';
 
 const r = Router();
 const OWNER = requireConsole(); // owner-only when no extra roles are given
@@ -324,6 +327,30 @@ r.post('/legal/orders/:id', requireConsole('support'), ah(async (req, res) => {
   const out = await actOnOrder(o, d, req);
   log(req, `Legal order L${o.ref_no}: ${d.action}${out.removed ? ` (${out.removed} removed)` : ''}`);
   res.json({ ok: true, ...out });
+}));
+
+// Support: set the sign-in email of an account that can't sign in (e.g. made with a phone number while SMS codes are
+// off). Owner only, with a written reason; recorded in the audit log and the console log, and the new address gets a
+// notice. The email is NOT marked verified: that happens the first time the person signs in with a code sent to it.
+r.post('/users/set-email', OWNER, ah(async (req, res) => {
+  const d = z.object({ phone: z.string().trim().min(10).max(20), email: z.string().trim().email().max(254), reason: z.string().trim().min(10).max(300), confirm: z.literal(true) }).parse(req.body);
+  const phone = normalizePhone(d.phone); const email = normalizeEmail(d.email);
+  const u = await one('SELECT * FROM users WHERE phone=$1', [phone]);
+  if (!u) throw notFound('No account with that phone number');
+  if (u.email === email) return res.json({ ok: true, unchanged: true, username: u.username });
+  const other = await one('SELECT * FROM users WHERE email=$1 AND id<>$2', [email, u.id]);
+  if (other) {
+    // a half-made sign-up (code checked, profile never finished) doesn't own the address; a real account does
+    if (other.onboarding_done || other.deactivated_at || (await isRealMember(other.id))) throw new HttpError(409, 'Another Soulink account already uses this email.', 'email_taken');
+    await expireSignup(other, 'unfinished_signup_email_claimed');
+  }
+  await query('UPDATE users SET email=$2, email_verified_at=NULL WHERE id=$1', [u.id, email]);
+  await audit(req, 'email_set_by_console', { actorId: null, targetUserId: u.id, detail: `by ${req.cu.name}: ${d.reason}` });
+  log(req, `Set the sign-in email of @${u.username || 'unfinished account'}`);
+  sendEmail({ to: email, subject: 'Your Soulink sign-in email',
+    text: `This email address was added to your Soulink account by our support team, at your request.\n\nTo sign in: open Soulink, choose Email, enter this address and type the 6-digit code we send you.\n\nIf you didn't ask for this, write to ${GRIEVANCE_EMAIL} straight away.\n\nSoulink · QM46 Solutions Private Limited` })
+    .catch(() => {});
+  res.json({ ok: true, username: u.username });
 }));
 
 r.post('/legal/bans', OWNER, ah(async (req, res) => {

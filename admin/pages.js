@@ -73,7 +73,7 @@
  ${sel('fG', 'Gender', [['Men', 'Men'], ['Women', 'Women'], ['Other / not said', 'Other / not said']], st.gender)}
  ${sel('fA', 'Age group', ['18–21', '22–25', '26–30', '31–35', '36+', 'Not said'].map((a) => [a, a]), st.age)}
  ${sel('fP', 'Phone', [['android', 'Android'], ['ios', 'iPhone'], ['web', 'Web / unknown']], st.platform)}
- <button class="btn" id="csv">Download counts (CSV)</button></div>
+ <button class="btn" id="csv">Download counts (CSV)</button>${canEdit() ? ' <button class="btn" id="setEmail">Set sign-in email</button>' : ''}</div>
 <div class="grid k4">${kpi('Users matching', fmt(d.total), 'accounts that finished sign-up')}${kpi('Android', fmt(and), pct(and, d.total) + '%')}${kpi('iPhone', fmt(ios), pct(ios, d.total) + '%')}${kpi('Active in last 7 days', fmt(d.active7), pct(d.active7, d.total) + '% of these users', 'up')}</div>
 <div class="grid k3 mt">
  <div class="panel"><h3>Gender</h3><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">${donut(d.gender.map((x, i) => [x.key, x.n, GC[i % 4]]))}<div class="legend" style="flex-direction:column;gap:6px">${d.gender.map((x, i) => `<span><i style="background:${GC[i % 4]}"></i>${esc(x.key)} ${pct(x.n, d.total)}%</span>`).join('')}</div></div></div>
@@ -86,6 +86,11 @@
   };
   AFTER.users = () => {
     [['fCity', 'city'], ['fG', 'gender'], ['fA', 'age'], ['fP', 'platform']].forEach(([id, k]) => { $('#' + id).onchange = (e) => { st[k] = e.target.value || null; render(); }; });
+    const se = $('#setEmail'); if (se) se.onclick = () => modal('Set a sign-in email', `<p class="small">For someone who can't sign in, e.g. an account made with a phone number while text-message codes are off. Only do this when the person asked you directly. The address gets a notice, and it counts as verified only after they sign in with a code sent to it.</p><div class="form">
+<label>Their phone number<input id="se1" required maxlength="20" placeholder="98xxxxxxxx"></label><label>Email to sign in with<input id="se2" type="email" required maxlength="254"></label>
+<label class="full">Why (kept in the audit log)<textarea id="se3" rows="2" required minlength="10" maxlength="300" placeholder="e.g. Asked on WhatsApp on 19 Nov; phone-only account, can't sign in while SMS is off."></textarea></label>
+<label class="full"><span><input type="checkbox" id="se4" required> The person asked for this and the email is theirs</span></label></div>`,
+      async () => { const r = await api('/users/set-email', { method: 'POST', body: { phone: $('#se1').value.trim(), email: $('#se2').value.trim(), reason: $('#se3').value.trim(), confirm: $('#se4').checked } }); toast(r.unchanged ? 'That email was already set' : `Sign-in email set${r.username ? ' for @' + r.username : ''}`); }, 'Set email');
     $('#csv').onclick = () => {
       const rows = [['Group', 'Value', 'Users']];
       document.querySelectorAll('#view .panel').forEach((p) => { const h = p.querySelector('h3')?.textContent; p.querySelectorAll('.bars .row').forEach((r) => rows.push([h, r.children[0].textContent, r.children[2].textContent.replace(/,/g, '')])); });
