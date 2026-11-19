@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { mediaUrl } from '../lib/api';
 import { fadeAt, videoCss, zoomCss } from '../lib/sparkEdit';
 import SparkOverlays from './SparkOverlays';
+import SparkControls from './SparkControls';
 
 let current = null; // { owner, pause } of the Spark playing now: one Spark plays at a time
 
@@ -16,13 +17,18 @@ let current = null; // { owner, pause } of the Spark playing now: one Spark play
 // if the browser won't play sound without a tap first, it plays muted with a "Tap for sound" button (like Instagram).
 // muted: no sound (the Sparks speaker button). onAutoMuted: the browser made autoplay start without sound.
 // onDoubleTap: a quick second tap (like ❤️ on Reels); a single tap still pauses / plays after a short wait.
-export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onAutoMuted, onDoubleTap }) {
+// controls: YouTube-style controls (a tap shows them: play / pause, 10 s back / forward, progress bar, time, sound,
+// full screen); onControls(shown) tells the parent so it can step its own overlays aside.
+export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onAutoMuted, onDoubleTap,
+  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls }) {
   const video = useRef(null); const audio = useRef(null); const voice = useRef(null); const shade = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [soundOff, setSoundOff] = useState(false); // autoplay had to start muted
   const [time, setTime] = useState(null);
   const started = useRef(false);
   const tapAt = useRef(0); const tapTimer = useRef(null);
+  const [cur, setCur] = useState(0); const [dur, setDur] = useState(0);
+  const [shown, setShown] = useState(false); const hideTimer = useRef(null); const scrubbing = useRef(false);
   const self = useRef({}); // identifies this player (pause() is a new function every render)
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -97,9 +103,13 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [playing, fading, timedText]); // eslint-disable-line react-hooks/exhaustive-deps
-  const onMeta = () => { const v = video.current; if (v && !playing) { v.currentTime = e.cover ?? t0; if (timedText) setTime(v.currentTime); } };
+  const onMeta = () => { const v = video.current; if (v && v.duration && isFinite(v.duration)) setDur(Math.max(0, (t1 || v.duration) - t0)); if (v && !playing) { v.currentTime = e.cover ?? t0; if (timedText) setTime(v.currentTime); } };
   // stay inside the trim: loop back to the start (and the music / voice with it)
-  const onTime = () => { const v = video.current; if (v && t1 && v.currentTime >= t1) { v.currentTime = t0; syncAudio(); } };
+  const onTime = () => {
+    const v = video.current; if (!v) return;
+    if (t1 && v.currentTime >= t1) { v.currentTime = t0; syncAudio(); }
+    if (controls && !scrubbing.current) setCur(Math.max(0, v.currentTime - t0));
+  };
   // the end: loop back to the start (it's still playing, so the play button stays hidden)
   const onEnded = () => { const v = video.current; if (v) { v.currentTime = t0; v.play().then(() => setPlaying(true)).catch(() => setPlaying(false)); syncAudio(); voice.current?.play().catch(() => {}); } };
   useEffect(() => () => { if (current?.owner === self.current) current = null; video.current?.pause(); audio.current?.pause(); voice.current?.pause(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -131,12 +141,30 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     if (soundOff) { if (playing) soundOn(); } else v.muted = base.current.video === 0;
   }, [muted]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = () => (soundOff && playing && !onAutoMuted ? soundOn() : playing ? pause() : play());
+  // controls: show for 3 s after a tap (they stay while paused)
+  const flash = (keep) => {
+    clearTimeout(hideTimer.current); setShown(true);
+    if (!keep) hideTimer.current = setTimeout(() => { if (!scrubbing.current) setShown(false); }, 3000);
+  };
+  const ctlVisible = controls && (shown || !playing);
+  useEffect(() => { onControls?.(ctlVisible); }, [ctlVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearTimeout(hideTimer.current), []);
+  const seekTo = (t) => {
+    const v = video.current; if (!v) return;
+    const d = dur || Math.max(0, (t1 || v.duration || 0) - t0);
+    const x = Math.max(0, isFinite(d) && d > 0 ? Math.min(d - 0.1, t) : t);
+    v.currentTime = t0 + x; setCur(x); syncAudio(); flash();
+  };
+  const single = () => {
+    if (!controls) { toggle(); return; }
+    if (ctlVisible && playing) { clearTimeout(hideTimer.current); setShown(false); } else flash();
+  };
   const onTap = () => {
-    if (!onDoubleTap) { toggle(); return; }
+    if (!onDoubleTap) { single(); return; }
     const now = Date.now();
     if (now - tapAt.current < 280) { clearTimeout(tapTimer.current); tapAt.current = 0; onDoubleTap(); return; }
     tapAt.current = now;
-    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(toggle, 280);
+    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(single, 280);
   };
   useEffect(() => () => clearTimeout(tapTimer.current), []);
   return (
@@ -148,13 +176,19 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
       {vo ? <audio ref={voice} src={vo} preload="auto" /> : null}
       {fading ? <div ref={shade} style={{ position: 'absolute', inset: 0, background: '#000', opacity: playing ? 0 : 0, pointerEvents: 'none' }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />
+      {controls ? (
+        <SparkControls visible={ctlVisible} playing={playing} cur={cur} dur={dur} muted={muted || (soundOff && !onAutoMuted)} fullscreen={fullscreen}
+          onPlayPause={() => { if (playing) { pause(); flash(true); } else { play(); flash(); } }}
+          onSkip={(d) => seekTo(cur + d)} onSeek={seekTo} onScrub={(on) => { scrubbing.current = on; if (on) clearTimeout(hideTimer.current); }}
+          onMute={onToggleMute || (soundOff ? soundOn : null)} onFullscreen={onFullscreen} />
+      ) : null}
       {soundOff && playing && !onAutoMuted ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: fill ? 58 : 12, right: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.55)' }}>
           <Ionicons name="volume-mute" size={15} color="#fff" />
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>Tap for sound</Text>
         </View>
       ) : null}
-      {!playing ? (
+      {!playing && !controls ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="play" size={34} color="#fff" style={{ marginLeft: 4 }} />

@@ -1,7 +1,9 @@
 // Sparks 🎬 tab: everyone's short videos, newest first, full screen like Reels.
 // Swipe up / down for the next Spark; the one on screen plays by itself. Category chips float at the top,
 // Casting Board and Open Mic are in the header, and the + posts your own Spark (it then shows first).
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+// The header switch flips to a List view (YouTube style: scroll freely, each video with its own controls).
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,11 +31,14 @@ export default function Sparks() {
   const [pageH, setPageH] = useState(0);
   const [page, setPage] = useState(0); // which full-screen page is showing: that Spark plays
   const listRef = useRef(null);
+  const [mode, setMode] = useState('reels'); // 'reels' | 'list' (remembered on this phone)
+  useEffect(() => { AsyncStorage.getItem('soulink.sparksView').then((v) => { if (v === 'list' || v === 'reels') setMode(v); }).catch(() => {}); }, []);
+  const switchMode = useCallback(() => setMode((m) => { const n = m === 'reels' ? 'list' : 'reels'; AsyncStorage.setItem('soulink.sparksView', n).catch(() => {}); return n; }), []);
   const firstId = useRef(null);
 
   useLayoutEffect(() => {
-    const HeadBtn = ({ icon, label, to }) => (
-      <Pressable onPress={() => router.push(to)} hitSlop={8} accessibilityLabel={label} style={({ hovered }) => ({ marginLeft: 6, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(124,92,252,0.18)' : 'transparent' })}>
+    const HeadBtn = ({ icon, label, to, onPress }) => (
+      <Pressable onPress={onPress || (() => router.push(to))} hitSlop={8} accessibilityLabel={label} style={({ hovered }) => ({ marginLeft: 6, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(124,92,252,0.18)' : 'transparent' })}>
         <MaterialCommunityIcons name={icon} size={21} color={colors.text} />
       </Pressable>
     );
@@ -41,6 +46,7 @@ export default function Sparks() {
       headerTitle: () => <GradientText style={{ fontFamily: fonts.display, fontSize: 22, letterSpacing: -0.5 }}>Sparks</GradientText>,
       headerRight: () => (
         <View style={{ flexDirection: 'row', marginRight: 10 }}>
+          <HeadBtn icon={mode === 'reels' ? 'view-agenda-outline' : 'cellphone-play'} label={mode === 'reels' ? 'Switch to list view' : 'Switch to full-screen view'} onPress={switchMode} />
           <HeadBtn icon="drama-masks" label="Casting Board: audition for roles" to="/spark/casting" />
           <HeadBtn icon="microphone-variant" label="Open Mic: speak your mind" to="/spark/stage" />
         </View>
@@ -54,7 +60,7 @@ export default function Sparks() {
         </Pressable>
       ),
     });
-  }, [navigation]);
+  }, [navigation, mode, switchMode]);
 
   // Casting Call (auditions) and Open Mic have their own chips, after the categories
   const query = (k) => (k === 'casting' ? 'section=casting&' : k ? `category=${k}&` : '');
@@ -94,6 +100,31 @@ export default function Sparks() {
   // the page the feed has settled on (worked out from the scroll position) is the Spark that plays
   const onScroll = (e) => { if (!pageH) return; const p = Math.round(e.nativeEvent.contentOffset.y / pageH); setPage((old) => (old === p ? old : p)); };
   const data = list?.length ? withAds(list, ads, 5, 3) : list && ads[0] ? [{ __ad: ads[0], key: 'ad-0' }] : [];
+
+  // List view (YouTube style): scroll freely; the Spark at least half on screen may play, each has its own controls
+  const [listOn, setListOn] = useState(null);
+  const listViewable = useRef(({ viewableItems }) => setListOn(viewableItems[0]?.key || null)).current;
+  const listViewConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+  if (mode === 'list') {
+    return (
+      <View style={{ flex: 1, width: '100%', maxWidth: web ? 640 : undefined, alignSelf: 'center' }}>
+        <FlatList
+          data={data}
+          keyExtractor={(s) => s.key || s.id}
+          ListHeaderComponent={chips}
+          renderItem={({ item }) => (item.__ad ? <SparkAd ad={item.__ad} />
+            : <SparkCard spark={item} active={listOn === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+          onViewableItemsChanged={listViewable}
+          viewabilityConfig={listViewConfig}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.6}
+          contentContainerStyle={{ paddingBottom: space.xxl, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+          ListEmptyComponent={list ? <Empty icon="film-outline" title={cat ? 'No Sparks here yet' : 'No Sparks yet'} text="Travel, cooking, acting, fitness and news: short videos from the people around you." /> : <Loading />}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>

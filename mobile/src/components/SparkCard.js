@@ -22,6 +22,7 @@ import { colors, fonts, space } from '../lib/theme';
 import { feedback } from '../lib/feedback';
 import { setSparksMuted, toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 import ReportModal from './ReportModal';
+import SparkFullscreen from './SparkFullscreen';
 
 const ago = (iso) => { const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (m < 60) return `${m}m`; const h = Math.round(m / 60); return h < 24 ? `${h}h` : `${Math.round(h / 24)}d`; };
 const Chip = ({ icon, text, color = colors.text, onPress }) => (
@@ -62,6 +63,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   const [teamReport, setTeamReport] = useState(false);
   const [follow, setFollow] = useState(spark.followState || 'none');
   const muted = useSparksMuted();
+  const [full, setFull] = useState(false); // YouTube-style full screen
+  const [ctl, setCtl] = useState(false);   // the video's controls are showing: step the overlays aside
   const burst = useRef(new Animated.Value(0)).current;
   const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
   const toggleOffense = async (reason) => {
@@ -190,8 +193,9 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View style={{ height, backgroundColor: '#000', overflow: 'hidden' }}>
         {spark.voice
           ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} fill autoPlay height={height} onFirstPlay={onFirstPlay}
-              muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike} />}
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} fill autoPlay height={height} onFirstPlay={onFirstPlay}
+              muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike}
+              controls onToggleMute={toggleSparksMuted} onFullscreen={() => setFull(true)} onControls={setCtl} />}
 
         {/* double-tap pop */}
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
@@ -201,7 +205,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
         </Animated.View>
 
         {/* sound on / off for every Spark */}
-        {!spark.voice ? (
+        {!spark.voice && !ctl ? (
           <Pressable onPress={toggleSparksMuted} hitSlop={8} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
             style={{ position: 'absolute', top: 56, right: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
             <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
@@ -210,7 +214,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
 
         <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%' }} />
 
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 60, top: 58, flexDirection: 'row', flexWrap: 'wrap' }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 60, top: 58, flexDirection: 'row', flexWrap: 'wrap', ...(ctl ? { display: 'none' } : null) }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
           {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
@@ -218,8 +222,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           {spark.micTopic && !spark.voice ? <Chip icon="mic" text={`${micTopicOf(spark.micTopic).emoji} ${micTopicOf(spark.micTopic).label}`} color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
         </View>
 
-        {/* actions down the right, like Reels */}
-        <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 20, alignItems: 'center' }}>
+        {/* actions down the right, like Reels (they step aside while the video's controls show) */}
+        <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 20, alignItems: 'center', ...(ctl ? { opacity: 0, display: 'none' } : null) }}>
           <Action style={rail} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : '#fff'}>
             <Text style={{ fontSize: 26, opacity: reacted ? 1 : 0.9, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Text>
           </Action>
@@ -244,7 +248,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
         </View>
 
         {/* who, what, caption and the category's extras at the bottom */}
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 72, bottom: 18 }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 72, bottom: 18, ...(ctl ? { display: 'none' } : null) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => router.push(`/user/${spark.author.username}`)} style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
               <Avatar uri={spark.author.avatarUrl} name={spark.author.username} size={34} />
@@ -283,6 +287,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           </View>
         </View>
         {sheets}
+        <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} />
         <ActionSheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={spark.mine ? 'Your Spark' : spark.author.username} options={menu} />
         <ReportModal visible={teamReport} onClose={() => setTeamReport(false)} targetType="spark" targetId={spark.id} />
         <BottomSheet visible={editOpen} onClose={() => setEditOpen(false)} title="Edit caption">
@@ -323,7 +328,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View>
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />}
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} onFirstPlay={onFirstPlay}
+              controls muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={() => setFull(true)} />}
         <View pointerEvents="box-none" style={{ position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
@@ -397,6 +403,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       ) : null}
 
       {sheets}
+      <SparkFullscreen visible={full} onClose={() => setFull(false)} spark={{ ...spark, details: d }} onFirstPlay={onFirstPlay} />
     </View>
   );
 }
