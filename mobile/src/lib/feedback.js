@@ -58,6 +58,11 @@ function buzz(kind) {
   } catch { /* no vibration motor, or no module in this install */ }
 }
 
+/** A light buzz only (no sound), e.g. when a swipe reaches the point where letting go does something. */
+export function tick() {
+  if (prefs.vibrate) buzz('light');
+}
+
 /** feedback('like' | 'unlike' | 'comment' | 'share' | 'connect') */
 export function feedback(action) {
   const [sound, vib] = KIND[action] || [];

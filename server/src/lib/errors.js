@@ -36,6 +36,9 @@ export function errorHandler(err, req, res, next) {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: { code: 'bad_json', message: 'Invalid JSON body' } });
   }
+  if (err?.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: { code: 'too_big', message: 'That file is too big. Trim it a little and try again.' } });
+  }
   if (err?.name === 'MulterError') {
     return res.status(400).json({ error: { code: 'upload', message: err.message } });
   }

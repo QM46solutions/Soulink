@@ -99,8 +99,9 @@ const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
 const diskOf = (url) => path.join(config.uploadDir, String(url).replace(/^\/uploads\//, ''));
 
 async function storeInDb(url, buffer, mimetype) {
-  const { query } = await import('../db.js');
-  await query(
+  const { query, queryLong } = await import('../db.js');
+  // big files (Spark videos) get the long-timeout connection
+  await (buffer && buffer.length > 8 * 1024 * 1024 ? queryLong : query)(
     `IF NOT EXISTS (SELECT 1 FROM stored_files WHERE path=$1) INSERT INTO stored_files (path, mime, data) VALUES ($1, $2, $3)`,
     [url, mimetype || MIME[path.extname(url).toLowerCase()] || 'application/octet-stream', buffer],
   );

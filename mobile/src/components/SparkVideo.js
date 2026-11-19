@@ -16,7 +16,8 @@ import SparkOverlays from './SparkOverlays';
 
 let current = null; // the pause() of the Spark that is playing now
 
-export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true }) {
+// fill: covers the whole area edge to edge (the full-screen Sparks feed). autoPlay: plays by itself while `active`.
+export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false }) {
   const e = edit || {};
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -90,8 +91,8 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   }, [player, t0, t1, fading, timedText, playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // stop when scrolled away, when another screen opens, or when the app goes to the background
-  useEffect(() => { if (!active) pause(); }, [active, pause]);
-  useFocusEffect(useCallback(() => () => pause(), [pause]));
+  useEffect(() => { if (!active) pause(); else if (autoPlay) play(); }, [active, autoPlay, pause]); // eslint-disable-line react-hooks/exhaustive-deps
+  useFocusEffect(useCallback(() => { if (autoPlay && active) play(); return () => pause(); }, [pause, autoPlay, active])); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const s = AppState.addEventListener('change', (st) => { if (st !== 'active') pause(); });
     return () => { s.remove(); if (current === pause) current = null; };
@@ -99,9 +100,9 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
 
   const z = e.zoom && e.zoom.s > 1.001 ? e.zoom : null;
   return (
-    <Pressable onPress={() => (playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
+    <Pressable onPress={() => (playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
       <View style={{ flex: 1, ...(z ? { transform: [{ translateX: (0.5 - z.x) * (z.s - 1) * 100 }, { translateY: (0.5 - z.y) * (z.s - 1) * 100 }, { scale: z.s }] } : {}) }}>
-        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
+        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit={fill ? 'cover' : 'contain'} nativeControls={false} allowsPictureInPicture={false} />
       </View>
       {fading ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />

@@ -29,7 +29,8 @@ const Chip = ({ icon, text, color = colors.text, onPress }) => (
   </Pressable>
 );
 
-export default function SparkCard({ spark, onDeleted, active = true }) {
+// variant 'reel': full screen (the Sparks feed), video edge to edge, actions down the right, who / caption at the bottom.
+export default function SparkCard({ spark, onDeleted, active = true, variant = 'card', height = 640 }) {
   const cat = catOf(spark.category);
   const d = spark.details || {};
   const [reacted, setReacted] = useState(spark.reacted);
@@ -49,6 +50,7 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
   const [shared, setShared] = useState(!!spark.shared);
   const [shareMenu, setShareMenu] = useState(false);
   const [ticks, setTicks] = useState({ comment: 0, share: 0, offense: 0 });
+  const [capOpen, setCapOpen] = useState(false);
   const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
   const toggleOffense = async (reason) => {
     try {
@@ -90,6 +92,123 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
   const hasSheet = spark.category === 'cooking' || (spark.category === 'fitness' && d.moves?.length);
   const actingLine = d.mode === 'dice' && d.prompt ? `🎲 Improv Dice: ${d.prompt.emotion} · ${d.prompt.situation} · ${d.prompt.character}`
     : d.mode === 'script' && d.scriptTitle ? `📜 Script: ${d.scriptTitle}` : d.scene ? `🎬 Recreating: ${d.scene}` : d.mode === 'dub' ? '🎙️ Dub' : null;
+
+  const sheets = (
+    <>
+      <CommentsSheet visible={commentsOpen} postId={spark.id} base={`/sparks/${spark.id}`} onClose={() => setCommentsOpen(false)} mine={spark.mine}
+        onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />
+      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={spark.mine} postId={spark.id} base={`/sparks/${spark.id}`} what="Spark"
+        onClose={() => setReportOpen(false)} onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
+      <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title={spark.mine ? 'Share this Spark' : 'Spread this Spark around'}
+        options={[
+          { label: 'Send in a chat', onPress: () => { feedback('share'); bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
+          { label: 'Share outside Soulink', onPress: shareOutside },
+        ]} />
+      {spark.mine ? <SpreadSheet visible={spreadOpen} onClose={() => setSpreadOpen(false)} spark={spark} /> : null}
+      {spark.category === 'cooking' ? (
+        <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title={d.dish ? `🍳 ${d.dish}` : '🍳 Recipe'}>
+          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: space.lg }}>
+            <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 13 }}>
+              {[d.minutes ? `⏱ ${d.minutes} min` : null, d.diet ? DIETS.find(([k]) => k === d.diet)?.[1] : null].filter(Boolean).join('   ')}
+            </Text>
+            {d.ingredients?.length ? <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 15, marginTop: space.md }}>Ingredients</Text> : null}
+            {(d.ingredients || []).map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, marginTop: 4 }}>•  {x}</Text>)}
+            {d.steps?.length ? <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 15, marginTop: space.md }}>Steps</Text> : null}
+            {(d.steps || []).map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, marginTop: 6, lineHeight: 20 }}>{k + 1}.  {x}</Text>)}
+            {!d.ingredients?.length && !d.steps?.length ? <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: space.md }}>No recipe card on this one.</Text> : null}
+          </ScrollView>
+        </BottomSheet>
+      ) : null}
+      {spark.category === 'fitness' && d.moves?.length ? (
+        <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title="💪 Workout">
+          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: space.lg }}>
+            {fitLine ? <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 13 }}>{fitLine}</Text> : null}
+            {d.moves.map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 15, marginTop: 8 }}>{k + 1}.  {x}</Text>)}
+          </ScrollView>
+        </BottomSheet>
+      ) : null}
+    </>
+  );
+  const onFirstPlay = () => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {});
+
+  if (variant === 'reel') {
+    const rail = { marginRight: 0, marginBottom: 18 };
+    const shadow = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 };
+    return (
+      <View style={{ height, backgroundColor: '#000', overflow: 'hidden' }}>
+        {spark.voice
+          ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} fill autoPlay height={height} onFirstPlay={onFirstPlay} />}
+
+        <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%' }} />
+
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 70, top: 58, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
+          {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
+          {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
+          {spark.stageWeek ? <Chip icon="mic" text="Open Mic" color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
+          {spark.micTopic && !spark.voice ? <Chip icon="mic" text={`${micTopicOf(spark.micTopic).emoji} ${micTopicOf(spark.micTopic).label}`} color={colors.gold} onPress={() => router.push('/spark/stage')} /> : null}
+        </View>
+
+        {/* actions down the right, like Reels */}
+        <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 20, alignItems: 'center' }}>
+          <Action style={rail} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : '#fff'}>
+            <Text style={{ fontSize: 26, opacity: reacted ? 1 : 0.9, ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Text>
+          </Action>
+          <Action style={rail} onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color="#fff">
+            <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} size={26} />
+          </Action>
+          <Action style={rail} onPress={() => setShareMenu(true)} label="Share" count={shares} color={shared ? ACTIVE.share : '#fff'}>
+            <StateIcon name="paper-plane" on={shared} color={ACTIVE.share} effect="fly" tick={ticks.share} size={26} />
+          </Action>
+          <Action style={rail} onPress={() => setReportOpen(true)} count={offenses} color={offended ? ACTIVE.offense : '#fff'}
+            label={spark.mine ? `${offenses} offense marks on your Spark` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
+            <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={26} effect="stamp" tick={ticks.offense} />
+          </Action>
+          <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'} hitSlop={6}
+            style={{ width: 42, height: 42, borderRadius: 21, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: spark.mine ? 16 : 0 }}>
+            <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <MaterialCommunityIcons name="bullhorn-variant" size={20} color="#14121f" />
+          </Pressable>
+          {spark.mine ? <Pressable onPress={del} hitSlop={10} accessibilityLabel="Delete Spark"><Ionicons name="trash-outline" size={22} color="#fff" /></Pressable> : null}
+        </View>
+
+        {/* who, what, caption and the category's extras at the bottom */}
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 72, bottom: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => router.push(`/user/${spark.author.username}`)} style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+              <Avatar uri={spark.author.avatarUrl} name={spark.author.username} size={34} />
+              <Text numberOfLines={1} style={[{ marginLeft: 8, fontFamily: fonts.bold, color: '#fff', fontSize: 14.5, flexShrink: 1 }, shadow]}>{spark.author.displayName || spark.author.username}</Text>
+              {spark.author.verified ? <VerifiedBadge /> : null}
+            </Pressable>
+            <Text style={[{ fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.75)', marginLeft: 6 }, shadow]}>· {spark.spread ? 'Promoted' : ago(spark.createdAt)}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 3, paddingRight: 10, height: 26, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: `${cat.colors[0]}aa`, marginRight: 6, marginBottom: 6 }}>
+              <SparkCatBadge cat={cat} size={20} glow={false} />
+              <Text style={{ marginLeft: 5, fontFamily: fonts.semibold, fontSize: 12, color: '#fff' }}>{cat.label}</Text>
+            </View>
+            <Text style={[{ fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.75)', marginBottom: 6 }, shadow]}>{spark.views} {spark.views === 1 ? 'view' : 'views'}</Text>
+          </View>
+          {actingLine ? <Text style={[{ fontFamily: fonts.semibold, color: '#fff', fontSize: 13 }, shadow]}>{actingLine}</Text> : null}
+          {fitLine ? <Text style={[{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13 }, shadow]}>{fitLine}</Text> : null}
+          {spark.category === 'fitness' && d.challenge ? <Text style={[{ fontFamily: fonts.semibold, color: colors.gold, fontSize: 13, marginTop: 2 }, shadow]}>🏆 Challenge: {d.challenge}</Text> : null}
+          {spark.category === 'news' && d.headline ? <Text numberOfLines={2} style={[{ fontFamily: fonts.displayBold, color: '#fff', fontSize: 16, lineHeight: 21, marginTop: 2 }, shadow]}>{d.headline}</Text> : null}
+          {spark.caption ? (
+            <Text onPress={() => setCapOpen((v) => !v)} numberOfLines={capOpen ? 8 : 2} style={[{ fontFamily: fonts.body, color: '#fff', fontSize: 14, lineHeight: 19, marginTop: 4 }, shadow]}>{spark.caption}</Text>
+          ) : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+            {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
+            {spark.music ? <Chip icon="musical-notes" text={spark.music.title} /> : null}
+            {hasSheet ? <Chip icon={spark.category === 'cooking' ? 'reader' : 'list'} text={spark.category === 'cooking' ? 'Recipe' : 'Moves'} color={colors.gold} onPress={() => setRecipe(true)} /> : null}
+            {tryable ? <Chip text={`${spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · ${tried}`} color={iTried ? colors.mint : '#fff'} onPress={tryIt} /> : null}
+            {spark.category === 'news' && d.source ? <Chip icon="open-outline" text="Source" color={colors.aura} onPress={() => openUrl(d.source)} /> : null}
+          </View>
+        </View>
+        {sheets}
+      </View>
+    );
+  }
 
   return (
     <View style={{ marginBottom: space.xl, paddingHorizontal: space.md }}>
@@ -187,38 +306,7 @@ export default function SparkCard({ spark, onDeleted, active = true }) {
         </Text>
       ) : null}
 
-      <CommentsSheet visible={commentsOpen} postId={spark.id} base={`/sparks/${spark.id}`} onClose={() => setCommentsOpen(false)} mine={spark.mine}
-        onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />
-      <OffenseSheet visible={reportOpen} offended={offended} reason={myReason} owner={spark.mine} postId={spark.id} base={`/sparks/${spark.id}`} what="Spark"
-        onClose={() => setReportOpen(false)} onMark={(reason) => toggleOffense(reason)} onUnmark={() => toggleOffense(null)} />
-      <ActionSheet visible={shareMenu} onClose={() => setShareMenu(false)} title={spark.mine ? 'Share this Spark' : 'Spread this Spark around'}
-        options={[
-          { label: 'Send in a chat', onPress: () => { feedback('share'); bump('share'); router.push({ pathname: '/share-post', params: { id: spark.id, kind: 'spark' } }); } },
-          { label: 'Share outside Soulink', onPress: shareOutside },
-        ]} />
-      {spark.mine ? <SpreadSheet visible={spreadOpen} onClose={() => setSpreadOpen(false)} spark={spark} /> : null}
-      {spark.category === 'cooking' ? (
-        <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title={d.dish ? `🍳 ${d.dish}` : '🍳 Recipe'}>
-          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: space.lg }}>
-            <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 13 }}>
-              {[d.minutes ? `⏱ ${d.minutes} min` : null, d.diet ? DIETS.find(([k]) => k === d.diet)?.[1] : null].filter(Boolean).join('   ')}
-            </Text>
-            {d.ingredients?.length ? <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 15, marginTop: space.md }}>Ingredients</Text> : null}
-            {(d.ingredients || []).map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, marginTop: 4 }}>•  {x}</Text>)}
-            {d.steps?.length ? <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 15, marginTop: space.md }}>Steps</Text> : null}
-            {(d.steps || []).map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, marginTop: 6, lineHeight: 20 }}>{k + 1}.  {x}</Text>)}
-            {!d.ingredients?.length && !d.steps?.length ? <Text style={{ fontFamily: fonts.body, color: colors.muted, marginTop: space.md }}>No recipe card on this one.</Text> : null}
-          </ScrollView>
-        </BottomSheet>
-      ) : null}
-      {spark.category === 'fitness' && d.moves?.length ? (
-        <BottomSheet visible={recipe} onClose={() => setRecipe(false)} title="💪 Workout">
-          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: space.lg }}>
-            {fitLine ? <Text style={{ fontFamily: fonts.semibold, color: colors.muted, fontSize: 13 }}>{fitLine}</Text> : null}
-            {d.moves.map((x, k) => <Text key={k} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 15, marginTop: 8 }}>{k + 1}.  {x}</Text>)}
-          </ScrollView>
-        </BottomSheet>
-      ) : null}
+      {sheets}
     </View>
   );
 }

@@ -24,7 +24,7 @@ import MusicPicker from '../../components/MusicPicker';
 import CityField from '../../components/CityField';
 import { colors, fonts, gradients, space } from '../../lib/theme';
 
-const MAX_MB = 40;
+const MAX_MB = 100; // the server takes a Spark video up to 100 MB (about 30-60 s from a phone camera)
 const DRAFT_KEY = 'soulink.sparkDraft';
 // a picked video's length in seconds: the phone picker gives milliseconds, the web picker gives seconds
 // (dividing the web value by 1000 made an 8 s video 0.008 s long, so it never played in the editor)

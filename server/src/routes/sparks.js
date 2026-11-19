@@ -202,13 +202,29 @@ r.get('/spread/plans', ah(async (req, res) => {
   res.json({ plans: SPREAD_PLANS, available: mode !== 'off', test: mode === 'test', myCity: req.user.city || null });
 }));
 
+// A Spark video can be up to 100 MB (about 30-60 s from a phone). The free server has 512 MB of memory and holds an
+// upload in memory while saving it, so only one big upload (over 30 MB) is taken at a time; a second one at the same
+// moment is asked to try again in a minute instead of risking the server running out of memory.
+const SPARK_MAX_MB = 100;
+let bigUploads = 0;
+export function oneBigUpload(req, res, next) {
+  const size = Number(req.headers['content-length'] || 0);
+  if (size > (SPARK_MAX_MB + 5) * 1024 * 1024) return next(new HttpError(413, `A Spark video can be up to ${SPARK_MAX_MB} MB. Trim it a little and try again.`, 'too_big'));
+  if (size <= 30 * 1024 * 1024) return next();
+  if (bigUploads >= 1) return next(new HttpError(503, 'Someone else is uploading a big video right now. Please try again in a minute.', 'busy'));
+  bigUploads += 1;
+  let done = false; const release = () => { if (!done) { done = true; bigUploads -= 1; } };
+  res.on('finish', release); res.on('close', release);
+  return next();
+}
+
 r.get('/user/:userId', ah(async (req, res) => {
   const id = uuid.parse(req.params.userId);
   const rows = await many(`${SELECT} WHERE ${VISIBLE} AND s.author_id = $2 ORDER BY s.created_at DESC`, [req.user.id, id]);
   res.json({ sparks: rows.map((x) => view(x, req.user.id)) });
 }));
 
-r.post('/', requireSoul, uploadMemory('spark', 40, 2).fields([{ name: 'video', maxCount: 1 }, { name: 'music', maxCount: 1 }, { name: 'voice', maxCount: 1 }]), ah(async (req, res) => {
+r.post('/', requireSoul, oneBigUpload, uploadMemory('spark', SPARK_MAX_MB, 2).fields([{ name: 'video', maxCount: 1 }, { name: 'music', maxCount: 1 }, { name: 'voice', maxCount: 1 }]), ah(async (req, res) => {
   const video = req.files?.video?.[0]; const music = req.files?.music?.[0]; const voice = req.files?.voice?.[0];
   // Open Mic can be just your voice (an audio recording); everything else needs a video
   const voiceOnly = req.body?.category === 'openmic' && video && video.mimetype.startsWith('audio/');

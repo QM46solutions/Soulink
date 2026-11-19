@@ -1,7 +1,7 @@
 // Chat building blocks: group avatar, inbox row, message bubbles (text, photo, voice, system),
 // typing dots and the composer (text, photo, voice note).
-import { memo, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ import { CHAT_LANGS, hasVoice, langName } from '../lib/languages';
 import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
 import { confirm, notice } from '../lib/confirm';
+import { tick } from '../lib/feedback';
 import { AttachSheet, ContactContent, ContactPicker, DocumentContent, GameContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
 
 // ---------- avatars ----------
@@ -100,11 +101,37 @@ export const REACTIONS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 /** The quoted message shown above a reply (Instagram style). */
 function ReplyQuote({ replyTo, mine, senderName }) {
   return (
-    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '100%', marginBottom: -6, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, borderRadius: 16, backgroundColor: 'rgba(42,39,64,0.7)', borderLeftWidth: 3, borderLeftColor: colors.aura }}>
-      <Text style={{ color: colors.muted, fontFamily: fonts.semibold, fontSize: 11 }}>{senderName ? `Replying to ${senderName}` : 'Reply'}</Text>
+    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '100%', marginBottom: 6, paddingHorizontal: 12, paddingTop: 7, paddingBottom: 8, borderRadius: 16, backgroundColor: 'rgba(42,39,64,0.7)', borderLeftWidth: 3, borderLeftColor: colors.aura }}>
+      <Text style={{ color: colors.muted, fontFamily: fonts.semibold, fontSize: 11, marginBottom: 2 }}>{senderName ? `Replying to ${senderName}` : 'Reply'}</Text>
       <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, opacity: 0.8 }} numberOfLines={2}>{replyTo.text}</Text>
     </View>
   );
+}
+
+// Swipe a message to the right to reply (like WhatsApp / Instagram). Only a clearly sideways drag counts,
+// so scrolling the chat and tapping messages work as before. Past the line: a light buzz; let go: reply.
+const SWIPE_REPLY = 64;
+function useSwipeReply(enabled, onReply) {
+  const x = useRef(new Animated.Value(0)).current;
+  const armed = useRef(false);
+  const cb = useRef(onReply); cb.current = onReply;
+  const handlers = useMemo(() => {
+    const back = () => Animated.spring(x, { toValue: 0, useNativeDriver: NDH, speed: 20, bounciness: 6 }).start();
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => enabled && g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => { armed.current = false; },
+      onPanResponderMove: (_, g) => {
+        const d = Math.max(0, g.dx);
+        x.setValue(Math.min(110, d < SWIPE_REPLY ? d : SWIPE_REPLY + (d - SWIPE_REPLY) * 0.3));
+        if (!armed.current && d >= SWIPE_REPLY) { armed.current = true; tick(); }
+        else if (armed.current && d < SWIPE_REPLY - 12) armed.current = false;
+      },
+      onPanResponderRelease: () => { if (armed.current) cb.current?.(); armed.current = false; back(); },
+      onPanResponderTerminate: () => { armed.current = false; back(); },
+    }).panHandlers;
+  }, [enabled, x]);
+  return [x, handlers];
 }
 
 function Reactions({ reactions, mine, onReact }) {
@@ -280,6 +307,7 @@ export function HeartFlight({ mine, area, onLanded }) {
 export const MessageBubble = memo(function MessageBubble({ message, mine, showSender, showName, sender, status, onMenu, onReact, onReply, onOpenImage, replyToName, translation, canTranslate, onTranslate, onHideTranslation, onChangeLanguage, translateTo, onVote, meId, onGameMove, onRematch, names }) {
   const lastTap = useRef(0);
   const [hover, setHover] = useState(false);
+  const [swipeX, swipe] = useSwipeReply(!!onReply && message.kind !== 'system' && !message.deleted && !String(message.id).startsWith('tmp-'), onReply);
   if (message.kind === 'system') return <SystemMessage text={message.body} />;
   const live = !message.deleted && !String(message.id).startsWith('tmp-');
   // Double-tap a message to ❤️ it, like Instagram. Long-press (or the ⋯ on laptop) for more.
@@ -419,8 +447,11 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
     </View>
   ) : null;
   return (
-    <View onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
-      style={[st.msgRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
+    <View onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)} {...swipe} style={st.swipeWrap}>
+      <Animated.View pointerEvents="none" style={[st.swipeIcon, { opacity: swipeX.interpolate({ inputRange: [8, SWIPE_REPLY], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ scale: swipeX.interpolate({ inputRange: [0, SWIPE_REPLY], outputRange: [0.5, 1], extrapolate: 'clamp' }) }] }]}>
+        <Ionicons name="arrow-undo" size={16} color={colors.text} />
+      </Animated.View>
+    <Animated.View style={[st.msgRow, mine ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }, { transform: [{ translateX: swipeX }] }]}>
       {!mine && showSender !== undefined ? (
         <View style={{ width: 30, marginRight: 6, alignSelf: 'flex-end' }}>{showSender ? <Avatar uri={sender?.avatarUrl} size={28} name={sender?.displayName || sender?.username} /> : null}</View>
       ) : null}
@@ -434,6 +465,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, showSe
         {status === 'failed' ? <Text style={[st.meta, { color: colors.danger }]}>Not sent. Tap and hold to retry.</Text> : null}
       </View>
       {!mine ? hoverBar : null}
+    </Animated.View>
     </View>
   );
 });
@@ -920,6 +952,8 @@ const st = StyleSheet.create({
   unreadText: { color: '#fff', fontFamily: fonts.bold, fontSize: 11 },
 
   msgRow: { flexDirection: 'row', paddingHorizontal: space.md, marginVertical: 2 },
+  swipeWrap: { position: 'relative', justifyContent: 'center' },
+  swipeIcon: { position: 'absolute', left: space.md, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124,92,252,0.35)' },
   bubble: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
   bubbleMine: { borderBottomRightRadius: 6 },
   bubbleTheirs: { backgroundColor: 'rgba(33,31,48,0.95)', borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 6 },

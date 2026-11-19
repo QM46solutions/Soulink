@@ -120,11 +120,11 @@ function Photos({ media, onDoubleTap, burst }) {
 }
 
 /** One action: icon with its count underneath (Instagram style). */
-export function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel }) {
+export function Action({ onPress, label, children, count, color, disabled, onCountPress, countLabel, style }) {
   // count === null: hidden by the post's owner (like count) or commenting is off; keep the space so icons stay aligned
   const num = <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: color || colors.text, marginTop: 2, fontVariant: ['tabular-nums'] }}>{count === null ? ' ' : count || 0}</Text>;
   return (
-    <View style={{ alignItems: 'center', minWidth: 40, marginRight: space.xl }}>
+    <View style={[{ alignItems: 'center', minWidth: 40, marginRight: space.xl }, style]}>
       <Pressable onPress={onPress} disabled={disabled} hitSlop={8} accessibilityLabel={label}
         style={({ hovered, pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, transform: [{ scale: hovered && !disabled ? 1.08 : 1 }] })}>
         <View style={{ height: 26, justifyContent: 'center' }}>{children}</View>

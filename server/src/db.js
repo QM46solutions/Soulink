@@ -9,23 +9,30 @@ import { config } from './config.js';
 const JSON_COLUMNS = new Set(['interests', 'languages', 'discover_filters', 'media_urls', 'options', 'verdict', 'meta', 'embedding']);
 
 let poolPromise = null;
+let bigPoolPromise = null;
+
+function poolConfig(extra = {}) {
+  const db = config.db;
+  return {
+    server: db.server,
+    port: db.port,
+    database: db.database,
+    user: db.user,
+    password: db.password,
+    pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
+    options: {
+      encrypt: db.encrypt,
+      trustServerCertificate: db.trustServerCertificate,
+      ...(db.instanceName && !db.port ? { instanceName: db.instanceName } : {}),
+    },
+    ...extra,
+  };
+}
 
 export function getPool() {
   if (!poolPromise) {
     const db = config.db;
-    poolPromise = new sql.ConnectionPool({
-      server: db.server,
-      port: db.port,
-      database: db.database,
-      user: db.user,
-      password: db.password,
-      pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
-      options: {
-        encrypt: db.encrypt,
-        trustServerCertificate: db.trustServerCertificate,
-        ...(db.instanceName && !db.port ? { instanceName: db.instanceName } : {}),
-      },
-    }).connect().catch((err) => {
+    poolPromise = new sql.ConnectionPool(poolConfig()).connect().catch((err) => {
       poolPromise = null;
       throw new Error(`Could not connect to SQL Server at ${db.server}:${db.port} (database "${db.database}"): ${err.message}`);
     });
@@ -50,6 +57,7 @@ export async function waitForDatabase({ maxMs = 150000, log = true } = {}) {
 }
 
 export async function closePool() {
+  if (bigPoolPromise) { const b = await bigPoolPromise.catch(() => null); bigPoolPromise = null; if (b) await b.close(); }
   if (poolPromise) {
     const p = await poolPromise.catch(() => null);
     poolPromise = null;
@@ -119,6 +127,21 @@ export async function query(text, params) {
       await new Promise((r) => setTimeout(r, 2500));
     }
   }
+}
+
+/**
+ * For saving big files (a Spark video can be up to 100 MB): a small pool of its own with a 3-minute timeout, so the
+ * upload isn't cut off after the usual 15 s while normal queries keep their quick timeout. Not retried automatically
+ * (that would send the whole file again); a paused database is woken by the normal pool first.
+ */
+export async function queryLong(text, params) {
+  await getPool();
+  if (!bigPoolPromise) {
+    bigPoolPromise = new sql.ConnectionPool(poolConfig({ requestTimeout: 180000, pool: { max: 2, min: 0, idleTimeoutMillis: 30000 } }))
+      .connect().catch((err) => { bigPoolPromise = null; throw err; });
+  }
+  const pool = await bigPoolPromise;
+  return run(() => pool.request(), text, params);
 }
 
 export async function one(text, params) {
