@@ -1,8 +1,8 @@
 // One Spark in the Sparks tab: author, category, the video, and the category's extras
 // (📍 place for travel, recipe card + "I tried it" for cooking, the acting prompt / script, workout card + "I did it" for fitness,
 // headline + topic + source for news).
-import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +20,8 @@ import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 import { feedback } from '../lib/feedback';
+import { setSparksMuted, toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
+import ReportModal from './ReportModal';
 
 const ago = (iso) => { const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (m < 60) return `${m}m`; const h = Math.round(m / 60); return h < 24 ? `${h}h` : `${Math.round(h / 24)}d`; };
 const Chip = ({ icon, text, color = colors.text, onPress }) => (
@@ -51,6 +53,16 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   const [shareMenu, setShareMenu] = useState(false);
   const [ticks, setTicks] = useState({ comment: 0, share: 0, offense: 0 });
   const [capOpen, setCapOpen] = useState(false);
+  // reel extras: ⋯ menu, edit caption, report to the team, follow, sound on / off, double-tap like
+  const [caption, setCaption] = useState(spark.caption || '');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [teamReport, setTeamReport] = useState(false);
+  const [follow, setFollow] = useState(spark.followState || 'none');
+  const muted = useSparksMuted();
+  const burst = useRef(new Animated.Value(0)).current;
   const bump = (k) => setTicks((t) => ({ ...t, [k]: t[k] + 1 }));
   const toggleOffense = async (reason) => {
     try {
@@ -81,6 +93,46 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   const tryIt = async () => {
     try { const r = await api(`/sparks/${spark.id}/tried`, { method: 'POST' }); setITried(r.iTried); setTried(r.tried); } catch (e) { notice('Oops', e.message); }
   };
+  // double-tap the video: 👌🏻 (never takes it back, like Instagram), with a big pop in the middle
+  const doubleTapLike = () => {
+    if (!reacted) react();
+    burst.setValue(0);
+    Animated.sequence([
+      Animated.timing(burst, { toValue: 1, duration: 260, easing: Easing.out(Easing.back(2)), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.delay(380),
+      Animated.timing(burst, { toValue: 2, duration: 240, easing: Easing.in(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+    ]).start();
+  };
+  const link = () => `${shareBase()}/s/${spark.id}`;
+  const copyLink = async () => {
+    try { if (Platform.OS === 'web') { await navigator.clipboard.writeText(link()); notice('Link copied'); } else await Share.share({ message: link() }); } catch { /* cancelled */ }
+  };
+  const saveCaption = async () => {
+    setSaving(true);
+    try { const r = await api(`/sparks/${spark.id}`, { method: 'PATCH', body: { caption: draft } }); setCaption(r.caption); setEditOpen(false); }
+    catch (e) { notice("Couldn't save", e.message); } finally { setSaving(false); }
+  };
+  const followAuthor = async () => {
+    setFollow('following');
+    try { const r = await api(`/users/${spark.author.id}/follow`, { method: 'POST' }); setFollow(r.following === 'accepted' ? 'following' : r.following || 'following'); }
+    catch (e) { setFollow('none'); notice("Couldn't follow", e.message); }
+  };
+  // Instagram-style ⋯ menu: my Spark vs someone else's
+  const menu = spark.mine
+    ? [
+      { label: 'Edit caption', onPress: () => { setDraft(caption); setEditOpen(true); } },
+      { label: 'Spread around', onPress: () => setSpreadOpen(true) },
+      { label: 'Copy link', onPress: copyLink },
+      { label: 'Delete', destructive: true, onPress: () => del() },
+    ]
+    : [
+      { label: 'Share', onPress: () => setShareMenu(true) },
+      { label: 'Copy link', onPress: copyLink },
+      ...(follow === 'following' ? [{ label: `Unfollow ${spark.author.username}`, onPress: async () => { setFollow('none'); await api(`/users/${spark.author.id}/follow`, { method: 'DELETE' }).catch(() => setFollow('following')); } }] : []),
+      { label: 'About this account', onPress: () => router.push(`/user/${spark.author.username}`) },
+      { label: offended ? 'Remove offense mark' : 'Mark as offensive', onPress: () => setReportOpen(true) },
+      { label: 'Report', destructive: true, onPress: () => setTeamReport(true) },
+    ];
   const del = async () => {
     if (await confirm('Delete this Spark?', undefined, { confirmText: 'Delete', destructive: true })) { await api(`/sparks/${spark.id}`, { method: 'DELETE' }).catch(() => {}); onDeleted?.(spark.id); }
   };
@@ -138,11 +190,27 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View style={{ height, backgroundColor: '#000', overflow: 'hidden' }}>
         {spark.voice
           ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} fill autoPlay height={height} onFirstPlay={onFirstPlay} />}
+          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active} fill autoPlay height={height} onFirstPlay={onFirstPlay}
+              muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike} />}
+
+        {/* double-tap pop */}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
+          opacity: burst.interpolate({ inputRange: [0, 0.2, 1, 2], outputRange: [0, 1, 1, 0] }),
+          transform: [{ scale: burst.interpolate({ inputRange: [0, 1, 2], outputRange: [0.3, 1, 1.25] }) }] }}>
+          <Text style={{ fontSize: 110 }}>{LIKE_EMOJI}</Text>
+        </Animated.View>
+
+        {/* sound on / off for every Spark */}
+        {!spark.voice ? (
+          <Pressable onPress={toggleSparksMuted} hitSlop={8} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+            style={{ position: 'absolute', top: 56, right: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+          </Pressable>
+        ) : null}
 
         <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%' }} />
 
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 70, top: 58, flexDirection: 'row', flexWrap: 'wrap' }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 60, top: 58, flexDirection: 'row', flexWrap: 'wrap' }}>
           {spark.spread ? <Chip icon="megaphone" text="Promoted" color={colors.gold} /> : null}
           {spark.oneTake ? <Chip icon="checkmark-circle" text="One take" color={colors.mint} /> : null}
           {spark.castingId ? <Chip icon="film" text="Casting audition" color={colors.aura} onPress={() => router.push(`/spark/casting/${spark.castingId}`)} /> : null}
@@ -170,7 +238,9 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
             <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <MaterialCommunityIcons name="bullhorn-variant" size={20} color="#14121f" />
           </Pressable>
-          {spark.mine ? <Pressable onPress={del} hitSlop={10} accessibilityLabel="Delete Spark"><Ionicons name="trash-outline" size={22} color="#fff" /></Pressable> : null}
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityLabel="More options" style={{ marginTop: spark.mine ? 0 : 16 }}>
+            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+          </Pressable>
         </View>
 
         {/* who, what, caption and the category's extras at the bottom */}
@@ -182,6 +252,13 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
               {spark.author.verified ? <VerifiedBadge /> : null}
             </Pressable>
             <Text style={[{ fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.75)', marginLeft: 6 }, shadow]}>· {spark.spread ? 'Promoted' : ago(spark.createdAt)}</Text>
+            {/* public accounts you don't follow yet: Follow right from the Spark (private ones: Connect from their profile) */}
+            {follow === 'none' && !spark.author.isPrivate ? (
+              <Pressable onPress={followAuthor} hitSlop={6} accessibilityLabel={`Follow ${spark.author.username}`}
+                style={({ pressed }) => ({ marginLeft: 10, paddingHorizontal: 12, height: 28, borderRadius: 8, borderWidth: 1.2, borderColor: 'rgba(255,255,255,0.85)', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: '#fff' }}>Follow</Text>
+              </Pressable>
+            ) : null}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 3, paddingRight: 10, height: 26, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: `${cat.colors[0]}aa`, marginRight: 6, marginBottom: 6 }}>
@@ -194,8 +271,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           {fitLine ? <Text style={[{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13 }, shadow]}>{fitLine}</Text> : null}
           {spark.category === 'fitness' && d.challenge ? <Text style={[{ fontFamily: fonts.semibold, color: colors.gold, fontSize: 13, marginTop: 2 }, shadow]}>🏆 Challenge: {d.challenge}</Text> : null}
           {spark.category === 'news' && d.headline ? <Text numberOfLines={2} style={[{ fontFamily: fonts.displayBold, color: '#fff', fontSize: 16, lineHeight: 21, marginTop: 2 }, shadow]}>{d.headline}</Text> : null}
-          {spark.caption ? (
-            <Text onPress={() => setCapOpen((v) => !v)} numberOfLines={capOpen ? 8 : 2} style={[{ fontFamily: fonts.body, color: '#fff', fontSize: 14, lineHeight: 19, marginTop: 4 }, shadow]}>{spark.caption}</Text>
+          {caption ? (
+            <Text onPress={() => setCapOpen((v) => !v)} numberOfLines={capOpen ? 8 : 2} style={[{ fontFamily: fonts.body, color: '#fff', fontSize: 14, lineHeight: 19, marginTop: 4 }, shadow]}>{caption}</Text>
           ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
             {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
@@ -206,6 +283,19 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           </View>
         </View>
         {sheets}
+        <ActionSheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={spark.mine ? 'Your Spark' : spark.author.username} options={menu} />
+        <ReportModal visible={teamReport} onClose={() => setTeamReport(false)} targetType="spark" targetId={spark.id} />
+        <BottomSheet visible={editOpen} onClose={() => setEditOpen(false)} title="Edit caption">
+          <View style={{ padding: space.lg }}>
+            <TextInput value={draft} onChangeText={setDraft} multiline autoFocus maxLength={1000} placeholder="Write a caption…" placeholderTextColor={colors.dim}
+              style={{ minHeight: 90, maxHeight: 200, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.text, fontFamily: fonts.body, fontSize: 15, textAlignVertical: 'top', ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) }} />
+            <Pressable onPress={saveCaption} disabled={saving}
+              style={{ marginTop: space.md, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
+              <LinearGradient colors={['#7c5cfc', '#ff6b9d']} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Save</Text>}
+            </Pressable>
+          </View>
+        </BottomSheet>
       </View>
     );
   }

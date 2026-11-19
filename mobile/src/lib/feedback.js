@@ -4,7 +4,7 @@
 // code as an over-the-air update don't have the module, so it is loaded carefully and simply skipped there.
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Asset } from 'expo-asset';
 
 let Haptics = null;
@@ -34,18 +34,30 @@ export async function setFeedbackPrefs(next) {
 }
 
 const players = {};
+// phones: load the sounds once, early, so the first tap isn't silent while the file loads
+if (Platform.OS !== 'web') setTimeout(() => { try { Object.keys(SOUNDS).forEach((k) => { if (!players[k]) players[k] = createAudioPlayer(SOUNDS[k]); }); } catch { /* later */ } }, 1500);
+// normal playback mode before a sound: after a voice note or a Spark voiceover the phone can be left in recording
+// mode, which plays sounds through the earpiece (almost silent). Mixes with a Spark that's playing.
+let modeAt = 0;
+function playbackMode() {
+  if (Date.now() - modeAt < 4000) return Promise.resolve();
+  modeAt = Date.now();
+  return setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false, interruptionMode: 'mixWithOthers' }).catch(() => {});
+}
 function play(name) {
   try {
     if (Platform.OS === 'web') {
       const a = new window.Audio(Asset.fromModule(SOUNDS[name]).uri);
-      a.volume = 0.6; a.play().catch(() => {});
+      a.volume = 0.8; a.play().catch(() => {});
       return;
     }
     if (!players[name]) players[name] = createAudioPlayer(SOUNDS[name]);
     const p = players[name];
-    p.volume = 0.6;
-    try { p.seekTo(0); } catch { /* first play */ }
-    p.play();
+    p.volume = 0.8;
+    playbackMode().then(() => {
+      try { p.seekTo(0); } catch { /* first play */ }
+      p.play();
+    });
   } catch { /* sound is a nice-to-have */ }
 }
 

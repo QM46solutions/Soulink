@@ -31,6 +31,8 @@ import { canViewContent, isBlockedEither, notify, relationship, userCard } from 
 import { sharePostToChat } from './conversations.js';
 import { makeTeaser } from '../services/teaser.js';
 import { commentGate } from '../services/privacy.js';
+import { paymentMode, takePayment } from '../lib/payments.js';
+import { SPREAD_PLANS, spreadView } from '../services/spread.js';
 
 export const OFFENSE_LIMIT = 75; // more than this many offense marks suspends a post
 export const OFFENSE_REASONS = ['dislike', 'bullying', 'hate', 'child_safety', 'nudity', 'violence', 'self_harm', 'scam', 'false_info', 'spam', 'other'];
@@ -75,6 +77,7 @@ export const postView = (x, meId) => {
     saved: !!x.saved, pinned: !!x.pinned_at, archived: mine && !!x.archived_at,
     music: x.music_url ? { url: x.music_url, title: x.music_title || 'Music', start: x.music_start || 0 } : null,
     place: x.place || null,
+    ...(x.spread_id ? { spread: true } : {}), // shown to this person because the owner boosted it
   };
 };
 const basicView = (x, meId) => ({
@@ -166,6 +169,48 @@ r.get('/saved', ah(async (req, res) => {
 r.get('/archived', ah(async (req, res) => {
   const rows = await many(`${SELECT} WHERE p.author_id = $1 AND p.deleted_at IS NULL AND p.archived_at IS NOT NULL ORDER BY p.archived_at DESC`, [req.user.id]);
   res.json({ posts: rows.map((x) => postView(x, req.user.id)) });
+}));
+
+// ---------- Boost (Spread around) a post: the same plans as Sparks ----------
+//  GET  /posts/spread/plans      prices + whether payments are on
+//  GET  /posts/:id/spread        my post's boost status
+//  POST /posts/:id/spread        { days, city: 'mine'|'all', ageMin, ageMax }
+//  POST /posts/:id/spread/stop
+r.get('/spread/plans', ah(async (req, res) => {
+  const mode = paymentMode();
+  res.json({ plans: SPREAD_PLANS, available: mode !== 'off', test: mode === 'test', myCity: req.user.city || null });
+}));
+const currentPostSpread = (postId) => one(`SELECT TOP 1 * FROM post_spreads WHERE post_id=$1 AND status <> N'stopped' AND ends_at > SYSDATETIMEOFFSET() ORDER BY ends_at DESC`, [postId]);
+r.get('/:id/spread', ah(async (req, res) => {
+  const p = await myPost(req);
+  const sp = await currentPostSpread(p.id);
+  const likes = await one('SELECT COUNT(*) AS n FROM post_likes WHERE post_id=$1', [p.id]).catch(() => ({ n: 0 }));
+  res.json({ spread: spreadView(sp), views: null, likes: Number(likes?.n || 0) });
+}));
+r.post('/:id/spread', ah(async (req, res) => {
+  const p = await myPost(req);
+  const d = z.object({
+    days: z.union([z.literal(1), z.literal(3), z.literal(7)]),
+    city: z.enum(['mine', 'all']).default('all'),
+    ageMin: z.number().int().min(18).max(80).default(18),
+    ageMax: z.number().int().min(18).max(80).default(60),
+    paymentRef: z.string().max(120).optional(),
+  }).refine((v) => v.ageMax >= v.ageMin, 'Check the ages').parse(req.body || {});
+  const full = await one('SELECT is_anonymous, archived_at, suspended_at FROM posts WHERE id=$1', [p.id]);
+  if (full?.is_anonymous || full?.archived_at || full?.suspended_at) throw badRequest("This post can't be boosted", 'not_boostable');
+  if (await currentPostSpread(p.id)) throw badRequest('This post is already boosted', 'already_spreading');
+  if (d.city === 'mine' && !req.user.city) throw badRequest('Add your city in your profile first, or pick All of India', 'no_city');
+  const plan = SPREAD_PLANS.find((x) => x.days === d.days);
+  const mode = takePayment(d.paymentRef); // 'test' on the laptop: nothing is charged
+  const sp = await one(`INSERT INTO post_spreads (post_id, user_id, city, age_min, age_max, days, amount_paise, payment_ref, status, ends_at)
+      OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, DATEADD(DAY, $6, SYSDATETIMEOFFSET()))`,
+    [p.id, req.user.id, d.city === 'mine' ? req.user.city : null, d.ageMin, d.ageMax, d.days, plan.priceInr * 100, d.paymentRef || null, mode === 'test' ? 'test' : 'active']);
+  res.status(201).json({ spread: spreadView(sp) });
+}));
+r.post('/:id/spread/stop', ah(async (req, res) => {
+  const p = await myPost(req);
+  await query(`UPDATE post_spreads SET status = N'stopped' WHERE post_id=$1 AND status <> N'stopped'`, [p.id]);
+  res.json({ spread: null });
 }));
 
 r.get('/:id', ah(async (req, res) => {

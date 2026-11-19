@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { api, shareBase, mediaUrl } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
+import { LinearGradient } from 'expo-linear-gradient';
 import ActionSheet from './ActionSheet';
+import SpreadSheet from './SpreadSheet';
 import ReportModal from './ReportModal';
 import OffenseSheet from './OffenseSheet';
 import { CommentsSheet, LikesSheet } from './PostSheets';
@@ -150,6 +152,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
   const [shared, setShared] = useState(!!post.shared);
   const [shareMenu, setShareMenu] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false); // Boost (Spread around) my post
   const [reportOpen2, setReportOpen2] = useState(false); // Report to the Soulink team (law / safety), separate from the ❗ mark
   const [saved, setSaved] = useState(!!post.saved);
   const [pinned, setPinned] = useState(!!post.pinned);
@@ -278,6 +281,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       { label: pinned ? 'Unpin from profile' : 'Pin to your profile', onPress: pin },
       { label: archived ? 'Show on profile' : 'Archive', onPress: archive },
       { label: 'Edit', onPress: () => { setDraft(caption || ''); setEditing(true); } },
+      ...(!archived && !post.suspended ? [{ label: 'Boost post', onPress: () => setBoostOpen(true) }] : []),
       { label: hideLikes ? 'Show like count' : 'Hide like count', onPress: () => setOption({ hideLikes: !hideLikes }) },
       { label: commentsOff ? 'Turn on commenting' : 'Turn off commenting', onPress: () => setOption({ commentsOff: !commentsOff }) },
       { label: music ? 'Change music' : 'Add music', onPress: () => setMusicOpen(true) },
@@ -309,7 +313,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
               {post.author.verified ? <VerifiedBadge /> : null}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-              <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>{timeAgo(post.createdAt)}</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: post.spread ? colors.gold : colors.muted }}>{post.spread ? 'Promoted' : timeAgo(post.createdAt)}</Text>
               {post.place ? (<>
                 <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted }}>  ·  </Text>
                 <Ionicons name="location" size={11} color={colors.aura} style={{ marginRight: 2 }} />
@@ -361,7 +365,18 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
           label={post.mine ? `${offenses} offense marks on your post` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
           <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
         </Action>
+        {/* your own post: Boost it to people who don't follow you yet (the same "Spread around" as Sparks) */}
+        {post.mine && !archived && !post.suspended ? (<>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => setBoostOpen(true)} accessibilityLabel="Boost post"
+            style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, height: 34, borderRadius: 17, overflow: 'hidden', opacity: hovered ? 0.9 : 1 })}>
+            <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <MaterialCommunityIcons name="bullhorn-variant" size={16} color="#14121f" style={{ marginRight: 5 }} />
+            <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13 }}>Boost</Text>
+          </Pressable>
+        </>) : null}
       </View>
+      {post.mine ? <SpreadSheet visible={boostOpen} onClose={() => setBoostOpen(false)} post={post} /> : null}
       <LikesSheet visible={likesOpen} postId={post.id} onClose={() => setLikesOpen(false)} />
       <CommentsSheet visible={commentsOpen} postId={post.id} onClose={() => setCommentsOpen(false)} mine={post.mine}
         onCountChange={(n, mine) => { setComments(n); if (mine) { setCommented(true); bump('comment'); } }} />

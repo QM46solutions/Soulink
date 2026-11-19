@@ -97,7 +97,7 @@ r.post('/:id/click', ah(async (req, res) => {
 // does this person have any ads or Spark boosts? (shows "My ads" in Settings)
 r.get('/has', ah(async (req, res) => {
   const a = await one('SELECT TOP 1 1 AS x FROM ad_campaigns WHERE owner_id=$1', [req.user.id]);
-  const b = a ? null : await one("SELECT TOP 1 1 AS x FROM spark_spreads WHERE user_id=$1 AND status <> N'test'", [req.user.id]).catch(() => null);
+  const b = a ? null : await one("SELECT TOP 1 1 AS x FROM (SELECT user_id, status FROM spark_spreads UNION ALL SELECT user_id, status FROM post_spreads) z WHERE z.user_id=$1 AND z.status <> N'test'", [req.user.id]).catch(() => null);
   res.json({ has: !!(a || b) });
 }));
 r.get('/mine', ah(async (req, res) => {
@@ -109,9 +109,12 @@ r.get('/mine', ah(async (req, res) => {
   const spent = sum(spentPaise); const paid = sum((a) => a.paid_paise || 0);
   const views = sum((a) => Number(a.impressions || 0)); const clicks = sum((a) => Number(a.clicks || 0));
   const tips = [...rows.flatMap((a) => adTips(a, adStats(a))), placementTip(rows)].filter(Boolean);
-  // their own paid Spark boosts ("Spread around")
-  const boosts = await many(`SELECT TOP 50 sp.*, s.caption FROM spark_spreads sp JOIN sparks s ON s.id = sp.spark_id
+  // their own paid boosts ("Spread around"), Sparks and posts
+  const sparkBoosts = await many(`SELECT TOP 50 sp.*, s.caption FROM spark_spreads sp JOIN sparks s ON s.id = sp.spark_id
     WHERE sp.user_id=$1 AND sp.status <> N'test' ORDER BY sp.created_at DESC`, [req.user.id]).catch(() => []);
+  const postBoosts = await many(`SELECT TOP 50 sp.*, p.caption FROM post_spreads sp JOIN posts p ON p.id = sp.post_id
+    WHERE sp.user_id=$1 AND sp.status <> N'test' ORDER BY sp.created_at DESC`, [req.user.id]).catch(() => []);
+  const boosts = [...sparkBoosts, ...postBoosts].sort((x, y) => new Date(y.created_at) - new Date(x.created_at)).slice(0, 50);
   res.json({
     totals: {
       ads: rows.length, running: ads.filter((a) => a.stats.status === 'running').length,
@@ -124,7 +127,7 @@ r.get('/mine', ah(async (req, res) => {
     daily: dailySeries(daily),
     tips,
     ads,
-    boosts: boosts.map((b) => ({ id: b.id, sparkId: b.spark_id, caption: b.caption || '', city: b.city || null, ageMin: b.age_min, ageMax: b.age_max, days: b.days,
+    boosts: boosts.map((b) => ({ id: b.id, sparkId: b.spark_id || null, postId: b.post_id || null, caption: b.caption || '', city: b.city || null, ageMin: b.age_min, ageMax: b.age_max, days: b.days,
       amount: rupees(b.amount_paise || 0), views: Number(b.impressions || 0), startsAt: b.starts_at, endsAt: b.ends_at, status: b.status })),
   });
 }));
@@ -142,7 +145,7 @@ r.get('/manage', admin, ah(async (req, res) => {
   const daily = await dailyFor(rows.map((a) => a.id));
   const sum = (f) => rows.reduce((t, a) => t + f(a), 0);
   const spent = sum(spentPaise); const paid = sum((a) => a.paid_paise || 0);
-  const boosts = await one("SELECT COUNT(*) AS n, ISNULL(SUM(amount_paise), 0) AS p FROM spark_spreads WHERE status <> N'test'", []).catch(() => ({ n: 0, p: 0 }));
+  const boosts = await one("SELECT COUNT(*) AS n, ISNULL(SUM(amount_paise), 0) AS p FROM (SELECT amount_paise, status FROM spark_spreads UNION ALL SELECT amount_paise, status FROM post_spreads) z WHERE z.status <> N'test'", []).catch(() => ({ n: 0, p: 0 }));
   res.json({
     revenue: {
       booked: rupees(sum((a) => a.budget_paise || 0)), earned: rupees(spent), received: rupees(paid),

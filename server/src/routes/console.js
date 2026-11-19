@@ -413,7 +413,7 @@ r.post('/legal/bans/:id/lift', OWNER, ah(async (req, res) => {
 r.get('/revenue', requireConsole('viewer'), ah(async (req, res) => {
   const ads = await many(`SELECT FORMAT(paid_on, 'yyyy-MM') AS m, SUM(amount) AS v FROM ad_payments GROUP BY FORMAT(paid_on, 'yyyy-MM')`);
   const msgs = await many(`SELECT FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM') AS m, SUM(amount_paise) / 100 AS v FROM paid_messages WHERE status = N'paid' GROUP BY FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM')`).catch(() => []);
-  const boosts = await many(`SELECT FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM') AS m, SUM(amount_paise) / 100 AS v FROM spark_spreads WHERE status <> N'test' GROUP BY FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM')`).catch(() => []);
+  const boosts = await many(`SELECT FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM') AS m, SUM(amount_paise) / 100 AS v FROM (SELECT created_at, amount_paise, status FROM spark_spreads UNION ALL SELECT created_at, amount_paise, status FROM post_spreads) z WHERE status <> N'test' GROUP BY FORMAT(SWITCHOFFSET(created_at, '+05:30'), 'yyyy-MM')`).catch(() => []);
   const prem = await one('SELECT COUNT(*) AS n FROM users WHERE is_premium = 1');
   res.json({ ads, paidMessages: msgs, boosts, premiumUsers: n(prem?.n) });
 }));

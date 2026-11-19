@@ -16,8 +16,11 @@ import SparkOverlays from './SparkOverlays';
 
 let current = null; // the pause() of the Spark that is playing now
 
-// fill: covers the whole area edge to edge (the full-screen Sparks feed). autoPlay: plays by itself while `active`.
-export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false }) {
+// fill: edge to edge, no rounded corners (the full-screen Sparks feed). The whole video always shows: a portrait
+// video fills a phone screen, a landscape one plays full width as landscape (black above and below), never cropped. autoPlay: plays by itself while `active`.
+// muted: no sound at all (the Sparks speaker button). onDoubleTap: a quick second tap (like ❤️ on Reels); a single tap
+// still pauses / plays, just after a short wait to tell the two apart.
+export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onDoubleTap }) {
   const e = edit || {};
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -34,6 +37,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const started = useRef(false);
   const shade = useRef(new Animated.Value(0)).current;
   const audio = useRef(null); const voice = useRef(null);
+  const tapAt = useRef(0); const tapTimer = useRef(null);
 
   const player = useVideoPlayer(src, (p) => {
     p.loop = false; p.timeUpdateEventInterval = 0.1; p.playbackRate = rate; p.preservesPitch = true;
@@ -98,11 +102,27 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     return () => { s.remove(); if (current === pause) current = null; };
   }, [pause]);
 
+  // sound off / on (the speaker button): the video, the music and the voiceover together
+  useEffect(() => {
+    try { player.muted = muted || vol.video === 0; } catch { /* released */ }
+    if (audio.current) audio.current.volume = muted ? 0 : vol.music;
+    if (voice.current) voice.current.volume = muted ? 0 : vol.voice;
+  }, [muted, player, music, vo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = () => (playing ? pause() : play());
+  const onTap = () => {
+    if (!onDoubleTap) { toggle(); return; }
+    const now = Date.now();
+    if (now - tapAt.current < 280) { clearTimeout(tapTimer.current); tapAt.current = 0; onDoubleTap(); return; }
+    tapAt.current = now;
+    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(toggle, 280);
+  };
+  useEffect(() => () => clearTimeout(tapTimer.current), []);
+
   const z = e.zoom && e.zoom.s > 1.001 ? e.zoom : null;
   return (
-    <Pressable onPress={() => (playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
+    <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
       <View style={{ flex: 1, ...(z ? { transform: [{ translateX: (0.5 - z.x) * (z.s - 1) * 100 }, { translateY: (0.5 - z.y) * (z.s - 1) * 100 }, { scale: z.s }] } : {}) }}>
-        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit={fill ? 'cover' : 'contain'} nativeControls={false} allowsPictureInPicture={false} />
+        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
       </View>
       {fading ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />

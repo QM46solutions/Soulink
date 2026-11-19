@@ -11,14 +11,18 @@ import SparkOverlays from './SparkOverlays';
 
 let current = null; // { owner, pause } of the Spark playing now: one Spark plays at a time
 
-// fill: covers the whole area edge to edge (the full-screen Sparks feed). autoPlay: plays by itself while `active`;
+// fill: edge to edge, no rounded corners (the full-screen Sparks feed). The whole video always shows: a portrait
+// video fills a phone screen, a landscape one plays full width as landscape (black above and below), never cropped. autoPlay: plays by itself while `active`;
 // if the browser won't play sound without a tap first, it plays muted with a "Tap for sound" button (like Instagram).
-export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false }) {
+// muted: no sound (the Sparks speaker button). onAutoMuted: the browser made autoplay start without sound.
+// onDoubleTap: a quick second tap (like ❤️ on Reels); a single tap still pauses / plays after a short wait.
+export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onAutoMuted, onDoubleTap }) {
   const video = useRef(null); const audio = useRef(null); const voice = useRef(null); const shade = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [soundOff, setSoundOff] = useState(false); // autoplay had to start muted
   const [time, setTime] = useState(null);
   const started = useRef(false);
+  const tapAt = useRef(0); const tapTimer = useRef(null);
   const self = useRef({}); // identifies this player (pause() is a new function every render)
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -51,7 +55,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
       try { await v?.play(); } catch (err) {
         // the browser blocks sound until the person taps the page once: start muted instead
         if (!autoPlay || !v || err?.name !== 'NotAllowedError') throw err;
-        v.muted = true; await v.play(); setSoundOff(true);
+        v.muted = true; await v.play(); setSoundOff(true); onAutoMuted?.();
         setPlaying(true); if (!started.current) { started.current = true; onFirstPlay?.(); }
         return;
       }
@@ -119,16 +123,32 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     audio.current?.play().catch(() => {}); voice.current?.play().catch(() => {});
   };
 
+  // sound off / on (the speaker button): the video, the music and the voiceover together
+  useEffect(() => {
+    const v = video.current; if (!v) return;
+    if (muted) { v.muted = true; if (audio.current) audio.current.muted = true; if (voice.current) voice.current.muted = true; return; }
+    if (audio.current) audio.current.muted = false; if (voice.current) voice.current.muted = false;
+    if (soundOff) { if (playing) soundOn(); } else v.muted = base.current.video === 0;
+  }, [muted]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = () => (soundOff && playing && !onAutoMuted ? soundOn() : playing ? pause() : play());
+  const onTap = () => {
+    if (!onDoubleTap) { toggle(); return; }
+    const now = Date.now();
+    if (now - tapAt.current < 280) { clearTimeout(tapTimer.current); tapAt.current = 0; onDoubleTap(); return; }
+    tapAt.current = now;
+    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(toggle, 280);
+  };
+  useEffect(() => () => clearTimeout(tapTimer.current), []);
   return (
-    <Pressable onPress={() => (soundOff && playing ? soundOn() : playing ? pause() : play())} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={soundOff ? 'Turn sound on' : playing ? 'Pause' : 'Play'}>
+    <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={soundOff ? 'Turn sound on' : playing ? 'Pause' : 'Play'}>
       <video ref={video} src={src} playsInline preload="metadata" onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
         onPause={() => { const v = video.current; if (!v?.paused || v.ended) return; audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
-        style={{ width: '100%', height: '100%', objectFit: fill ? 'cover' : 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
+        style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}
       {vo ? <audio ref={voice} src={vo} preload="auto" /> : null}
       {fading ? <div ref={shade} style={{ position: 'absolute', inset: 0, background: '#000', opacity: playing ? 0 : 0, pointerEvents: 'none' }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />
-      {soundOff && playing ? (
+      {soundOff && playing && !onAutoMuted ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: fill ? 58 : 12, right: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.55)' }}>
           <Ionicons name="volume-mute" size={15} color="#fff" />
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>Tap for sound</Text>

@@ -128,6 +128,8 @@ const SELECT = `SELECT s.*,
     (SELECT TOP 1 ISNULL(o.reason, N'other') FROM spark_offenses o WHERE o.spark_id = s.id AND o.user_id = $1) AS offense_reason,
     (SELECT COUNT(*) FROM spark_shares sh WHERE sh.spark_id = s.id) AS share_count,
     CASE WHEN EXISTS (SELECT 1 FROM spark_shares sh WHERE sh.spark_id = s.id AND sh.user_id = $1) THEN 1 ELSE 0 END AS shared,
+    (SELECT TOP 1 f.status FROM follows f WHERE f.follower_id = $1 AND f.followee_id = s.author_id) AS my_follow,
+    CASE WHEN EXISTS (SELECT 1 FROM connections cn WHERE (cn.user_a = $1 AND cn.user_b = s.author_id) OR (cn.user_b = $1 AND cn.user_a = s.author_id)) THEN 1 ELSE 0 END AS connected,
     u.id AS uid, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM sparks s JOIN users u ON u.id = s.author_id`;
 // Sparks are a public stage, except from private accounts (only their Connections / Followers see those) and blocked people
@@ -150,6 +152,10 @@ const view = (x, me) => ({
   offenseCount: Number(x.offense_count || 0), offended: !!x.offense_reason, offenseReason: x.offense_reason || null,
   shareCount: Number(x.share_count || 0), shared: !!x.shared, suspended: !!x.suspended_at,
   ...(x.spread_id ? { spread: true } : {}),
+  // for the Follow button on a Spark: 'self' | 'connected' | 'following' | 'requested' | 'none'
+  followState: String(x.author_id).toLowerCase() === String(me).toLowerCase() ? 'self'
+    : (x.connected === 1 || x.connected === true) ? 'connected'
+      : x.my_follow === 'accepted' ? 'following' : x.my_follow === 'pending' ? 'requested' : 'none',
 });
 
 r.get('/', ah(async (req, res) => {
@@ -186,16 +192,9 @@ r.get('/', ah(async (req, res) => {
 }));
 
 // ---------- Spread around (boost a Spark) ----------
-export const SPREAD_PLANS = [
-  { days: 1, priceInr: 49, reach: '1-2K people' },
-  { days: 3, priceInr: 129, reach: '4-6K people' },
-  { days: 7, priceInr: 249, reach: '10-15K people' },
-];
-const spreadView = (sp) => sp ? ({
-  id: sp.id, days: sp.days, city: sp.city || null, ageMin: sp.age_min, ageMax: sp.age_max, priceInr: Math.round(sp.amount_paise / 100),
-  test: sp.status === 'test', live: sp.status !== 'stopped' && new Date(sp.ends_at) > new Date(),
-  startsAt: sp.starts_at, endsAt: sp.ends_at, impressions: Number(sp.impressions || 0),
-}) : null;
+import { SPREAD_PLANS, spreadView } from '../services/spread.js';
+
+export { SPREAD_PLANS };
 
 r.get('/spread/plans', ah(async (req, res) => {
   const mode = paymentMode();
@@ -594,6 +593,14 @@ r.post('/:id/spread', requireSoul, ah(async (req, res) => {
       OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, DATEADD(DAY, $6, SYSDATETIMEOFFSET()))`,
     [x.id, req.user.id, d.city === 'mine' ? req.user.city : null, d.ageMin, d.ageMax, d.days, plan.priceInr * 100, d.paymentRef || null, mode === 'test' ? 'test' : 'active']);
   res.status(201).json({ spread: spreadView(sp) });
+}));
+
+// edit my Spark's caption (the ⋯ menu)
+r.patch('/:id', ah(async (req, res) => {
+  const x = await mySpark(req);
+  const { caption } = z.object({ caption: z.string().trim().max(1000) }).parse(req.body || {});
+  await query('UPDATE sparks SET caption = $2 WHERE id = $1', [x.id, caption]);
+  res.json({ caption });
 }));
 
 r.post('/:id/spread/stop', ah(async (req, res) => {

@@ -95,6 +95,8 @@ export default function SparkStudio({ video, edit, onChange, music, onMusic, voi
     setRecording(false); pause();
     try {
       await recorder.stop();
+      // back to normal playback (recording mode sends sounds to the earpiece on iPhones)
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
       if (recorder.uri) {
         onVoice?.({ uri: recorder.uri, type: 'audio/m4a', name: 'voice.m4a' });
         if (e.videoVolume == null || e.videoVolume === 1) set({ videoVolume: 0.3 });

@@ -39,7 +39,7 @@ export const REPORT_REASONS = ['child_safety', 'spam', 'fake_account', 'harassme
 
 r.post('/reports', ah(async (req, res) => {
   const data = z.object({
-    targetType: z.enum(['user', 'post', 'comment', 'message', 'case', 'story']),
+    targetType: z.enum(['user', 'post', 'comment', 'message', 'case', 'story', 'spark']),
     targetId: uuid,
     reason: z.enum(REPORT_REASONS),
     details: z.string().max(1000).optional(),
