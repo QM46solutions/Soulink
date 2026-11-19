@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Spin3D from '../../components/Spin3D';
 import Product3DViewer, { touchScreen } from '../../components/Product3DViewer';
-import ShopDetails from '../../components/ShopDetails';
 import SHOP3D from '../../components/shop3dAssets';
 import { GradientText } from '../../components/brand';
 import { useAuth } from '../../lib/auth';
@@ -208,7 +207,6 @@ export default function Shop() {
         </Pressable>
         <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 10 }}>Dropping soon on Soulink. Prices and sizes at launch.</Text>
       </View>
-      {item.model ? <ShopDetails key={item.key} items={item.model.details} accent={item.accent} /> : null}
     </ScrollView>
   );
 }
