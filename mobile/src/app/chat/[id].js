@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { AppState, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,6 +116,31 @@ export default function Chat() {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+  // catch up on anything missed while the connection was down or the app / browser tab was in the background
+  // (an OX move, a poll vote, a message), so nobody has to go back and refresh
+  // merges the newest messages into what's on screen: keeps messages still sending and older pages already loaded
+  const convRef = useRef(conv); convRef.current = conv;
+  const lastCatchUp = useRef(0);
+  const catchUp = useCallback(async () => {
+    if (!convRef.current || Date.now() - lastCatchUp.current < 3000) return;
+    lastCatchUp.current = Date.now();
+    try {
+      const m = await api(`/conversations/${id}/messages?limit=30&vanish=${convRef.current.privateMode ? 1 : 0}`);
+      const key = (x) => String(x.id).toLowerCase();
+      const fresh = new Set(m.messages.map(key));
+      const oldestFresh = m.messages.length ? new Date(m.messages[m.messages.length - 1].createdAt).getTime() : 0;
+      setMessages((cur) => [
+        ...cur.filter((x) => String(x.id).startsWith('tmp-')),
+        ...m.messages,
+        ...cur.filter((x) => !String(x.id).startsWith('tmp-') && !fresh.has(key(x)) && new Date(x.createdAt).getTime() < oldestFresh),
+      ]);
+    } catch { /* offline: the next reconnect tries again */ }
+  }, [id]);
+  useLiveEvent('live:reconnected', catchUp);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') catchUp(); });
+    return () => sub.remove();
+  }, [catchUp]);
 
   // ----- header -----
   useLayoutEffect(() => {
@@ -235,8 +260,9 @@ export default function Chat() {
     setMessages((cur) => cur.map((m) => (m.id === messageId && m.moment ? { ...m, moment: { ...m.moment, status: status === 'saved' || m.moment.mine ? status : m.moment.status } } : m)));
   });
   useLiveEvent('message:game', ({ conversationId, messageId, game }) => {
-    if (conversationId !== id) return;
-    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, game } : m)));
+    if (String(conversationId).toLowerCase() !== String(id).toLowerCase()) return;
+    const mid = String(messageId).toLowerCase();
+    setMessages((cur) => cur.map((m) => (String(m.id).toLowerCase() === mid ? { ...m, game } : m)));
   });
   useLiveEvent('message:poll', ({ conversationId, messageId, counts, total, votes }) => {
     if (conversationId !== id) return;

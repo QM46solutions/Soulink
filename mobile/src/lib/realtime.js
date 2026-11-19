@@ -31,14 +31,21 @@ export function RealtimeProvider({ children }) {
     const viaGateway = server.endsWith('/api');
     const socket = io(viaGateway ? server.slice(0, -4) : server, { path: viaGateway ? '/api/socket.io' : '/socket.io', auth: { token: getToken() }, transports: ['websocket'], reconnectionDelayMax: 5000 });
     socketRef.current = socket;
-    socket.on('connect', () => { setConnected(true); refreshUnread(); });
+    // after a dropped connection (weak network, laptop asleep, browser tab in the background) live events may have been
+    // missed: screens listening to 'live:reconnected' reload what they show
+    let connectedBefore = false;
+    socket.on('connect', () => {
+      setConnected(true); refreshUnread();
+      if (connectedBefore) listeners.current.get('live:reconnected')?.forEach((fn) => fn());
+      connectedBefore = true;
+    });
     socket.on('disconnect', () => setConnected(false));
     // the account was deleted on another device, or this session was ended: sign out here too
     socket.on('account:deleted', () => forceSignOut('no_account'));
     socket.on('account:paused', () => forceSignOut('account_paused'));
     socket.on('account:deleting', () => forceSignOut('account_deleting'));
     socket.on('connect_error', (e) => { if (e?.message === 'no_account' || e?.message === 'session_ended') forceSignOut(e.message); });
-    for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:vanished', 'conversation:private', 'conversation:hidden', 'typing', 'read', 'anon:update', 'notification:new']) {
+    for (const event of ['message:new', 'message:deleted', 'message:reactions', 'message:moment', 'message:poll', 'message:game', 'message:vanished', 'conversation:private', 'conversation:hidden', 'typing', 'read', 'anon:update', 'notification:new']) {
       socket.on(event, (payload) => {
         listeners.current.get(event)?.forEach((fn) => fn(payload));
         if (event === 'message:new' || event === 'read' || event === 'anon:update' || event === 'conversation:hidden' || event === 'notification:new') refreshUnread();
