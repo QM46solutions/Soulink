@@ -7,8 +7,14 @@ import { config } from '../src/config.js';
 
 const saved = { ...config, otp: { ...config.otp }, testLoginTargets: [...config.testLoginTargets] };
 const realFetch = globalThis.fetch;
+const realResendKey = process.env.RESEND_API_KEY;
 before(resetDb);
-afterEach(() => { Object.assign(config, saved, { otp: { ...saved.otp }, testLoginTargets: [...saved.testLoginTargets] }); globalThis.fetch = realFetch; });
+afterEach(() => {
+  Object.assign(config, saved, { otp: { ...saved.otp }, testLoginTargets: [...saved.testLoginTargets] }); globalThis.fetch = realFetch;
+  if (realResendKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = realResendKey;
+});
+// the Resend provider needs a key to try sending (fetch is faked, so nothing leaves the test)
+const useResend = () => { config.emailProvider = 'resend'; process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || 'test-key'; };
 after(() => closePool());
 const ago = (sql) => query(`UPDATE otp_codes SET created_at = ${sql}`);
 
@@ -41,7 +47,7 @@ test('hourly and daily limits per address', async () => {
 });
 
 test('a failed email send gives a clear error and does not start the wait', async () => {
-  config.emailProvider = 'resend';
+  useResend();
   globalThis.fetch = async () => ({ ok: false, status: 500 });
   const r = await api().post('/auth/otp/request').send({ email: 'fail@example.com' }).expect(503);
   assert.equal(r.body.error.code, 'otp_not_sent');
@@ -55,7 +61,7 @@ test('an email counts as verified only after a real delivery', async () => {
   const a = await api().post('/auth/otp/request').send({ email: 'test-mode@example.com' }).expect(200);
   const v1 = await api().post('/auth/otp/verify').send({ email: 'test-mode@example.com', code: a.body.devCode }).expect(200);
   assert.equal(v1.body.user.emailVerified, false); // test mode (server log), not really sent
-  config.emailProvider = 'resend';
+  useResend();
   globalThis.fetch = async () => ({ ok: true, status: 200 });
   const b = await api().post('/auth/otp/request').send({ email: 'real@example.com' }).expect(200);
   const v2 = await api().post('/auth/otp/verify').send({ email: 'real@example.com', code: b.body.devCode }).expect(200);
@@ -67,6 +73,8 @@ test('adding an email to a phone account: code to the new address first', async 
   const u = await makeUser();
   const other = await api().post('/auth/otp/request').send({ email: 'taken@example.com' }).expect(200);
   await api().post('/auth/otp/verify').send({ email: 'taken@example.com', code: other.body.devCode }).expect(200);
+  await ago('DATEADD(SECOND, -40, created_at)'); // past the 30 s wait between codes to the same address
+  await query("UPDATE users SET onboarding_done = 1 WHERE email = 'taken@example.com'"); // a finished account owns its email (a half-made sign-up wouldn't)
 
   const t = await api().post('/account/email/request').set(u.h).send({ email: 'taken@example.com' }).expect(200); // same answer
   const clash = await api().post('/account/email/verify').set(u.h).send({ email: 'taken@example.com', code: t.body.devCode }).expect(409);

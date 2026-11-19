@@ -21,7 +21,7 @@ describe('Logins and notifications stay on', () => {
     assert.ok(fresh);
     const q = jwt.decode(fresh);
     assert.equal(q.sid, p.sid);
-    assert.ok(q.exp - Date.now() / 1000 > 6 * 86400);
+    assert.equal(q.exp, undefined); // logins no longer expire: they end only on logout (see m56)
     await api().get('/users/me').set({ Authorization: `Bearer ${fresh}` }).expect(200);
   });
 

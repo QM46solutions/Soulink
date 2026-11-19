@@ -66,7 +66,7 @@ test('crashes and non-fatal errors keep version, build, phone and screen; same c
   const rows = (await query(`SELECT * FROM app_issues WHERE source = N'crash' ORDER BY id`)).rows;
   const fatal = rows.find((x) => x.title.startsWith('Crash: TypeError'));
   assert.equal(fatal.reports, 2); assert.equal(fatal.device, 'Pixel 7'); assert.equal(fatal.build, 'ota-1a2b3c4d'); assert.equal(fatal.screen, '(tabs)/index'); assert.equal(fatal.fatal, true);
-  const nonFatal = rows.find((x) => x.title.startsWith('Error: image failed'));
+  const nonFatal = rows.find((x) => x.title === 'Non-fatal: Error: image failed');
   assert.equal(nonFatal.fatal, false); assert.equal(nonFatal.severity, 'medium');
   // an older app that sends only message / platform / version still works
   await api().post('/telemetry/crash').set(u.h).send({ message: 'Old app crash', platform: 'ios', appVersion: '1.0.0' }).expect(200);

@@ -66,7 +66,7 @@ r.post('/problem', perUser(10), maybeScreenshot, ah(async (req, res) => {
 r.post('/crash', perUser(60), ah(async (req, res) => {
   const d = z.object({ message: z.string().trim().min(1).max(1500), fatal: z.boolean().optional(), screen: short(60), platform: plat, appVersion: ver, ...device }).parse(req.body);
   const fatal = d.fatal !== false; // older apps only report crashes that stop the app
-  const title = `${fatal ? 'Crash' : 'Error'}: ${d.message.split('\n')[0].slice(0, 180)}`;
+  const title = `${fatal ? 'Crash' : 'Non-fatal'}: ${d.message.split('\n')[0].slice(0, 180)}`;
   // the same crash on the same version adds to its count, so the team sees how many people it hits
   const same = await one(`SELECT TOP 1 id FROM app_issues WHERE source = N'crash' AND title = $1 AND ISNULL(app_version, N'') = $2 AND status IN (N'new', N'progress')`, [title, d.appVersion || '']);
   if (same) await query('UPDATE app_issues SET reports = reports + 1, updated_at = SYSDATETIMEOFFSET() WHERE id=$1', [same.id]);
