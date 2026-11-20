@@ -1,7 +1,8 @@
 // Open Mic: speak your mind. Pick what it's about, say it in a line, then speak on video or with just your voice
 // (for anyone who'd rather not show their face). Anyone can listen, react, comment and share.
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardScroll } from '../../lib/keyboard';
 import { router, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
@@ -56,7 +57,7 @@ export default function Speak() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll header contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }}>
       <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.muted }}>
         Open Mic is your space to say it openly: something you went through, something you saw, or something you want to raise your voice about.
       </Text>
@@ -123,6 +124,6 @@ export default function Speak() {
           )}
         </View>
       )}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }

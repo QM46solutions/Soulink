@@ -1,8 +1,11 @@
 // Create a post: add up to 10 photos or videos (gallery or camera) and/or write something, then Share now
 // or Schedule a reveal (it goes up now, blurred with a countdown, and shows clearly at the time you pick).
 // Opened from Home ("Photo" opens the gallery straight away, "Post" starts with writing).
-import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FramePhoto from '../components/FramePhoto';
+import { useKeepFocusedVisible } from '../lib/keyboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +20,7 @@ import { saveMusicOnPost } from '../components/PostMusic';
 import { ScheduleSheet } from '../components/PostReveal';
 import PostVideo from '../components/PostVideo';
 import { Button, ErrorText, s } from '../components/ui';
-import { colors, fonts, space } from '../lib/theme';
+import { colors, fonts, space, sz } from '../lib/theme';
 
 const MAX = 10;
 
@@ -32,6 +35,16 @@ export default function CreatePost() {
   const [music, setMusic] = useState(null); // song picked from JioSaavn / Deezer / free music / the phone
   const [musicOpen, setMusicOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  // framing: which photos are being framed (indexes into photos) and where to start
+  const [framing, setFraming] = useState(null); // { idx: [..], at }
+  const scrollRef = useRef(null);
+  const keep = useKeepFocusedVisible(scrollRef);
+  const top = useSafeAreaInsets().top;
+  const frameNew = (before, after) => {
+    const idx = after.map((x, k) => k).filter((k) => k >= before.length && !after[k].video);
+    if (idx.length) setFraming({ idx, at: 0 });
+  };
+  const frameFrom = (k) => { const idx = photos.map((x, j) => j).filter((j) => !photos[j].video); setFraming({ idx, at: Math.max(0, idx.indexOf(k)) }); };
 
   const gallery = async () => {
     setError(null);
@@ -44,7 +57,7 @@ export default function CreatePost() {
       const big = r.assets.find((a) => a.type === 'video' && a.fileSize && a.fileSize > 40 * 1024 * 1024);
       if (big) setError('A video can be up to 40 MB. Pick a shorter one.');
       const add = r.assets.filter((a) => a !== big).map((a) => ({ uri: a.uri, video: a.type === 'video' || /^video\//.test(a.mimeType || ''), type: a.mimeType }));
-      setPhotos((c) => [...c, ...add].slice(0, MAX));
+      setPhotos((c) => { const n = [...c, ...add].slice(0, MAX); frameNew(c, n); return n; });
     }
   };
   const camera = async () => {
@@ -55,7 +68,7 @@ export default function CreatePost() {
       if (!perm.granted) { setError('Allow camera access to take a photo'); return; }
     }
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (!r.canceled && r.assets?.[0]) setPhotos((c) => [...c, { uri: r.assets[0].uri }].slice(0, MAX));
+    if (!r.canceled && r.assets?.[0]) setPhotos((c) => { const n = [...c, { uri: r.assets[0].uri }].slice(0, MAX); frameNew(c, n); return n; });
   };
 
   useEffect(() => { if (pick === 'gallery') gallery(); else if (pick === 'camera') camera(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,8 +86,8 @@ export default function CreatePost() {
   };
 
   return (
-    <View style={s.screen}>
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={top + 46} style={s.screen}>
+      <ScrollView ref={scrollRef} onScroll={keep.onScroll} scrollEventThrottle={16} style={{ flex: 1 }} contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <AuraAvatar user={user} size={48} />
           <TextInput
@@ -93,7 +106,13 @@ export default function CreatePost() {
                 {u.video ? (
                   <View style={{ flex: 1, borderRadius: 14, overflow: 'hidden' }}><PostVideo uri={u.uri} thumb /></View>
                 ) : <Image source={{ uri: u.uri }} style={{ flex: 1, borderRadius: 14, backgroundColor: colors.card }} contentFit="cover" />}
-                {u.video ? <Ionicons name="videocam" size={15} color="#fff" style={{ position: 'absolute', right: 10, bottom: 34 }} /> : null}
+                {u.video ? <Ionicons name="videocam" size={15} color="#fff" style={{ position: 'absolute', right: 10, bottom: 34 }} /> : (
+                  <Pressable onPress={() => frameFrom(i)} hitSlop={4} accessibilityLabel="Adjust framing"
+                    style={{ position: 'absolute', right: 8, bottom: photos.length > 1 ? 36 : 8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, height: 24, borderRadius: 12, backgroundColor: 'rgba(8,7,13,0.75)' }}>
+                    <Ionicons name="crop" size={13} color="#fff" style={{ marginRight: 3 }} />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, color: '#fff' }}>Adjust</Text>
+                  </Pressable>
+                )}
                 {i === 0 ? <View style={{ position: 'absolute', left: 10, top: 10, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.soul }}><Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>COVER</Text></View> : null}
                 <Pressable onPress={() => setPhotos((c) => c.filter((_, k) => k !== i))} hitSlop={6} accessibilityLabel="Remove photo"
                   style={{ position: 'absolute', right: 8, top: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(8,7,13,0.75)', alignItems: 'center', justifyContent: 'center' }}>
@@ -112,7 +131,7 @@ export default function CreatePost() {
 
         <View style={{ flexDirection: 'row' }}>
           {[['images', 'Gallery', gallery], ['camera', 'Camera', camera]].map(([icon, label, fn]) => (
-            <Pressable key={label} onPress={fn} style={({ hovered }) => ({ flex: 1, height: 56, borderRadius: 999, marginRight: label === 'Gallery' ? space.sm : 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: hovered ? colors.aura : colors.border, backgroundColor: colors.glass })}>
+            <Pressable key={label} onPress={fn} style={({ hovered }) => ({ flex: 1, height: sz(52), borderRadius: 999, marginRight: label === 'Gallery' ? space.sm : 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: hovered ? colors.aura : colors.border, backgroundColor: colors.glass })}>
               <Ionicons name={icon} size={19} color={colors.aura} style={{ marginRight: 8 }} />
               <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.text }}>{label}</Text>
             </Pressable>
@@ -121,7 +140,7 @@ export default function CreatePost() {
         <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
           {photos.length ? `${photos.length}/${MAX} · the first one is the cover` : `Add up to ${MAX} photos or videos, or just write something`}
         </Text>
-        <Pressable onPress={() => setMusicOpen(true)} style={({ hovered }) => ({ marginTop: space.lg, height: 52, borderRadius: 999, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderWidth: 1, borderColor: hovered || music ? colors.aura : colors.border, backgroundColor: colors.glass })}>
+        <Pressable onPress={() => setMusicOpen(true)} style={({ hovered }) => ({ marginTop: space.lg, height: sz(48), borderRadius: 999, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderWidth: 1, borderColor: hovered || music ? colors.aura : colors.border, backgroundColor: colors.glass })}>
           <Ionicons name="musical-notes" size={19} color={music ? colors.spark : colors.aura} style={{ marginRight: 10 }} />
           <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.text }}>{music ? music.title : '🎵 Add music (optional)'}</Text>
           {music ? <Pressable onPress={() => setMusic(null)} hitSlop={10} accessibilityLabel="Remove music"><Ionicons name="close-circle" size={20} color={colors.muted} /></Pressable> : <Ionicons name="chevron-forward" size={18} color={colors.dim} />}
@@ -140,11 +159,11 @@ export default function CreatePost() {
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: space.lg, paddingBottom: space.xl, backgroundColor: 'rgba(8,7,13,0.92)', borderTopWidth: 1, borderTopColor: colors.border }}>
+      <View style={{ padding: space.lg, paddingBottom: space.lg, backgroundColor: 'rgba(8,7,13,0.96)', borderTopWidth: 1, borderTopColor: colors.border }}>
         <View style={{ flexDirection: 'row' }}>
           {/* Schedule: needs a photo or video (that's what gets blurred until the reveal) */}
           <Pressable onPress={() => setScheduleOpen(true)} disabled={!canShare || !photos.length} accessibilityLabel="Schedule the reveal"
-            style={({ hovered }) => ({ flex: 1, height: 52, borderRadius: 26, marginRight: space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+            style={({ hovered }) => ({ flex: 1, height: sz(48), borderRadius: 26, marginRight: space.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
               borderColor: hovered ? colors.spark : colors.aura, opacity: !canShare || !photos.length ? 0.45 : 1 })}>
             <Ionicons name="time-outline" size={19} color={colors.aura} style={{ marginRight: 6 }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.text }}>Schedule</Text>
@@ -153,6 +172,9 @@ export default function CreatePost() {
         </View>
         <ScheduleSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} onPick={(at) => share(at)} />
       </View>
-    </View>
+      <FramePhoto visible={!!framing} items={framing ? framing.idx.map((k) => photos[k]).filter(Boolean) : []} startAt={framing?.at || 0}
+        onCancel={() => setFraming(null)}
+        onDone={(out) => { setPhotos((c) => { const n = [...c]; framing.idx.forEach((k, j) => { if (out[j] && n[k]) n[k] = out[j]; }); return n; }); setFraming(null); }} />
+    </KeyboardAvoidingView>
   );
 }

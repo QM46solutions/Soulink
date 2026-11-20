@@ -20,17 +20,20 @@ function Stat({ n, label, onPress }) {
   );
 }
 
-/** Profile button: primary = Soulink gradient; otherwise frosted glass with a thin lilac edge and a lilac icon. */
-export function ProfileAction({ title, onPress, primary, icon, disabled, loading, style }) {
+/** Profile button: primary = Soulink gradient; otherwise frosted glass with a thin lilac edge and a lilac icon.
+ *  With an icon and no title it's a 44 × 44 square (message, anonymous note); with a title it shares the row. */
+export function ProfileAction({ title, onPress, primary, icon, disabled, loading, style, label }) {
+  const square = icon && !title;
   return (
-    <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button" accessibilityLabel={title || undefined}
-      style={({ hovered, pressed }) => [{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 46, paddingHorizontal: 10, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+    <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button" accessibilityLabel={label || title || undefined} hitSlop={square ? 4 : 0}
+      style={({ hovered, pressed }) => [{ height: 44, borderRadius: 13, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+        ...(square ? { width: 44, flexGrow: 0, flexShrink: 0 } : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, paddingHorizontal: 10 }),
         borderWidth: primary ? 0 : 1, borderColor: hovered ? 'rgba(176,143,255,0.75)' : 'rgba(176,143,255,0.32)',
         backgroundColor: primary ? colors.soul : hovered ? 'rgba(124,92,252,0.16)' : 'rgba(255,255,255,0.06)', opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
       {primary ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-      {icon ? <Ionicons name={icon} size={18} color={primary ? '#fff' : colors.aura} style={{ marginRight: title ? 6 : 0 }} /> : null}
-      {title ? <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, letterSpacing: 0.1, color: primary ? '#fff' : colors.text, flexShrink: 1 }}>{loading ? '…' : title}</Text> : null}
+      {icon ? <Ionicons name={icon} size={square ? 20 : 16} color={primary ? '#fff' : square ? colors.text : colors.aura} style={{ marginRight: title ? 6 : 0 }} /> : null}
+      {title ? <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14.5, letterSpacing: 0.1, color: primary ? '#fff' : colors.text, flexShrink: 1 }}>{loading ? '…' : title}</Text> : null}
     </Pressable>
   );
 }
@@ -97,10 +100,10 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: space.md, minWidth: 0, justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={2} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 25, flexShrink: 1 }}>{user.displayName || user.username}</Text>
+            <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} ellipsizeMode="tail" style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 25, flexShrink: 1 }}>{user.displayName || user.username}</Text>
             {user.isPremium ? <Ionicons name="diamond" size={13} color={colors.gold} style={{ marginLeft: 5 }} /> : null}
           </View>
-          <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
+          <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} ellipsizeMode="tail" style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
         </View>
         {pulse ? <PulseMeter pulse={pulse} size={78} onPress={() => setPulseOpen((o) => !o)} /> : null}
       </View>
@@ -152,14 +155,14 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
         </View>
 
-        {actions ? <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>{actions}</View> : null}
+        {actions ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>{actions}</View> : null}
       </View>
     </View>
   );
 }
 
-/** Posts | Moments tabs under the profile header (someone else's profile adds a Soul Score tab) */
-const DEFAULT_TABS = [['posts', 'Posts'], ['moments', 'Moments']];
+/** Posts | Sparks tabs under the profile header (someone else's profile adds a Soul Score tab) */
+const DEFAULT_TABS = [['posts', 'Posts'], ['sparks', 'Sparks']];
 export function ProfileTabs({ tab, onChange, items = DEFAULT_TABS }) {
   return (
     <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginTop: space.xs }}>

@@ -18,7 +18,7 @@ import OffenseSheet from './OffenseSheet';
 import { BottomSheet, CommentsSheet } from './PostSheets';
 import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
-import { colors, fonts, space } from '../lib/theme';
+import { colors, fonts, MAX_FONT_SCALE, space } from '../lib/theme';
 import { feedback } from '../lib/feedback';
 import { setSparksMuted, toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 import ReportModal from './ReportModal';
@@ -282,7 +282,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           {spark.category === 'fitness' && d.challenge ? <Text style={[{ fontFamily: fonts.semibold, color: colors.gold, fontSize: 13, marginTop: 2 }, shadow]}>🏆 Challenge: {d.challenge}</Text> : null}
           {spark.category === 'news' && d.headline ? <Text numberOfLines={2} style={[{ fontFamily: fonts.displayBold, color: '#fff', fontSize: 16, lineHeight: 21, marginTop: 2 }, shadow]}>{d.headline}</Text> : null}
           {caption ? (
-            <Text onPress={() => setCapOpen((v) => !v)} numberOfLines={capOpen ? 8 : 2} style={[{ fontFamily: fonts.body, color: '#fff', fontSize: 14, lineHeight: 19, marginTop: 4 }, shadow]}>{caption}</Text>
+            <Text onPress={() => setCapOpen((v) => !v)} numberOfLines={capOpen ? 8 : 2} maxFontSizeMultiplier={MAX_FONT_SCALE} style={[{ fontFamily: fonts.body, color: '#fff', fontSize: 14, lineHeight: 19, marginTop: 4 }, shadow]}>{caption}</Text>
           ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
             {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
@@ -361,7 +361,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           {d.headline ? <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 17, lineHeight: 23, marginTop: 2 }}>{d.headline}</Text> : null}
         </View>
       ) : null}
-      {spark.caption ? <Text style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 6, paddingHorizontal: 4 }}>{spark.caption}</Text> : null}
+      {spark.caption ? <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontFamily: fonts.body, color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 6, paddingHorizontal: 4 }}>{spark.caption}</Text> : null}
 
       {/* the same actions as a post: like (the category's reaction), comment, share, offense — plus Spread around on your own */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, paddingHorizontal: 4 }}>

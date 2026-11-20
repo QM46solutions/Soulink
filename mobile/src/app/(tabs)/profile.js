@@ -7,7 +7,7 @@ import { usePhotoPicker } from '../../components/PhotoPicker';
 import { notice } from '../../lib/confirm';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
-import ProfileMoments from '../../components/ProfileMoments';
+import ProfileSparks from '../../components/ProfileSparks';
 import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 import { PostGrid } from '../../components/PostCard';
 import { s } from '../../components/ui';
@@ -81,11 +81,11 @@ export default function MyProfile() {
         actions={<>
           <ProfileAction icon="create-outline" title="Edit profile" onPress={() => router.push('/edit-profile')} />
           <ProfileAction icon="share-social-outline" title="Share profile" onPress={shareProfile} />
-          <ProfileAction icon="person-add-outline" onPress={() => router.push('/discover')} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 44 }} />
+          <ProfileAction icon="person-add-outline" label="Find people" onPress={() => router.push('/discover')} />
         </>}
       />
       <ProfileTabs tab={tab} onChange={setTab} />
-      {tab === 'moments' ? <ProfileMoments key={momentsKey} userId={user.id} isMe name={user.displayName || user.username} /> : posts?.length ? <PostGrid posts={posts} tall /> : (
+      {tab === 'sparks' ? <ProfileSparks key={momentsKey} userId={user.id} username={user.username} isMe name={user.displayName || user.username} /> : posts?.length ? <PostGrid posts={posts} tall /> : (
         // Instagram-style empty state: outlined camera circle + a simple text link (no big button)
         <View style={{ alignItems: 'center', paddingTop: space.xxl, paddingHorizontal: space.xl }}>
           <Pressable onPress={() => router.push('/create-post')} accessibilityLabel="Create your first post"

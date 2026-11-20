@@ -29,6 +29,8 @@ import { screenLayout } from '../components/ScreenBackdrop';
 import { BottomBar, barSpace } from '../components/TabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
+import { installTextScale } from '../lib/textScale';
+import KeyboardPan from '../components/KeyboardPan';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -141,6 +143,7 @@ function RootStack() {
         <Stack.Screen name="spark/stage/index" options={{ title: 'Open Mic' }} />
         <Stack.Screen name="spark/speak" options={{ title: 'Speak your mind', presentation: 'modal' }} />
         <Stack.Screen name="spark/[id]" options={{ title: 'Spark' }} />
+        <Stack.Screen name="spark/by/[userId]" options={{ title: 'Sparks' }} />
         <Stack.Screen name="spark/stage/new" options={{ title: 'Add an open mic', presentation: 'modal' }} />
         <Stack.Screen name="moment/[userId]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
@@ -259,6 +262,7 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 function PushTaps() { usePushTaps(); useAppUpdate(); return null; }
 
 installCrashReporting(); // once, as the app starts: crashes go to the team console (Issues)
+installTextScale(); // phone app: text sized to the phone's own width (lib/textScale.js); the browser is unchanged
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -282,7 +286,8 @@ export default function RootLayout() {
         <AccessGate>
           <AuthProvider>
             <RealtimeProvider>
-              <RootStack />
+              {/* keyboard safety net: if a field would still be under the keyboard, the screen slides up (KeyboardPan) */}
+              <KeyboardPan><RootStack /></KeyboardPan>
               <DialogHost />
               <PushTaps />
             </RealtimeProvider>

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/ProfileHeader';
-import ProfileMoments from '../../components/ProfileMoments';
+import ProfileSparks from '../../components/ProfileSparks';
 import MatchPanel from '../../components/MatchPanel';
 import ConnectSheet from '../../components/ConnectSheet';
 import PaidMessageSheet from '../../components/PaidMessageSheet';
@@ -31,7 +31,7 @@ export default function UserProfile() {
   const [conn, setConn] = useState(null);
   const [posts, setPosts] = useState(null);
   const [anon, setAnon] = useState(null);
-  const [tab, setTab] = useState('posts'); // posts | moments | soul
+  const [tab, setTab] = useState('posts'); // posts | sparks | soul
   const [connectOpen, setConnectOpen] = useState(false);
   const [priv, setPriv] = useState(null); // what I've set for this person: restricted / muted / Moments hidden
   const setPerson = async (patch, title, text) => {
@@ -103,20 +103,18 @@ export default function UserProfile() {
     } catch (e) { notice('Could not open chat', e.message); }
   };
 
-  // One button for everything: Connect → Requested → (they accept) Connected → they connect back → Connections
-  // Connect = a small two-step prompt on top of the profile (who they are to you → what you're hoping for)
+  // The row on someone's profile: Follow · Connect · a message icon (and the anonymous-note icon for Connections).
+  // Connect is the main step on Soulink, so it carries the gradient whenever it's something you can do.
+  // One Connect button for everything: Connect → Requested → (they accept) Connected → they connect back → Connections
   const goConnect = () => { if (!needSoul()) setConnectOpen(true); };
   let connectBtn = null;
-  let messageBtn = null;
   if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
-  else if (conn?.connected) {
-    connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
-    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={openChat} />;
-  } else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
-  else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" icon="person-add" onPress={connectBack} loading={busy} />;
+  else if (conn?.connected) connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
+  else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
+  else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" onPress={connectBack} loading={busy} />;
   else if (conn?.iConnect) connectBtn = <ProfileAction title="Connected" icon="checkmark" onPress={disconnect} loading={busy} />;
   else if (conn?.request) connectBtn = <ProfileAction title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} onPress={() => router.push('/activity')} />;
-  else if (conn?.cooldownUntil) connectBtn = <ProfileAction title={`Try again ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
+  else if (conn?.cooldownUntil) connectBtn = <ProfileAction title={`Try ${new Date(conn.cooldownUntil).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`} disabled onPress={() => {}} />;
   else connectBtn = <ProfileAction primary title="Connect" onPress={goConnect} />;
 
   // Anonymous message: only to your Connections. You choose how long you stay hidden; then they see it was you.
@@ -125,24 +123,18 @@ export default function UserProfile() {
     if (anon?.threadId) router.push(`/anon/${anon.threadId}`);
     else router.push({ pathname: '/anon/[id]', params: { id: 'new', userId: target.id, username: target.username, name: target.displayName || target.username } });
   };
-  // Not connected: no free messages at all. Premium can send ONE message (₹500).
-  // A Connect request on hold: you two can chat until the hold ends (the chat is in Messages › Requests).
-  if (!rel.isMe && !conn?.connected && conn?.request?.status === 'held') {
-    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={openChat} />;
-  } else if (!rel.isMe && !conn?.connected && !conn?.blocked) {
-    // a clear "Message" button (it opens the Premium one-message sheet, which explains the price)
-    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={() => { if (!needSoul()) setPaidOpen(true); }} />;
-  }
-  // Public profiles: Connect AND Follow (see their posts and Sparks, no request, no chat).
-  // Private profiles: Connect only. Messages open only once a Connect request is accepted.
+  // Message (an icon): Connections chat; a request on hold can chat until the hold ends; anyone else gets the
+  // Premium one-message sheet (₹500), which explains itself. Blocked: no message icon.
+  let messageBtn = null;
+  if (!rel.isMe && (conn?.connected || conn?.request?.status === 'held')) messageBtn = <ProfileAction icon="chatbubble-ellipses-outline" label="Message" onPress={openChat} />;
+  else if (!rel.isMe && !conn?.blocked) messageBtn = <ProfileAction icon="chatbubble-ellipses-outline" label="Send one Premium message" onPress={() => { if (!needSoul()) setPaidOpen(true); }} />;
+  // Public profiles: Follow (see their posts and Sparks, no request, no chat) comes first. Private: Connect only.
   const following = rel.following === 'accepted' && rel.followKind === 'follow';
   const followBtn = !rel.isMe && !target.isPrivate && !conn?.connected && !conn?.iConnect ? (
     <ProfileAction title={following ? 'Following' : 'Follow'} icon={following ? 'checkmark' : 'add'} loading={busy}
       onPress={() => { if (!needSoul()) act(() => api(`/users/${target.id}/follow`, { method: following ? 'DELETE' : 'POST' })); }} />
   ) : null;
-  const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? (
-    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 46 }} />
-  ) : null;
+  const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? <ProfileAction icon="eye-off-outline" label="Send an anonymous note" onPress={goAnon} /> : null;
 
   return (
     <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
@@ -153,8 +145,8 @@ export default function UserProfile() {
         canViewLists={data.canViewContent}
         isMe={rel.isMe}
         actions={<>
-          {connectBtn}
           {followBtn}
+          {connectBtn}
           {messageBtn}
           {anonBtn}
         </>}
@@ -163,8 +155,8 @@ export default function UserProfile() {
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
       ) : null}
       {conn?.theyConnect && !conn?.connected && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Connected to you · connect back to become Connections</Text> : null}
-      {/* Posts · Moments · Soul Score. The Soul Score tab shows before and after you're connected, even on private accounts */}
-      {data.canViewContent || !rel.isMe ? <ProfileTabs tab={tab} onChange={setTab} items={rel.isMe ? undefined : [['posts', 'Posts'], ['moments', 'Moments'], ['soul', 'Soul Score']]} /> : null}
+      {/* Posts · Sparks · Soul Score. The Soul Score tab shows before and after you're connected, even on private accounts */}
+      {data.canViewContent || !rel.isMe ? <ProfileTabs tab={tab} onChange={setTab} items={rel.isMe ? undefined : [['posts', 'Posts'], ['sparks', 'Sparks'], ['soul', 'Soul Score']]} /> : null}
       {tab === 'soul' && !rel.isMe ? (
         <View style={{ paddingTop: space.lg }}>
           {data.match ? <MatchPanel match={data.match} userId={target.id} name={(target.displayName || target.username).split(' ')[0]} />
@@ -175,7 +167,7 @@ export default function UserProfile() {
               </View>}
         </View>
       ) : data.canViewContent
-        ? (tab === 'moments' ? <ProfileMoments userId={target.id} isMe={rel.isMe} name={(target.displayName || target.username).split(' ')[0]} />
+        ? (tab === 'sparks' ? <ProfileSparks userId={target.id} username={target.username} isMe={rel.isMe} name={(target.displayName || target.username).split(' ')[0]} />
           : posts?.length ? <PostGrid posts={posts} tall /> : <Empty icon="camera-outline" title="No posts yet" />)
         : <Empty icon="lock-closed-outline" title="This account is private" text="Connect with this account to see their photos and Connections." />}
       <ActionSheet

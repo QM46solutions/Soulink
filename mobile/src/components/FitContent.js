@@ -5,6 +5,7 @@
 // scrolls), so typing never makes the screen jump smaller.
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, ScrollView, View } from 'react-native';
+import { useKeepFocusedVisible } from '../lib/keyboard';
 
 const MIN_SCALE = 0.75;
 
@@ -13,6 +14,8 @@ export default function FitContent({ children, contentContainerStyle, center = t
   const [natural, setNatural] = useState(0); // how tall the content is at full size
   const [scale, setScale] = useState(1);
   const keyboard = useRef(false);
+  const scrollRef = useRef(null);
+  const keep = useKeepFocusedVisible(scrollRef);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => { keyboard.current = true; });
@@ -42,6 +45,9 @@ export default function FitContent({ children, contentContainerStyle, center = t
   return (
     <ScrollView
       {...scrollProps}
+      ref={scrollRef}
+      onScroll={keep.onScroll}
+      scrollEventThrottle={16}
       onLayout={onLayout}
       contentContainerStyle={[{ flexGrow: 1, justifyContent: center ? 'center' : 'flex-start' }, contentContainerStyle]}
     >

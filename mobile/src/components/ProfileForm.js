@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardScroll } from '../lib/keyboard';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
@@ -93,7 +94,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
   };
 
   return (
-    <ScrollView style={s.screen} contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll header wrapStyle={s.screen} contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }}>
       <Pressable onPress={photo.open} style={{ alignSelf: 'center', marginBottom: space.sm }} accessibilityLabel="Change profile photo">
         <AuraAvatar size={104} user={{ avatarUrl: avatarUri || (removeAvatar ? null : initial.avatarUrl), displayName: displayName || username || '?' }} />
         <View style={{ position: 'absolute', right: 0, bottom: 0, backgroundColor: colors.spark, borderRadius: 14, padding: 6, borderWidth: 2, borderColor: colors.void }}>
@@ -176,6 +177,6 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, requi
 
       <ErrorText>{error}</ErrorText>
       <Button title={submitLabel} onPress={submit} loading={busy} disabled={!canSubmit} />
-    </ScrollView>
+    </KeyboardScroll>
   );
 }

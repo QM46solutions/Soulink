@@ -1,7 +1,8 @@
 // One post with all its comments (👌🏻 / Reply / ❗ on each) and a comment box.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
+import { useKeepFocusedVisible } from '../../lib/keyboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../../lib/api';
 import PostCard from '../../components/PostCard';
@@ -29,11 +30,13 @@ export default function PostScreen() {
     catch (e) { cm.setError(e.message); return false; } finally { setSending(false); }
   };
 
+  const scrollRef = useRef(null);
+  const keep = useKeepFocusedVisible(scrollRef);
   if (loadError && !post) return <View style={s.screen}><Empty icon="alert-circle-outline" title={loadError} /></View>;
   if (!post || !cm.comments) return <Loading />;
   return (
     <KeyboardAvoidingView style={s.screen} behavior="padding" keyboardVerticalOffset={headerH}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onScroll={keep.onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <View style={{ paddingTop: space.md }}>
           <PostCard post={{ ...post, commentCount: cm.off ? null : cm.comments.length }} showAllComments onDeleted={() => router.back()} onChanged={() => load()} />
         </View>

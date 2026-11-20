@@ -19,7 +19,7 @@ import PostVideo from './PostVideo';
 
 export const isVideo = (u) => /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i.test(String(u || ''));
 import { Avatar, VerifiedBadge } from './ui';
-import { colors, fonts, space } from '../lib/theme';
+import { colors, fonts, MAX_FONT_SCALE, space } from '../lib/theme';
 import { feedback } from '../lib/feedback';
 
 export const LIKE_EMOJI = '👌🏻';
@@ -339,7 +339,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       ) : null}
       {textOnly ? (
         <Pressable onPress={openPost} style={{ marginHorizontal: space.lg, padding: space.xl, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(176,143,255,0.35)', backgroundColor: 'rgba(124,92,252,0.1)' }}>
-          <Text style={{ fontFamily: fonts.displaySemi, fontSize: 19, lineHeight: 27, color: colors.text, ...WRAP }}>{caption}</Text>
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontFamily: fonts.displaySemi, fontSize: 18, lineHeight: 26, color: colors.text, ...WRAP }}>{caption}</Text>
         </Pressable>
       ) : view.reveal?.locked ? <RevealCover reveal={view.reveal} onRevealed={refreshReveal} /> : (
         <View>
@@ -418,7 +418,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
           </View>
         </View>
       ) : !textOnly && caption ? (
-        <Text style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, lineHeight: 20, ...WRAP }}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontFamily: fonts.body, color: colors.text, paddingHorizontal: space.lg, marginTop: 6, fontSize: 14, lineHeight: 20, ...WRAP }}>
           <Text style={{ fontFamily: fonts.semibold }}>{post.author.displayName || post.author.username} </Text>{caption}
         </Text>
       ) : null}

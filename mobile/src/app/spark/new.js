@@ -4,7 +4,8 @@
 // 4) the category's extras + caption.
 // Also used for a Casting Board audition (?casting=<id>) and for this week's Open Mic (?stage=1).
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardScroll } from '../../lib/keyboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -250,8 +251,7 @@ export default function NewSpark() {
         <View style={{ width: 26 }} />
       </View>
 
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+      <KeyboardScroll contentContainerStyle={{ padding: space.lg, paddingBottom: 60 }}>
           {step === 'category' ? (
             <>
               {stage ? (
@@ -431,8 +431,7 @@ export default function NewSpark() {
               {busy ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>Uploading your video… this can take a minute.</Text> : null}
             </>
           ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardScroll>
 
       <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={(m) => { setMusic(m); setEdit((e) => ({ ...e, musicStart: m.start || 0 })); setProj((pr) => (pr ? { ...pr, music: { ...m, start: m.start || 0, volume: 1 } } : pr)); }} clip={60} title="Music for your Spark" />
       <SparkRecorder visible={recording} cue={cue} onClose={() => setRecording(false)} onDone={(v) => { setRecording(false); openStudio([Studio.makeClip({ uri: v.uri, type: v.type, duration: v.seconds })], v.oneTake); }} />

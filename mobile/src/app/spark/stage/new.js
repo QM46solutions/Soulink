@@ -1,6 +1,7 @@
 // Add a Stage Spot: a real open mic (venue, city, date and time, what kind, a link).
 import { useLayoutEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardScroll } from '../../../lib/keyboard';
 import { router, useNavigation } from 'expo-router';
 import { api } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
@@ -41,7 +42,7 @@ export default function NewSpot() {
     ? <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={{ flex: 1, height: 46, borderRadius: 14, border: `1px solid ${colors.border}`, background: 'rgba(8,7,13,0.6)', color: colors.text, padding: '0 12px', fontSize: 15, colorScheme: 'dark' }} />
     : <TextInput value={value} onChangeText={onChange} style={[ui.input, { flex: 1 }]} />);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll header contentContainerStyle={{ padding: space.xl, paddingBottom: 80 }}>
       <Input label="Name" value={title} onChangeText={setTitle} maxLength={100} placeholder="e.g. Friday Night Open Mic" />
       <Input label="Venue" value={venue} onChangeText={setVenue} maxLength={150} placeholder="e.g. Lamakaan, Banjara Hills" />
       <Input label="City" value={city} onChangeText={setCity} maxLength={80} placeholder="Hyderabad" />
@@ -58,6 +59,6 @@ export default function NewSpot() {
       <Input label="Sign-up or ticket link (optional)" value={link} onChangeText={setLink} maxLength={300} autoCapitalize="none" placeholder="https://…" />
       <Input label="Anything else? (optional)" value={note} onChangeText={setNote} maxLength={300} multiline placeholder="e.g. 5-minute slots, register by 6:30" />
       <GradButton title="Add open mic" icon="microphone-plus" onPress={send} disabled={busy || title.trim().length < 3 || venue.trim().length < 2 || city.trim().length < 2} style={{ marginTop: space.md }} />
-    </ScrollView>
+    </KeyboardScroll>
   );
 }

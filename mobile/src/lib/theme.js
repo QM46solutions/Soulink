@@ -1,3 +1,14 @@
+// One size factor for the phone app, from the screen's own width: the design is drawn for the iPhone 17 Pro Max
+// (440 wide, same as the browser), so it's 1 there and on the web, and a little smaller on narrower phones (most
+// Androids are 360–412 wide). sz(n): a height / width scaled that way (buttons, fields). Font sizes are scaled
+// for every Text by lib/textScale.js, so don't wrap font sizes in sz().
+import { Dimensions, Platform } from 'react-native';
+const SCREEN_W = Dimensions.get('window')?.width || 440;
+export const UI = Platform.OS === 'web' ? 1 : Math.max(0.86, Math.min(1, SCREEN_W / 440));
+export const sz = (n) => Math.round(n * UI * 2) / 2;
+/** text never grows past this on phones set to a large text size (it would push screens apart) */
+export const MAX_FONT_SCALE = 1.1; // same cap as lib/textScale.js
+
 // Soulink design tokens — taken from the pitch site (soulink-pitch.netlify.app) so the app and site match.
 export const colors = {
   void: '#08070d',
