@@ -255,9 +255,9 @@ const bad = (message, code, status = 400) => new HttpError(status, message, code
 // someone else's like / comment on a restored item stays only if, right now: their account exists and is active,
 // they are this person's Connection, and neither has blocked the other (checked against the database, never the file)
 const ELIGIBLE = (col, me) => `${col} = ${me} OR (
-    EXISTS (SELECT 1 FROM users u WHERE u.id = ${col} AND u.deactivated_at IS NULL)
-    AND EXISTS (SELECT 1 FROM connections c WHERE (c.user_a = ${col} AND c.user_b = ${me}) OR (c.user_a = ${me} AND c.user_b = ${col}))
-    AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = ${col} AND b.blocked_id = ${me}) OR (b.blocker_id = ${me} AND b.blocked_id = ${col})))`;
+    EXISTS (SELECT 1 FROM users bk_u WHERE bk_u.id = ${col} AND bk_u.deactivated_at IS NULL)
+    AND EXISTS (SELECT 1 FROM connections bk_c WHERE (bk_c.user_a = ${col} AND bk_c.user_b = ${me}) OR (bk_c.user_a = ${me} AND bk_c.user_b = ${col}))
+    AND NOT EXISTS (SELECT 1 FROM blocks bk_b WHERE (bk_b.blocker_id = ${col} AND bk_b.blocked_id = ${me}) OR (bk_b.blocker_id = ${me} AND bk_b.blocked_id = ${col})))`;
 const KIND = {
   post: { table: 'posts', likes: 'post_likes', likeKey: 'post_id', comments: 'comments', commentKey: 'post_id' },
   spark: { table: 'sparks', likes: 'spark_reactions', likeKey: 'spark_id', comments: 'spark_comments', commentKey: 'spark_id' },
@@ -274,9 +274,9 @@ async function interactionCounts(kind, id, me) {
 /** Removes ineligible likes and hides ineligible comments (and replies under them) on one of this person's items. */
 async function pruneInteractions(kind, id, me) {
   const k = KIND[kind];
-  await query(`DELETE FROM ${k.likes} WHERE ${k.likeKey} = $1 AND NOT (${ELIGIBLE('user_id', '$2')})`, [id, me]);
+  await query(`DELETE FROM ${k.likes} WHERE ${k.likeKey} = $1 AND NOT (${ELIGIBLE(`${k.likes}.user_id`, '$2')})`, [id, me]);
   const hidden = await many(`UPDATE ${k.comments} SET deleted_at = SYSDATETIMEOFFSET() OUTPUT INSERTED.id
-    WHERE ${k.commentKey} = $1 AND deleted_at IS NULL AND NOT (${ELIGIBLE('author_id', '$2')})`, [id, me]);
+    WHERE ${k.commentKey} = $1 AND deleted_at IS NULL AND NOT (${ELIGIBLE(`${k.comments}.author_id`, '$2')})`, [id, me]);
   if (hidden.length) {
     await query(`UPDATE ${k.comments} SET deleted_at = SYSDATETIMEOFFSET() WHERE ${k.commentKey} = $1 AND deleted_at IS NULL
       AND parent_id IN (SELECT id FROM ${k.comments} WHERE ${k.commentKey} = $1 AND deleted_at IS NOT NULL)`, [id]);
