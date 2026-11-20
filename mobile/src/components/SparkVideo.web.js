@@ -32,6 +32,8 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const tapAt = useRef(0); const tapTimer = useRef(null);
   const [cur, setCur] = useState(0); const [dur, setDur] = useState(0);
   const [shown, setShown] = useState(false); const hideTimer = useRef(null); const scrubbing = useRef(false);
+  const [userPaused, setUserPaused] = useState(false); // paused with a tap in the middle (mini): show the pause sign
+  const [resumed, setResumed] = useState(false); const resumedT = useRef(null); // a play sign, for a moment, after that
   const self = useRef({}); // identifies this player (pause() is a new function every render)
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -131,7 +133,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     return () => { io.disconnect(); document.removeEventListener('visibilitychange', hide); };
   }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   useFocusEffect(useCallback(() => { if (autoPlay && active) play(); return () => pause(); }, [autoPlay, active])); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!active) pause(); else if (autoPlay) play(); }, [active, autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!active) pause(); else if (autoPlay) { setUserPaused(false); play(); } }, [active, autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
   // tap while it's playing muted: turn the sound on (instead of pausing)
   const soundOn = () => {
     const v = video.current; if (!v) return;
@@ -182,17 +184,25 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     if (!controls) { toggle(); return; }
     if (ctlVisible && playing) { clearTimeout(hideTimer.current); setShown(false); } else flash();
   };
-  const onTap = () => {
-    if (!onDoubleTap) { single(); return; }
+  const tapThen = (one) => {
+    if (!onDoubleTap) { one(); return; }
     const now = Date.now();
     if (now - tapAt.current < 280) { clearTimeout(tapTimer.current); tapAt.current = 0; onDoubleTap(); return; }
     tapAt.current = now;
-    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(single, 280);
+    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(one, 280);
   };
-  useEffect(() => () => clearTimeout(tapTimer.current), []);
+  const onTap = () => tapThen(single);
+  // mini: a tap in the middle pauses / plays
+  const middle = () => {
+    clearTimeout(resumedT.current);
+    if (playing) { pause(); setUserPaused(true); setResumed(false); return; }
+    setUserPaused(false); play(); setResumed(true);
+    resumedT.current = setTimeout(() => setResumed(false), 650);
+  };
+  useEffect(() => () => { clearTimeout(tapTimer.current); clearTimeout(resumedT.current); }, []);
   return (
     <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={soundOff ? 'Turn sound on' : playing ? 'Pause' : 'Play'}>
-      <video ref={video} src={src} playsInline preload="metadata" onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
+      <video ref={video} src={src} playsInline preload={mini || autoPlay ? 'auto' : 'metadata'} onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
         onPause={() => { const v = video.current; if (!v?.paused || v.ended) return; audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
         style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}
@@ -206,12 +216,15 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
           onMute={onToggleMute || (soundOff ? soundOn : null)} onFullscreen={onFullscreen} />
       ) : null}
       {mini ? (<>
-        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Pressable onPress={toggle} hitSlop={12} accessibilityLabel={playing ? 'Pause' : 'Play'}
-            style={({ pressed, hovered }) => ({ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.38)', opacity: pressed ? 0.6 : 1 })}>
-            <Ionicons name={playing ? 'pause' : 'play'} size={30} color="rgba(255,255,255,0.92)" style={playing ? null : { marginLeft: 3 }} />
-          </Pressable>
-        </View>
+        <Pressable onPress={() => tapThen(middle)} accessibilityLabel={playing ? 'Pause' : 'Play'}
+          style={{ position: 'absolute', left: '25%', right: '25%', top: '30%', bottom: '30%', cursor: 'pointer' }} />
+        {(userPaused && !playing) || resumed ? (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+              <Ionicons name={resumed ? 'play' : 'pause'} size={32} color="rgba(255,255,255,0.95)" style={resumed ? { marginLeft: 4 } : null} />
+            </View>
+          </View>
+        ) : null}
         {onToggleMute ? (
           <Pressable onPress={onToggleMute} hitSlop={10} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
             style={{ position: 'absolute', right: 12, bottom: miniBottom, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>

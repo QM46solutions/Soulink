@@ -24,8 +24,9 @@ let current = null; // the pause() of the Spark that is playing now
 // still pauses / plays, just after a short wait to tell the two apart.
 // controls: YouTube-style controls (a tap shows them: play / pause, 10 s back / forward, progress bar, time, sound,
 // full screen); onControls(shown) tells the parent so it can step its own overlays aside.
-// mini: the feed look: only a pause / play button in the middle and sound on / off in the bottom-right corner;
-// a tap anywhere else calls onOpen (open the Spark big). timeRef gets the current second; startAt starts there.
+// mini: the feed look: a plain video with only sound on / off in the bottom-right corner. A tap in the middle pauses
+// it (a pause sign shows while it's paused; another tap there plays it again); a tap anywhere else calls onOpen
+// (open the Spark big). timeRef gets the current second; startAt starts there.
 export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onDoubleTap,
   controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14 }) {
   const e = edit || {};
@@ -47,10 +48,14 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const tapAt = useRef(0); const tapTimer = useRef(null);
   const [cur, setCur] = useState(0); const [dur, setDur] = useState(0);
   const [shown, setShown] = useState(false); const hideTimer = useRef(null); const scrubbing = useRef(false);
+  const [userPaused, setUserPaused] = useState(false); // paused with a tap in the middle (mini): show the pause sign
+  const [resumed, setResumed] = useState(false); const resumedT = useRef(null); // a play sign, for a moment, after that
 
   const player = useVideoPlayer(src, (p) => {
     p.loop = false; p.timeUpdateEventInterval = 0.1; p.playbackRate = rate; p.preservesPitch = true;
     p.volume = Math.min(1, vol.video); p.muted = vol.video === 0;
+    // start as soon as a little has loaded, instead of waiting for a long safety buffer
+    try { p.bufferOptions = { preferredForwardBufferDuration: 15, minBufferForPlayback: 0.5, waitsToMinimizeStalling: false }; } catch { /* older player */ }
     if (startAt != null) p.currentTime = t0 + startAt; else if (e.cover != null || t0) p.currentTime = e.cover ?? t0;
   });
   // music and voiceover play alongside
@@ -110,7 +115,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   }, [player, t0, t1, fading, timedText, playing, controls, dur]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // stop when scrolled away, when another screen opens, or when the app goes to the background
-  useEffect(() => { if (!active) pause(); else if (autoPlay) play(); }, [active, autoPlay, pause]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!active) pause(); else if (autoPlay) { setUserPaused(false); play(); } }, [active, autoPlay, pause]); // eslint-disable-line react-hooks/exhaustive-deps
   useFocusEffect(useCallback(() => { if (autoPlay && active) play(); return () => pause(); }, [pause, autoPlay, active])); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const s = AppState.addEventListener('change', (st) => { if (st !== 'active') pause(); });
@@ -159,14 +164,22 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     if (!controls) { toggle(); return; }
     if (ctlVisible && playing) { clearTimeout(hideTimer.current); setShown(false); } else flash();
   };
-  const onTap = () => {
-    if (!onDoubleTap) { single(); return; }
+  const tapThen = (one) => {
+    if (!onDoubleTap) { one(); return; }
     const now = Date.now();
     if (now - tapAt.current < 280) { clearTimeout(tapTimer.current); tapAt.current = 0; onDoubleTap(); return; }
     tapAt.current = now;
-    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(single, 280);
+    clearTimeout(tapTimer.current); tapTimer.current = setTimeout(one, 280);
   };
-  useEffect(() => () => clearTimeout(tapTimer.current), []);
+  const onTap = () => tapThen(single);
+  // mini: a tap in the middle pauses / plays
+  const middle = () => {
+    clearTimeout(resumedT.current);
+    if (playing) { pause(); setUserPaused(true); setResumed(false); return; }
+    setUserPaused(false); play(); setResumed(true);
+    resumedT.current = setTimeout(() => setResumed(false), 650);
+  };
+  useEffect(() => () => { clearTimeout(tapTimer.current); clearTimeout(resumedT.current); }, []);
 
   const z = e.zoom && e.zoom.s > 1.001 ? e.zoom : null;
   return (
@@ -183,12 +196,15 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
           onMute={onToggleMute} onFullscreen={onFullscreen} />
       ) : null}
       {mini ? (<>
-        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Pressable onPress={toggle} hitSlop={12} accessibilityLabel={playing ? 'Pause' : 'Play'}
-            style={({ pressed }) => ({ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.38)', opacity: pressed ? 0.6 : 1 })}>
-            <Ionicons name={playing ? 'pause' : 'play'} size={30} color="rgba(255,255,255,0.92)" style={playing ? null : { marginLeft: 3 }} />
-          </Pressable>
-        </View>
+        <Pressable onPress={() => tapThen(middle)} accessibilityLabel={playing ? 'Pause' : 'Play'}
+          style={{ position: 'absolute', left: '25%', right: '25%', top: '30%', bottom: '30%' }} />
+        {(userPaused && !playing) || resumed ? (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+              <Ionicons name={resumed ? 'play' : 'pause'} size={32} color="rgba(255,255,255,0.95)" style={resumed ? { marginLeft: 4 } : null} />
+            </View>
+          </View>
+        ) : null}
         {onToggleMute ? (
           <Pressable onPress={onToggleMute} hitSlop={10} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
             style={{ position: 'absolute', right: 12, bottom: miniBottom, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
