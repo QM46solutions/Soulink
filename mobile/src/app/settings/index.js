@@ -11,7 +11,6 @@ import { confirm } from '../../lib/confirm';
 import { retakeSoulDna } from '../../lib/retake';
 import { MenuRow, Note, Section } from '../../components/SettingsUI';
 import { s } from '../../components/ui';
-import { downloadMyData } from '../../lib/export-data';
 
 const go = (p) => () => router.push(p);
 
@@ -76,8 +75,7 @@ export default function Settings() {
       <Section>Legal & your data</Section>
       <MenuRow icon="document-text" title="Terms & policies" text="Terms, Privacy, Guidelines, Refunds" onPress={go('/legal/terms')} tint={['#7c5cfc', '#3fa9f5']} />
       <MenuRow icon="help-buoy" title="Grievance Officer" text="Complaints about content, your account or data" onPress={go('/legal/grievance')} tint={['#ff9a5a', '#ff6b9d']} />
-      <MenuRow icon="download" title="Download my data" text="A copy of your profile, posts, chats and more" onPress={downloadMyData} tint={['#42e8c0', '#3fa9f5']} />
-      <MenuRow icon="cloud-upload" title="Restore my data" text="Coming back? Bring back your profile and Soul DNA" onPress={go('/settings/restore-data')} tint={['#7c5cfc', '#42e8c0']} />
+      <MenuRow icon="archive" title="Account Data & Backup" text="Download your posts, photos and videos, or restore a backup" onPress={go('/settings/backup')} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="pause-circle" title="Pause my account" text="Hide everything for a while; nothing is deleted" onPress={go('/settings/pause-account')} tint={['#f5c842', '#8b88a0']} />
       <MenuRow icon="trash" title="Delete my account" text="Deleted after 7 days; log in before then to cancel" onPress={go('/settings/delete-account')} tint={['#ff5c7a', '#8b2a3c']} />
 

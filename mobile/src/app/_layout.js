@@ -172,7 +172,8 @@ function RootStack() {
         <Stack.Screen name="settings/update-app" options={{ title: 'Update App' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete my account' }} />
         <Stack.Screen name="settings/pause-account" options={{ title: 'Pause my account' }} />
-        <Stack.Screen name="settings/restore-data" options={{ title: 'Restore my data' }} />
+        <Stack.Screen name="settings/backup" options={{ title: 'Account Data & Backup' }} />
+        <Stack.Screen name="settings/restore-data" options={{ title: 'Restore My Data' }} />
         <Stack.Screen name="blocked" options={{ title: 'Blocked contacts' }} />
         <Stack.Screen name="requests" options={{ title: 'Follow requests' }} />
         <Stack.Screen name="messages/index" options={{ title: 'Messages' }} />

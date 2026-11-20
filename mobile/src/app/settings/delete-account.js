@@ -3,10 +3,10 @@
 // or email can't create a new Soulink account for 6 months (kept encrypted until then).
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { confirm, notice } from '../../lib/confirm';
-import { downloadMyData } from '../../lib/export-data';
 import { Button, ErrorText, Input, s } from '../../components/ui';
 import { Note } from '../../components/SettingsUI';
 import { colors, fonts, space } from '../../lib/theme';
@@ -34,7 +34,7 @@ export default function DeleteAccount() {
       <Note>After 7 days your profile, photos, Soul DNA, posts, Sparks and chats are erased for good.</Note>
       <Note>For 6 months after that, the same face, phone number or email can't be used to create a new Soulink account. Until then your face fingerprint and contact details are kept encrypted, used only for this check, and then erased. As Indian law requires, we also keep your name, date of birth, city, phone number, email and consent records for 1 year, used only to answer lawful requests.</Note>
       <Note>Just need a break? Pause your account instead: nothing is deleted.</Note>
-      <Button title="Download my data first" variant="ghost" icon="download-outline" onPress={downloadMyData} style={{ marginTop: space.sm }} />
+      <Button title="Download my data first (Account Data & Backup)" variant="ghost" icon="download-outline" onPress={() => router.push('/settings/backup')} style={{ marginTop: space.sm }} />
       <View style={{ marginTop: space.xl }}>
         <Input label="Type DELETE to confirm" value={text} onChangeText={setText} autoCapitalize="characters" autoCorrect={false} />
         <ErrorText>{error}</ErrorText>

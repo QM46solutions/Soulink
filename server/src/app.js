@@ -34,6 +34,7 @@ import soulmojiRoutes from './routes/soulmoji.js';
 import anonRoutes from './routes/anon.js';
 import pushRoutes from './routes/push.js';
 import accountRoutes from './routes/account.js';
+import backupRoutes from './routes/backup.js';
 import momentRoutes from './routes/moments.js';
 import sparkRoutes from './routes/sparks.js';
 import adminRoutes from './routes/admin.js';
@@ -204,6 +205,7 @@ export function createApp() {
   app.use('/connections', connectionRoutes);
   app.use('/argue', argueRoutes);
   app.use('/anon', anonRoutes);
+  app.use('/account/backup', backupRoutes); // Settings › Account Data & Backup (ZIP download, restore)
   app.use('/account', accountRoutes);
   app.use('/moments', momentRoutes);
   app.use('/sparks', sparkRoutes);

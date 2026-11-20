@@ -18,6 +18,7 @@ import { purgeExpiredBans, runScheduledDeletions } from './services/lifecycle.js
 import { remindPendingReports, runCopyrightRestores } from './services/copyright.js';
 import { remindLegalDeadlines } from './services/legal.js';
 import { purgeTelemetry } from './routes/telemetry.js';
+import { expireBackupJobs, recoverBackupJobs } from './services/backup.js';
 import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 import { startMetrics } from './services/metrics.js';
@@ -38,7 +39,7 @@ if (cloud) {
   markDbStarting();
   // cloud: open the web server straight away (the page loads fast) and get the database ready in the background
   (async function boot() {
-    try { await startDatabase(); console.log('   Database ready'); scheduleNext().catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); }
+    try { await startDatabase(); console.log('   Database ready'); scheduleNext().catch(() => {}); recoverBackupJobs().catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); }
     catch (e) { console.error(`   Database not ready yet (${e.message}); trying again in 15 s`); setTimeout(boot, 15_000); }
   })();
 } else {
@@ -55,7 +56,7 @@ const server = http.createServer(createApp());
 // Background jobs (30-day deletions, purges, copyright restores and reminders) run only while people are using
 // Soulink, at most once an hour. The free Azure database pauses itself when nobody uses it; a job that woke it
 // every hour would keep it awake all month and use up the free allowance in days.
-const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); remindLegalDeadlines(); purgeDeletedAccounts(); purgeAuditLog(); purgeTelemetry(); };
+const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); remindLegalDeadlines(); purgeDeletedAccounts(); purgeAuditLog(); purgeTelemetry(); expireBackupJobs().catch(() => {}); };
 let lastJobs = 0;
 setInterval(() => { if (recentlyActive(10 * 60_000) && isDbReady() && Date.now() - lastJobs > 3600_000) { lastJobs = Date.now(); jobs(); } }, 60_000).unref?.();
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute
