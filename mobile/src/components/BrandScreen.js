@@ -2,8 +2,10 @@
 //   - starfield shows through (transparent background)
 //   - top bar: back arrow on the left (optional), extra control on the right (optional)
 //   - content centred vertically, 24px side padding, no scrollbar, keyboard-safe
+//   - fits any phone: if the page is taller than the screen it shrinks evenly to fit (FitContent), else scrolls
 //   - BrandHeader: big gradient "Soulink" wordmark + one-line title + short subtitle, all centred
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, Text, View } from 'react-native';
+import FitContent from './FitContent';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,13 +26,14 @@ export function BrandScreen({ children, back, onBack, right, center = true }) {
         {right || <View style={{ width: 36 }} />}
       </View>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: center ? 'center' : 'flex-start', paddingHorizontal: space.xl, paddingBottom: space.xl }}
+        <FitContent
+          center={center}
+          contentContainerStyle={{ paddingHorizontal: space.xl, paddingBottom: space.xl }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {children}
-        </ScrollView>
+        </FitContent>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -83,16 +83,16 @@ export function SpaceScreen({ children, style, glow = true, density }) {
 }
 
 /** Text filled with the brand gradient (white → aura → spark), like the site's headlines. */
-export function GradientText({ children, style, colors: c = gradients.wordmark, numberOfLines }) {
+export function GradientText({ children, style, colors: c = gradients.wordmark, numberOfLines, allowFontScaling = true }) {
   if (Platform.OS === 'web') {
     // Browsers: CSS gradient text (MaskedView isn't supported on web)
     const css = { backgroundImage: `linear-gradient(135deg, ${c.join(', ')})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', WebkitTextFillColor: 'transparent' };
-    return <Text style={[style, css]} numberOfLines={numberOfLines}>{children}</Text>;
+    return <Text style={[style, css]} numberOfLines={numberOfLines} allowFontScaling={allowFontScaling}>{children}</Text>;
   }
   return (
-    <MaskedView maskElement={<Text style={[style, { backgroundColor: 'transparent' }]} numberOfLines={numberOfLines}>{children}</Text>}>
+    <MaskedView maskElement={<Text style={[style, { backgroundColor: 'transparent' }]} numberOfLines={numberOfLines} allowFontScaling={allowFontScaling}>{children}</Text>}>
       <LinearGradient colors={c} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={[style, { opacity: 0 }]} numberOfLines={numberOfLines}>{children}</Text>
+        <Text style={[style, { opacity: 0 }]} numberOfLines={numberOfLines} allowFontScaling={allowFontScaling}>{children}</Text>
       </LinearGradient>
     </MaskedView>
   );

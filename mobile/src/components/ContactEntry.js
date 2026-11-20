@@ -94,7 +94,7 @@ export default function ContactEntry({ mode = 'login', initialMethod, initialVal
           onSubmitEditing={submit}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          style={{ flex: 1, color: colors.text, fontFamily: fonts.medium, fontSize: 16, height: '100%', ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) }}
+          style={{ flex: 1, minWidth: 0, color: colors.text, fontFamily: fonts.medium, fontSize: 16, height: '100%', ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) }}
           accessibilityLabel={isPhone ? 'Mobile number' : 'Email address'}
         />
         <Pressable onPress={submit} disabled={!valid || busy} accessibilityLabel="Continue"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import FitContent from '../../components/FitContent';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LegalLinks } from '../../components/Consent';
 import { router } from 'expo-router';
@@ -20,6 +21,13 @@ const PILLARS = [
 ];
 
 const SLIDE_EVERY_MS = 3000;
+
+/** The wordmark's size from the screen's own width: "Soulink" is about 5.9 × its font size wide, so it always fits
+ *  on one line inside the side padding. Height is handled by FitContent, which fits the whole page to any phone. */
+function useTitleSize() {
+  const { width } = useWindowDimensions();
+  return Math.max(36, Math.min(60, Math.floor((width - 48) / 5.9)));
+}
 
 /** Shows one feature at a time and slides to the next every few seconds. Users can also swipe. */
 function FeatureCarousel() {
@@ -71,8 +79,8 @@ function FeatureCarousel() {
                 <p.Live size={58} />
               </View>
               <MonoTag style={{ marginTop: space.md }}>{p.n} / 04</MonoTag>
-              <Text style={{ fontFamily: fonts.displayBold, fontSize: 20, color: colors.text, marginTop: space.xs, textAlign: 'center' }}>{p.title}</Text>
-              <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, lineHeight: 20, textAlign: 'center' }}>{p.text}</Text>
+              <Text maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.displayBold, fontSize: 20, color: colors.text, marginTop: space.xs, textAlign: 'center' }}>{p.title}</Text>
+              <Text maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: space.sm, lineHeight: 20, textAlign: 'center' }}>{p.text}</Text>
             </GlassCard>
           </View>
         ))}
@@ -93,6 +101,8 @@ export default function Welcome() {
   const fade = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 900, useNativeDriver: true }).start(); }, [fade]);
   const rise = fade.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+  const title = useTitleSize();
+  const gap = space.xxl;
 
   return (
     <View style={{ flex: 1 }}>
@@ -105,27 +115,27 @@ export default function Welcome() {
       </View>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: space.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <FitContent contentContainerStyle={{ paddingHorizontal: space.xl, paddingVertical: space.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }], alignItems: 'center' }}>
             <PillTag style={{ alignSelf: 'center' }}>Real · Soul · Verdict</PillTag>
-            <GradientText numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: 60, lineHeight: 70, letterSpacing: -1.8, marginTop: space.lg, textAlign: 'center' }}>Soulink</GradientText>
-            <Text style={{ fontFamily: fonts.displayBold, fontSize: 16, color: colors.text, lineHeight: 24, marginTop: space.sm, textAlign: 'center' }}>
+            <GradientText numberOfLines={1} allowFontScaling={false} style={{ fontFamily: fonts.display, fontSize: title, lineHeight: Math.round(title * 1.17), letterSpacing: -title * 0.03, marginTop: space.lg, textAlign: 'center' }}>Soulink</GradientText>
+            <Text maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.displayBold, fontSize: 16, color: colors.text, lineHeight: 24, marginTop: space.sm, textAlign: 'center' }}>
               Create your identity to find your <Text style={{ color: colors.aura }}>soul</Text>
             </Text>
           </Animated.View>
 
-          <View style={{ marginTop: space.xxl }}>
+          <View style={{ marginTop: gap }}>
             <FeatureCarousel />
           </View>
 
           {/* Log in right here: choose Email or Phone number, then a 6-digit code. New people tap "Create account". */}
-          <View style={{ marginTop: space.xxl }}>
+          <View style={{ marginTop: gap }}>
             <ContactEntry mode="login" />
             <LinkLine text="New to Soulink?" link="Create account" onPress={() => router.push('/signup')} />
             <LegalLinks style={{ marginTop: space.xl }} />
-            <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 6 }}>For ages 18+ · © QM46 Solutions Pvt Ltd</Text>
+            <Text maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 6 }}>For ages 18+ · © QM46 Solutions Pvt Ltd</Text>
           </View>
-        </ScrollView>
+        </FitContent>
       </KeyboardAvoidingView>
     </SafeAreaView>
     </View>
