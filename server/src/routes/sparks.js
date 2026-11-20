@@ -28,6 +28,7 @@ import { ah, badRequest, forbidden, notFound, HttpError } from '../lib/errors.js
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { uploadMemory, saveFile, blobLink, blobSize } from '../providers/storage.js';
 import { builderOn, kickBuilds, myBuilds, startBuilds } from '../services/videoBuilder.js';
+import { kickShrink, startShrinking } from '../services/videoShrink.js';
 import crypto from 'node:crypto';
 import { notify, userCard } from '../services/social.js';
 import { REF_RE, playPath } from '../services/music.js';
@@ -277,9 +278,11 @@ export async function createSpark(authorId, f) {
     const casting = await one('SELECT id, author_id, title FROM casting_calls WHERE id=$1', [f.castingId]);
     if (casting && String(casting.author_id).toLowerCase() !== String(authorId).toLowerCase()) await notify(casting.author_id, authorId, 'casting_audition', x.id, { title: casting.title }).catch(() => {});
   }
+  kickShrink(); // make its video small and quick to start (services/videoShrink.js)
   return x.id;
 }
 startBuilds(createSpark);
+startShrinking();
 
 // ---------- Soulink Studio: Sparks the video builder puts together ----------
 const UPLOAD_TYPES = /^(video\/(mp4|quicktime|webm|x-m4v|3gpp)|image\/(jpeg|png|webp|heic)|audio\/(mp4|m4a|x-m4a|aac|mpeg|mp3|webm|ogg|wav|x-wav|3gpp))$/;

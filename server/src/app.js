@@ -4,7 +4,7 @@ import { query } from './db.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { ensureLocal } from './providers/storage.js';
+import { blobReadLink, ensureLocal, inBlob } from './providers/storage.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -131,16 +131,6 @@ export function createApp() {
     app.get('/access', (req, res) => res.json({ required: false, ok: true }));
   }
 
-  // Photos and voice notes; on cloud hosts they're restored from the database if the disk was wiped
-  if (config.storage === 'db') {
-    app.use('/uploads', async (req, res, next) => {
-      try {
-        const rel = decodeURIComponent(req.path);
-        if (req.method === 'GET' && !rel.includes('..') && !rel.includes('\\')) await ensureLocal(`/uploads${rel}`);
-      } catch { /* falls through to 404 */ }
-      next();
-    });
-  }
   // nothing under /uploads opens without a valid signed link (ad pictures excepted)
   app.use('/uploads', (req, res, next) => {
     let p;
@@ -148,6 +138,25 @@ export function createApp() {
     if (checkSigned(p, req.query.t)) return next();
     return res.status(403).json({ error: { code: 'link_expired', message: 'Log in to Soulink to see this' } });
   });
+  // Photos, videos and voice notes: in Blob mode they come straight from Azure (a short-lived link, the same for the
+  // hour so the phone keeps its copy); files from before the switch, and every file in database mode, are restored
+  // to this computer's disk from where they're kept, then sent from here.
+  if (config.storage === 'db' || config.storage === 'blob') {
+    app.use('/uploads', async (req, res, next) => {
+      try {
+        const rel = decodeURIComponent(req.path);
+        if ((req.method === 'GET' || req.method === 'HEAD') && !rel.includes('..') && !rel.includes('\\')) {
+          const p = `/uploads${rel}`;
+          if (config.storage === 'blob' && await inBlob(p)) {
+            res.setHeader('Cache-Control', 'private, max-age=1800');
+            return res.redirect(302, await blobReadLink(p));
+          }
+          await ensureLocal(p);
+        }
+      } catch { /* falls through to 404 */ }
+      next();
+    });
+  }
   app.use('/uploads', express.static(config.uploadDir, { maxAge: '1h', setHeaders: (res) => res.setHeader('Cache-Control', 'private, max-age=3600') }));
   app.use('/uploads', (req, res) => res.status(404).json({ error: { code: 'not_found', message: 'File not found' } })); // a missing file is a 404, not a sign-in error
 

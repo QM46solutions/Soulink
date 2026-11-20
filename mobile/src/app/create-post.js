@@ -39,7 +39,7 @@ export default function CreatePost() {
     if (!perm.granted) { setError('Allow photo access to add photos'); return; }
     const left = MAX - photos.length;
     if (left <= 0) { setError(`Up to ${MAX} photos per post`); return; }
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], allowsMultipleSelection: true, selectionLimit: left, quality: 0.8, videoMaxDuration: 180 });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], allowsMultipleSelection: true, selectionLimit: left, quality: 0.8, videoMaxDuration: 180, videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720 });
     if (!r.canceled && r.assets?.length) {
       const big = r.assets.find((a) => a.type === 'video' && a.fileSize && a.fileSize > 40 * 1024 * 1024);
       if (big) setError('A video can be up to 40 MB. Pick a shorter one.');

@@ -114,7 +114,7 @@ export default function NewSpark() {
   const pickCategory = (k) => { setCategory(k); setStep('video'); if (k === 'acting') setDice(rollDice()); };
   // videos and photos from the phone (several at once): returns studio clips
   const pickMedia = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos', 'images'], videoMaxDuration: 180, quality: 0.85, allowsMultipleSelection: true, selectionLimit: 10, orderedSelection: true });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos', 'images'], videoMaxDuration: 180, videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720, quality: 0.85, allowsMultipleSelection: true, selectionLimit: 10, orderedSelection: true });
     const list = r.canceled ? [] : r.assets || [];
     if (!list.length) return [];
     const ok = list.filter((a) => a.type === 'image' || (!(pickedSeconds(a) > 181) && !(a.fileSize && a.fileSize > MAX_MB * 1024 * 1024)));

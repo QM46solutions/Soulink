@@ -51,7 +51,9 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const [userPaused, setUserPaused] = useState(false); // paused with a tap in the middle (mini): show the pause sign
   const [resumed, setResumed] = useState(false); const resumedT = useRef(null); // a play sign, for a moment, after that
 
-  const player = useVideoPlayer(src, (p) => {
+  // keep what's downloaded on the phone: opening the Spark big, or watching it again, plays from that copy
+  const source = local ? src : { uri: src, useCaching: true };
+  const player = useVideoPlayer(source, (p) => {
     p.loop = false; p.timeUpdateEventInterval = 0.1; p.playbackRate = rate; p.preservesPitch = true;
     p.volume = Math.min(1, vol.video); p.muted = vol.video === 0;
     // start as soon as a little has loaded, instead of waiting for a long safety buffer
@@ -184,7 +186,8 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const z = e.zoom && e.zoom.s > 1.001 ? e.zoom : null;
   return (
     <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
-      <View style={{ flex: 1, ...(z ? { transform: [{ translateX: (0.5 - z.x) * (z.s - 1) * 100 }, { translateY: (0.5 - z.y) * (z.s - 1) * 100 }, { scale: z.s }] } : {}) }}>
+      {/* pointerEvents none: on Android the video surface would otherwise swallow taps (so "open big" never fired) */}
+      <View pointerEvents="none" style={{ flex: 1, ...(z ? { transform: [{ translateX: (0.5 - z.x) * (z.s - 1) * 100 }, { translateY: (0.5 - z.y) * (z.s - 1) * 100 }, { scale: z.s }] } : {}) }}>
         <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
       </View>
       {fading ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}

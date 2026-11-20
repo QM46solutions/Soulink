@@ -130,7 +130,8 @@ export default function UserProfile() {
   if (!rel.isMe && !conn?.connected && conn?.request?.status === 'held') {
     messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={openChat} />;
   } else if (!rel.isMe && !conn?.connected && !conn?.blocked) {
-    messageBtn = <ProfileAction icon="diamond-outline" onPress={() => { if (!needSoul()) setPaidOpen(true); }} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />;
+    // a clear "Message" button (it opens the Premium one-message sheet, which explains the price)
+    messageBtn = <ProfileAction icon="chatbubble-outline" title="Message" onPress={() => { if (!needSoul()) setPaidOpen(true); }} />;
   }
   // Public profiles: Connect AND Follow (see their posts and Sparks, no request, no chat).
   // Private profiles: Connect only. Messages open only once a Connect request is accepted.
@@ -140,7 +141,7 @@ export default function UserProfile() {
       onPress={() => { if (!needSoul()) act(() => api(`/users/${target.id}/follow`, { method: following ? 'DELETE' : 'POST' })); }} />
   ) : null;
   const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? (
-    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 42 }} />
+    <ProfileAction icon="eye-off-outline" onPress={goAnon} style={{ flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 46 }} />
   ) : null;
 
   return (

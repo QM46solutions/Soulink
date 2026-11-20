@@ -39,7 +39,8 @@ export const config = {
   // Soulmoji engine. 'builtin' (default) = Soulink's own engine, the SAME on the laptop and in the cloud:
   // free, fast, nothing else to keep running. 'ai' = LivePortrait (laptop install or SOULMOJI_AI_URL), opt-in only.
   soulmojiEngine: process.env.SOULMOJI_ENGINE === 'ai' ? 'ai' : 'builtin',
-  storage: process.env.STORAGE || 'local',
+  // STORAGE=db switches to Blob by itself once the Azure Storage key is in (docs/VIDEO-BUILDER.md); STORAGE_AUTO_BLOB=off stops that
+  storage: (process.env.STORAGE === 'db' && process.env.AZURE_STORAGE_CONNECTION_STRING && process.env.STORAGE_AUTO_BLOB !== 'off') ? 'blob' : (process.env.STORAGE || 'local'),
   // Cloud hosting: the built web app is served from this folder, with the API under /api (one address for everything)
   webDir: process.env.WEB_DIR ? fileURLToPath(new URL(`../${process.env.WEB_DIR}/`, import.meta.url)) : '',
   // Private preview: everyone must type this code once before using the app (empty = no code)

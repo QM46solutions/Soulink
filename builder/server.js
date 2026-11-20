@@ -6,6 +6,10 @@
 //        { clips: [{ url, kind: 'video'|'photo', in, out, speed }], music?: { url, start, volume }, voice?: { url, volume },
 //          videoVolume, filter, adjust, zoom, fade, cover, out: { video: <upload url>, cover: <upload url> } }
 //        -> { ok: true, seconds, bytes }
+//   POST /compress Authorization: Bearer <BUILDER_TOKEN>
+//        { in: <read url>, out: { video: <upload url>, cover: <upload url> } }
+//        -> { ok: true, seconds, bytes, inBytes }   a posted video made small and quick to start: 720p H.264,
+//        at most 30 frames a second, the index at the front (it plays while it downloads), plus a cover picture
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
@@ -84,19 +88,49 @@ async function build(raw) {
   } finally { await fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
 }
 
+// ---------- compress: one posted video, made small enough to start at once on a phone ----------
+const okLink = (u) => /^https:\/\//.test(u || '') || /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(u || '');
+export function compressArgs(input, output, withAudio) {
+  return ['-hide_banner', '-loglevel', 'error', '-y', '-i', input,
+    '-map', '0:v:0', ...(withAudio ? ['-map', '0:a:0'] : []),
+    // the long side at most 1280 px (portrait stays portrait), even sizes; turned the right way up automatically
+    '-vf', "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))',setsar=1",
+    '-fpsmax', '30',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-maxrate', '3M', '-bufsize', '6M', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+    ...(withAudio ? ['-c:a', 'aac', '-b:a', '128k', '-ac', '2'] : ['-an']),
+    '-movflags', '+faststart', output];
+}
+async function compress(job) {
+  if (!okLink(job?.in) || !okLink(job?.out?.video) || !okLink(job?.out?.cover)) throw new Error('Bad link');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'shrink-'));
+  try {
+    const src = path.join(dir, 'in.vid'); await download(job.in, src);
+    const inBytes = (await fs.stat(src)).size;
+    const seconds = Number((await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', src], 30000)).trim()) || 0;
+    if (seconds > 200) throw new Error('Too long');
+    const out = path.join(dir, 'small.mp4'); const cover = path.join(dir, 'cover.jpg');
+    await run('ffmpeg', compressArgs(src, out, await hasAudio(src).catch(() => false)), 10 * 60_000);
+    await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(Math.min(0.5, Math.max(0, seconds - 0.1))), '-i', out, '-frames:v', '1', '-q:v', '4', cover], 60_000);
+    const bytes = await upload(job.out.video, out, 'video/mp4');
+    await upload(job.out.cover, cover, 'image/jpeg');
+    return { ok: true, seconds, bytes, inBytes };
+  } finally { await fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
+}
+
 const send = (res, code, body) => { const b = JSON.stringify(body); res.writeHead(code, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(b) }); res.end(b); };
 const authorised = (req) => { const h = String(req.headers.authorization || ''); const a = Buffer.from(h); const b = Buffer.from(`Bearer ${TOKEN}`); return !!TOKEN && a.length === b.length && crypto.timingSafeEqual(a, b); };
 
 http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, name: 'soulink-builder' });
-  if (req.method !== 'POST' || req.url !== '/build') return send(res, 404, { error: 'Not found' });
+  if (req.method !== 'POST' || (req.url !== '/build' && req.url !== '/compress')) return send(res, 404, { error: 'Not found' });
+  const work = req.url === '/compress' ? compress : build;
   if (!authorised(req)) return send(res, 401, { error: 'Not allowed' });
   let body = '';
   req.on('data', (d) => { body += d; if (body.length > 200_000) req.destroy(); });
   req.on('end', () => {
     let job; try { job = JSON.parse(body); } catch { return send(res, 400, { error: 'Bad request' }); }
     const t0 = Date.now();
-    busy = busy.then(() => build(job)).then((r) => { console.log(`built ${r.seconds.toFixed(1)} s in ${((Date.now() - t0) / 1000).toFixed(1)} s`); send(res, 200, r); },
+    busy = busy.then(() => work(job)).then((r) => { console.log(`${work === compress ? 'compressed' : 'built'} ${r.seconds.toFixed(1)} s in ${((Date.now() - t0) / 1000).toFixed(1)} s`); send(res, 200, r); },
       (e) => { console.error('build failed:', e.message); send(res, 422, { error: e.message }); });
   });
 }).listen(PORT, () => console.log(`Soulink video builder on :${PORT}`));

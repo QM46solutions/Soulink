@@ -202,7 +202,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   useEffect(() => () => { clearTimeout(tapTimer.current); clearTimeout(resumedT.current); }, []);
   return (
     <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={soundOff ? 'Turn sound on' : playing ? 'Pause' : 'Play'}>
-      <video ref={video} src={src} playsInline preload={mini || autoPlay ? 'auto' : 'metadata'} onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
+      <video ref={video} src={src} playsInline preload={active && autoPlay ? 'auto' : 'metadata'} onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
         onPause={() => { const v = video.current; if (!v?.paused || v.ended) return; audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
         style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}

@@ -74,6 +74,39 @@ export async function blobMove(from, to) {
   await src.deleteIfExists();
   return to;
 }
+/** A read link that stays the same for the whole hour (so phones and browsers can keep their copy), valid 2 hours. */
+export async function blobReadLink(name) {
+  const { container, BlobSASPermissions } = await blob();
+  const hour = Math.floor(Date.now() / 3600_000) * 3600_000;
+  return container.getBlockBlobClient(blobNameOf(name)).generateSasUrl({ permissions: BlobSASPermissions.parse('r'), startsOn: new Date(hour - 5 * 60_000), expiresOn: new Date(hour + 2 * 3600_000) });
+}
+const inBlobMemo = new Map(); // path -> { yes, at }: saves a Blob lookup on every request
+/** Is this /uploads/... file in Blob? (remembered for 10 minutes; "no" for 1 minute) */
+export async function inBlob(url) {
+  const m = inBlobMemo.get(url);
+  if (m && Date.now() - m.at < (m.yes ? 600_000 : 60_000)) return m.yes;
+  const yes = (await blobSize(url).catch(() => null)) != null;
+  if (inBlobMemo.size > 5000) inBlobMemo.clear();
+  inBlobMemo.set(url, { yes, at: Date.now() });
+  return yes;
+}
+export const forgetInBlob = (url) => inBlobMemo.delete(url);
+/** Size in bytes of an /uploads/... file wherever it is (Blob, the database, or this computer's disk), or null. */
+export async function fileSize(url) {
+  if (config.storage === 'blob') { const n = await blobSize(url).catch(() => null); if (n != null) return n; }
+  if (config.storage === 'db' || config.storage === 'blob') {
+    const { one } = await import('../db.js');
+    const r = await one('SELECT DATALENGTH(data) AS n FROM stored_files WHERE path=$1', [url]).catch(() => null);
+    if (r?.n != null) return Number(r.n);
+  }
+  try { return (await fs.stat(diskOf(url))).size; } catch { return null; }
+}
+/** Removes an /uploads/... file everywhere it may be kept. */
+export async function removeFile(url) {
+  if (config.storage === 'blob') { await blobDelete(url).catch(() => {}); forgetInBlob(url); }
+  if (config.storage === 'db' || config.storage === 'blob') { const { query } = await import('../db.js'); await query('DELETE FROM stored_files WHERE path=$1', [url]).catch(() => {}); }
+  await fs.rm(diskOf(url), { force: true }).catch(() => {});
+}
 export async function blobDelete(name) { const { container } = await blob(); await container.getBlockBlobClient(blobNameOf(name)).deleteIfExists(); }
 
 /** Saves a buffer and returns its public URL (/uploads/folder/name).

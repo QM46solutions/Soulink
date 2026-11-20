@@ -1,7 +1,9 @@
 # Soulink Studio: video builder + Azure Blob storage
 
 Sparks with several clips or photos, or a Soul Look, are put together by the **video builder** (`builder/`, ffmpeg)
-on Azure Container Apps. It **scales to zero**: no cost while nobody posts. Photos, videos and voice notes are kept in
+on Azure Container Apps. It also **shrinks every posted video** (`/compress`, `server/src/services/videoShrink.js`):
+720p H.264, at most 30 fps, the index at the front so it plays while it downloads, plus a cover picture. A phone's
+40+ MB clip becomes about 3 MB; newest Sparks first, then older ones in the background. Videos under 6 MB are left alone. It **scales to zero**: no cost while nobody posts. Photos, videos and voice notes are kept in
 **Azure Blob Storage** (container `media`, private) instead of the database.
 
 | | |
@@ -36,10 +38,11 @@ curl -s --max-time 240 https://$FQDN/health; echo
 It prints three lines. The last line is the builder's health check (`"ok":true`).
 
 ## 3. Render (soulink → Environment → Edit)
-Paste the three values (`AZURE_STORAGE_CONNECTION_STRING`, `BUILDER_URL`, `BUILDER_TOKEN`) and **Save**.
-Then `STORAGE` changes from `db` to `blob` in `render.yaml` (Claude does this) and is pushed.
-From then on: new files go to Blob, older ones are still read from the database. When everything looks right,
-`BLOB_MIGRATE` is set to `on`, which moves the old files over (each one checked before the database copy is removed).
+Paste the three values (`AZURE_STORAGE_CONNECTION_STRING`, `BUILDER_URL`, `BUILDER_TOKEN`) and **Save**. That's all:
+with the storage key in, `STORAGE=db` switches to Blob by itself (`STORAGE_AUTO_BLOB=off` stops that). New files go to
+Blob and phones load them straight from Azure (a short-lived link, the same for the hour); older files are still read
+from the database. The shrinking starts within a minute. When everything looks right, `BLOB_MIGRATE` is set to `on`,
+which moves the old files over (each one checked before the database copy is removed).
 
 ## Turning it off
 Render: `STORAGE=db` and remove `BUILDER_URL` → Sparks with several clips post from the website again (joined in the

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,12 +7,15 @@ import { colors, fonts, gradients, space } from '../lib/theme';
 import { Avatar } from './ui';
 import PulseMeter, { PulseInfo } from './PulseMeter';
 
+// Phones set to a large text size: profile text grows a little, never enough to push the page apart
+const MAX_FS = 1.15;
+
 // Count under the name: big number with a small label
 function Stat({ n, label, onPress }) {
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ hovered }) => ({ flex: 1, alignItems: 'center', opacity: hovered ? 0.8 : 1 })}>
-      <Text style={{ color: colors.text, fontSize: 19, lineHeight: 23, fontFamily: fonts.bold, textAlign: 'center' }}>{n ?? 0}</Text>
-      <Text numberOfLines={1} style={{ color: colors.muted, fontSize: 12, lineHeight: 16, fontFamily: fonts.medium, textAlign: 'center', marginTop: 1 }}>{label}</Text>
+      <Text maxFontSizeMultiplier={MAX_FS} style={{ color: colors.text, fontSize: 18, lineHeight: 22, fontFamily: fonts.bold, textAlign: 'center' }}>{n ?? 0}</Text>
+      <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color: colors.muted, fontSize: 12, lineHeight: 16, fontFamily: fonts.medium, textAlign: 'center', marginTop: 1 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -21,13 +24,13 @@ function Stat({ n, label, onPress }) {
 export function ProfileAction({ title, onPress, primary, icon, disabled, loading, style }) {
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button" accessibilityLabel={title || undefined}
-      style={({ hovered, pressed }) => [{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 40, paddingHorizontal: 8, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+      style={({ hovered, pressed }) => [{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 46, paddingHorizontal: 10, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
         borderWidth: primary ? 0 : 1, borderColor: hovered ? 'rgba(176,143,255,0.75)' : 'rgba(176,143,255,0.32)',
         backgroundColor: primary ? colors.soul : hovered ? 'rgba(124,92,252,0.16)' : 'rgba(255,255,255,0.06)', opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
       {primary ? <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-      {icon ? <Ionicons name={icon} size={17} color={primary ? '#fff' : colors.aura} style={{ marginRight: title ? 7 : 0 }} /> : null}
-      {title ? <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14.5, letterSpacing: 0.1, color: primary ? '#fff' : colors.text }}>{loading ? '…' : title}</Text> : null}
+      {icon ? <Ionicons name={icon} size={18} color={primary ? '#fff' : colors.aura} style={{ marginRight: title ? 6 : 0 }} /> : null}
+      {title ? <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, letterSpacing: 0.1, color: primary ? '#fff' : colors.text, flexShrink: 1 }}>{loading ? '…' : title}</Text> : null}
     </Pressable>
   );
 }
@@ -45,10 +48,25 @@ export function AuraAvatar({ user, size = 84 }) {
 
 function Pill({ icon, text, color, border, bg }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderColor: border, backgroundColor: bg, margin: 3 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', height: 26, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: border, backgroundColor: bg, marginRight: 6 }}>
       {icon ? <Ionicons name={icon} size={12} color={color} style={{ marginRight: 5 }} /> : null}
-      <Text style={{ color, fontFamily: fonts.semibold, fontSize: 11.5 }}>{text}</Text>
+      <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color, fontFamily: fonts.semibold, fontSize: 12 }}>{text}</Text>
     </View>
+  );
+}
+
+/** One line of small facts with their own icons (city · college · company); slides sideways if it's long. */
+function InfoLine({ items }) {
+  if (!items.length) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, flexGrow: 0 }} contentContainerStyle={{ alignItems: 'center' }}>
+      {items.map(([icon, text], k) => (
+        <View key={icon + text} style={{ flexDirection: 'row', alignItems: 'center', marginRight: k < items.length - 1 ? 14 : 0 }}>
+          <Ionicons name={icon} size={14} color={colors.muted} style={{ marginRight: 4 }} />
+          <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color: colors.muted, fontSize: 13, fontFamily: fonts.medium }}>{text}</Text>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -69,7 +87,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
       {/* one line: photo · name · Pulse meter, all centred on the same middle line */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingTop: space.lg }}>
         <Pressable onPress={onAvatarPress} disabled={!onAvatarPress} accessibilityLabel={onAvatarPress ? 'Change profile photo' : undefined}>
-          <AuraAvatar user={user} size={84} />
+          <AuraAvatar user={user} size={80} />
           {onAvatarPress ? (
             <View style={{ position: 'absolute', right: 0, bottom: 0, borderRadius: 13, overflow: 'hidden', padding: 4, borderWidth: 2, borderColor: colors.void }}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -79,12 +97,12 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: space.md, minWidth: 0, justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text numberOfLines={2} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 25, flexShrink: 1 }}>{user.displayName || user.username}</Text>
+            <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={2} style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 25, flexShrink: 1 }}>{user.displayName || user.username}</Text>
             {user.isPremium ? <Ionicons name="diamond" size={13} color={colors.gold} style={{ marginLeft: 5 }} /> : null}
           </View>
-          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
+          <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 }}>@{user.username}</Text>
         </View>
-        {pulse ? <PulseMeter pulse={pulse} size={92} onPress={() => setPulseOpen((o) => !o)} /> : null}
+        {pulse ? <PulseMeter pulse={pulse} size={78} onPress={() => setPulseOpen((o) => !o)} /> : null}
       </View>
 
       {pulse && pulseOpen ? <View style={{ paddingHorizontal: space.lg }}><PulseInfo pulse={pulse} isMe={isMe} name={(user.displayName || user.username || '').split(' ')[0]} onClose={() => setPulseOpen(false)} /></View> : null}
@@ -94,7 +112,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
             {user.profession ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, marginBottom: 4, flexShrink: 1 }}>
                 <Ionicons name="briefcase" size={15} color={colors.aura} style={{ marginRight: 6 }} />
-                <Text numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 15, flexShrink: 1 }}>{user.profession}</Text>
+                <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 15, flexShrink: 1 }}>{user.profession}</Text>
               </View>
             ) : null}
             {user.isCreator ? (
@@ -109,6 +127,20 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           <Text onPress={() => router.push('/edit-profile')} style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 13.5, marginTop: space.md }}>+ Add your profession</Text>
         ) : null}
 
+        {user.bio ? <Text maxFontSizeMultiplier={MAX_FS} numberOfLines={4} style={{ color: colors.text, fontSize: 14, lineHeight: 19, fontFamily: fonts.body, marginTop: user.profession || user.isCreator ? 2 : space.md }}>{user.bio}</Text> : null}
+        {/* visitors only (your own page stays clean): where they are, then Soul type + interests on ONE line that slides sideways */}
+        {!isMe ? <InfoLine items={[['location-outline', user.city], ['school-outline', user.college], ['briefcase-outline', user.company]].filter(([, t]) => t)} /> : null}
+        {user.soulType || (!isMe && user.interests?.length) ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, flexGrow: 0 }}>
+            {user.soulType ? (
+              <Pressable disabled={!isMe} onPress={() => router.push('/soul')} accessibilityLabel={isMe ? 'Open my Soul DNA' : undefined}>
+                <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.55)" bg="rgba(124,92,252,0.16)" />
+              </Pressable>
+            ) : null}
+            {!isMe ? (user.interests || []).map((i) => <Pill key={i} text={i} color={colors.text} border="rgba(176,143,255,0.22)" bg="rgba(255,255,255,0.05)" />) : null}
+          </ScrollView>
+        ) : null}
+
         {/* counts: three equal columns, number centred over its label, thin dividers between */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md, paddingVertical: 10, borderRadius: 16,
           backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(176,143,255,0.14)' }}>
@@ -120,27 +152,7 @@ export default function ProfileHeader({ user, counts, canViewLists, actions, onA
           <Stat n={counts?.followers} label="Followers" onPress={openList('followers')} />
         </View>
 
-        {user.soulType ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: space.sm, marginLeft: -3 }}>
-            <Pressable disabled={!isMe} onPress={() => router.push('/soul')} accessibilityLabel={isMe ? 'Open my Soul DNA' : undefined}>
-              <Pill icon="sparkles" text={user.soulType} color={colors.aura} border="rgba(176,143,255,0.45)" bg="rgba(124,92,252,0.10)" />
-            </Pressable>
-          </View>
-        ) : null}
-        {user.bio ? <Text style={{ color: colors.text, fontSize: 14, lineHeight: 19, fontFamily: fonts.body, marginTop: 6 }}>{user.bio}</Text> : null}
-        {!isMe && (user.city || user.college || user.company) ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <Ionicons name="location-outline" size={13} color={colors.muted} style={{ marginRight: 3 }} />
-            <Text numberOfLines={1} style={{ color: colors.muted, fontSize: 13, fontFamily: fonts.body, flexShrink: 1 }}>{[user.city, user.college, user.company].filter(Boolean).join('  ·  ')}</Text>
-          </View>
-        ) : null}
-        {!isMe && user.interests?.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginLeft: -3 }}>
-            {user.interests.map((i) => <Pill key={i} text={i} color={colors.aura} border="rgba(124,92,252,0.4)" bg="rgba(124,92,252,0.08)" />)}
-          </View>
-        ) : null}
-
-        {actions ? <View style={{ flexDirection: 'row', gap: 8, marginTop: space.md }}>{actions}</View> : null}
+        {actions ? <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>{actions}</View> : null}
       </View>
     </View>
   );

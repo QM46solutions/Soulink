@@ -230,8 +230,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
 
         {/* actions down the right, like Reels (the bottom-right corner is the sound button) */}
         <View pointerEvents="box-none" style={{ position: 'absolute', right: 8, bottom: 66, alignItems: 'center' }}>
-          <Action style={rail} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : '#fff'}>
-            <Animated.Text style={{ fontSize: 26, opacity: reacted ? 1 : 0.9, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
+          <Action style={rail} iconHeight={36} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : '#fff'}>
+            <Animated.Text style={{ fontSize: 26, lineHeight: 34, includeFontPadding: false, textAlign: 'center', opacity: reacted ? 1 : 0.9, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
           </Action>
           <Action style={rail} onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color="#fff">
             <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} size={26} />
@@ -365,8 +365,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
 
       {/* the same actions as a post: like (the category's reaction), comment, share, offense — plus Spread around on your own */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 10, paddingHorizontal: 4 }}>
-        <Action onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : undefined}>
-          <Animated.Text style={{ fontSize: 22, opacity: reacted ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
+        <Action iconHeight={30} onPress={react} label={reacted ? 'Remove 👌🏻' : 'Like with 👌🏻'} count={reactions} color={reacted ? '#f2c38b' : undefined}>
+          <Animated.Text style={{ fontSize: 22, lineHeight: 28, includeFontPadding: false, textAlign: 'center', opacity: reacted ? 1 : Platform.OS === 'web' ? 0.85 : 0.55, transformOrigin: 'bottom center', transform: [{ scale: pop }, { rotate: wave.interpolate({ inputRange: [0, 0.15, 0.32, 0.5, 0.68, 0.85, 1], outputRange: ['0deg', '-28deg', '22deg', '-20deg', '14deg', '-6deg', '0deg'] }) }], ...(Platform.OS === 'web' && !reacted ? { filter: 'grayscale(1) brightness(1.6)' } : null) }}>{LIKE_EMOJI}</Animated.Text>
         </Action>
         <Action onPress={() => setCommentsOpen(true)} label="Comments" count={comments} color={commented ? ACTIVE.comment : undefined}>
           <StateIcon name="chatbubble" on={commented} color={ACTIVE.comment} effect="shake" tick={ticks.comment} />
