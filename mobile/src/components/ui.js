@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, gradients, MAX_FONT_SCALE, radius, space, sz } from '../lib/theme';
+import { colors, fonts, gradients, MAX_FONT_SCALE, radius, space, sz, btnH } from '../lib/theme';
 import { mediaUrl } from '../lib/api';
 
 export function Button({ title, onPress, variant = 'primary', loading, disabled, icon, style, small }) {
@@ -126,14 +126,14 @@ export function Chip({ label, selected, onPress }) {
 export const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.void },
-  btn: { height: Platform.OS === 'web' ? 56 : sz(50), borderRadius: radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
-  btnGlow: { shadowColor: colors.soul, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
-  btnSmall: { height: 34, paddingHorizontal: space.md, borderRadius: radius.sm },
+  btn: { height: Platform.OS === 'web' ? 56 : btnH(), borderRadius: radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
+  btnGlow: { shadowColor: colors.soul, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: Platform.OS === 'web' ? 6 : 3 },
+  btnSmall: { height: Platform.OS === 'web' ? 34 : sz(32), paddingHorizontal: space.md, borderRadius: radius.sm },
   btnText: { fontSize: 15, fontFamily: fonts.bold, letterSpacing: 0.2 },
   label: { color: colors.muted, fontSize: 11, marginBottom: 8, marginLeft: 20, fontFamily: fonts.medium, letterSpacing: 1.5, textTransform: 'uppercase' },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', minHeight: 56, backgroundColor: colors.inputBg, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 20, ...(Platform.OS === 'web' ? { transitionProperty: 'border-color, box-shadow', transitionDuration: '180ms' } : {}) },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', minHeight: Platform.OS === 'web' ? 56 : sz(50), backgroundColor: colors.inputBg, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 20, ...(Platform.OS === 'web' ? { transitionProperty: 'border-color, box-shadow', transitionDuration: '180ms' } : {}) },
   inputFocus: { borderColor: colors.soul, ...(Platform.OS === 'web' ? { boxShadow: '0 0 0 4px rgba(124,92,252,0.18)' } : {}) },
-  input: { flex: 1, minHeight: Platform.OS === 'web' ? 52 : sz(48), color: colors.text, fontSize: 16, fontFamily: fonts.medium, outlineStyle: 'none' },
+  input: { flex: 1, minHeight: Platform.OS === 'web' ? 52 : sz(46), color: colors.text, fontSize: 16, fontFamily: fonts.medium, outlineStyle: 'none' },
   error: { color: colors.danger, fontSize: 13, marginTop: 6, marginLeft: 20, fontFamily: fonts.body },
   hint: { color: colors.muted, fontSize: 12, marginTop: 6, marginLeft: 20, fontFamily: fonts.body, lineHeight: 17 },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xl, paddingVertical: space.md },

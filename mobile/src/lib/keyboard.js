@@ -4,7 +4,7 @@
 //   Measuring (not guessing) makes it right whether or not Android has already made the screen shorter.
 //   KeyboardScroll: a ScrollView that does that, inside a KeyboardAvoidingView so there's room to scroll, for any
 //   screen with text fields. header: true on screens under the app's top bar.
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -60,3 +60,29 @@ export const KeyboardScroll = forwardRef(function KeyboardScroll({ header = fals
     </KeyboardAvoidingView>
   );
 });
+
+// Is the on-screen keyboard open? Phones: the keyboard's own show / hide events; browser (iPhone Safari): the
+// visible area got much shorter. Used to drop the bottom safe-area gap while the keyboard covers that edge anyway.
+export function useKeyboardShown() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined' || !window.visualViewport) return undefined;
+      const vv = window.visualViewport;
+      const f = () => setOpen(document.documentElement.classList.contains('sl-keyboard') || window.innerHeight - vv.height > 150);
+      vv.addEventListener('resize', f); f();
+      return () => vv.removeEventListener('resize', f);
+    }
+    const a = Keyboard.addListener('keyboardDidShow', () => setOpen(true));
+    const b = Keyboard.addListener('keyboardDidHide', () => setOpen(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
+  return open;
+}
+
+// Bottom room a sheet / bar needs above the phone's navigation bar or home indicator (none while typing)
+export function useBottomInset() {
+  const { bottom } = useSafeAreaInsets();
+  const kb = useKeyboardShown();
+  return kb ? 0 : bottom;
+}

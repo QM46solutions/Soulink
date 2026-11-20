@@ -10,7 +10,7 @@ import { useAuth } from '../../lib/auth';
 import { AuraAvatar } from '../../components/ProfileHeader';
 import { ScorePill } from '../../components/Choice';
 import { Button, Empty, Loading, VerifiedBadge, s } from '../../components/ui';
-import { colors, fonts, gradients, space } from '../../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../../lib/theme';
 import { SORTS, clean, summary, without } from '../../lib/filters';
 import { LiveFrame, RadarIcon } from '../../components/LiveIcons';
 
@@ -96,7 +96,7 @@ export default function Discover() {
     <View style={{ paddingTop: space.md, paddingBottom: space.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, marginBottom: space.md }}>
         <Pressable onPress={() => router.push('/soul-filters')} style={{ flex: 1 }}>
-          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 50, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: btnH(50), borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="options" size={18} color="#fff" style={{ marginRight: 8 }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Soul Filters</Text>
             {chips.length ? (

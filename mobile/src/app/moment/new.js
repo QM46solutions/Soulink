@@ -14,7 +14,7 @@ import { MOMENT_BGS, bgOf, sendMoment } from '../../lib/moments';
 import { ConversationAvatar } from '../../components/chat';
 import { GradientText } from '../../components/brand';
 import MusicPicker from '../../components/MusicPicker';
-import { colors, fonts, gradients, space } from '../../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../../lib/theme';
 
 const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
 
@@ -174,7 +174,7 @@ export default function NewMoment() {
           )}
           <View style={{ padding: space.lg }}>
             <Pressable onPress={share} disabled={busy || (!story && !ids.length)}
-              style={({ hovered }) => ({ height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: !story && !ids.length ? 0.5 : 1, transform: [{ scale: hovered ? 1.01 : 1 }] })}>
+              style={({ hovered }) => ({ height: btnH(52), borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: !story && !ids.length ? 0.5 : 1, transform: [{ scale: hovered ? 1.01 : 1 }] })}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               {busy ? <ActivityIndicator color="#fff" /> : (
                 <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>

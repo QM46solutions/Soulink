@@ -650,7 +650,7 @@ export default function Chat() {
       <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)}>
         <Pressable onPress={() => setViewer(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
           {viewer ? <Image source={{ uri: viewer }} style={{ width: '100%', height: '80%' }} contentFit="contain" /> : null}
-          <Ionicons name="close" size={28} color="#fff" style={{ position: 'absolute', top: 50, right: 20 }} />
+          <Ionicons name="close" size={28} color="#fff" style={{ position: 'absolute', top: headerH - 34, right: 20 }} />
         </Pressable>
       </Modal>
     </KeyboardAvoidingView>

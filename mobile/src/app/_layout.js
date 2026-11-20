@@ -113,7 +113,8 @@ function RootStack() {
   const active = SECTION[top] || null;
 
   return (
-    <View style={{ flex: 1, paddingBottom: showBar ? barSpace(insets) : 0 }}>
+    // left / right: a phone's camera cut-out or rounded edge on the side never covers content (0 on most phones held upright)
+    <View style={{ flex: 1, paddingBottom: showBar ? barSpace(insets) : 0, paddingLeft: insets.left, paddingRight: insets.right }}>
     <Stack screenLayout={screenLayout} screenOptions={{ ...headerStyle, headerStyle: { backgroundColor: 'transparent', height: insets.top + 46 } }}>
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

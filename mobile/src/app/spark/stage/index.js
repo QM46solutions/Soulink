@@ -1,6 +1,6 @@
 // Open Mic: anyone speaks their mind (a story, an incident, society, politics, raising a voice...) on video or
 // with just their voice; filter by topic, newest or most heard. Below: Stage Spots, real open mics in your city.
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +81,17 @@ export default function Stage() {
   const [sort, setSort] = useState('latest');
   const [data, setData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  // only the Open Mic Spark at least ~60% on screen plays; scroll it away and it stops
+  const spots = useRef({}); const viewH = useRef(0); const scrollY = useRef(0);
+  const [onScreen, setOnScreen] = useState(null);
+  const pickOnScreen = () => {
+    const top = scrollY.current; const bottom = top + viewH.current; let best = null; let bestK = 0.6;
+    for (const [id, r] of Object.entries(spots.current)) {
+      const k = Math.max(0, Math.min(bottom, r.y + r.h) - Math.max(top, r.y)) / Math.max(1, Math.min(r.h, viewH.current));
+      if (k >= bestK) { best = id; bestK = k; }
+    }
+    setOnScreen((o) => (o === best ? o : best));
+  };
   useLayoutEffect(() => { navigation.setOptions({ title: 'Open Mic' }); }, [navigation]);
   const load = useCallback(async (o = {}) => {
     const t = o.topic !== undefined ? o.topic : topic; const so = o.sort || sort; const c = o.city !== undefined ? o.city : city;
@@ -93,7 +104,9 @@ export default function Stage() {
   const pickTopic = (t) => { setTopic(t); load({ topic: t }); };
   const pickSort = (so) => { setSort(so); load({ sort: so }); };
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
+    <ScrollView contentContainerStyle={{ paddingBottom: 60 }} scrollEventThrottle={32}
+      onLayout={(e) => { viewH.current = e.nativeEvent.layout.height; pickOnScreen(); }}
+      onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; pickOnScreen(); }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       <View style={{ margin: space.lg, padding: space.xl, borderRadius: 24, overflow: 'hidden' }}>
         <LinearGradient colors={['rgba(245,200,66,0.32)', 'rgba(255,107,157,0.3)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -113,7 +126,11 @@ export default function Stage() {
         ))}
       </View>
       <View style={{ height: space.md }} />
-      {data.posts.length ? data.posts.map((s) => <SparkCard key={s.id} spark={s} onDeleted={() => load()} />) : (
+      {data.posts.length ? data.posts.map((s) => (
+        <View key={s.id} onLayout={(e) => { spots.current[s.id] = { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height }; pickOnScreen(); }}>
+          <SparkCard spark={s} active={onScreen === s.id} onDeleted={() => load()} />
+        </View>
+      )) : (
         <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.muted, textAlign: 'center', padding: space.xl }}>
           {topic ? 'Nobody has spoken about this yet.' : 'Nobody has taken the mic yet.'} Be the first.
         </Text>

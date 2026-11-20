@@ -98,13 +98,16 @@ export default function Sparks() {
   );
 
   // the page the feed has settled on (worked out from the scroll position) is the Spark that plays
-  const onScroll = (e) => { if (!pageH) return; const p = Math.round(e.nativeEvent.contentOffset.y / pageH); setPage((old) => (old === p ? old : p)); };
+  // the Spark at least ~70% on screen plays; mid-swipe (none of them that much on screen) nothing plays, so the one
+  // you're leaving stops straight away instead of playing on under the next one
+  const onScroll = (e) => { if (!pageH) return; const f = e.nativeEvent.contentOffset.y / pageH; const p = Math.round(f); const n = Math.abs(f - p) <= 0.3 ? p : -1; setPage((old) => (old === n ? old : n)); };
   const data = list?.length ? withAds(list, ads, 5, 3) : list && ads[0] ? [{ __ad: ads[0], key: 'ad-0' }] : [];
 
   // List view (YouTube style): scroll freely; the Spark at least half on screen may play, each has its own controls
-  const [listOn, setListOn] = useState(null);
-  const listViewable = useRef(({ viewableItems }) => setListOn(viewableItems[0]?.key || null)).current;
-  const listViewConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+  const [listOn, setListOn] = useState(undefined);
+  // listOn: undefined = nothing scrolled yet (the first one plays); '' = none is on screen enough (none plays)
+  const listViewable = useRef(({ viewableItems }) => setListOn(viewableItems.find((v) => !v.item?.__ad)?.key || '')).current;
+  const listViewConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   if (mode === 'list') {
     return (
       <View style={{ flex: 1, width: '100%', maxWidth: web ? 640 : undefined, alignSelf: 'center' }}>
@@ -113,7 +116,7 @@ export default function Sparks() {
           keyExtractor={(s) => s.key || s.id}
           ListHeaderComponent={chips}
           renderItem={({ item }) => (item.__ad ? <SparkAd ad={item.__ad} />
-            : <SparkCard spark={item} active={(listOn ?? data[0]?.id) === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+            : <SparkCard spark={item} active={(listOn === undefined ? data.find((x) => !x.__ad)?.id : listOn) === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
           onViewableItemsChanged={listViewable}
           viewabilityConfig={listViewConfig}
           onEndReached={loadMore}
@@ -145,7 +148,7 @@ export default function Sparks() {
             showsVerticalScrollIndicator={false}
             getItemLayout={(_, i) => ({ length: pageH, offset: pageH * i, index: i })}
             onScroll={onScroll}
-            scrollEventThrottle={100}
+            scrollEventThrottle={32}
             extraData={page}
             onEndReached={loadMore}
             onEndReachedThreshold={1.5}

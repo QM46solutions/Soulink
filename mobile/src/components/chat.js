@@ -19,6 +19,7 @@ import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';
 import { CHAT_LANGS, hasVoice, langName } from '../lib/languages';
 import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
+import { useBottomInset, useKeyboardShown } from '../lib/keyboard';
 import { confirm, notice } from '../lib/confirm';
 import { tick } from '../lib/feedback';
 import { AttachSheet, ContactContent, ContactPicker, DocumentContent, GameContent, LocationContent, PollComposer, PollContent, getMyLocation, pickDocument } from './ChatExtras';
@@ -153,6 +154,7 @@ function Reactions({ reactions, mine, onReact }) {
 const MOMENT_STATUS = { delivered: 'Delivered', opened: 'Opened', replayed: 'Replayed', saved: 'Saved', new: 'New', gone: 'Opened' };
 
 function MomentViewerOverlay({ content, onClose, onSave, saved, canReplay, mine, busy }) {
+  const safe = useSafeAreaInsets(); // the viewer covers the whole screen: keep its buttons clear of the phone's edges
   return (
     <Overlay onClose={onClose} animationType="fade">
       <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -167,8 +169,8 @@ function MomentViewerOverlay({ content, onClose, onSave, saved, canReplay, mine,
         {content.mediaUrl && content.text ? (
           <Text style={{ position: 'absolute', left: 16, right: 16, bottom: 120, textAlign: 'center', color: '#fff', fontFamily: fonts.semibold, fontSize: 16, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 14, padding: 8, overflow: 'hidden' }}>{content.text}</Text>
         ) : null}
-        <Pressable onPress={onClose} hitSlop={12} style={{ position: 'absolute', top: 18, right: 18 }} accessibilityLabel="Close"><Ionicons name="close" size={30} color="#fff" /></Pressable>
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 34, alignItems: 'center' }}>
+        <Pressable onPress={onClose} hitSlop={12} style={{ position: 'absolute', top: safe.top + 12, right: 18 }} accessibilityLabel="Close"><Ionicons name="close" size={30} color="#fff" /></Pressable>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(34, safe.bottom + 16), alignItems: 'center' }}>
           {!mine && !saved ? (
             <Pressable onPress={onSave} disabled={busy} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 }}>
               <Ionicons name="bookmark" size={18} color="#fff" />
@@ -636,10 +638,11 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
   const [voiceOk, setVoiceOk] = useState(trCaps ? trCaps.voice : false);
   useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); loadTrCaps().then((c) => { setVoiceOk(!!c.voice); if (!c.voice) setOutput('text'); }); } }, [visible, value]);
   const backdropClose = useSafeClose(visible, onClose);
+  const bottomPad = useBottomInset();
   if (!visible) return null;
   const sheet = (
       <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end', cursor: 'default' }}>
-        <Pressable onPress={() => {}} style={{ backgroundColor: '#13111f', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: space.xl, paddingBottom: space.xl + 8 }}>
+        <Pressable onPress={() => {}} style={{ backgroundColor: '#13111f', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: space.xl, paddingBottom: space.xl + 8 + bottomPad }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <Ionicons name="language" size={20} color={colors.aura} style={{ marginRight: 8 }} />
             <Text style={{ fontFamily: fonts.bold, color: colors.text, fontSize: 18 }}>Translate my message</Text>
@@ -697,18 +700,8 @@ function TranslatePreview({ result, onSend, onEdit, onCancel, sending }) {
   );
 }
 
-// Web/iPhone: is the on-screen keyboard open? (then the message box sits right on it, no home-bar gap)
-function useKeyboardOpen() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.visualViewport) return undefined;
-    const vv = window.visualViewport;
-    const f = () => setOpen(document.documentElement.classList.contains('sl-keyboard') || window.innerHeight - vv.height > 150);
-    vv.addEventListener('resize', f); f();
-    return () => vv.removeEventListener('resize', f);
-  }, []);
-  return open;
-}
+// is the on-screen keyboard open? (then the message box sits right on it, no gap for the phone's bottom edge)
+const useKeyboardOpen = useKeyboardShown;
 
 export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabledText, replyTo, onCancelReply, onSoulmoji, soulmojiOpen, onTranslateText, onTranslateVoice, onSendTranslated, defaultTranslateTo, onSendLocation, onSendContact, onSendDocument, onSendPoll, onSendGame, privateMode }) {
   const safe = useSafeAreaInsets();

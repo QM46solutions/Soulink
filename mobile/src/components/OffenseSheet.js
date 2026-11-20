@@ -1,5 +1,6 @@
 // Instagram-style "Report" flow for the ❗ Offense button: pick why, then a thank-you screen.
 // If you already marked the post, it shows your reason and lets you take the mark back.
+import { useBottomInset } from '../lib/keyboard';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ export const OFFENSE_REASONS = [
 export const reasonLabel = (k) => OFFENSE_REASONS.find((r) => r.key === k)?.label || 'Something else';
 
 export default function OffenseSheet({ visible, offended, reason, onClose, onMark, onUnmark, owner, postId, base, what = 'post' }) {
+  const bottomPad = useBottomInset(); // clear of the phone's navigation bar
   const [step, setStep] = useState('pick'); // pick | busy | done | error
   const [error, setError] = useState(null);
   useEffect(() => { if (visible) { setStep('pick'); setError(null); } }, [visible]);
@@ -146,7 +148,7 @@ export default function OffenseSheet({ visible, offended, reason, onClose, onMar
   return (
     <Overlay onClose={onClose}>
       <Pressable onPress={backdropClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', cursor: 'default' }} />
-      <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: space.sm, paddingBottom: space.lg }}>
+      <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: space.sm, paddingBottom: space.lg + bottomPad }}>
         <Header title={owner ? 'Offense marks' : offended && step !== 'done' ? 'Offense mark' : 'Mark as offensive'} />
         {body}
       </View>

@@ -10,7 +10,7 @@ import { notice } from '../../lib/confirm';
 import { MIC_TOPICS, postSpark } from '../../lib/sparks';
 import MicVoice from '../../components/MicVoice';
 import { GradButton } from '../../components/SparkHub';
-import { colors, fonts, space } from '../../lib/theme';
+import { colors, fonts, space, btnH } from '../../lib/theme';
 
 const MAX_MS = 3 * 60 * 1000; // up to 3 minutes of voice
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -92,7 +92,7 @@ export default function Speak() {
           <GradButton title="Speak on video" icon="video" disabled={!topic} style={{ marginTop: space.xl }}
             onPress={() => router.push({ pathname: '/spark/new', params: { mic: topic, caption: caption.trim() } })} />
           <Pressable onPress={() => setMode('voice')} disabled={!topic}
-            style={({ hovered }) => ({ marginTop: space.md, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: hovered ? colors.gold : 'rgba(245,200,66,0.6)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: topic ? 1 : 0.5 })}>
+            style={({ hovered }) => ({ marginTop: space.md, height: btnH(50), borderRadius: 25, borderWidth: 1.5, borderColor: hovered ? colors.gold : 'rgba(245,200,66,0.6)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: topic ? 1 : 0.5 })}>
             <Ionicons name="mic" size={19} color={colors.gold} style={{ marginRight: 8 }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.text }}>Speak with just your voice</Text>
           </Pressable>
@@ -104,10 +104,10 @@ export default function Speak() {
             <>
               <MicVoice uri={clip.uri} topic={topic} height={240} />
               <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.md }}>
-                <Pressable onPress={() => setClip(null)} style={{ flex: 1, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable onPress={() => setClip(null)} style={{ flex: 1, height: btnH(48), borderRadius: 24, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontFamily: fonts.semibold, color: colors.text }}>Record again</Text>
                 </Pressable>
-                <GradButton title={busy ? 'Posting…' : 'Post'} icon="microphone-variant" disabled={busy} onPress={post} style={{ flex: 1, height: 48 }} />
+                <GradButton title={busy ? 'Posting…' : 'Post'} icon="microphone-variant" disabled={busy} onPress={post} style={{ flex: 1, height: btnH(48) }} />
               </View>
             </>
           ) : (

@@ -10,7 +10,7 @@ import { currentPosition } from '../lib/location';
 import { notice } from '../lib/confirm';
 import { BottomSheet } from './PostSheets';
 import { Avatar } from './ui';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 const openUrl = (url) => { if (Platform.OS === 'web') window.open(url, '_blank', 'noopener'); else Linking.openURL(url); };
 
@@ -137,7 +137,7 @@ export function PollComposer({ visible, onClose, onSend }) {
           </Pressable>
         ) : null}
         <Pressable disabled={!ok} onPress={() => { onSend({ question: question.trim(), options: filled }); onClose(); }}
-          style={{ marginTop: space.lg, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: ok ? 1 : 0.45 }}>
+          style={{ marginTop: space.lg, height: btnH(48), borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: ok ? 1 : 0.45 }}>
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Send poll</Text>
         </Pressable>

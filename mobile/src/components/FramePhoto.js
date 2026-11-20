@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 const MAX_ZOOM = 5;
 const OUT = 1080;
@@ -154,12 +154,12 @@ export default function FramePhoto({ visible, items = [], startAt = 0, onCancel,
           </View>
           <View style={{ flexDirection: 'row', padding: space.lg, gap: 10 }}>
             {i > 0 ? (
-              <Pressable onPress={() => setI(i - 1)} style={({ pressed }) => ({ flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.aura, opacity: pressed ? 0.8 : 1 })}>
+              <Pressable onPress={() => setI(i - 1)} style={({ pressed }) => ({ flex: 1, height: btnH(50), borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.aura, opacity: pressed ? 0.8 : 1 })}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.text }}>Back</Text>
               </Pressable>
             ) : null}
             <Pressable onPress={() => (last ? finish() : setI(i + 1))} disabled={busy} accessibilityLabel={last ? 'Done framing' : 'Next photo'}
-              style={({ pressed }) => ({ flex: 2, height: 50, borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.85 : 1 })}>
+              style={({ pressed }) => ({ flex: 2, height: btnH(50), borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.85 : 1 })}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{last ? 'Done' : 'Next photo'}</Text>}
             </Pressable>

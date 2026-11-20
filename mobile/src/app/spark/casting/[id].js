@@ -1,5 +1,5 @@
 // One casting call: the role and lines, everyone's auditions, "Audition" for you, "Pick" for the caster.
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,10 @@ export default function CastingCall() {
   const { id } = useLocalSearchParams();
   const navigation = useNavigation();
   const [data, setData] = useState(null);
+  // only the audition at least ~60% on screen plays (undefined: nothing scrolled yet, the first one plays)
+  const [onScreen, setOnScreen] = useState(undefined);
+  const viewable = useRef(({ viewableItems }) => setOnScreen(viewableItems[0]?.key || '')).current;
+  const viewConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const load = useCallback(async () => { try { setData(await api(`/sparks/casting/${id}`)); } catch (e) { notice('Casting', e.message); } }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useLayoutEffect(() => {
@@ -36,10 +40,12 @@ export default function CastingCall() {
     <FlatList
       data={data.auditions}
       keyExtractor={(s) => s.id}
+      onViewableItemsChanged={viewable}
+      viewabilityConfig={viewConfig}
       renderItem={({ item }) => (
         <View>
           {c.pickedSparkId === item.id ? <Text style={{ fontFamily: fonts.bold, color: colors.gold, fontSize: 14, marginLeft: space.lg, marginBottom: 6 }}>🌟 Picked for the role</Text> : null}
-          <SparkCard spark={item} onDeleted={load} />
+          <SparkCard spark={item} active={(onScreen === undefined ? data.auditions[0]?.id : onScreen) === item.id} onDeleted={load} />
           {c.mine && c.open ? <GradButton title="Pick this audition" icon="star" onPress={() => pick(item.id)} style={{ marginHorizontal: space.lg, marginTop: -space.md, marginBottom: space.xl, height: 44 }} /> : null}
         </View>
       )}

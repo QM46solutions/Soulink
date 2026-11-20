@@ -25,10 +25,12 @@ export default function SparkFullscreen({ visible, onClose, spark, onFirstPlay, 
   return (
     <Modal visible animationType="fade" onRequestClose={close} supportedOrientations={['portrait', 'landscape']} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: w, height: h, transform: rot ? [{ rotate: '90deg' }] : [] }}>
+        {/* turned sideways (90° clockwise): the player's left edge is the phone's top (status bar, camera) and its right
+            edge the phone's bottom (navigation bar), so the picture and its controls keep clear of both */}
+        <View style={{ width: w, height: h, transform: rot ? [{ rotate: '90deg' }] : [], paddingLeft: rot ? insets.top : 0, paddingRight: rot ? insets.bottom : 0 }}>
           <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={spark.details?.edit} height={h} fill autoPlay active controls fullscreen startAt={startAt}
-            muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={close} onFirstPlay={onFirstPlay} />
-          <View pointerEvents="box-none" style={{ position: 'absolute', top: rot ? 12 : insets.top + 8, right: rot ? insets.top + 12 : 12, flexDirection: 'row' }}>
+            muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={close} onFirstPlay={onFirstPlay} controlsInset={rot ? 0 : insets.bottom} />
+          <View pointerEvents="box-none" style={{ position: 'absolute', top: rot ? 12 : insets.top + 8, right: rot ? insets.bottom + 12 : 12, flexDirection: 'row' }}>
             <Btn icon="phone-rotate-landscape" label={rot ? 'Turn back upright' : 'Turn sideways for landscape'} onPress={() => setRot((r) => !r)} mci />
             <Btn icon="close" label="Close full screen" onPress={close} />
           </View>

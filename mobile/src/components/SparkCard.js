@@ -18,7 +18,7 @@ import OffenseSheet from './OffenseSheet';
 import { BottomSheet, CommentsSheet } from './PostSheets';
 import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
-import { colors, fonts, MAX_FONT_SCALE, space } from '../lib/theme';
+import { colors, fonts, MAX_FONT_SCALE, space, btnH } from '../lib/theme';
 import { feedback } from '../lib/feedback';
 import { setSparksMuted, toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 import ReportModal from './ReportModal';
@@ -301,7 +301,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
             <TextInput value={draft} onChangeText={setDraft} multiline autoFocus maxLength={1000} placeholder="Write a caption…" placeholderTextColor={colors.dim}
               style={{ minHeight: 90, maxHeight: 200, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.text, fontFamily: fonts.body, fontSize: 15, textAlignVertical: 'top', ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) }} />
             <Pressable onPress={saveCaption} disabled={saving}
-              style={{ marginTop: space.md, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
+              style={{ marginTop: space.md, height: btnH(48), borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
               <LinearGradient colors={['#7c5cfc', '#ff6b9d']} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Save</Text>}
             </Pressable>

@@ -4,11 +4,15 @@
 // it (see docs/MOBILE-PLAN.md); until then the phone plays the original colours.
 // One Spark plays at a time; it stops when you leave the screen, the app goes to the background, or `active`
 // turns false (the list passes that when the Spark is scrolled off screen).
+// Sound on Android: the music / voiceover player holds the phone's audio focus (other apps' music pauses, a call
+// pauses ours) and the video never takes it from them, so the music starts together with the Spark. Going to the
+// background (home button, another app, screen locked) stops every Spark, video and music, at once; coming back,
+// only the Spark on screen carries on (video and music together).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Pressable, View } from 'react-native';
+import { Animated, AppState, Platform, Pressable, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { mediaUrl } from '../lib/api';
 import { fadeAt } from '../lib/sparkEdit';
@@ -17,6 +21,28 @@ import SparkControls from './SparkControls';
 import { useSparkDuck } from '../lib/sparkSound';
 
 let current = null; // the pause() of the Spark that is playing now
+
+// every Spark player on screen (or kept just off screen by the list): the app going to the background stops all
+// of them, not only the one that was playing
+const live = new Set();
+let appWatch = null;
+function watchApp() {
+  if (appWatch) return;
+  appWatch = AppState.addEventListener('change', (st) => {
+    if (st !== 'active') { live.forEach((x) => x.stop()); return; }
+    // back in the app: Android's audio player restarts what it paused for the background by itself; nothing
+    // should play until the Spark on screen starts it again
+    live.forEach((x) => x.hush());
+  });
+}
+// music and voiceovers: hold the audio focus like a music app (set again before each Spark, since a voice note in
+// chat changes the mode), and never keep playing in the background
+let modeSet = 0;
+function sparkAudioMode() {
+  if (Date.now() - modeSet < 3000) return;
+  modeSet = Date.now();
+  setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'doNotMix', shouldPlayInBackground: false, allowsRecording: false }).catch(() => {});
+}
 
 // fill: edge to edge, no rounded corners (the full-screen Sparks feed). The whole video always shows: a portrait
 // video fills a phone screen, a landscape one plays full width as landscape (black above and below), never cropped. autoPlay: plays by itself while `active`.
@@ -28,7 +54,7 @@ let current = null; // the pause() of the Spark that is playing now
 // it (a pause sign shows while it's paused; another tap there plays it again); a tap anywhere else calls onOpen
 // (open the Spark big). timeRef gets the current second; startAt starts there.
 export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onDoubleTap,
-  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14 }) {
+  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14, controlsInset = 0 }) {
   const e = edit || {};
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -56,6 +82,8 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const player = useVideoPlayer(source, (p) => {
     p.loop = false; p.timeUpdateEventInterval = 0.1; p.playbackRate = rate; p.preservesPitch = true;
     p.volume = Math.min(1, vol.video); p.muted = vol.video === 0;
+    // with music / a voiceover, that player owns the sound focus; the video mixes in and never interrupts it
+    try { if (music || vo) p.audioMixingMode = 'mixWithOthers'; p.staysActiveInBackground = false; p.showNowPlayingNotification = false; } catch { /* older player */ }
     // start as soon as a little has loaded, instead of waiting for a long safety buffer
     try { p.bufferOptions = { preferredForwardBufferDuration: 15, minBufferForPlayback: 0.5, waitsToMinimizeStalling: false }; } catch { /* older player */ }
     if (startAt != null) p.currentTime = t0 + startAt; else if (e.cover != null || t0) p.currentTime = e.cover ?? t0;
@@ -66,7 +94,10 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     voice.current = vo ? createAudioPlayer({ uri: vo }) : null;
     if (audio.current) { audio.current.loop = true; audio.current.volume = vol.music; }
     if (voice.current) voice.current.volume = vol.voice;
-    return () => { audio.current?.remove(); voice.current?.remove(); audio.current = null; voice.current = null; };
+    return () => {
+      try { audio.current?.pause(); voice.current?.pause(); } catch { /* released */ }
+      audio.current?.remove(); voice.current?.remove(); audio.current = null; voice.current = null;
+    };
   }, [music, vo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncAudio = () => {
@@ -74,13 +105,20 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     audio.current?.seekTo(musicStart + rel).catch?.(() => {});
     voice.current?.seekTo(rel).catch?.(() => {});
   };
+  const wanted = useRef(false); // this Spark is meant to be playing now
+  const autoRef = useRef(false); autoRef.current = autoPlay && active; // plays by itself here (on screen, not paused away)
   const pause = useCallback(() => {
+    wanted.current = false;
     try { player.pause(); } catch { /* released */ }
-    audio.current?.pause(); voice.current?.pause(); setPlaying(false);
+    try { audio.current?.pause(); voice.current?.pause(); } catch { /* released */ }
+    setPlaying(false);
   }, [player]);
   const play = () => {
+    if (AppState.currentState && AppState.currentState !== 'active' && Platform.OS !== 'web') return; // never start in the background
     if (current && current !== pause) current();
     current = pause;
+    wanted.current = true;
+    if (music || vo) sparkAudioMode();
     const now = player.currentTime || 0;
     if (now < t0 || (t1 && now >= t1)) player.currentTime = t0;
     if (controls && !started.current) flash(); // opened big: show the controls for a moment
@@ -109,7 +147,12 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
       }
     };
     const onEnd = () => { player.currentTime = t0; player.play(); syncAudio(); voice.current?.play(); };
-    const onPlaying = ({ isPlaying }) => { if (!isPlaying && playing && player.currentTime < (player.duration || 1e9) - 0.2) { audio.current?.pause(); voice.current?.pause(); } };
+    // the video stalls (loading) → the music waits; it plays again → the music carries on with it, in step
+    const onPlaying = ({ isPlaying }) => {
+      if (!isPlaying) { if (playing && player.currentTime < (player.duration || 1e9) - 0.2) { audio.current?.pause(); voice.current?.pause(); } return; }
+      if (!wanted.current) { try { player.pause(); } catch { /* released */ } return; }
+      if ((audio.current && !audio.current.playing) || (voice.current && !voice.current.playing)) { syncAudio(); audio.current?.play(); voice.current?.play(); }
+    };
     const a = player.addListener('timeUpdate', onTime);
     const b = player.addListener('playToEnd', onEnd);
     const c = player.addListener('playingChange', onPlaying);
@@ -120,9 +163,19 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   useEffect(() => { if (!active) pause(); else if (autoPlay) { setUserPaused(false); play(); } }, [active, autoPlay, pause]); // eslint-disable-line react-hooks/exhaustive-deps
   useFocusEffect(useCallback(() => { if (autoPlay && active) play(); return () => pause(); }, [pause, autoPlay, active])); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const s = AppState.addEventListener('change', (st) => { if (st !== 'active') pause(); });
-    return () => { s.remove(); if (current === pause) current = null; };
-  }, [pause]);
+    // back from the background: the Spark that was playing on screen carries on (video and music together, in
+    // step), like coming back to any video app; every other one stays quiet
+    let back = false;
+    const me = {
+      stop: () => { back = wanted.current && autoRef.current; pause(); },
+      hush: () => {
+        try { player.pause(); audio.current?.pause(); voice.current?.pause(); } catch { /* released */ }
+        if (back) { back = false; setTimeout(() => { if (AppState.currentState === 'active' && autoRef.current) play(); }, 250); }
+      },
+    };
+    live.add(me); watchApp();
+    return () => { live.delete(me); if (current === pause) current = null; };
+  }, [pause, player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // sound off / on (the speaker button): the video, the music and the voiceover together
   useEffect(() => {
@@ -188,7 +241,10 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={playing ? 'Pause' : 'Play'}>
       {/* pointerEvents none: on Android the video surface would otherwise swallow taps (so "open big" never fired) */}
       <View pointerEvents="none" style={{ flex: 1, ...(z ? { transform: [{ translateX: (0.5 - z.x) * (z.s - 1) * 100 }, { translateY: (0.5 - z.y) * (z.s - 1) * 100 }, { scale: z.s }] } : {}) }}>
-        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
+        {/* full screen can be turned sideways and a Spark can be zoomed / cropped (transforms): Android's default video
+            surface ignores transforms (the frame turned, the picture didn't), a texture view turns and zooms with it */}
+        <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false}
+          surfaceType={fullscreen || z ? 'textureView' : 'surfaceView'} />
       </View>
       {fading ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />
@@ -196,7 +252,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
         <SparkControls visible={ctlVisible} playing={playing} cur={cur} dur={dur} muted={muted} fullscreen={fullscreen}
           onPlayPause={() => { if (playing) { pause(); flash(true); } else { play(); flash(); } }}
           onSkip={(d) => seekTo(cur + d)} onSeek={seekTo} onScrub={(on) => { scrubbing.current = on; if (on) clearTimeout(hideTimer.current); }}
-          onMute={onToggleMute} onFullscreen={onFullscreen} />
+          onMute={onToggleMute} onFullscreen={onFullscreen} bottomInset={controlsInset} />
       ) : null}
       {mini ? (<>
         <Pressable onPress={() => tapThen(middle)} accessibilityLabel={playing ? 'Pause' : 'Play'}
@@ -210,8 +266,10 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
         ) : null}
         {onToggleMute ? (
           <Pressable onPress={onToggleMute} hitSlop={10} accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-            style={{ position: 'absolute', right: 12, bottom: miniBottom, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+            style={{ position: 'absolute', right: 12, bottom: miniBottom, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: muted ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
+            {/* sound on: a speaker (a note when the Spark has music); sound off: a bright button with the speaker crossed out */}
+            <Ionicons name={muted ? 'volume-mute' : (music ? 'musical-notes' : 'volume-high')} size={19} color={muted ? '#14121f' : '#fff'} />
           </Pressable>
         ) : null}
       </>) : null}

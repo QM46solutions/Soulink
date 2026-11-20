@@ -28,7 +28,9 @@ export default function UserSparks() {
 
   if (list === null) return <Loading />;
   if (!list.length) return <Empty icon="film-outline" title="No Sparks" text="Nothing to show here." />;
-  const onScroll = (e) => { if (!pageH) return; const p = Math.round(e.nativeEvent.contentOffset.y / pageH); setPage((old) => (old === p ? old : p)); };
+  // the Spark at least ~70% on screen plays; mid-swipe (none of them that much on screen) nothing plays, so the one
+  // you're leaving stops straight away instead of playing on under the next one
+  const onScroll = (e) => { if (!pageH) return; const f = e.nativeEvent.contentOffset.y / pageH; const p = Math.round(f); const n = Math.abs(f - p) <= 0.3 ? p : -1; setPage((old) => (old === n ? old : n)); };
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
       <View style={{ flex: 1, width: '100%', maxWidth: web ? 520 : undefined, alignSelf: 'center' }}>
@@ -48,7 +50,7 @@ export default function UserSparks() {
             showsVerticalScrollIndicator={false}
             getItemLayout={(_, i) => ({ length: pageH, offset: pageH * i, index: i })}
             onScroll={onScroll}
-            scrollEventThrottle={100}
+            scrollEventThrottle={32}
             extraData={page}
             windowSize={3}
             initialNumToRender={2}

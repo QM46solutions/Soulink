@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getServer } from '../lib/api';
 import { isVideo } from './PostCard';
 import PostVideo from './PostVideo';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 /** /p/<id> or /s/<id> in the address bar → { kind, id } (web only) */
 export function sharedLinkTarget() {
@@ -68,7 +68,7 @@ export default function SharePreview({ target }) {
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: space.xl, backgroundColor: 'rgba(8,7,13,0.92)' }}>
                   <Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 20, textAlign: 'center' }}>Log in to keep watching</Text>
                   <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13.5, textAlign: 'center', marginTop: 6 }}>See the rest of {d.author.displayName}'s posts, react and comment on Soulink.</Text>
-                  <Pressable onPress={login} style={{ marginTop: space.lg, height: 48, paddingHorizontal: 32, borderRadius: 24, overflow: 'hidden', justifyContent: 'center' }}>
+                  <Pressable onPress={login} style={{ marginTop: space.lg, height: btnH(48), paddingHorizontal: 32, borderRadius: 24, overflow: 'hidden', justifyContent: 'center' }}>
                     <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                     <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Log in or join Soulink</Text>
                   </Pressable>

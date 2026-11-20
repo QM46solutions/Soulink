@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Modal, Platform, Pressable, Share, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, shareBase } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { confirm, notice } from '../../../lib/confirm';
@@ -22,6 +23,7 @@ function Row({ icon, label, onPress, danger }) {
 
 // Chat details: members, rename, add people, leave (groups) · profile, report, block (1:1)
 export default function ChatInfo() {
+  const safe = useSafeAreaInsets();
   const { id } = useLocalSearchParams();
   const { user: me } = useAuth();
   const [conv, setConv] = useState(null);
@@ -162,7 +164,7 @@ export default function ChatInfo() {
       </Modal>
 
       <Modal visible={adding} animationType="slide" onRequestClose={() => setAdding(false)}>
-        <View style={{ flex: 1, backgroundColor: colors.void, paddingTop: 50 }}>
+        <View style={{ flex: 1, backgroundColor: colors.void, paddingTop: safe.top + 12, paddingBottom: safe.bottom }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, marginBottom: space.md }}>
             <Pressable onPress={() => setAdding(false)} hitSlop={10}><Ionicons name="close" size={26} color={colors.text} /></Pressable>
             <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 18, marginLeft: space.md }}>Add people</Text>

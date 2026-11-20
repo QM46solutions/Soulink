@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mediaUrl } from '../lib/api';
 import { BottomSheet } from './PostSheets';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 const pad = (n) => String(n).padStart(2, '0');
@@ -167,7 +167,7 @@ export function ScheduleSheet({ visible, onClose, onPick }) {
           {tooSoon ? 'Pick a time a little later than now' : `Reveals ${revealLabel(at)}`}
         </Text>
         <Pressable disabled={tooSoon} onPress={() => { onPick(at); onClose(); }}
-          style={{ height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: tooSoon ? 0.5 : 1 }}>
+          style={{ height: btnH(52), borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: tooSoon ? 0.5 : 1 }}>
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={FILL} />
           <Ionicons name="time" size={19} color="#fff" style={{ marginRight: 8 }} />
           <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Post now, reveal then</Text>

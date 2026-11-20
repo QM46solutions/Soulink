@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, mediaUrl } from '../lib/api';
 import { BottomSheet } from './PostSheets';
 import { Slider } from './Slider';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 const TABS = [
   { key: 'saavn', label: 'JioSaavn', icon: 'music-circle', chips: ['Telugu', 'Hindi', 'Tamil', 'Romantic', 'Party', 'Devotional', 'Lo-fi'] },
@@ -186,11 +186,11 @@ export default function MusicPicker({ visible, onClose, onPick, allowPhone = tru
           </View>
           <View style={{ flexDirection: 'row', marginTop: space.xl }}>
             <Pressable onPress={() => (pv.on === 'part' ? pv.stop() : pv.play('part', mediaUrl(chosen.previewUrl), start))}
-              style={{ flex: 1, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: colors.aura, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 10 }}>
+              style={{ flex: 1, height: btnH(50), borderRadius: 25, borderWidth: 1.5, borderColor: colors.aura, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 10 }}>
               <Ionicons name={pv.on === 'part' ? 'pause' : 'play'} size={18} color={colors.aura} />
               <Text style={{ fontFamily: fonts.semibold, color: colors.text, marginLeft: 6 }}>{pv.on === 'part' ? 'Pause' : 'Listen'}</Text>
             </Pressable>
-            <Pressable onPress={() => finish(chosen, start)} style={{ flex: 1, height: 50, borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable onPress={() => finish(chosen, start)} style={{ flex: 1, height: btnH(50), borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Use this part</Text>
             </Pressable>

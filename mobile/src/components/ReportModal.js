@@ -1,3 +1,4 @@
+import { useBottomInset } from '../lib/keyboard';
 import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { api } from '../lib/api';
@@ -12,6 +13,7 @@ const REASONS = [
 ];
 
 export default function ReportModal({ visible, onClose, targetType, targetId }) {
+  const bottomPad = useBottomInset(); // clear of the phone's navigation bar
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,7 +28,7 @@ export default function ReportModal({ visible, onClose, targetType, targetId }) 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={close} />
-      <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: space.lg, paddingBottom: space.xxl }}>
+      <View style={{ backgroundColor: colors.deep, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: space.lg, paddingBottom: Math.max(space.xxl, space.lg + bottomPad) }}>
         {done ? (
           <View style={{ alignItems: 'center', padding: space.xl }}>
             <Text style={{ color: colors.text, fontSize: 18, fontFamily: fonts.bold }}>Thanks for reporting</Text>

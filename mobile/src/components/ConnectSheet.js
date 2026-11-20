@@ -9,7 +9,7 @@ import { api } from '../lib/api';
 import { INTENTS, intentOf } from '../lib/intents';
 import { BottomSheet } from './PostSheets';
 import { IntentBadge } from './Choice';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 import { feedback } from '../lib/feedback';
 
 function Who({ icon, title, text, onPress }) {
@@ -54,7 +54,7 @@ export default function ConnectSheet({ visible, onClose, user, onSent, startStep
             <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginTop: space.md }}>
               {first} will see you want to connect for {intentOf(intent).label}. You'll get a notification when they answer.
             </Text>
-            <Pressable onPress={onClose} style={{ marginTop: space.lg, alignSelf: 'stretch', height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable onPress={onClose} style={{ marginTop: space.lg, alignSelf: 'stretch', height: btnH(48), borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>Done</Text>
             </Pressable>
@@ -88,7 +88,7 @@ export default function ConnectSheet({ visible, onClose, user, onSent, startStep
               <Pressable onPress={() => setStep(1)} hitSlop={8} accessibilityLabel="Back" style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginRight: space.sm }}>
                 <Ionicons name="arrow-back" size={20} color={colors.text} />
               </Pressable>
-              <Pressable onPress={send} disabled={!intent || busy} style={{ flex: 1, height: 48, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: intent ? 1 : 0.45 }}>
+              <Pressable onPress={send} disabled={!intent || busy} style={{ flex: 1, height: btnH(48), borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', opacity: intent ? 1 : 0.45 }}>
                 <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                 {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{intent ? `Send ${intentOf(intent).label} request` : 'Pick one to send'}</Text>}
               </Pressable>

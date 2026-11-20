@@ -2,7 +2,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 export function GradBadge({ icon, colors: c = gradients.button, size = 46 }) {
   return (
@@ -16,7 +16,7 @@ export function GradBadge({ icon, colors: c = gradients.button, size = 46 }) {
 
 export function GradButton({ title, onPress, disabled, icon, style }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={[{ height: 50, borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: disabled ? 0.5 : 1 }, style]}>
+    <Pressable onPress={onPress} disabled={disabled} style={[{ height: btnH(50), borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: disabled ? 0.5 : 1 }, style]}>
       <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       {icon ? <MaterialCommunityIcons name={icon} size={20} color="#fff" style={{ marginRight: 8 }} /> : null}
       <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{title}</Text>

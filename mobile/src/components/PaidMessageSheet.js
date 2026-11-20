@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../lib/api';
 import { BottomSheet } from './PostSheets';
-import { colors, fonts, gradients, space } from '../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../lib/theme';
 
 export default function PaidMessageSheet({ visible, onClose, user }) {
   const [info, setInfo] = useState(null);
@@ -53,7 +53,7 @@ export default function PaidMessageSheet({ visible, onClose, user }) {
         {info?.test ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: space.sm, textAlign: 'center' }}>Test mode on this laptop: no money is taken.</Text> : null}
         {error ? <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.danger, marginTop: space.sm, textAlign: 'center' }}>{error}</Text> : null}
         <Pressable onPress={send} disabled={busy || !text.trim() || !info?.available}
-          style={{ marginTop: space.lg, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: busy || !text.trim() || !info?.available ? 0.5 : 1 }}>
+          style={{ marginTop: space.lg, height: btnH(52), borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: busy || !text.trim() || !info?.available ? 0.5 : 1 }}>
           <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           {busy ? <ActivityIndicator color="#fff" /> : (<>
             <Ionicons name="diamond" size={18} color="#fff" style={{ marginRight: 8 }} />

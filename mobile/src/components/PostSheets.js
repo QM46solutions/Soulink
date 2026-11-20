@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { Overlay } from '../lib/portal';
 import { useSafeClose } from '../lib/safeClose';
+import { useBottomInset } from '../lib/keyboard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
@@ -25,6 +26,7 @@ function ago(iso) {
 /** Bottom sheet frame: dim background (tap to close), grab handle, title, content up to ~75% of the screen. */
 export function BottomSheet({ visible, onClose, title, children, tall }) {
   const backdropClose = useSafeClose(visible, onClose);
+  const bottomPad = useBottomInset(); // the sheet's last row stays clear of the phone's navigation bar
   if (!visible) return null;
   return (
     <Overlay onClose={onClose}>
@@ -39,6 +41,7 @@ export function BottomSheet({ visible, onClose, title, children, tall }) {
           </Pressable>
         </View>
         {children}
+        {bottomPad ? <View style={{ height: bottomPad }} /> : null}
       </KeyboardAvoidingView>
     </Overlay>
   );

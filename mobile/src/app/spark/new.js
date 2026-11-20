@@ -23,7 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../lib/api';
 import MusicPicker from '../../components/MusicPicker';
 import CityField from '../../components/CityField';
-import { colors, fonts, gradients, space } from '../../lib/theme';
+import { colors, fonts, gradients, space, btnH } from '../../lib/theme';
 
 const MAX_MB = 100; // the server takes a Spark video up to 100 MB (about 30-60 s from a phone camera)
 const DRAFT_KEY = 'soulink.sparkDraft';
@@ -424,7 +424,7 @@ export default function NewSpark() {
               <Field value={caption} onChangeText={setCaption} placeholder="Say something about it…" multiline maxLength={1000} style={{ minHeight: 70 }} />
               {music ? <Text style={{ fontFamily: fonts.body, color: colors.dim, fontSize: 12, marginTop: 6 }}>The music mix (song start, music and original sound volume) is set in the editor. Only use music you're allowed to share.</Text> : null}
 
-              <Pressable onPress={post} disabled={busy} style={{ marginTop: space.xl, height: 52, borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+              <Pressable onPress={post} disabled={busy} style={{ marginTop: space.xl, height: btnH(52), borderRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                 <LinearGradient colors={cat?.colors || gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                 {busy ? (uploading != null ? <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{`Uploading · ${Math.round(uploading * 100)}%`}</Text> : <ActivityIndicator color="#fff" />) : <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 16 }}>Post Spark 🎬</Text>}
               </Pressable>

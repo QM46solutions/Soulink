@@ -11,7 +11,7 @@ import { GlassCard } from '../../components/brand';
 import { IntentChip, ScorePill } from '../../components/Choice';
 import { Avatar, Button, Empty, ErrorText, VerifiedBadge } from '../../components/ui';
 import { HOLDS, INTENTS, KNOWN, fmtDate, intentOf } from '../../lib/intents';
-import { colors, fonts, radius, space } from '../../lib/theme';
+import { colors, fonts, radius, space, btnH } from '../../lib/theme';
 import { feedback } from '../../lib/feedback';
 
 function Tabs({ value, onChange, counts }) {
@@ -133,9 +133,9 @@ function Incoming({ r, onDone }) {
         <View style={{ marginTop: space.lg }}>
           <Button title={`Accept · ${it.label} ${it.emoji}`} onPress={() => accept()} loading={busy} />
           <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.md }}>
-            <Button title={r.status === 'held' ? (r.canExtend ? 'Extend hold' : 'On hold') : 'Hold'} icon="pause-outline" variant="secondary" style={{ flex: 1, height: 48 }}
+            <Button title={r.status === 'held' ? (r.canExtend ? 'Extend hold' : 'On hold') : 'Hold'} icon="pause-outline" variant="secondary" style={{ flex: 1, height: btnH(48) }}
               disabled={r.status === 'held' && !r.canExtend} onPress={() => setMode('hold')} />
-            <Button title="Reject" variant="danger" style={{ flex: 1, height: 48 }} onPress={reject} />
+            <Button title="Reject" variant="danger" style={{ flex: 1, height: btnH(48) }} onPress={reject} />
           </View>
           <Text onPress={() => setMode('accept-as')} style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 13, textAlign: 'center', marginTop: space.md }}>Accept as something else</Text>
         </View>
@@ -162,7 +162,7 @@ function Outgoing({ r, onDone }) {
         </Text>
       </View>
       {r.status === 'held' && r.conversationId ? <Button small variant="ghost" icon="chatbubble-outline" title="Open chat" style={{ marginTop: 4 }} onPress={() => router.push(`/chat/${r.conversationId}`)} /> : null}
-      <Button title="Withdraw request" variant="secondary" style={{ marginTop: space.md, height: 48 }} onPress={withdraw} loading={busy} />
+      <Button title="Withdraw request" variant="secondary" style={{ marginTop: space.md, height: btnH(48) }} onPress={withdraw} loading={busy} />
     </GlassCard>
   );
 }

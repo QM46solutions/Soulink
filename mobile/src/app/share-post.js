@@ -1,4 +1,5 @@
 // Share a post (or a Spark, ?kind=spark) into one or more chats: tap Send next to each person / group.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -10,6 +11,7 @@ import { Empty, ErrorText, Loading } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 
 export default function SharePost() {
+  const safe = useSafeAreaInsets(); // the list scrolls clear of the phone's navigation bar
   const { id, kind } = useLocalSearchParams();
   const base = kind === 'spark' ? 'sparks' : 'posts';
   const { user } = useAuth();
@@ -36,7 +38,7 @@ export default function SharePost() {
       <FlatList
         data={chats}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={{ paddingVertical: space.sm, flexGrow: 1 }}
+        contentContainerStyle={{ paddingTop: space.sm, paddingBottom: space.sm + safe.bottom, flexGrow: 1 }}
         ListEmptyComponent={<Empty icon="paper-plane-outline" title="No chats yet" text="Connect with someone first, then you can send them posts." />}
         renderItem={({ item: c }) => {
           const st = state[c.id];

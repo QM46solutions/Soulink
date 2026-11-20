@@ -9,14 +9,20 @@
 import { createElement } from 'react';
 import { Dimensions, Platform, StyleSheet } from 'react-native';
 
-const REF_WIDTH = 430;
-const MIN_K = 0.86;
+// REF_WIDTH: the browser version's phone (440 pt), so text takes the same share of the screen as it does there.
+// ANDROID: Android draws the same font size a little taller and bolder than the browser (extra font padding, its
+// text renderer), so text there gets a further 5% off to look like the browser version. MIN_SIZE: never smaller
+// than this (small print stays readable).
+const REF_WIDTH = 440;
+const MIN_K = 0.82;
+const ANDROID = Platform.OS === 'android' ? 0.95 : 1;
+const MIN_SIZE = 11;
 const MAX_GROWTH = 1.1;
 
 let k = 1;
 const update = () => {
   const { width, height } = Dimensions.get('window');
-  k = Math.max(MIN_K, Math.min(1, Math.min(width, height) / REF_WIDTH));
+  k = Math.max(MIN_K, Math.min(1, Math.min(width, height) / REF_WIDTH)) * ANDROID;
 };
 
 function scaled(style) {
@@ -24,8 +30,12 @@ function scaled(style) {
   const flat = StyleSheet.flatten(style);
   if (!flat || (flat.fontSize == null && flat.lineHeight == null)) return style;
   const out = { ...flat };
-  if (out.fontSize != null) out.fontSize = Math.round(out.fontSize * k * 2) / 2;
-  if (out.lineHeight != null) out.lineHeight = Math.round(out.lineHeight * k);
+  let f = k;
+  if (out.fontSize != null) {
+    const size = Math.max(Math.min(out.fontSize, MIN_SIZE), Math.round(out.fontSize * k * 2) / 2);
+    f = size / out.fontSize; out.fontSize = size;
+  }
+  if (out.lineHeight != null) out.lineHeight = Math.round(out.lineHeight * f);
   return out;
 }
 

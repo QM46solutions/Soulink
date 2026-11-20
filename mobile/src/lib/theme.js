@@ -7,6 +7,9 @@ const SCREEN_W = Dimensions.get('window')?.width || 440;
 export const UI = Platform.OS === 'web' ? 1 : Math.max(0.86, Math.min(1, SCREEN_W / 440));
 export const sz = (n) => Math.round(n * UI * 2) / 2;
 /** text never grows past this on phones set to a large text size (it would push screens apart) */
+// One height for every main action button on phones (Post, Send, Continue, Connect…): sleek, the same everywhere,
+// scaled to the screen like the rest. webH: the height the browser version keeps (unchanged there).
+export const btnH = (webH = 50) => (Platform.OS === 'web' ? webH : sz(46));
 export const MAX_FONT_SCALE = 1.1; // same cap as lib/textScale.js
 
 // Soulink design tokens — taken from the pitch site (soulink-pitch.netlify.app) so the app and site match.
@@ -50,7 +53,10 @@ export const fonts = {
   monoBold: 'SpaceMono_700Bold',
 };
 
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
+// spacing: on phones, scaled to the screen like text and buttons (the browser keeps the exact values), so a
+// screen keeps the same proportions as the browser version on any phone width
+const sp = (n) => (Platform.OS === 'web' ? n : Math.round(n * UI * 2) / 2);
+export const space = { xs: sp(4), sm: sp(8), md: sp(12), lg: sp(16), xl: sp(24), xxl: sp(32) };
 export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 };
 
 // Default text style for body copy

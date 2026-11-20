@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useBottomInset } from '../../lib/keyboard';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,7 @@ import { colors, fonts, gradients, space } from '../../lib/theme';
 
 // Pick one person for a chat, or two or more for a group. "New group" (or ?group=1) starts straight in group mode.
 export default function NewMessage() {
+  const bottomPad = useBottomInset(); // the button stays above the phone's navigation bar
   const params = useLocalSearchParams();
   const navigation = useNavigation();
   const [groupMode, setGroupMode] = useState(params.group === '1');
@@ -111,7 +113,7 @@ export default function NewMessage() {
         ListEmptyComponent={connections && !connections.length ? <Empty icon="people-outline" title="No connections yet" text="You can message people once they accept your Connect request." /> : q ? <Empty icon="search-outline" title="No match" text="Only your connections are listed here." /> : null}
       />
       {selected.length ? (
-        <View style={{ padding: space.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <View style={{ padding: space.lg, paddingBottom: space.lg + bottomPad, borderTopWidth: 1, borderTopColor: colors.border }}>
           <Button title={isGroup ? `Create group (${selected.length + 1})` : `Chat with ${selected[0].username}`} onPress={start} loading={busy} disabled={isGroup && selected.length < 2} />
         </View>
       ) : null}

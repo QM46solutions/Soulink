@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FramePhoto from '../components/FramePhoto';
-import { useKeepFocusedVisible } from '../lib/keyboard';
+import { useKeepFocusedVisible, useKeyboardShown } from '../lib/keyboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +39,8 @@ export default function CreatePost() {
   const [framing, setFraming] = useState(null); // { idx: [..], at }
   const scrollRef = useRef(null);
   const keep = useKeepFocusedVisible(scrollRef);
-  const top = useSafeAreaInsets().top;
+  const { top, bottom: safeBottom } = useSafeAreaInsets();
+  const kbShown = useKeyboardShown(); // the share bar sits above the phone's navigation bar (not while typing)
   const frameNew = (before, after) => {
     const idx = after.map((x, k) => k).filter((k) => k >= before.length && !after[k].video);
     if (idx.length) setFraming({ idx, at: 0 });
@@ -159,7 +160,7 @@ export default function CreatePost() {
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 
-      <View style={{ padding: space.lg, paddingBottom: space.lg, backgroundColor: 'rgba(8,7,13,0.96)', borderTopWidth: 1, borderTopColor: colors.border }}>
+      <View style={{ padding: space.lg, paddingBottom: space.lg + (kbShown ? 0 : safeBottom), backgroundColor: 'rgba(8,7,13,0.96)', borderTopWidth: 1, borderTopColor: colors.border }}>
         <View style={{ flexDirection: 'row' }}>
           {/* Schedule: needs a photo or video (that's what gets blurred until the reveal) */}
           <Pressable onPress={() => setScheduleOpen(true)} disabled={!canShare || !photos.length} accessibilityLabel="Schedule the reveal"
