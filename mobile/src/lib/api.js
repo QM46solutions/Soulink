@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+// Expo 57 replaces the global fetch with its own, which can't send a picked file ({ uri, name, type } in a FormData):
+// it throws before anything leaves the phone. Uploads from the phone app therefore go through React Native's own
+// fetch (whatwg-fetch over the phone's native networking), which streams the file from its uri.
+import { fetch as rnFetch } from 'whatwg-fetch';
 import Constants from 'expo-constants';
 
 const SERVER_KEY = 'soulink.server';
@@ -139,13 +143,15 @@ async function apiRequest(path, { method = 'GET', body, form, timeoutMs = 15000 
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res;
   try {
-    res = await fetch(`${baseUrl}${path}`, {
+    const send = form && Platform.OS !== 'web' ? rnFetch : fetch;
+    res = await send(`${baseUrl}${path}`, {
       method,
       headers,
       body: form ?? (body !== undefined ? JSON.stringify(body) : undefined),
       signal: ctrl.signal,
     });
   } catch (e) {
+    if (form && e?.name !== 'AbortError') throw new ApiError(0, "Couldn't upload. Check your connection and try again.", 'network');
     throw new ApiError(0, /^https:/.test(baseUrl) ? 'Soulink is waking up. Give it a moment and try again.' : `Can't reach the Soulink server at ${baseUrl}. Is it running, and is your phone on the same Wi-Fi?`, 'network');
   } finally {
     clearTimeout(timer);
