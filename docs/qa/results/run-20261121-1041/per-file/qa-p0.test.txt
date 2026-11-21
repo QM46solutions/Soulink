@@ -1,0 +1,147 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: QA P0 · block
+    # Subtest: SL-SAFE-MU-002 (OBS-009) block removes the Connection and open requests; unblock does not bring back Connection access
+    not ok 1 - SL-SAFE-MU-002 (OBS-009) block removes the Connection and open requests; unblock does not bring back Connection access
+      ---
+      duration_ms: 2706.4888
+      type: 'test'
+      location: 'C:\\Users\\Sai raghava\\Documents\\Soulink\\server\\test\\qa-p0.test.js:31:3'
+      failureType: 'testCodeFailure'
+      error: |-
+        OBS-009 impact:
+         - after unblock C can start a chat with A without connecting again
+        + actual - expected
+        
+        + [
+        +   'after unblock C can start a chat with A without connecting again'
+        + ]
+        - []
+        
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected:
+      actual:
+        0: 'after unblock C can start a chat with A without connecting again'
+      operator: 'deepStrictEqual'
+      stack: |-
+        TestContext.<anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:57:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+        async Test.run (node:internal/test_runner/test:1409:7)
+        async Promise.all (index 0)
+        async Suite.run (node:internal/test_runner/test:1905:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+      ...
+    # Subtest: SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round
+    ok 2 - SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round
+      ---
+      duration_ms: 1369.4039
+      type: 'test'
+      ...
+    1..2
+not ok 1 - QA P0 · block
+  ---
+  duration_ms: 8555.1946
+  type: 'suite'
+  location: 'C:\\Users\\Sai raghava\\Documents\\Soulink\\server\\test\\qa-p0.test.js:30:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: QA P0 · who sees what
+    # Subtest: SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both
+    ok 1 - SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both
+      ---
+      duration_ms: 1768.5301
+      type: 'test'
+      ...
+    # Subtest: SL-PROF-SEC-001 private account follower/following lists are hidden from strangers
+    ok 2 - SL-PROF-SEC-001 private account follower/following lists are hidden from strangers
+      ---
+      duration_ms: 869.1829
+      type: 'test'
+      ...
+    1..2
+ok 2 - QA P0 · who sees what
+  ---
+  duration_ms: 2638.5506
+  type: 'suite'
+  ...
+# Subtest: QA P0 · both sides of an interaction
+    # Subtest: SL-POST-MU-001 like: liker, author, third person, database and one notification
+    ok 1 - SL-POST-MU-001 like: liker, author, third person, database and one notification
+      ---
+      duration_ms: 829.5737
+      type: 'test'
+      ...
+    # Subtest: SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves
+    ok 2 - SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves
+      ---
+      duration_ms: 681.388
+      type: 'test'
+      ...
+    1..2
+ok 3 - QA P0 · both sides of an interaction
+  ---
+  duration_ms: 1511.9795
+  type: 'suite'
+  ...
+# Subtest: QA P0 · security of other people's objects
+    # Subtest: SL-CHAT-SEC-001 a non-member cannot read or write a conversation
+    ok 1 - SL-CHAT-SEC-001 a non-member cannot read or write a conversation
+      ---
+      duration_ms: 1007.6829
+      type: 'test'
+      ...
+    # Subtest: SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request
+    ok 2 - SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request
+      ---
+      duration_ms: 847.0238
+      type: 'test'
+      ...
+    # Subtest: SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post
+    ok 3 - SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post
+      ---
+      duration_ms: 525.9573
+      type: 'test'
+      ...
+    1..3
+ok 4 - QA P0 · security of other people's objects
+  ---
+  duration_ms: 2381.7819
+  type: 'suite'
+  ...
+# Subtest: QA P0 · two people at the same moment
+    # Subtest: SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests
+    ok 1 - SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests
+      ---
+      duration_ms: 498.9636
+      type: 'test'
+      ...
+    # Subtest: SL-POST-CON-001 like pressed twice at once: no server error, at most one like row
+    ok 2 - SL-POST-CON-001 like pressed twice at once: no server error, at most one like row
+      ---
+      duration_ms: 542.2226
+      type: 'test'
+      ...
+    # Subtest: SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both
+    ok 3 - SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both
+      ---
+      duration_ms: 2787.2414
+      type: 'test'
+      ...
+    1..3
+ok 5 - QA P0 · two people at the same moment
+  ---
+  duration_ms: 3829.3128
+  type: 'suite'
+  ...
+1..5
+# tests 12
+# suites 5
+# pass 11
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 21746.6033

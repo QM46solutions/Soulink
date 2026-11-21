@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testsuite name="QA P0 · block" time="26.949313" disabled="0" errors="0" tests="2" failures="1" skipped="0" timestamp="2026-11-21T04:59:54.317Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-SAFE-MU-002 (OBS-009) block removes the Connection; unblock does not bring back Connection access" time="4.603119" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js" failure="blocking must remove the Connection row&#10;&#10;1 !== 0&#10;">
+			<failure type="testCodeFailure" message="blocking must remove the Connection row&#10;&#10;1 !== 0">
+Error [ERR_TEST_FAILURE]: blocking must remove the Connection row
+
+1 !== 0
+
+    at async Promise.all (index 0) {
+  code: 'ERR_TEST_FAILURE',
+  failureType: 'testCodeFailure',
+  cause: AssertionError [ERR_ASSERTION]: blocking must remove the Connection row
+  
+  1 !== 0
+  
+      at TestContext.&lt;anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:36:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+}
+			</failure>
+		</testcase>
+		<testcase name="SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round" time="3.117652" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · who sees what" time="6.158101" disabled="0" errors="0" tests="2" failures="1" skipped="0" timestamp="2026-11-21T05:00:21.266Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both" time="3.876510" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js" failure="stranger: posts">
+			<failure type="testCodeFailure" message="stranger: posts">
+Error [ERR_TEST_FAILURE]: stranger: posts
+    at async Promise.all (index 0) {
+  code: 'ERR_TEST_FAILURE',
+  failureType: 'testCodeFailure',
+  cause: AssertionError [ERR_ASSERTION]: stranger: posts
+      at TestContext.&lt;anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:81:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+}
+			</failure>
+		</testcase>
+		<testcase name="SL-PROF-SEC-001 private account follower/following lists are hidden from strangers" time="2.280922" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · both sides of an interaction" time="8.861509" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:00:27.425Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-POST-MU-001 like: liker, author, third person, database and one notification" time="6.178961" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves" time="2.681778" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · security of other people's objects" time="6.061811" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:00:36.287Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CHAT-SEC-001 a non-member cannot read or write a conversation" time="2.746425" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request" time="2.044975" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post" time="1.269401" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · two people at the same moment" time="9.742862" disabled="0" errors="0" tests="3" failures="1" skipped="0" timestamp="2026-11-21T05:00:42.350Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests" time="1.060648" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js" failure="exactly one open request between the two&#10;&#10;2 !== 1&#10;">
+			<failure type="testCodeFailure" message="exactly one open request between the two&#10;&#10;2 !== 1">
+Error [ERR_TEST_FAILURE]: exactly one open request between the two
+
+2 !== 1
+
+    at async Promise.all (index 0) {
+  code: 'ERR_TEST_FAILURE',
+  failureType: 'testCodeFailure',
+  cause: AssertionError [ERR_ASSERTION]: exactly one open request between the two
+  
+  2 !== 1
+  
+      at TestContext.&lt;anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:177:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+}
+			</failure>
+		</testcase>
+		<testcase name="SL-POST-CON-001 like pressed twice at once: no server error, at most one like row" time="1.006118" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both" time="7.675267" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<!-- tests 12 -->
+	<!-- suites 5 -->
+	<!-- pass 9 -->
+	<!-- fail 3 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 71870.3706 -->
+</testsuites>

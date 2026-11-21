@@ -1,0 +1,30 @@
+TAP version 13
+# ◇ injected env (13) from .env
+# Subtest: Soulmoji, cloud setup
+    # Subtest: uses the built-in engine, ignores the unreachable AI, and survives a disk wipe
+    ok 1 - uses the built-in engine, ignores the unreachable AI, and survives a disk wipe
+      ---
+      duration_ms: 1251.5106
+      type: 'test'
+      ...
+    # Subtest: every mood renders
+    ok 2 - every mood renders
+      ---
+      duration_ms: 2965.8188
+      type: 'test'
+      ...
+    1..2
+ok 1 - Soulmoji, cloud setup
+  ---
+  duration_ms: 9464.0146
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10587.9599

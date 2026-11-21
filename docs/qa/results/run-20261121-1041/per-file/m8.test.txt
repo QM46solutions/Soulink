@@ -1,0 +1,95 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Pulse meter
+    # Subtest: starts quiet; your own visits never count
+    ok 1 - starts quiet; your own visits never count
+      ---
+      duration_ms: 585.8518
+      type: 'test'
+      ...
+    # Subtest: rises with profile views (once per person per day) and likes; visitors see it too
+    ok 2 - rises with profile views (once per person per day) and likes; visitors see it too
+      ---
+      duration_ms: 803.0279
+      type: 'test'
+      ...
+    # Subtest: falls when nobody notices you (old activity fades, 30+ days is gone)
+    ok 3 - falls when nobody notices you (old activity fades, 30+ days is gone)
+      ---
+      duration_ms: 347.3389
+      type: 'test'
+      ...
+    # Subtest: scale and levels
+    ok 4 - scale and levels
+      ---
+      duration_ms: 0.7405
+      type: 'test'
+      ...
+    1..4
+ok 1 - Pulse meter
+  ---
+  duration_ms: 6291.8417
+  type: 'suite'
+  ...
+# Subtest: Settings: Pulse meter on/off and notification kinds
+    # Subtest: switching my Pulse meter off hides it on my profile for everyone, me included
+    ok 1 - switching my Pulse meter off hides it on my profile for everyone, me included
+      ---
+      duration_ms: 490.3077
+      type: 'test'
+      ...
+    # Subtest: notification kinds: all on by default, change one at a time
+    ok 2 - notification kinds: all on by default, change one at a time
+      ---
+      duration_ms: 171.5346
+      type: 'test'
+      ...
+# push: phone subscribed -> push.example.com
+# push: phone subscribed -> push.example.com
+    # Subtest: push subscription endpoints
+    ok 3 - push subscription endpoints
+      ---
+      duration_ms: 222.6388
+      type: 'test'
+      ...
+    1..3
+ok 2 - Settings: Pulse meter on/off and notification kinds
+  ---
+  duration_ms: 885.7384
+  type: 'suite'
+  ...
+# Subtest: Settings pages: activity, profile viewers, account status, location
+    # Subtest: who viewed my profile, my activity and account status
+    ok 1 - who viewed my profile, my activity and account status
+      ---
+      duration_ms: 1029.8571
+      type: 'test'
+      ...
+    1..1
+ok 3 - Settings pages: activity, profile viewers, account status, location
+  ---
+  duration_ms: 1030.6996
+  type: 'suite'
+  ...
+# Subtest: Who viewed my profile is Premium after the top 3
+    # Subtest: free accounts see 3 viewers and a locked count; Premium sees everyone
+    ok 1 - free accounts see 3 viewers and a locked count; Premium sees everyone
+      ---
+      duration_ms: 876.5027
+      type: 'test'
+      ...
+    1..1
+ok 4 - Who viewed my profile is Premium after the top 3
+  ---
+  duration_ms: 877.2378
+  type: 'suite'
+  ...
+1..4
+# tests 9
+# suites 4
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11858.4879

@@ -1,0 +1,53 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: who can comment: everyone, connections only, or off
+ok 1 - who can comment: everyone, connections only, or off
+  ---
+  duration_ms: 5735.7695
+  type: 'test'
+  ...
+# Subtest: hidden words and restrict: the comment is saved but only its writer sees it
+ok 2 - hidden words and restrict: the comment is saved but only its writer sees it
+  ---
+  duration_ms: 1267.7781
+  type: 'test'
+  ...
+# Subtest: limit interactions and connect settings block new Connect requests
+ok 3 - limit interactions and connect settings block new Connect requests
+  ---
+  duration_ms: 792.1965
+  type: 'test'
+  ...
+# Subtest: post menu: save, pin (up to 3, pinned first), archive (hidden from everyone else), not interested
+ok 4 - post menu: save, pin (up to 3, pinned first), archive (hidden from everyone else), not interested
+  ---
+  duration_ms: 1414.578
+  type: 'test'
+  ...
+# Subtest: OX game: two players, turns, a winner, and no moves after it ends
+ok 5 - OX game: two players, turns, a winner, and no moves after it ends
+  ---
+  duration_ms: 1124.458
+  type: 'test'
+  ...
+# Subtest: read receipts are two-way: turning mine off hides both people's "Seen"
+ok 6 - read receipts are two-way: turning mine off hides both people's "Seen"
+  ---
+  duration_ms: 1122.5974
+  type: 'test'
+  ...
+# Subtest: translator: 14 languages, detected from their script
+ok 7 - translator: 14 languages, detected from their script
+  ---
+  duration_ms: 1.7907
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14063.9694

@@ -1,0 +1,48 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Sparks
+    # Subtest: post in a category with its extras; everyone sees it; filter by category
+    ok 1 - post in a category with its extras; everyone sees it; filter by category
+      ---
+      duration_ms: 1065.8817
+      type: 'test'
+      ...
+    # Subtest: rules: a video is required, every extra is optional, unknown category refused
+    ok 2 - rules: a video is required, every extra is optional, unknown category refused
+      ---
+      duration_ms: 201.2858
+      type: 'test'
+      ...
+    # Subtest: reactions, I tried it (cooking only), views, delete
+    ok 3 - reactions, I tried it (cooking only), views, delete
+      ---
+      duration_ms: 1006.6586
+      type: 'test'
+      ...
+    # Subtest: private accounts: only their followers see their Sparks
+    ok 4 - private accounts: only their followers see their Sparks
+      ---
+      duration_ms: 420.9806
+      type: 'test'
+      ...
+    # Subtest: a profile post can carry a location (no Soul type tag needed)
+    ok 5 - a profile post can carry a location (no Soul type tag needed)
+      ---
+      duration_ms: 180.7084
+      type: 'test'
+      ...
+    1..5
+ok 1 - Sparks
+  ---
+  duration_ms: 6611.9145
+  type: 'suite'
+  ...
+1..1
+# tests 5
+# suites 1
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8411.4885

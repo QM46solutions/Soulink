@@ -1,5 +1,5 @@
 // Face ID scan used at registration. Same code for phone cameras (Android/iPhone) and laptop webcams.
-// The camera checks a frame about once a second and coaches the person live ("too dark", "move closer",
+// The camera checks a small frame about once a second (the next photo is taken while one is checked) and coaches the person live ("too dark", "move closer",
 // "hold still"...). Each pose is captured only when the picture is clear AND the head is in position:
 //   1 look straight  →  2 turn your head one way  →  3 turn the other way   (proves a live person)
 // The server turns the scan into a face fingerprint and blocks faces that already have an account.
@@ -60,6 +60,13 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   const [error, setError] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [coach, setCoach] = useState(null); // { text, good }
+  const [checkingSince, setCheckingSince] = useState(0);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (phase !== 'checking') return undefined;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
   const cam = useRef(null);
   const running = useRef(false);
   const alive = useRef(true);
@@ -72,10 +79,13 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
     return () => loop.stop();
   }, [spin]);
 
+  // Each photo in two sizes: a small one for the live check (fast to send and to check, the server looks at
+  // 320 px anyway) and the 480 px one kept for the final fingerprint when the pose is right.
   const snap = async () => {
-    const pic = await cam.current.takePictureAsync({ quality: 0.6, shutterSound: false });
-    const small = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
-    return small.base64;
+    const pic = await cam.current.takePictureAsync({ quality: 0.5, shutterSound: false });
+    const keep = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
+    const check = await manipulateAsync(keep.uri, [{ resize: { width: 320 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+    return { keep: keep.base64, check: check.base64 };
   };
 
   // Live loop: check a frame, coach, and keep it when it's clear and the head is in the right position
@@ -89,14 +99,18 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
         let lastHint = null;
         const started = Date.now();
         await sleep(500); // let the camera settle its exposure
+        // the next photo is taken while the server checks the current one, so the two waits overlap
+        let next = snap();
         while (frames.length < POSES.length) {
           if (!alive.current) return;
           if (Date.now() - started > GIVE_UP_MS) {
             throw new Error(lastHint ? `We couldn't finish the scan. ${lastHint}` : "We couldn't finish the scan. Try again in better light.");
           }
           const i = frames.length;
-          const shot = await snap();
-          const c = await api('/face/check', { method: 'POST', body: { frame: shot }, timeoutMs: 20000 });
+          const shot = await next;
+          next = snap();
+          next.catch(() => {}); // a photo still being taken when the scan ends is simply dropped
+          const c = await api('/face/check', { method: 'POST', body: { frame: shot.check }, timeoutMs: 20000 });
           if (!alive.current) return;
           if (!c.ok) { lastHint = c.hint; setCoach({ text: c.hint, good: false }); continue; }
           const yaw = c.yaw || 0;
@@ -104,7 +118,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           const inPose = i === 0 ? Math.abs(yaw) <= STRAIGHT : i === 1 ? turned : turned && Math.sign(yaw) !== firstTurn;
           if (inPose) {
             if (i === 1) firstTurn = Math.sign(yaw);
-            frames.push(shot);
+            frames.push(shot.keep);
             setShots(frames.length);
             setPose(Math.min(frames.length, POSES.length - 1));
             setCoach({ text: 'Got it', good: true });
@@ -116,7 +130,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
             setCoach({ text: Math.abs(yaw) > 0.08 ? 'A little more…' : POSES[i].say, good: true });
           }
         }
-        setPhase('checking');
+        setPhase('checking'); setCheckingSince(Date.now());
         let r;
         try {
           r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar: false }, timeoutMs: 150000 });
@@ -222,7 +236,13 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           </>
         )}
       </View>
-      {phase === 'scanning' && coach ? <CoachPill text={coach.text} good={coach.good} /> : (
+      {phase === 'checking' ? (
+        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>
+          {Date.now() - checkingSince < 15000 ? 'Your scan is done. This takes a few seconds.'
+            : Date.now() - checkingSince < 45000 ? 'Still checking. Others are signing up too, so this can take up to a minute.'
+              : 'Almost there. Please keep Soulink open.'}
+        </Text>
+      ) : phase === 'scanning' && coach ? <CoachPill text={coach.text} good={coach.good} /> : (
         <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, textAlign: 'center', marginTop: 6 }}>
           Good light, face inside the circle, only you in view.
         </Text>

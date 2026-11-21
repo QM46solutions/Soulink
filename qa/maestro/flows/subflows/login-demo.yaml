@@ -1,0 +1,15 @@
+appId: host.exp.exponent
+---
+# Logs in with a laptop demo account (90000 00100-00105) using the on-screen test-mode code (development only).
+- tapOn: "Phone number"
+- tapOn: "Mobile number"
+- inputText: ${PHONE}
+- hideKeyboard
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "// test mode.*"
+    timeout: 30000
+- tapOn: "// test mode.*"
+- extendedWaitUntil:
+    visible: "Sparks"
+    timeout: 60000

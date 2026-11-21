@@ -1,0 +1,391 @@
+◇ injected env (14) from .env
+▶ Auth: OTP sign-up / login
+  ✔ rejects invalid phone (44.6774ms)
+  ✔ normalizes Indian number, creates account, logs in again as same user (285.4534ms)
+  ✔ wrong code counts attempts and code cannot be reused (145.3674ms)
+  ✔ the code request answers the same whether or not an account exists (63.7424ms)
+  ✔ protected routes need a token (7.3478ms)
+  ✔ Google sign-in is stubbed until cloud move (3.0615ms)
+✔ Auth: OTP sign-up / login (5060.4908ms)
+▶ Onboarding & profile
+  ✔ blocks under-18 and enforces username rules (127.1149ms)
+  ✔ username availability and duplicate usernames (196.0324ms)
+  ✔ update profile fields; finding people by face is on hold (103.6825ms)
+  ✔ avatar upload saves an image (108.312ms)
+✔ Onboarding & profile (535.7727ms)
+▶ Follow graph (Instagram rules)
+  ✔ public account: instant follow, counts update, unfollow (541.6087ms)
+  ✔ private account: Connect only (Follow is refused); an old pending follow request can still be accepted (507.9495ms)
+  ✔ decline request; cancel request; remove follower (381.8314ms)
+  ✔ switching private → public auto-accepts pending requests (176.569ms)
+  ✔ cannot follow yourself; unknown user 404 (112.5525ms)
+✔ Follow graph (Instagram rules) (1721.1595ms)
+▶ Search
+  ✔ finds by username prefix and display name, excludes self (233.2846ms)
+✔ Search (233.5746ms)
+▶ Safety: block & report
+  ✔ block hides users both ways and removes follows (448.9926ms)
+  ✔ report validates reason (125.1947ms)
+✔ Safety: block & report (574.5643ms)
+◇ injected env (14) from .env
+▶ Sparks
+  ✔ post in a category with its extras; everyone sees it; filter by category (1252.8134ms)
+  ✔ rules: a video is required, every extra is optional, unknown category refused (177.0264ms)
+  ✔ reactions, I tried it (cooking only), views, delete (1081.0731ms)
+  ✔ private accounts: only their followers see their Sparks (441.4586ms)
+  ✔ a profile post can carry a location (no Soul type tag needed) (207.5181ms)
+✔ Sparks (7867.5293ms)
+◇ injected env (14) from .env
+▶ Chat attachments
+  ✔ location, contact and poll messages; voting and changing a vote (1313.8755ms)
+  ✔ documents: PDFs go through, HTML is refused (490.1567ms)
+✔ Chat attachments (6286.4918ms)
+◇ injected env (14) from .env
+▶ Private chat
+  ✔ messages sent in private chat vanish after they are seen and a member leaves (1667.353ms)
+✔ Private chat (6127.3085ms)
+◇ injected env (14) from .env
+▶ Spark studio
+  ✔ edits are kept with the Spark; a too-long trim is refused (489.4671ms)
+✔ Spark studio (5037.8224ms)
+▶ Casting Board
+  ✔ post a role, audition, the caster picks; closed after (1227.787ms)
+✔ Casting Board (1228.0618ms)
+▶ Open Mic Stage
+  ✔ weekly theme, stage performances, open mics with RSVP (1040.8284ms)
+✔ Open Mic Stage (1041.2517ms)
+◇ injected env (14) from .env
+▶ Music
+  ✔ search needs login; online search is off in tests (321.5323ms)
+  ✔ a bad song reference is refused (8.0409ms)
+  ✔ a post keeps the song and where its 30 seconds start (318.2666ms)
+  ✔ a Moment can carry a song (83.588ms)
+  ✔ a Spark can use a picked song instead of an uploaded one (61.9483ms)
+✔ Music (5838.843ms)
+◇ injected env (14) from .env
+▶ Scheduled reveal
+  ✔ others get no media until the reveal, only the teaser; the owner sees everything (647.3956ms)
+  ✔ reveal time must be 1 minute to 30 days away, and needs a photo or video (87.8379ms)
+  ✔ a normal post has no reveal (88.7545ms)
+✔ Scheduled reveal (5407.3568ms)
+◇ injected env (14) from .env
+▶ Comments
+  ✔ like, reply (one level) and offense marks (1221.672ms)
+✔ Comments (5725.5929ms)
+▶ Paid message
+  ✔ one message to a non-connection lands in their Requests (test payment); once a day per person (553.3929ms)
+✔ Paid message (553.7399ms)
+◇ injected env (14) from .env
+▶ Spark Studio edits
+  ✔ adjust, zoom, fade, text timing and a voiceover are kept (471.5505ms)
+✔ Spark Studio edits (5032.6515ms)
+▶ Spread around
+  ✔ owner spreads a Spark (test payment); it shows in others' feed with spread:true (732.1871ms)
+✔ Spread around (732.4281ms)
+▶ Ads
+  ✔ only admins create ads; everyone gets live ones; seen / click are counted (584.6835ms)
+✔ Ads (584.9495ms)
+▶ Spark comments, offense marks and shares
+  ✔ comment, reply, 👌🏻 a comment, mark a Spark, share it in a chat (1051.885ms)
+✔ Spark comments, offense marks and shares (1052.216ms)
+◇ injected env (14) from .env
+▶ Legal and privacy
+  ✔ accepting the terms is recorded (356.7074ms)
+  ✔ download my data returns my profile and posts (517.2126ms)
+  ✔ delete my account erases the person and keeps only the 180-day sign-up record (1605.469ms)
+  ✔ music sources list (98.1937ms)
+✔ Legal and privacy (7237.0594ms)
+◇ injected env (14) from .env
+▶ Sessions
+  ✔ logging out ends only this device (452.3509ms)
+  ✔ deleting the account logs out every device with "No user account found" (1350.6277ms)
+  ✔ a login is written to the audit trail (129.5619ms)
+✔ Sessions (6244.3726ms)
+▶ Face data
+  ✔ face fingerprints are encrypted and can be read back (2.9996ms)
+  ✔ face search is on hold (63.0952ms)
+✔ Face data (66.5533ms)
+◇ injected env (14) from .env
+▶ Chat: 1:1 and message requests
+  ✔ message from a stranger lands in Requests; accepting moves it to the inbox (975.8885ms)
+  ✔ if they connected to you, your message goes straight to their inbox; a plain Follow does not (501.1158ms)
+  ✔ replying to a request accepts it; the same pair always shares one thread (267.1152ms)
+  ✔ messages page newest first; read receipts and unread counts (522.5052ms)
+  ✔ unsend your own message only (238.7029ms)
+  ✔ photos and voice notes (278.1007ms)
+  ✔ strangers cannot read a conversation; empty messages rejected (228.766ms)
+  ✔ blocking stops messages both ways and hides the thread (391.2541ms)
+  ✔ deleting a request hides it until they message again (339.4085ms)
+✔ Chat: 1:1 and message requests (7887.1061ms)
+▶ Chat: groups
+  ✔ create, rename, add, remove, leave; a group always keeps an admin (599.5109ms)
+✔ Chat: groups (599.764ms)
+◇ injected env (14) from .env
+▶ Pause and delete
+  ✔ pausing hides the account and signs out; logging in brings it back (854.9358ms)
+  ✔ deletion waits 7 days, and logging in before then cancels it (175.4408ms)
+  ✔ after 7 days the account is erased, a 1-year identity record kept, and the same number waits 6 months (1384.3774ms)
+✔ Pause and delete (6873.2063ms)
+▶ Restore my data
+  ✔ a genuine download restores the profile on the new account (901.428ms)
+  ✔ a changed file or somebody else's file is refused (116.4156ms)
+✔ Restore my data (1018.3266ms)
+▶ Bans
+  ✔ a banned person cannot sign up again with the same number (483.7118ms)
+✔ Bans (484.2934ms)
+◇ injected env (14) from .env
+▶ Copyright
+  ✔ a report needs every statement, and a real Soulink link (750.0597ms)
+  ✔ removal hides the post, shows a copyright notice, tells the uploader who complained, and gives a strike (588.2939ms)
+  ✔ a contested removal comes back after 21 days without a court order, and the strike goes (464.1948ms)
+  ✔ a second strike stops posting for 7 days; a third removes the account (1705.1726ms)
+✔ Copyright (8839.4498ms)
+▶ Music
+  ✔ a song from the phone needs a rights confirmation (153.8521ms)
+✔ Music (154.3056ms)
+◇ injected env (13) from .env
+▶ Soulmoji, cloud setup
+  ✔ uses the built-in engine, ignores the unreachable AI, and survives a disk wipe (1155.443ms)
+  ✔ every mood renders (2800.8475ms)
+✔ Soulmoji, cloud setup (8285.2807ms)
+◇ injected env (13) from .env
+▶ Account deletion erases files
+  ✔ the deleted person's photo is gone; someone else's stays (1871.9746ms)
+✔ Account deletion erases files (6264.5474ms)
+◇ injected env (14) from .env
+▶ Unfinished sign-ups
+  ✔ within the hour: they can carry on (544.8113ms)
+  ✔ after the hour: cleared on their next visit, and logging in again makes a new account (1430.8932ms)
+  ✔ coming back by logging in after the hour also starts fresh (509.2321ms)
+   Cleared 1 unfinished sign-up(s) older than 1 hour
+  ✔ the hourly clean-up erases old unfinished sign-ups, never finished accounts (462.7941ms)
+✔ Unfinished sign-ups (7496.2838ms)
+✔ AI result is cut to the Soulmoji face square, at the face size (216.4112ms)
+◇ injected env (14) from .env
+▶ Open Mic
+  ✔ speak on video or voice, with a topic; filtered by topic; kept out of the main feed (1473.5434ms)
+✔ Open Mic (5680.651ms)
+▶ Casting requirements
+  ✔ a casting call carries its requirements (407.8744ms)
+✔ Casting requirements (408.3661ms)
+◇ injected env (14) from .env
+▶ Logins and notifications stay on
+  ✔ a login older than a day gets a fresh one (same session); a new one does not (527.4442ms)
+push: phone subscribed -> web.push.apple.com
+push: phone address renewed -> web.push.apple.com
+  ✔ a replaced push address moves to the new one, for the same person (240.2796ms)
+✔ Logins and notifications stay on (4819.4757ms)
+◇ injected env (14) from .env
+✔ For you: sections list (popular on Soulink + moods) and the mood words (4514.4743ms)
+◇ injected env (14) from .env
+▶ Ads dashboard
+  ✔ budget, spent, left, reach, stop at budget, customer dashboard and team revenue (1972.5592ms)
+  ✔ advice: running out before the end date; too few taps (1.0111ms)
+✔ Ads dashboard (5791.348ms)
+◇ injected env (14) from .env
+▶ Soul DNA
+  ✔ the games, in order, with no scoring sent to the phone (605.052ms)
+  ✔ an older Soul DNA keeps matching, and its owner can play the new games for free (951.8977ms)
+  ✔ progress is saved and resumable; finishing gives a Soul type (965.3572ms)
+  ✔ Life partner score, and the pinned pair gets 93% only with each other (2192.539ms)
+  ✔ first Soul DNA is free; retaking it is Premium (698.6504ms)
+  ✔ invalid answers are rejected (242.6478ms)
+  ✔ cannot follow or start a chat before creating Soul DNA (343.5663ms)
+  ✔ profile shows scores for every relation type; similar people score higher (857.3842ms)
+  ✔ full breakdown: two scores, a type, strengths/friction,  (370.9272ms)
+✔ Soul DNA (11247.8121ms)
+▶ Home feed
+  ✔ new person: no connections, no posts (315.4884ms)
+  ✔ follows alone are not Soul Connections (258.5175ms)
+  ✔ my posts show in my feed with likes and comments; strangers do not see them (896.375ms)
+✔ Home feed (1471.1732ms)
+▶ Places
+  ✔ typing suggests Hyderabad areas first and knows other names (15.7533ms)
+  ✔ current position → nearest area (16.8954ms)
+✔ Places (33.2079ms)
+◇ injected env (19) from .env
+✔ old-key faces still open after FACE_KEY is set; new ones use FACE_KEY (3.0937ms)
+◇ injected env (14) from .env
+▶ Private file links
+  ✔ a file opens only with a valid, unexpired signed link (596.8229ms)
+✔ Private file links (4617.9073ms)
+▶ Shared post preview (no account)
+  ✔ a public post shows its preview for 15 seconds; private accounts and unknown posts do not (450.2252ms)
+✔ Shared post preview (no account) (451.0315ms)
+▶ Group invite links
+  ✔ only admins make them; the link shows name + member count, joining needs a login; reset / off (956.1296ms)
+✔ Group invite links (956.8055ms)
+◇ injected env (14) from .env
+▶ Devices
+  ✔ device names and partly hidden addresses (4.0418ms)
+  ✔ see every device, log one out, then all the others (690.7954ms)
+  ✔ someone else’s device can’t be logged out (294.3236ms)
+✔ Devices (5492.4365ms)
+◇ injected env (14) from .env
+▶ Phone app
+  ✔ the installed app registers its notification token; logging in as someone else moves it (627.6292ms)
+  ✔ app-link files are served (empty until the store keys are set) (17.7922ms)
+✔ Phone app (5284.1789ms)
+◇ injected env (14) from .env
+✔ the review number always takes the fixed code and skips the face scan; other numbers are unchanged (5156.184ms)
+◇ injected env (14) from .env
+✔ first owner needs the setup key and a working authenticator code; then sign-in needs all three (8284.3305ms)
+✔ people per hour and server health are recorded (370.0485ms)
+✔ an hourly booking is priced from the rate card, waits for payment, then shows only in its hours and cities (1024.845ms)
+◇ injected env (14) from .env
+✔ console team: an owner and a support person (5489.5044ms)
+✔ anyone can file a complaint: ticket number, 7-day deadline, and the 2-hour clock for intimate / impersonation (498.147ms)
+✔ the console lists complaints (urgent first); deciding one can remove the linked post and emails both sides (644.5888ms)
+✔ a court order must be verified; its takedown clock is 3 hours; acting on it removes every linked post (477.1156ms)
+✔ only the owner can ban from the console; the person can never sign up again until the ban is lifted (1667.0131ms)
+✔ Soulmoji images carry an AI marker inside the file, and still open as normal JPEGs (43.6289ms)
+◇ injected env (14) from .env
+✔ who can comment: everyone, connections only, or off (6197.712ms)
+✔ hidden words and restrict: the comment is saved but only its writer sees it (963.8747ms)
+✔ limit interactions and connect settings block new Connect requests (768.8316ms)
+✔ post menu: save, pin (up to 3, pinned first), archive (hidden from everyone else), not interested (1787.287ms)
+✔ OX game: two players, turns, a winner, and no moves after it ends (2543.405ms)
+✔ read receipts are two-way: turning mine off hides both people's "Seen" (1639.7996ms)
+✔ translator: 14 languages, detected from their script (1.9122ms)
+◇ injected env (14) from .env
+▶ Connect requests
+  ✔ asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for) (1757.5548ms)
+  ✔ request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept) (700.849ms)
+  ✔ accept (as something else) creates the connection and a chat; sender is told (834.7365ms)
+  ✔ reject: sender is told, and must wait 30 days (594.5103ms)
+  ✔ hold: sender told the length; extend once; when it ends the receiver is asked; no answer = rejected (1456.0071ms)
+  ✔ on hold: both can chat, in Requests; accept → Connections and the chat moves to Chats (927.0481ms)
+  ✔ on hold, then rejected: the chat is hidden for both (kept in the database) (618.746ms)
+  ✔ receiver can still accept during a hold; sender can withdraw (1275.3237ms)
+  ✔ Connect model: accept = they connect to you (Follower); connect back = Connections (1099.3832ms)
+  ✔ any intent can be sent (Open to was removed from settings) (393.4637ms)
+  ✔ chat is only possible after connecting (550.7407ms)
+✔ Connect requests (15123.421ms)
+▶ Requests count on profiles
+  ✔ others see how many requests someone has, never who sent them (887.782ms)
+✔ Requests count on profiles (888.2954ms)
+◇ injected env (14) from .env
+▶ Argue (same phone)
+  ✔ names in order → each side added → verdict with a winner (791.8014ms)
+  ✔ wrong number of names is rejected (150.8229ms)
+✔ Argue (same phone) (5881.9249ms)
+▶ Argue (invite)
+  ✔ everyone answers on their own phone; sides hidden until the verdict; invitees notified (743.2691ms)
+✔ Argue (invite) (744.0947ms)
+▶ Referee helpers
+  ✔ Claude output is cleaned up and seats are checked (2.5823ms)
+✔ Referee helpers (2.9437ms)
+▶ Chat extras
+  ✔ reply to a message shows the quoted message (613.506ms)
+  ✔ reactions: add, change, remove (562.4069ms)
+  ✔ Soulmoji needs a face photo, then sends a sticker (329.4542ms)
+✔ Chat extras (1506.4694ms)
+▶ Soulmoji v2 (your photo, changed expression)
+  ✔ no selfie yet: face is empty and rendering asks for the selfie first (105.3583ms)
+  ✔ cannot send someone else's Soulmoji image in chat (255.0335ms)
+✔ Soulmoji v2 (your photo, changed expression) (361.0706ms)
+▶ Chat translator
+  ✔ same language comes back as-is; other languages need the translator installed (380.1684ms)
+✔ Chat translator (380.5467ms)
+◇ injected env (14) from .env
+✔ interests and city show before connecting and are left out after (7022.4579ms)
+◇ injected env (14) from .env
+✔ phone sign-in is off until SMS is live; the reviewer and the team test numbers still work (5097.3503ms)
+✔ outside development the code is shown only to the team test addresses (56.7303ms)
+✔ hourly and daily limits per address (201.8458ms)
+✔ a failed email send gives a clear error and does not start the wait (63.9124ms)
+✔ an email counts as verified only after a real delivery (191.011ms)
+✔ adding an email to a phone account: code to the new address first (487.8661ms)
+✔ a login lasts until logout: no expiry, old tokens with a date still work, logout ends it (238.7171ms)
+✔ fingerprint / face sign-in is gone (126.7297ms)
+✔ a half-made email sign-up does not block adding that email to a finished account (1541.6738ms)
+✔ a new account cannot finish its profile without an email (207.1691ms)
+✔ email providers: fallback when the first fails, Gmail message headers cannot be injected (2.064ms)
+✔ the app can ask which codes are on (8.6889ms)
+◇ injected env (14) from .env
+✔ console team for these tests (5214.2116ms)
+✔ version compare (0.9088ms)
+✔ GET /app/version works without a login and gives the official store links (45.9181ms)
+✔ only the owner can change the update policy, and it is checked (118.7268ms)
+✔ crashes and non-fatal errors keep version, build, phone and screen; same crash on the same version is counted (597.3142ms)
+✔ slow requests are kept as patterns only (no ids or names) (213.0625ms)
+✔ Report a problem: category, comments, diagnostics, screenshot, duplicate and validation (305.1299ms)
+✔ only the newest email code works: an earlier unused code is cancelled when a new one is sent (185.8374ms)
+◇ injected env (14) from .env
+▶ Anonymous messages
+  ✔ only to Connections: never to someone you are not connected with (1366.5487ms)
+  ✔ recipient never sees who sent it before the reveal; sender chooses how long (1930.7441ms)
+  ✔ only 3 messages until they reply; reply works both ways (2296.4944ms)
+  ✔ revealed when the chosen time is up, both are told; a new anonymous message can start after (1779.8472ms)
+  ✔ after a disconnect: hidden from the list and no more anonymous messages (816.9538ms)
+  ✔ recipient can close it; sender then cannot write (641.8643ms)
+✔ Anonymous messages (13656.2139ms)
+◇ injected env (14) from .env
+✔ Download My Data: a ZIP with the manifest, profile, posts and the original photos, and nobody else’s data (6592.633ms)
+✔ Restore: a backup of posts that are still here changes nothing (no duplicates) (391.8979ms)
+✔ Restore brings back a deleted post with likes and comments only from current, active, unblocked Connections (933.4384ms)
+✔ Restore recreates a post that is gone, with its original id and photo, and no interactions (487.0712ms)
+✔ Restore refuses: someone else’s backup, a changed file, unsafe paths, not a ZIP, an old JSON download (270.9215ms)
+✔ an expired download link stops working (56.6803ms)
+◇ injected env (14) from .env
+▶ Message-box translator
+  ✔ a draft already in the chosen language is returned as it is (1342.4822ms)
+  ✔ says clearly when the translator / voice models are not installed (683.1435ms)
+  ✔ you can't send someone else's (or a made-up) voice clip (583.5151ms)
+✔ Message-box translator (7231.1893ms)
+◇ injected env (14) from .env
+▶ Pulse meter
+  ✔ starts quiet; your own visits never count (539.6957ms)
+  ✔ rises with profile views (once per person per day) and likes; visitors see it too (751.575ms)
+  ✔ falls when nobody notices you (old activity fades, 30+ days is gone) (328.0241ms)
+  ✔ scale and levels (0.5148ms)
+✔ Pulse meter (6359.6499ms)
+▶ Settings: Pulse meter on/off and notification kinds
+  ✔ switching my Pulse meter off hides it on my profile for everyone, me included (391.3438ms)
+  ✔ notification kinds: all on by default, change one at a time (176.1986ms)
+push: phone subscribed -> push.example.com
+push: phone subscribed -> push.example.com
+  ✔ push subscription endpoints (189.0244ms)
+✔ Settings: Pulse meter on/off and notification kinds (757.664ms)
+▶ Settings pages: activity, profile viewers, account status, location
+  ✔ who viewed my profile, my activity and account status (943.4008ms)
+✔ Settings pages: activity, profile viewers, account status, location (944.2058ms)
+▶ Who viewed my profile is Premium after the top 3
+  ✔ free accounts see 3 viewers and a locked count; Premium sees everyone (829.5288ms)
+✔ Who viewed my profile is Premium after the top 3 (830.3509ms)
+◇ injected env (14) from .env
+▶ Post offense, suspension and share
+  ✔ offense toggles; you cannot mark your own post; the count is shown to everyone (1038.6001ms)
+  ✔ a mark keeps its reason (Instagram-style report); unknown reasons are refused (347.9534ms)
+  ✔ more than 75 offenses: hidden from everyone except the owner (1206.345ms)
+  ✔ share into a chat sends a post message; outside share is counted (1130.3737ms)
+✔ Post offense, suspension and share (8297.9623ms)
+▶ Post menu: edit, hide like count, turn off commenting, music, delete
+  ✔ hide like count: others see no number, the owner still does (521.9551ms)
+  ✔ turn off commenting hides comments and blocks new ones; turning on brings them back (680.9865ms)
+  ✔ add, change and remove music (149.7482ms)
+✔ Post menu: edit, hide like count, turn off commenting, music, delete (1353.8271ms)
+▶ Moments (Home +): story for 24 h, chat Moments open once / replay once / save
+  ✔ a written Moment as a story: Connections see it, strangers do not; views and replies (1445.8342ms)
+  ✔ a Moment sent in chat opens once, replays once, then is gone, unless saved (1250.3473ms)
+  ✔ a Moment needs content and somewhere to go (179.5771ms)
+  ✔ my Moments tab keeps every Moment I made; chat-only ones never show to others (621.0424ms)
+✔ Moments (Home +): story for 24 h, chat Moments open once / replay once / save (3497.7213ms)
+✔ 7 categories × 3 taps, in order; the loyalty question follows what you are looking for (3.3912ms)
+✔ answer shapes are checked per kind (0.6912ms)
+✔ gut reactions count more than long hesitation (0.9025ms)
+✔ a photo pick moves the traits it shows, and the first pick counts most (0.4536ms)
+✔ a crossed "Never", kids and different intentions are deal-breakers for couples, not friends (4.6709ms)
+✔ non-negotiables: one crossed caps softly, two are a deal-breaker; a flexible partner can bend (2.3985ms)
+✔ similar calm people match well; the same pair scores differently per relation (3.7248ms)
+✔ sharing rare picks counts for more than sharing common ones (0.7223ms)
+✔ an older Soul DNA (v4) still matches against the new one (0.7528ms)
+✔ reads the free Google translator answer, piece by piece (0.7524ms)
+ℹ tests 216
+ℹ suites 61
+ℹ pass 216
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 355109.1115

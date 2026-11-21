@@ -1,0 +1,31 @@
+◇ injected env (14) from .env
+▶ QA P0 · block
+  ✔ SL-SAFE-MU-002 (OBS-009) block removes the Connection and open requests; unblock does not bring back Connection access (3203.3725ms)
+  ✔ SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round (1276.3699ms)
+✔ QA P0 · block (7595.9852ms)
+▶ QA P0 · who sees what
+  ✔ SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both (1385.5859ms)
+  ✔ SL-PROF-SEC-001 private account follower/following lists are hidden from strangers (986.822ms)
+✔ QA P0 · who sees what (2373.0583ms)
+▶ QA P0 · both sides of an interaction
+  ✔ SL-POST-MU-001 like: liker, author, third person, database and one notification (2181.2502ms)
+  ✔ SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves (669.2228ms)
+✔ QA P0 · both sides of an interaction (2851.1501ms)
+▶ QA P0 · security of other people's objects
+  ✔ SL-CHAT-SEC-001 a non-member cannot read or write a conversation (724.721ms)
+  ✔ SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request (618.0389ms)
+  ✔ SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post (425.6045ms)
+✔ QA P0 · security of other people's objects (1768.9812ms)
+▶ QA P0 · two people at the same moment
+  ✔ SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests (667.6705ms)
+  ✔ SL-POST-CON-001 like pressed twice at once: no server error, at most one like row (325.833ms)
+  ✔ SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both (9809.2391ms)
+✔ QA P0 · two people at the same moment (10803.2697ms)
+ℹ tests 12
+ℹ suites 5
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26398.8788

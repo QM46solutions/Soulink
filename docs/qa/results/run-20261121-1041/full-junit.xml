@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testsuite name="Auth: OTP sign-up / login" time="3.872792" disabled="0" errors="0" tests="6" failures="0" skipped="0" timestamp="2026-11-21T05:11:13.701Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="rejects invalid phone" time="0.086784" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="normalizes Indian number, creates account, logs in again as same user" time="0.542066" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="wrong code counts attempts and code cannot be reused" time="0.371985" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="the code request answers the same whether or not an account exists" time="0.184676" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="protected routes need a token" time="0.050303" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="Google sign-in is stubbed until cloud move" time="0.012123" classname="Auth: OTP sign-up / login" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+	</testsuite>
+	<testsuite name="Onboarding &amp; profile" time="1.997381" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:11:17.572Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="blocks under-18 and enforces username rules" time="0.493819" classname="Onboarding &amp; profile" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="username availability and duplicate usernames" time="1.150373" classname="Onboarding &amp; profile" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="update profile fields; finding people by face is on hold" time="0.235969" classname="Onboarding &amp; profile" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="avatar upload saves an image" time="0.116253" classname="Onboarding &amp; profile" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+	</testsuite>
+	<testsuite name="Follow graph (Instagram rules)" time="1.710854" disabled="0" errors="0" tests="5" failures="0" skipped="0" timestamp="2026-11-21T05:11:19.570Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="public account: instant follow, counts update, unfollow" time="0.608890" classname="Follow graph (Instagram rules)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="private account: Connect only (Follow is refused); an old pending follow request can still be accepted" time="0.520547" classname="Follow graph (Instagram rules)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="decline request; cancel request; remove follower" time="0.308983" classname="Follow graph (Instagram rules)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="switching private → public auto-accepts pending requests" time="0.191898" classname="Follow graph (Instagram rules)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="cannot follow yourself; unknown user 404" time="0.079762" classname="Follow graph (Instagram rules)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+	</testsuite>
+	<testsuite name="Search" time="0.353081" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:11:21.280Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="finds by username prefix and display name, excludes self" time="0.352782" classname="Search" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+	</testsuite>
+	<testsuite name="Safety: block &amp; report" time="0.725781" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:11:21.634Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="block hides users both ways and removes follows" time="0.427185" classname="Safety: block &amp; report" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+		<testcase name="report validates reason" time="0.298105" classname="Safety: block &amp; report" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m1.test.js"/>
+	</testsuite>
+	<testsuite name="Sparks" time="12.298929" disabled="0" errors="0" tests="5" failures="0" skipped="0" timestamp="2026-11-21T05:11:23.887Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="post in a category with its extras; everyone sees it; filter by category" time="2.033610" classname="Sparks" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m10.test.js"/>
+		<testcase name="rules: a video is required, every extra is optional, unknown category refused" time="0.358036" classname="Sparks" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m10.test.js"/>
+		<testcase name="reactions, I tried it (cooking only), views, delete" time="1.029591" classname="Sparks" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m10.test.js"/>
+		<testcase name="private accounts: only their followers see their Sparks" time="0.431114" classname="Sparks" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m10.test.js"/>
+		<testcase name="a profile post can carry a location (no Soul type tag needed)" time="0.186583" classname="Sparks" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m10.test.js"/>
+	</testsuite>
+	<testsuite name="Chat attachments" time="13.534620" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:11:38.294Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="location, contact and poll messages; voting and changing a vote" time="1.864843" classname="Chat attachments" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m11.test.js"/>
+		<testcase name="documents: PDFs go through, HTML is refused" time="0.647501" classname="Chat attachments" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m11.test.js"/>
+	</testsuite>
+	<testsuite name="Private chat" time="8.481700" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:11:53.344Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="messages sent in private chat vanish after they are seen and a member leaves" time="2.695635" classname="Private chat" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m12.test.js"/>
+	</testsuite>
+	<testsuite name="Spark studio" time="7.067813" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:04.340Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="edits are kept with the Spark; a too-long trim is refused" time="0.489382" classname="Spark studio" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m13.test.js"/>
+	</testsuite>
+	<testsuite name="Casting Board" time="1.375753" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:11.408Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="post a role, audition, the caster picks; closed after" time="1.375360" classname="Casting Board" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m13.test.js"/>
+	</testsuite>
+	<testsuite name="Open Mic Stage" time="0.726512" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:12.781Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="weekly theme, stage performances, open mics with RSVP" time="0.726150" classname="Open Mic Stage" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m13.test.js"/>
+	</testsuite>
+	<testsuite name="Music" time="7.433611" disabled="0" errors="0" tests="5" failures="0" skipped="0" timestamp="2026-11-21T05:12:15.039Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="search needs login; online search is off in tests" time="0.343240" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m14.test.js"/>
+		<testcase name="a bad song reference is refused" time="0.010537" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m14.test.js"/>
+		<testcase name="a post keeps the song and where its 30 seconds start" time="0.400987" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m14.test.js"/>
+		<testcase name="a Moment can carry a song" time="0.157209" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m14.test.js"/>
+		<testcase name="a Spark can use a picked song instead of an uploaded one" time="0.101644" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m14.test.js"/>
+	</testsuite>
+	<testsuite name="Scheduled reveal" time="5.067970" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:12:24.027Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="others get no media until the reveal, only the teaser; the owner sees everything" time="0.674404" classname="Scheduled reveal" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m15.test.js"/>
+		<testcase name="reveal time must be 1 minute to 30 days away, and needs a photo or video" time="0.105278" classname="Scheduled reveal" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m15.test.js"/>
+		<testcase name="a normal post has no reveal" time="0.128457" classname="Scheduled reveal" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m15.test.js"/>
+	</testsuite>
+	<testsuite name="Comments" time="5.163505" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:30.591Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="like, reply (one level) and offense marks" time="1.382727" classname="Comments" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m16.test.js"/>
+	</testsuite>
+	<testsuite name="Paid message" time="0.889713" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:35.753Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="one message to a non-connection lands in their Requests (test payment); once a day per person" time="0.889366" classname="Paid message" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m16.test.js"/>
+	</testsuite>
+	<testsuite name="Spark Studio edits" time="4.722925" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:38.191Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="adjust, zoom, fade, text timing and a voiceover are kept" time="0.603772" classname="Spark Studio edits" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m17.test.js"/>
+	</testsuite>
+	<testsuite name="Spread around" time="0.937549" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:42.913Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="owner spreads a Spark (test payment); it shows in others' feed with spread:true" time="0.937113" classname="Spread around" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m17.test.js"/>
+	</testsuite>
+	<testsuite name="Ads" time="0.902050" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:43.851Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="only admins create ads; everyone gets live ones; seen / click are counted" time="0.901514" classname="Ads" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m17.test.js"/>
+	</testsuite>
+	<testsuite name="Spark comments, offense marks and shares" time="1.269413" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:12:44.752Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="comment, reply, 👌🏻 a comment, mark a Spark, share it in a chat" time="1.268998" classname="Spark comments, offense marks and shares" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m17.test.js"/>
+	</testsuite>
+	<testsuite name="Legal and privacy" time="11.818609" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:12:47.553Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="accepting the terms is recorded" time="0.609450" classname="Legal and privacy" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m18.test.js"/>
+		<testcase name="download my data returns my profile and posts" time="1.262842" classname="Legal and privacy" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m18.test.js"/>
+		<testcase name="delete my account erases the person and keeps only the 180-day sign-up record" time="4.258323" classname="Legal and privacy" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m18.test.js"/>
+		<testcase name="music sources list" time="0.128327" classname="Legal and privacy" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m18.test.js"/>
+	</testsuite>
+	<testsuite name="Sessions" time="6.749739" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:13:00.931Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="logging out ends only this device" time="0.647332" classname="Sessions" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m19.test.js"/>
+		<testcase name="deleting the account logs out every device with &amp;quot;No user account found&amp;quot;" time="1.457165" classname="Sessions" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m19.test.js"/>
+		<testcase name="a login is written to the audit trail" time="0.101498" classname="Sessions" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m19.test.js"/>
+	</testsuite>
+	<testsuite name="Face data" time="0.099934" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:13:07.677Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="face fingerprints are encrypted and can be read back" time="0.003482" classname="Face data" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m19.test.js"/>
+		<testcase name="face search is on hold" time="0.095927" classname="Face data" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m19.test.js"/>
+	</testsuite>
+	<testsuite name="Chat: 1:1 and message requests" time="9.725232" disabled="0" errors="0" tests="9" failures="0" skipped="0" timestamp="2026-11-21T05:13:09.325Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="message from a stranger lands in Requests; accepting moves it to the inbox" time="0.954700" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="if they connected to you, your message goes straight to their inbox; a plain Follow does not" time="0.559871" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="replying to a request accepts it; the same pair always shares one thread" time="0.298777" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="messages page newest first; read receipts and unread counts" time="0.571560" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="unsend your own message only" time="0.282497" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="photos and voice notes" time="0.278862" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="strangers cannot read a conversation; empty messages rejected" time="0.318585" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="blocking stops messages both ways and hides the thread" time="0.439134" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+		<testcase name="deleting a request hides it until they message again" time="0.274709" classname="Chat: 1:1 and message requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+	</testsuite>
+	<testsuite name="Chat: groups" time="0.722094" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:13:19.049Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="create, rename, add, remove, leave; a group always keeps an admin" time="0.721683" classname="Chat: groups" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m2.test.js"/>
+	</testsuite>
+	<testsuite name="Pause and delete" time="6.912828" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:13:21.335Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="pausing hides the account and signs out; logging in brings it back" time="0.759719" classname="Pause and delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+		<testcase name="deletion waits 7 days, and logging in before then cancels it" time="0.207536" classname="Pause and delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+		<testcase name="after 7 days the account is erased, a 1-year identity record kept, and the same number waits 6 months" time="1.606039" classname="Pause and delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+	</testsuite>
+	<testsuite name="Restore my data" time="1.260680" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:13:28.247Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a genuine download restores the profile on the new account" time="1.084179" classname="Restore my data" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+		<testcase name="a changed file or somebody else's file is refused" time="0.176062" classname="Restore my data" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+	</testsuite>
+	<testsuite name="Bans" time="0.461849" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:13:29.508Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a banned person cannot sign up again with the same number" time="0.461488" classname="Bans" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m20.test.js"/>
+	</testsuite>
+	<testsuite name="Copyright" time="7.634578" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:13:31.444Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a report needs every statement, and a real Soulink link" time="0.522105" classname="Copyright" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m21.test.js"/>
+		<testcase name="removal hides the post, shows a copyright notice, tells the uploader who complained, and gives a strike" time="0.482276" classname="Copyright" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m21.test.js"/>
+		<testcase name="a contested removal comes back after 21 days without a court order, and the strike goes" time="0.414866" classname="Copyright" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m21.test.js"/>
+		<testcase name="a second strike stops posting for 7 days; a third removes the account" time="1.432308" classname="Copyright" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m21.test.js"/>
+	</testsuite>
+	<testsuite name="Music" time="0.157349" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:13:39.077Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a song from the phone needs a rights confirmation" time="0.156988" classname="Music" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m21.test.js"/>
+	</testsuite>
+	<testsuite name="Soulmoji, cloud setup" time="7.324293" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:13:40.696Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="uses the built-in engine, ignores the unreachable AI, and survives a disk wipe" time="1.049506" classname="Soulmoji, cloud setup" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m22.test.js"/>
+		<testcase name="every mood renders" time="2.317546" classname="Soulmoji, cloud setup" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m22.test.js"/>
+	</testsuite>
+	<testsuite name="Account deletion erases files" time="7.163502" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:13:49.742Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="the deleted person's photo is gone; someone else's stays" time="2.139569" classname="Account deletion erases files" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m23.test.js"/>
+	</testsuite>
+	<testsuite name="Unfinished sign-ups" time="7.281456" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:13:58.461Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="within the hour: they can carry on" time="0.503304" classname="Unfinished sign-ups" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m24.test.js"/>
+		<testcase name="after the hour: cleared on their next visit, and logging in again makes a new account" time="1.419890" classname="Unfinished sign-ups" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m24.test.js"/>
+		<testcase name="coming back by logging in after the hour also starts fresh" time="0.429036" classname="Unfinished sign-ups" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m24.test.js"/>
+		<testcase name="the hourly clean-up erases old unfinished sign-ups, never finished accounts" time="0.448583" classname="Unfinished sign-ups" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m24.test.js"/>
+	</testsuite>
+	<testcase name="AI result is cut to the Soulmoji face square, at the face size" time="0.395337" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m25.test.js"/>
+	<testsuite name="Open Mic" time="5.223620" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:14:07.997Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="speak on video or voice, with a topic; filtered by topic; kept out of the main feed" time="1.217788" classname="Open Mic" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m26.test.js"/>
+	</testsuite>
+	<testsuite name="Casting requirements" time="0.358621" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:14:13.220Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a casting call carries its requirements" time="0.358106" classname="Casting requirements" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m26.test.js"/>
+	</testsuite>
+	<testsuite name="Logins and notifications stay on" time="4.310702" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:14:15.224Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a login older than a day gets a fresh one (same session); a new one does not" time="0.425262" classname="Logins and notifications stay on" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m27.test.js"/>
+		<testcase name="a replaced push address moves to the new one, for the same person" time="0.216173" classname="Logins and notifications stay on" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m27.test.js"/>
+	</testsuite>
+	<testcase name="For you: sections list (popular on Soulink + moods) and the mood words" time="4.235780" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m28.test.js"/>
+	<testsuite name="Ads dashboard" time="5.904355" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:14:27.011Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="budget, spent, left, reach, stop at budget, customer dashboard and team revenue" time="1.640602" classname="Ads dashboard" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m29.test.js"/>
+		<testcase name="advice: running out before the end date; too few taps" time="0.000911" classname="Ads dashboard" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m29.test.js"/>
+	</testsuite>
+	<testsuite name="Soul DNA" time="8.833520" disabled="0" errors="0" tests="9" failures="0" skipped="0" timestamp="2026-11-21T05:14:34.476Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="the games, in order, with no scoring sent to the phone" time="0.492499" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="an older Soul DNA keeps matching, and its owner can play the new games for free" time="0.551015" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="progress is saved and resumable; finishing gives a Soul type" time="0.307584" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="Life partner score, and the pinned pair gets 93% only with each other" time="0.792025" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="first Soul DNA is free; retaking it is Premium" time="0.383277" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="invalid answers are rejected" time="0.190089" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="cannot follow or start a chat before creating Soul DNA" time="0.350089" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="profile shows scores for every relation type; similar people score higher" time="0.726332" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="full breakdown: two scores, a type, strengths/friction, " time="0.281031" classname="Soul DNA" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+	</testsuite>
+	<testsuite name="Home feed" time="1.243487" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:14:43.310Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="new person: no connections, no posts" time="0.258622" classname="Home feed" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="follows alone are not Soul Connections" time="0.153989" classname="Home feed" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="my posts show in my feed with likes and comments; strangers do not see them" time="0.830220" classname="Home feed" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+	</testsuite>
+	<testsuite name="Places" time="0.026347" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:14:44.552Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="typing suggests Hyderabad areas first and knows other names" time="0.013643" classname="Places" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+		<testcase name="current position → nearest area" time="0.012240" classname="Places" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m3.test.js"/>
+	</testsuite>
+	<testcase name="old-key faces still open after FACE_KEY is set; new ones use FACE_KEY" time="0.005460" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m30.test.js"/>
+	<testsuite name="Private file links" time="5.092561" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:14:46.737Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a file opens only with a valid, unexpired signed link" time="0.596783" classname="Private file links" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m31.test.js"/>
+	</testsuite>
+	<testsuite name="Shared post preview (no account)" time="0.632992" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:14:51.830Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a public post shows its preview for 15 seconds; private accounts and unknown posts do not" time="0.632490" classname="Shared post preview (no account)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m31.test.js"/>
+	</testsuite>
+	<testsuite name="Group invite links" time="1.254319" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:14:52.461Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="only admins make them; the link shows name + member count, joining needs a login; reset / off" time="1.253817" classname="Group invite links" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m31.test.js"/>
+	</testsuite>
+	<testsuite name="Devices" time="5.332006" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:14:55.573Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="device names and partly hidden addresses" time="0.003555" classname="Devices" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m32.test.js"/>
+		<testcase name="see every device, log one out, then all the others" time="0.656841" classname="Devices" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m32.test.js"/>
+		<testcase name="someone else’s device can’t be logged out" time="0.255811" classname="Devices" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m32.test.js"/>
+	</testsuite>
+	<testsuite name="Phone app" time="4.768627" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:15:02.502Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="the installed app registers its notification token; logging in as someone else moves it" time="0.603118" classname="Phone app" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m33.test.js"/>
+		<testcase name="app-link files are served (empty until the store keys are set)" time="0.009029" classname="Phone app" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m33.test.js"/>
+	</testsuite>
+	<testcase name="the review number always takes the fixed code and skips the face scan; other numbers are unchanged" time="4.791858" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m34.test.js"/>
+	<testcase name="first owner needs the setup key and a working authenticator code; then sign-in needs all three" time="17.318832" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m35.test.js"/>
+	<testcase name="people per hour and server health are recorded" time="1.095650" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m35.test.js"/>
+	<testcase name="an hourly booking is priced from the rate card, waits for payment, then shows only in its hours and cities" time="2.129936" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m35.test.js"/>
+	<testcase name="console team: an owner and a support person" time="5.537443" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="anyone can file a complaint: ticket number, 7-day deadline, and the 2-hour clock for intimate / impersonation" time="1.011447" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="the console lists complaints (urgent first); deciding one can remove the linked post and emails both sides" time="1.686537" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="a court order must be verified; its takedown clock is 3 hours; acting on it removes every linked post" time="1.221620" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="only the owner can ban from the console; the person can never sign up again until the ban is lifted" time="3.029578" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="Soulmoji images carry an AI marker inside the file, and still open as normal JPEGs" time="0.011382" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m36.test.js"/>
+	<testcase name="who can comment: everyone, connections only, or off" time="7.001262" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="hidden words and restrict: the comment is saved but only its writer sees it" time="1.406796" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="limit interactions and connect settings block new Connect requests" time="1.880141" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="post menu: save, pin (up to 3, pinned first), archive (hidden from everyone else), not interested" time="2.603376" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="OX game: two players, turns, a winner, and no moves after it ends" time="1.870874" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="read receipts are two-way: turning mine off hides both people's &amp;quot;Seen&amp;quot;" time="1.525694" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testcase name="translator: 14 languages, detected from their script" time="0.001344" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m37.test.js"/>
+	<testsuite name="Connect requests" time="22.933557" disabled="0" errors="0" tests="11" failures="0" skipped="0" timestamp="2026-11-21T05:16:10.266Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for)" time="2.512190" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept)" time="0.782193" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="accept (as something else) creates the connection and a chat; sender is told" time="0.898644" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="reject: sender is told, and must wait 30 days" time="0.466519" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="hold: sender told the length; extend once; when it ends the receiver is asked; no answer = rejected" time="1.883021" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="on hold: both can chat, in Requests; accept → Connections and the chat moves to Chats" time="1.218078" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="on hold, then rejected: the chat is hidden for both (kept in the database)" time="0.871337" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="receiver can still accept during a hold; sender can withdraw" time="0.982331" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="Connect model: accept = they connect to you (Follower); connect back = Connections" time="0.924268" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="any intent can be sent (Open to was removed from settings)" time="0.893943" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+		<testcase name="chat is only possible after connecting" time="1.056147" classname="Connect requests" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+	</testsuite>
+	<testsuite name="Requests count on profiles" time="0.755149" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:16:33.198Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="others see how many requests someone has, never who sent them" time="0.754747" classname="Requests count on profiles" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m4.test.js"/>
+	</testsuite>
+	<testsuite name="Argue (same phone)" time="8.865121" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:16:35.690Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="names in order → each side added → verdict with a winner" time="1.461429" classname="Argue (same phone)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+		<testcase name="wrong number of names is rejected" time="0.211831" classname="Argue (same phone)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testsuite name="Argue (invite)" time="0.947202" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:16:44.557Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="everyone answers on their own phone; sides hidden until the verdict; invitees notified" time="0.946772" classname="Argue (invite)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testsuite name="Referee helpers" time="0.002109" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:16:45.503Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="Claude output is cleaned up and seats are checked" time="0.001809" classname="Referee helpers" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testsuite name="Chat extras" time="2.523463" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:16:45.506Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="reply to a message shows the quoted message" time="0.803649" classname="Chat extras" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+		<testcase name="reactions: add, change, remove" time="0.869828" classname="Chat extras" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+		<testcase name="Soulmoji needs a face photo, then sends a sticker" time="0.849159" classname="Chat extras" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testsuite name="Soulmoji v2 (your photo, changed expression)" time="1.089090" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:16:48.029Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="no selfie yet: face is empty and rendering asks for the selfie first" time="0.378835" classname="Soulmoji v2 (your photo, changed expression)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+		<testcase name="cannot send someone else's Soulmoji image in chat" time="0.709660" classname="Soulmoji v2 (your photo, changed expression)" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testsuite name="Chat translator" time="0.923443" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:16:49.117Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="same language comes back as-is; other languages need the translator installed" time="0.922977" classname="Chat translator" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m5.test.js"/>
+	</testsuite>
+	<testcase name="interests and city show before connecting and are left out after" time="12.796312" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m52.test.js"/>
+	<testcase name="phone sign-in is off until SMS is live; the reviewer and the team test numbers still work" time="8.817292" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="outside development the code is shown only to the team test addresses" time="0.058402" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="hourly and daily limits per address" time="0.151149" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="a failed email send gives a clear error and does not start the wait" time="0.066394" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="an email counts as verified only after a real delivery" time="0.120762" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="adding an email to a phone account: code to the new address first" time="0.384662" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="a login lasts until logout: no expiry, old tokens with a date still work, logout ends it" time="0.221009" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="fingerprint / face sign-in is gone" time="0.073884" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="a half-made email sign-up does not block adding that email to a finished account" time="1.353767" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="a new account cannot finish its profile without an email" time="0.143828" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="email providers: fallback when the first fails, Gmail message headers cannot be injected" time="0.001924" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="the app can ask which codes are on" time="0.006443" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m56.test.js"/>
+	<testcase name="console team for these tests" time="4.053471" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="version compare" time="0.000569" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="GET /app/version works without a login and gives the official store links" time="0.026554" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="only the owner can change the update policy, and it is checked" time="0.086067" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="crashes and non-fatal errors keep version, build, phone and screen; same crash on the same version is counted" time="0.494630" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="slow requests are kept as patterns only (no ids or names)" time="0.190166" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="Report a problem: category, comments, diagnostics, screenshot, duplicate and validation" time="0.211685" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testcase name="only the newest email code works: an earlier unused code is cancelled when a new one is sent" time="0.142752" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m59.test.js"/>
+	<testsuite name="Anonymous messages" time="9.765489" disabled="0" errors="0" tests="6" failures="0" skipped="0" timestamp="2026-11-21T05:17:26.511Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="only to Connections: never to someone you are not connected with" time="1.503825" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+		<testcase name="recipient never sees who sent it before the reveal; sender chooses how long" time="1.285892" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+		<testcase name="only 3 messages until they reply; reply works both ways" time="1.058596" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+		<testcase name="revealed when the chosen time is up, both are told; a new anonymous message can start after" time="0.857439" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+		<testcase name="after a disconnect: hidden from the list and no more anonymous messages" time="0.620268" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+		<testcase name="recipient can close it; sender then cannot write" time="0.575508" classname="Anonymous messages" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m6.test.js"/>
+	</testsuite>
+	<testcase name="Download My Data: a ZIP with the manifest, profile, posts and the original photos, and nobody else’s data" time="5.254760" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testcase name="Restore: a backup of posts that are still here changes nothing (no duplicates)" time="0.301767" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testcase name="Restore brings back a deleted post with likes and comments only from current, active, unblocked Connections" time="0.882531" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testcase name="Restore recreates a post that is gone, with its original id and photo, and no interactions" time="0.462121" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testcase name="Restore refuses: someone else’s backup, a changed file, unsafe paths, not a ZIP, an old JSON download" time="0.260518" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testcase name="an expired download link stops working" time="0.041264" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m64.test.js"/>
+	<testsuite name="Message-box translator" time="7.115441" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:17:46.774Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a draft already in the chosen language is returned as it is" time="1.302954" classname="Message-box translator" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m7.test.js"/>
+		<testcase name="says clearly when the translator / voice models are not installed" time="0.721210" classname="Message-box translator" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m7.test.js"/>
+		<testcase name="you can't send someone else's (or a made-up) voice clip" time="0.496412" classname="Message-box translator" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m7.test.js"/>
+	</testsuite>
+	<testsuite name="Pulse meter" time="5.711145" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:17:55.584Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="starts quiet; your own visits never count" time="0.576481" classname="Pulse meter" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+		<testcase name="rises with profile views (once per person per day) and likes; visitors see it too" time="0.640154" classname="Pulse meter" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+		<testcase name="falls when nobody notices you (old activity fades, 30+ days is gone)" time="0.293301" classname="Pulse meter" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+		<testcase name="scale and levels" time="0.000453" classname="Pulse meter" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+	</testsuite>
+	<testsuite name="Settings: Pulse meter on/off and notification kinds" time="0.593993" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:18:01.295Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="switching my Pulse meter off hides it on my profile for everyone, me included" time="0.266021" classname="Settings: Pulse meter on/off and notification kinds" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+		<testcase name="notification kinds: all on by default, change one at a time" time="0.149202" classname="Settings: Pulse meter on/off and notification kinds" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+		<testcase name="push subscription endpoints" time="0.178087" classname="Settings: Pulse meter on/off and notification kinds" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+	</testsuite>
+	<testsuite name="Settings pages: activity, profile viewers, account status, location" time="0.800519" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:18:01.889Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="who viewed my profile, my activity and account status" time="0.800073" classname="Settings pages: activity, profile viewers, account status, location" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+	</testsuite>
+	<testsuite name="Who viewed my profile is Premium after the top 3" time="0.608183" disabled="0" errors="0" tests="1" failures="0" skipped="0" timestamp="2026-11-21T05:18:02.689Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="free accounts see 3 viewers and a locked count; Premium sees everyone" time="0.607745" classname="Who viewed my profile is Premium after the top 3" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m8.test.js"/>
+	</testsuite>
+	<testsuite name="Post offense, suspension and share" time="7.773030" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:18:04.941Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="offense toggles; you cannot mark your own post; the count is shown to everyone" time="0.936807" classname="Post offense, suspension and share" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="a mark keeps its reason (Instagram-style report); unknown reasons are refused" time="0.303389" classname="Post offense, suspension and share" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="more than 75 offenses: hidden from everyone except the owner" time="1.010084" classname="Post offense, suspension and share" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="share into a chat sends a post message; outside share is counted" time="1.165653" classname="Post offense, suspension and share" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+	</testsuite>
+	<testsuite name="Post menu: edit, hide like count, turn off commenting, music, delete" time="1.343318" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:18:12.715Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="hide like count: others see no number, the owner still does" time="0.536016" classname="Post menu: edit, hide like count, turn off commenting, music, delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="turn off commenting hides comments and blocks new ones; turning on brings them back" time="0.630004" classname="Post menu: edit, hide like count, turn off commenting, music, delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="add, change and remove music" time="0.176621" classname="Post menu: edit, hide like count, turn off commenting, music, delete" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+	</testsuite>
+	<testsuite name="Moments (Home +): story for 24 h, chat Moments open once / replay once / save" time="3.697055" disabled="0" errors="0" tests="4" failures="0" skipped="0" timestamp="2026-11-21T05:18:14.056Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="a written Moment as a story: Connections see it, strangers do not; views and replies" time="1.468451" classname="Moments (Home +): story for 24 h, chat Moments open once / replay once / save" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="a Moment sent in chat opens once, replays once, then is gone, unless saved" time="1.379265" classname="Moments (Home +): story for 24 h, chat Moments open once / replay once / save" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="a Moment needs content and somewhere to go" time="0.230992" classname="Moments (Home +): story for 24 h, chat Moments open once / replay once / save" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+		<testcase name="my Moments tab keeps every Moment I made; chat-only ones never show to others" time="0.617467" classname="Moments (Home +): story for 24 h, chat Moments open once / replay once / save" file="C:\Users\Sai raghava\Documents\Soulink\server\test\m9.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · block" time="8.207875" disabled="0" errors="0" tests="2" failures="1" skipped="0" timestamp="2026-11-21T05:18:21.638Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-SAFE-MU-002 (OBS-009) block removes the Connection and open requests; unblock does not bring back Connection access" time="2.394090" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js" failure="OBS-009 impact:&#10; - after unblock C can start a chat with A without connecting again&#10;+ actual - expected&#10;&#10;+ [&#10;+   'after unblock C can start a chat with A without connecting again'&#10;+ ]&#10;- []&#10;">
+			<failure type="testCodeFailure" message="OBS-009 impact:&#10; - after unblock C can start a chat with A without connecting again&#10;+ actual - expected&#10;&#10;+ [&#10;+   'after unblock C can start a chat with A without connecting again'&#10;+ ]&#10;- []">
+Error [ERR_TEST_FAILURE]: OBS-009 impact:
+ - after unblock C can start a chat with A without connecting again
++ actual - expected
+
++ [
++   'after unblock C can start a chat with A without connecting again'
++ ]
+- []
+
+    at async Promise.all (index 0) {
+  code: 'ERR_TEST_FAILURE',
+  failureType: 'testCodeFailure',
+  cause: AssertionError [ERR_ASSERTION]: OBS-009 impact:
+   - after unblock C can start a chat with A without connecting again
+  + actual - expected
+  
+  + [
+  +   'after unblock C can start a chat with A without connecting again'
+  + ]
+  - []
+  
+      at TestContext.&lt;anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:57:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'after unblock C can start a chat with A without connecting again' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+}
+			</failure>
+		</testcase>
+		<testcase name="SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round" time="1.141645" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · who sees what" time="2.060534" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:18:29.846Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both" time="1.397928" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-PROF-SEC-001 private account follower/following lists are hidden from strangers" time="0.661953" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · both sides of an interaction" time="1.239471" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:18:31.906Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-POST-MU-001 like: liker, author, third person, database and one notification" time="0.739633" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves" time="0.499237" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · security of other people's objects" time="1.738344" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:18:33.145Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CHAT-SEC-001 a non-member cannot read or write a conversation" time="0.737741" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request" time="0.617795" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post" time="0.382018" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · two people at the same moment" time="3.804518" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:18:34.883Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests" time="0.424043" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-POST-CON-001 like pressed twice at once: no server error, at most one like row" time="0.373654" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both" time="3.006220" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testcase name="7 categories × 3 taps, in order; the loyalty question follows what you are looking for" time="0.006504" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="answer shapes are checked per kind" time="0.001127" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="gut reactions count more than long hesitation" time="0.001764" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="a photo pick moves the traits it shows, and the first pick counts most" time="0.000960" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="a crossed &amp;quot;Never&amp;quot;, kids and different intentions are deal-breakers for couples, not friends" time="0.009696" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="non-negotiables: one crossed caps softly, two are a deal-breaker; a flexible partner can bend" time="0.004729" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="similar calm people match well; the same pair scores differently per relation" time="0.014022" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="sharing rare picks counts for more than sharing common ones" time="0.001704" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="an older Soul DNA (v4) still matches against the new one" time="0.002000" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\soulv6.test.js"/>
+	<testcase name="reads the free Google translator answer, piece by piece" time="0.001667" classname="test" file="C:\Users\Sai raghava\Documents\Soulink\server\test\translate.test.js"/>
+	<!-- tests 228 -->
+	<!-- suites 66 -->
+	<!-- pass 227 -->
+	<!-- fail 1 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 446308.1958 -->
+</testsuites>

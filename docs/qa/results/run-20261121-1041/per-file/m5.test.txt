@@ -1,0 +1,113 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Argue (same phone)
+    # Subtest: names in order → each side added → verdict with a winner
+    ok 1 - names in order → each side added → verdict with a winner
+      ---
+      duration_ms: 1195.2162
+      type: 'test'
+      ...
+    # Subtest: wrong number of names is rejected
+    ok 2 - wrong number of names is rejected
+      ---
+      duration_ms: 186.3596
+      type: 'test'
+      ...
+    1..2
+ok 1 - Argue (same phone)
+  ---
+  duration_ms: 5961.4966
+  type: 'suite'
+  ...
+# Subtest: Argue (invite)
+    # Subtest: everyone answers on their own phone; sides hidden until the verdict; invitees notified
+    ok 1 - everyone answers on their own phone; sides hidden until the verdict; invitees notified
+      ---
+      duration_ms: 713.6304
+      type: 'test'
+      ...
+    1..1
+ok 2 - Argue (invite)
+  ---
+  duration_ms: 714.4391
+  type: 'suite'
+  ...
+# Subtest: Referee helpers
+    # Subtest: Claude output is cleaned up and seats are checked
+    ok 1 - Claude output is cleaned up and seats are checked
+      ---
+      duration_ms: 3.4874
+      type: 'test'
+      ...
+    1..1
+ok 3 - Referee helpers
+  ---
+  duration_ms: 4.0131
+  type: 'suite'
+  ...
+# Subtest: Chat extras
+    # Subtest: reply to a message shows the quoted message
+    ok 1 - reply to a message shows the quoted message
+      ---
+      duration_ms: 628.0249
+      type: 'test'
+      ...
+    # Subtest: reactions: add, change, remove
+    ok 2 - reactions: add, change, remove
+      ---
+      duration_ms: 448.4061
+      type: 'test'
+      ...
+    # Subtest: Soulmoji needs a face photo, then sends a sticker
+    ok 3 - Soulmoji needs a face photo, then sends a sticker
+      ---
+      duration_ms: 400.9773
+      type: 'test'
+      ...
+    1..3
+ok 4 - Chat extras
+  ---
+  duration_ms: 1478.5974
+  type: 'suite'
+  ...
+# Subtest: Soulmoji v2 (your photo, changed expression)
+    # Subtest: no selfie yet: face is empty and rendering asks for the selfie first
+    ok 1 - no selfie yet: face is empty and rendering asks for the selfie first
+      ---
+      duration_ms: 108.209
+      type: 'test'
+      ...
+    # Subtest: cannot send someone else's Soulmoji image in chat
+    ok 2 - cannot send someone else's Soulmoji image in chat
+      ---
+      duration_ms: 279.0308
+      type: 'test'
+      ...
+    1..2
+ok 5 - Soulmoji v2 (your photo, changed expression)
+  ---
+  duration_ms: 388.0465
+  type: 'suite'
+  ...
+# Subtest: Chat translator
+    # Subtest: same language comes back as-is; other languages need the translator installed
+    ok 1 - same language comes back as-is; other languages need the translator installed
+      ---
+      duration_ms: 395.747
+      type: 'test'
+      ...
+    1..1
+ok 6 - Chat translator
+  ---
+  duration_ms: 396.2515
+  type: 'suite'
+  ...
+1..6
+# tests 10
+# suites 6
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11549.237

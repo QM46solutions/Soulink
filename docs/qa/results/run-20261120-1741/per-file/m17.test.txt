@@ -1,0 +1,63 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Spark Studio edits
+    # Subtest: adjust, zoom, fade, text timing and a voiceover are kept
+    ok 1 - adjust, zoom, fade, text timing and a voiceover are kept
+      ---
+      duration_ms: 589.5341
+      type: 'test'
+      ...
+    1..1
+ok 1 - Spark Studio edits
+  ---
+  duration_ms: 5299.8754
+  type: 'suite'
+  ...
+# Subtest: Spread around
+    # Subtest: owner spreads a Spark (test payment); it shows in others' feed with spread:true
+    ok 1 - owner spreads a Spark (test payment); it shows in others' feed with spread:true
+      ---
+      duration_ms: 1008.2446
+      type: 'test'
+      ...
+    1..1
+ok 2 - Spread around
+  ---
+  duration_ms: 1008.7196
+  type: 'suite'
+  ...
+# Subtest: Ads
+    # Subtest: only admins create ads; everyone gets live ones; seen / click are counted
+    ok 1 - only admins create ads; everyone gets live ones; seen / click are counted
+      ---
+      duration_ms: 767.6094
+      type: 'test'
+      ...
+    1..1
+ok 3 - Ads
+  ---
+  duration_ms: 768.1589
+  type: 'suite'
+  ...
+# Subtest: Spark comments, offense marks and shares
+    # Subtest: comment, reply, 👌🏻 a comment, mark a Spark, share it in a chat
+    ok 1 - comment, reply, 👌🏻 a comment, mark a Spark, share it in a chat
+      ---
+      duration_ms: 1208.4011
+      type: 'test'
+      ...
+    1..1
+ok 4 - Spark comments, offense marks and shares
+  ---
+  duration_ms: 1209.0133
+  type: 'suite'
+  ...
+1..4
+# tests 4
+# suites 4
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9359.5993

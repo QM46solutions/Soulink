@@ -1,0 +1,68 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Pause and delete
+    # Subtest: pausing hides the account and signs out; logging in brings it back
+    ok 1 - pausing hides the account and signs out; logging in brings it back
+      ---
+      duration_ms: 1763.2353
+      type: 'test'
+      ...
+    # Subtest: deletion waits 7 days, and logging in before then cancels it
+    ok 2 - deletion waits 7 days, and logging in before then cancels it
+      ---
+      duration_ms: 629.5499
+      type: 'test'
+      ...
+    # Subtest: after 7 days the account is erased, a 1-year identity record kept, and the same number waits 6 months
+    ok 3 - after 7 days the account is erased, a 1-year identity record kept, and the same number waits 6 months
+      ---
+      duration_ms: 2753.361
+      type: 'test'
+      ...
+    1..3
+ok 1 - Pause and delete
+  ---
+  duration_ms: 11752.7286
+  type: 'suite'
+  ...
+# Subtest: Restore my data
+    # Subtest: a genuine download restores the profile on the new account
+    ok 1 - a genuine download restores the profile on the new account
+      ---
+      duration_ms: 3053.6888
+      type: 'test'
+      ...
+    # Subtest: a changed file or somebody else's file is refused
+    ok 2 - a changed file or somebody else's file is refused
+      ---
+      duration_ms: 322.7539
+      type: 'test'
+      ...
+    1..2
+ok 2 - Restore my data
+  ---
+  duration_ms: 3377.141
+  type: 'suite'
+  ...
+# Subtest: Bans
+    # Subtest: a banned person cannot sign up again with the same number
+    ok 1 - a banned person cannot sign up again with the same number
+      ---
+      duration_ms: 744.7655
+      type: 'test'
+      ...
+    1..1
+ok 3 - Bans
+  ---
+  duration_ms: 745.3628
+  type: 'suite'
+  ...
+1..3
+# tests 6
+# suites 3
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18852.1887

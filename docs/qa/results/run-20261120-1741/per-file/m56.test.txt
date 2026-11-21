@@ -1,0 +1,83 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: phone sign-in is off until SMS is live; the reviewer and the team test numbers still work
+ok 1 - phone sign-in is off until SMS is live; the reviewer and the team test numbers still work
+  ---
+  duration_ms: 4495.4213
+  type: 'test'
+  ...
+# Subtest: outside development the code is shown only to the team test addresses
+ok 2 - outside development the code is shown only to the team test addresses
+  ---
+  duration_ms: 59.3013
+  type: 'test'
+  ...
+# Subtest: hourly and daily limits per address
+ok 3 - hourly and daily limits per address
+  ---
+  duration_ms: 199.1235
+  type: 'test'
+  ...
+# Subtest: a failed email send gives a clear error and does not start the wait
+ok 4 - a failed email send gives a clear error and does not start the wait
+  ---
+  duration_ms: 60.9237
+  type: 'test'
+  ...
+# Subtest: an email counts as verified only after a real delivery
+ok 5 - an email counts as verified only after a real delivery
+  ---
+  duration_ms: 152.3407
+  type: 'test'
+  ...
+# Subtest: adding an email to a phone account: code to the new address first
+ok 6 - adding an email to a phone account: code to the new address first
+  ---
+  duration_ms: 531.5113
+  type: 'test'
+  ...
+# Subtest: a login lasts until logout: no expiry, old tokens with a date still work, logout ends it
+ok 7 - a login lasts until logout: no expiry, old tokens with a date still work, logout ends it
+  ---
+  duration_ms: 236.9225
+  type: 'test'
+  ...
+# Subtest: fingerprint / face sign-in is gone
+ok 8 - fingerprint / face sign-in is gone
+  ---
+  duration_ms: 112.436
+  type: 'test'
+  ...
+# Subtest: a half-made email sign-up does not block adding that email to a finished account
+ok 9 - a half-made email sign-up does not block adding that email to a finished account
+  ---
+  duration_ms: 1330.6187
+  type: 'test'
+  ...
+# Subtest: a new account cannot finish its profile without an email
+ok 10 - a new account cannot finish its profile without an email
+  ---
+  duration_ms: 178.4332
+  type: 'test'
+  ...
+# Subtest: email providers: fallback when the first fails, Gmail message headers cannot be injected
+ok 11 - email providers: fallback when the first fails, Gmail message headers cannot be injected
+  ---
+  duration_ms: 1.756
+  type: 'test'
+  ...
+# Subtest: the app can ask which codes are on
+ok 12 - the app can ask which codes are on
+  ---
+  duration_ms: 9.1973
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8408.2275

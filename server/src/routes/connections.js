@@ -114,10 +114,21 @@ r.post('/requests', requireSoul, ah(async (req, res) => {
 
   const score = await scoreBetween(me, to, data.intent);
   connectGate(to, score, data.knows); // Settings › Privacy: who can send me Connect requests, Limit interactions
-  const q = await one(
-    `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score, known_as) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score, data.knows ? data.knownAs || null : null],
-  );
+  // SLD-002: two people tapping Connect on each other at the same moment both passed the checks above and made two
+  // open requests. The pair is locked while it is checked again and the request is written, so only one can exist.
+  const [pa, pb] = pairOf(me.id, to.id);
+  const q = await tx(async (c) => {
+    const lock = (await c.query(`DECLARE @r INT; EXEC @r = sp_getapplock @Resource = $1, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000; SELECT @r AS r`, [`connect-request:${pa}:${pb}`])).rows[0];
+    if (!lock || lock.r < 0) throw conflict('Please try again in a moment.', 'busy');
+    const open = (await c.query(`SELECT TOP 1 from_id FROM connection_requests WITH (UPDLOCK, HOLDLOCK) WHERE status IN (N'pending', N'held')
+        AND ((from_id=$1 AND to_id=$2) OR (from_id=$2 AND to_id=$1))`, [me.id, to.id])).rows[0];
+    if (open && String(open.from_id).toLowerCase() === String(to.id).toLowerCase()) throw conflict(`${to.display_name || to.username} already sent you a request. Answer it from your requests.`, 'incoming_pending');
+    if (open) throw conflict('You already sent a request. Wait for their answer.', 'already_requested');
+    return (await c.query(
+      `INSERT INTO connection_requests (from_id, to_id, knows, intent, note, soul_score, known_as) OUTPUT INSERTED.* VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [me.id, to.id, data.knows ? 1 : 0, data.intent, null, score, data.knows ? data.knownAs || null : null],
+    )).rows[0];
+  });
   await notify(to.id, me.id, 'connect_request', q.id, { intent: q.intent, soulScore: score });
   res.status(201).json({ request: view(q, me.id, to) });
 }));

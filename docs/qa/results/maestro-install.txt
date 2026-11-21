@@ -1,0 +1,44 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261120190415
+Username: LAPTOP-HPESVVRP\Sai raghava
+RunAs User: LAPTOP-HPESVVRP\Sai raghava
+Configuration Name: 
+Machine: LAPTOP-HPESVVRP (Microsoft Windows NT 10.0.26300.0)
+Host Application: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\Sai raghava\Documents\Soulink\setup\install-maestro.ps1
+Process ID: 46452
+PSVersion: 5.1.26100.9818
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9818
+BuildVersion: 10.0.26100.9818
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+
+[1/4] Java 17 or newer
+  added to PATH: C:\Program Files\Android\Android Studio\jbr\bin
+  JAVA_HOME = C:\Program Files\Android\Android Studio\jbr (Java 25)
+
+[2/4] Maestro CLI
+  added to PATH: C:\Users\Sai raghava\maestro\bin
+
+[3/4] Android SDK (adb)
+  added to PATH: C:\Users\Sai raghava\AppData\Local\Android\Sdk\platform-tools
+  ANDROID_HOME = C:\Users\Sai raghava\AppData\Local\Android\Sdk
+
+[4/4] Checks
+  java:    openjdk version "25.0.4" 2026-07-21
+  maestro: 2.12.1
+  adb devices:
+    * daemon not running; starting now at tcp:5037
+    * daemon started successfully
+    List of devices attached
+
+
+Done. New terminal windows will see maestro, java and adb on PATH.
+**********************
+Windows PowerShell transcript end
+End time: 20261120191549
+**********************

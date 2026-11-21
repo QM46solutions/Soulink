@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testsuite name="QA P0 · block" time="7.595985" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:36:21.308Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-SAFE-MU-002 (OBS-009) block removes the Connection and open requests; unblock does not bring back Connection access" time="3.203372" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round" time="1.276370" classname="QA P0 · block" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · who sees what" time="2.373058" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:36:28.904Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both" time="1.385586" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-PROF-SEC-001 private account follower/following lists are hidden from strangers" time="0.986822" classname="QA P0 · who sees what" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · both sides of an interaction" time="2.851150" disabled="0" errors="0" tests="2" failures="0" skipped="0" timestamp="2026-11-21T05:36:31.275Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-POST-MU-001 like: liker, author, third person, database and one notification" time="2.181250" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves" time="0.669223" classname="QA P0 · both sides of an interaction" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · security of other people's objects" time="1.768981" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:36:34.127Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CHAT-SEC-001 a non-member cannot read or write a conversation" time="0.724721" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request" time="0.618039" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post" time="0.425604" classname="QA P0 · security of other people's objects" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<testsuite name="QA P0 · two people at the same moment" time="10.803270" disabled="0" errors="0" tests="3" failures="0" skipped="0" timestamp="2026-11-21T05:36:35.896Z" hostname="LAPTOP-HPESVVRP">
+		<testcase name="SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests" time="0.667670" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-POST-CON-001 like pressed twice at once: no server error, at most one like row" time="0.325833" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+		<testcase name="SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both" time="9.809239" classname="QA P0 · two people at the same moment" file="C:\Users\Sai raghava\Documents\Soulink\server\test\qa-p0.test.js"/>
+	</testsuite>
+	<!-- tests 12 -->
+	<!-- suites 5 -->
+	<!-- pass 12 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 26398.8788 -->
+</testsuites>

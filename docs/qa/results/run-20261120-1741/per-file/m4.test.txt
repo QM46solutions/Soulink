@@ -1,0 +1,97 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Connect requests
+    # Subtest: asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for)
+    ok 1 - asks first: someone I know (family / friend / colleague / other) or someone new (what I hope for)
+      ---
+      duration_ms: 1632.7351
+      type: 'test'
+      ...
+    # Subtest: request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept)
+    ok 2 - request carries intent and Soul Score (a note is ignored: nothing reaches them before they accept)
+      ---
+      duration_ms: 681.6915
+      type: 'test'
+      ...
+    # Subtest: accept (as something else) creates the connection and a chat; sender is told
+    ok 3 - accept (as something else) creates the connection and a chat; sender is told
+      ---
+      duration_ms: 856.2272
+      type: 'test'
+      ...
+    # Subtest: reject: sender is told, and must wait 30 days
+    ok 4 - reject: sender is told, and must wait 30 days
+      ---
+      duration_ms: 1612.3621
+      type: 'test'
+      ...
+    # Subtest: hold: sender told the length; extend once; when it ends the receiver is asked; no answer = rejected
+    ok 5 - hold: sender told the length; extend once; when it ends the receiver is asked; no answer = rejected
+      ---
+      duration_ms: 2920.7762
+      type: 'test'
+      ...
+    # Subtest: on hold: both can chat, in Requests; accept → Connections and the chat moves to Chats
+    ok 6 - on hold: both can chat, in Requests; accept → Connections and the chat moves to Chats
+      ---
+      duration_ms: 1391.832
+      type: 'test'
+      ...
+    # Subtest: on hold, then rejected: the chat is hidden for both (kept in the database)
+    ok 7 - on hold, then rejected: the chat is hidden for both (kept in the database)
+      ---
+      duration_ms: 681.2757
+      type: 'test'
+      ...
+    # Subtest: receiver can still accept during a hold; sender can withdraw
+    ok 8 - receiver can still accept during a hold; sender can withdraw
+      ---
+      duration_ms: 992.9638
+      type: 'test'
+      ...
+    # Subtest: Connect model: accept = they connect to you (Follower); connect back = Connections
+    ok 9 - Connect model: accept = they connect to you (Follower); connect back = Connections
+      ---
+      duration_ms: 824.8293
+      type: 'test'
+      ...
+    # Subtest: any intent can be sent (Open to was removed from settings)
+    ok 10 - any intent can be sent (Open to was removed from settings)
+      ---
+      duration_ms: 328.4344
+      type: 'test'
+      ...
+    # Subtest: chat is only possible after connecting
+    ok 11 - chat is only possible after connecting
+      ---
+      duration_ms: 541.2694
+      type: 'test'
+      ...
+    1..11
+ok 1 - Connect requests
+  ---
+  duration_ms: 16583.8736
+  type: 'suite'
+  ...
+# Subtest: Requests count on profiles
+    # Subtest: others see how many requests someone has, never who sent them
+    ok 1 - others see how many requests someone has, never who sent them
+      ---
+      duration_ms: 674.5708
+      type: 'test'
+      ...
+    1..1
+ok 2 - Requests count on profiles
+  ---
+  duration_ms: 675.3338
+  type: 'suite'
+  ...
+1..2
+# tests 12
+# suites 2
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18330.7322

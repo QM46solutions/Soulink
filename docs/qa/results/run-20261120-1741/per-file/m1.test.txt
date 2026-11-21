@@ -1,0 +1,154 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Auth: OTP sign-up / login
+    # Subtest: rejects invalid phone
+    ok 1 - rejects invalid phone
+      ---
+      duration_ms: 79.7941
+      type: 'test'
+      ...
+    # Subtest: normalizes Indian number, creates account, logs in again as same user
+    ok 2 - normalizes Indian number, creates account, logs in again as same user
+      ---
+      duration_ms: 260.7885
+      type: 'test'
+      ...
+    # Subtest: wrong code counts attempts and code cannot be reused
+    ok 3 - wrong code counts attempts and code cannot be reused
+      ---
+      duration_ms: 153.4718
+      type: 'test'
+      ...
+    # Subtest: the code request answers the same whether or not an account exists
+    ok 4 - the code request answers the same whether or not an account exists
+      ---
+      duration_ms: 105.4026
+      type: 'test'
+      ...
+    # Subtest: protected routes need a token
+    ok 5 - protected routes need a token
+      ---
+      duration_ms: 24.7721
+      type: 'test'
+      ...
+    # Subtest: Google sign-in is stubbed until cloud move
+    ok 6 - Google sign-in is stubbed until cloud move
+      ---
+      duration_ms: 8.3033
+      type: 'test'
+      ...
+    1..6
+ok 1 - Auth: OTP sign-up / login
+  ---
+  duration_ms: 4678.3409
+  type: 'suite'
+  ...
+# Subtest: Onboarding & profile
+    # Subtest: blocks under-18 and enforces username rules
+    ok 1 - blocks under-18 and enforces username rules
+      ---
+      duration_ms: 182.9535
+      type: 'test'
+      ...
+    # Subtest: username availability and duplicate usernames
+    ok 2 - username availability and duplicate usernames
+      ---
+      duration_ms: 266.4208
+      type: 'test'
+      ...
+    # Subtest: update profile fields; finding people by face is on hold
+    ok 3 - update profile fields; finding people by face is on hold
+      ---
+      duration_ms: 145.4629
+      type: 'test'
+      ...
+    # Subtest: avatar upload saves an image
+    ok 4 - avatar upload saves an image
+      ---
+      duration_ms: 217.8707
+      type: 'test'
+      ...
+    1..4
+ok 2 - Onboarding & profile
+  ---
+  duration_ms: 814.0144
+  type: 'suite'
+  ...
+# Subtest: Follow graph (Instagram rules)
+    # Subtest: public account: instant follow, counts update, unfollow
+    ok 1 - public account: instant follow, counts update, unfollow
+      ---
+      duration_ms: 585.7342
+      type: 'test'
+      ...
+    # Subtest: private account: Connect only (Follow is refused); an old pending follow request can still be accepted
+    ok 2 - private account: Connect only (Follow is refused); an old pending follow request can still be accepted
+      ---
+      duration_ms: 602.0771
+      type: 'test'
+      ...
+    # Subtest: decline request; cancel request; remove follower
+    ok 3 - decline request; cancel request; remove follower
+      ---
+      duration_ms: 533.8627
+      type: 'test'
+      ...
+    # Subtest: switching private → public auto-accepts pending requests
+    ok 4 - switching private → public auto-accepts pending requests
+      ---
+      duration_ms: 257.5361
+      type: 'test'
+      ...
+    # Subtest: cannot follow yourself; unknown user 404
+    ok 5 - cannot follow yourself; unknown user 404
+      ---
+      duration_ms: 135.5199
+      type: 'test'
+      ...
+    1..5
+ok 3 - Follow graph (Instagram rules)
+  ---
+  duration_ms: 2115.6261
+  type: 'suite'
+  ...
+# Subtest: Search
+    # Subtest: finds by username prefix and display name, excludes self
+    ok 1 - finds by username prefix and display name, excludes self
+      ---
+      duration_ms: 330.0737
+      type: 'test'
+      ...
+    1..1
+ok 4 - Search
+  ---
+  duration_ms: 330.4315
+  type: 'suite'
+  ...
+# Subtest: Safety: block & report
+    # Subtest: block hides users both ways and removes follows
+    ok 1 - block hides users both ways and removes follows
+      ---
+      duration_ms: 485.6113
+      type: 'test'
+      ...
+    # Subtest: report validates reason
+    ok 2 - report validates reason
+      ---
+      duration_ms: 193.4736
+      type: 'test'
+      ...
+    1..2
+ok 5 - Safety: block & report
+  ---
+  duration_ms: 679.576
+  type: 'suite'
+  ...
+1..5
+# tests 18
+# suites 5
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9677.6232

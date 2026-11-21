@@ -1,0 +1,59 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: console team for these tests
+ok 1 - console team for these tests
+  ---
+  duration_ms: 4399.3771
+  type: 'test'
+  ...
+# Subtest: version compare
+ok 2 - version compare
+  ---
+  duration_ms: 0.9243
+  type: 'test'
+  ...
+# Subtest: GET /app/version works without a login and gives the official store links
+ok 3 - GET /app/version works without a login and gives the official store links
+  ---
+  duration_ms: 31.1399
+  type: 'test'
+  ...
+# Subtest: only the owner can change the update policy, and it is checked
+ok 4 - only the owner can change the update policy, and it is checked
+  ---
+  duration_ms: 102.4591
+  type: 'test'
+  ...
+# Subtest: crashes and non-fatal errors keep version, build, phone and screen; same crash on the same version is counted
+ok 5 - crashes and non-fatal errors keep version, build, phone and screen; same crash on the same version is counted
+  ---
+  duration_ms: 516.5915
+  type: 'test'
+  ...
+# Subtest: slow requests are kept as patterns only (no ids or names)
+ok 6 - slow requests are kept as patterns only (no ids or names)
+  ---
+  duration_ms: 207.9194
+  type: 'test'
+  ...
+# Subtest: Report a problem: category, comments, diagnostics, screenshot, duplicate and validation
+ok 7 - Report a problem: category, comments, diagnostics, screenshot, duplicate and validation
+  ---
+  duration_ms: 287.0016
+  type: 'test'
+  ...
+# Subtest: only the newest email code works: an earlier unused code is cancelled when a new one is sent
+ok 8 - only the newest email code works: an earlier unused code is cancelled when a new one is sent
+  ---
+  duration_ms: 155.7636
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6732.1668

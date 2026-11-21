@@ -1,0 +1,90 @@
+◇ injected env (14) from .env
+▶ QA P0 · block
+  ✖ SL-SAFE-MU-002 (OBS-009) block removes the Connection; unblock does not bring back Connection access (4603.1191ms)
+  ✔ SL-SAFE-MU-001 block matrix: nothing of A reaches the blocked person, and the other way round (3117.6519ms)
+✖ QA P0 · block (26949.3135ms)
+▶ QA P0 · who sees what
+  ✖ SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both (3876.5105ms)
+  ✔ SL-PROF-SEC-001 private account follower/following lists are hidden from strangers (2280.9217ms)
+✖ QA P0 · who sees what (6158.1013ms)
+▶ QA P0 · both sides of an interaction
+  ✔ SL-POST-MU-001 like: liker, author, third person, database and one notification (6178.9608ms)
+  ✔ SL-NOTF-MU-001 Connect request, accept: each side notified once, nobody notifies themselves (2681.7779ms)
+✔ QA P0 · both sides of an interaction (8861.5092ms)
+▶ QA P0 · security of other people's objects
+  ✔ SL-CHAT-SEC-001 a non-member cannot read or write a conversation (2746.425ms)
+  ✔ SL-CONN-SEC-001 a stranger cannot accept, reject, hold or withdraw someone else's request (2044.975ms)
+  ✔ SL-POST-SEC-001 another user cannot edit, delete, pin or archive my post (1269.4014ms)
+✔ QA P0 · security of other people's objects (6061.811ms)
+▶ QA P0 · two people at the same moment
+  ✖ SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests (1060.6481ms)
+  ✔ SL-POST-CON-001 like pressed twice at once: no server error, at most one like row (1006.1176ms)
+  ✔ SL-CHAT-CON-001 both send 20 messages at once: every message stored once, same order for both (7675.2673ms)
+✖ QA P0 · two people at the same moment (9742.8616ms)
+ℹ tests 12
+ℹ suites 5
+ℹ pass 9
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 71870.3706
+
+✖ failing tests:
+
+test at test\qa-p0.test.js:31:3
+✖ SL-SAFE-MU-002 (OBS-009) block removes the Connection; unblock does not bring back Connection access (4603.1191ms)
+  AssertionError [ERR_ASSERTION]: blocking must remove the Connection row
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:36:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\qa-p0.test.js:73:3
+✖ SL-PROF-MU-001 private profile: stranger sees header only, Follower sees posts but not Moments, Connection sees both (3876.5105ms)
+  AssertionError [ERR_ASSERTION]: stranger: posts
+      at TestContext.<anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:81:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\qa-p0.test.js:168:3
+✖ SL-CONN-CON-001 A and B send Connect to each other at once: never two open requests (1060.6481ms)
+  AssertionError [ERR_ASSERTION]: exactly one open request between the two
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/Sai%20raghava/Documents/Soulink/server/test/qa-p0.test.js:177:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

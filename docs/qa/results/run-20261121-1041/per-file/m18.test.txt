@@ -1,0 +1,42 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Legal and privacy
+    # Subtest: accepting the terms is recorded
+    ok 1 - accepting the terms is recorded
+      ---
+      duration_ms: 459.6727
+      type: 'test'
+      ...
+    # Subtest: download my data returns my profile and posts
+    ok 2 - download my data returns my profile and posts
+      ---
+      duration_ms: 690.9426
+      type: 'test'
+      ...
+    # Subtest: delete my account erases the person and keeps only the 180-day sign-up record
+    ok 3 - delete my account erases the person and keeps only the 180-day sign-up record
+      ---
+      duration_ms: 3446.262
+      type: 'test'
+      ...
+    # Subtest: music sources list
+    ok 4 - music sources list
+      ---
+      duration_ms: 116.0012
+      type: 'test'
+      ...
+    1..4
+ok 1 - Legal and privacy
+  ---
+  duration_ms: 9214.6328
+  type: 'suite'
+  ...
+1..1
+# tests 4
+# suites 1
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11796.1913

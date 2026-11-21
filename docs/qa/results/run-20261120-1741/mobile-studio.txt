@@ -1,0 +1,7 @@
+all studio tests passed
+long-video tests passed
+(node:39892) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Sai%20raghava/Documents/Soulink/mobile/src/lib/studio.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\Sai raghava\Documents\Soulink\mobile\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+exit code 0 

@@ -1,0 +1,116 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Soul DNA
+    # Subtest: the games, in order, with no scoring sent to the phone
+    ok 1 - the games, in order, with no scoring sent to the phone
+      ---
+      duration_ms: 726.4333
+      type: 'test'
+      ...
+    # Subtest: an older Soul DNA keeps matching, and its owner can play the new games for free
+    ok 2 - an older Soul DNA keeps matching, and its owner can play the new games for free
+      ---
+      duration_ms: 781.4489
+      type: 'test'
+      ...
+    # Subtest: progress is saved and resumable; finishing gives a Soul type
+    ok 3 - progress is saved and resumable; finishing gives a Soul type
+      ---
+      duration_ms: 387.6096
+      type: 'test'
+      ...
+    # Subtest: Life partner score, and the pinned pair gets 93% only with each other
+    ok 4 - Life partner score, and the pinned pair gets 93% only with each other
+      ---
+      duration_ms: 959.2391
+      type: 'test'
+      ...
+    # Subtest: first Soul DNA is free; retaking it is Premium
+    ok 5 - first Soul DNA is free; retaking it is Premium
+      ---
+      duration_ms: 509.8211
+      type: 'test'
+      ...
+    # Subtest: invalid answers are rejected
+    ok 6 - invalid answers are rejected
+      ---
+      duration_ms: 219.2759
+      type: 'test'
+      ...
+    # Subtest: cannot follow or start a chat before creating Soul DNA
+    ok 7 - cannot follow or start a chat before creating Soul DNA
+      ---
+      duration_ms: 427.351
+      type: 'test'
+      ...
+    # Subtest: profile shows scores for every relation type; similar people score higher
+    ok 8 - profile shows scores for every relation type; similar people score higher
+      ---
+      duration_ms: 912.7386
+      type: 'test'
+      ...
+    # Subtest: full breakdown: two scores, a type, strengths/friction, 
+    ok 9 - full breakdown: two scores, a type, strengths/friction, 
+      ---
+      duration_ms: 482.2066
+      type: 'test'
+      ...
+    1..9
+ok 1 - Soul DNA
+  ---
+  duration_ms: 10088.2845
+  type: 'suite'
+  ...
+# Subtest: Home feed
+    # Subtest: new person: no connections, no posts
+    ok 1 - new person: no connections, no posts
+      ---
+      duration_ms: 378.9045
+      type: 'test'
+      ...
+    # Subtest: follows alone are not Soul Connections
+    ok 2 - follows alone are not Soul Connections
+      ---
+      duration_ms: 336.965
+      type: 'test'
+      ...
+    # Subtest: my posts show in my feed with likes and comments; strangers do not see them
+    ok 3 - my posts show in my feed with likes and comments; strangers do not see them
+      ---
+      duration_ms: 1789.6901
+      type: 'test'
+      ...
+    1..3
+ok 2 - Home feed
+  ---
+  duration_ms: 2506.5293
+  type: 'suite'
+  ...
+# Subtest: Places
+    # Subtest: typing suggests Hyderabad areas first and knows other names
+    ok 1 - typing suggests Hyderabad areas first and knows other names
+      ---
+      duration_ms: 16.7925
+      type: 'test'
+      ...
+    # Subtest: current position → nearest area
+    ok 2 - current position → nearest area
+      ---
+      duration_ms: 19.8035
+      type: 'test'
+      ...
+    1..2
+ok 3 - Places
+  ---
+  duration_ms: 37.2919
+  type: 'suite'
+  ...
+1..3
+# tests 14
+# suites 3
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 15394.9096

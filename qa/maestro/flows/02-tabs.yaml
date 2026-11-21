@@ -1,0 +1,16 @@
+appId: host.exp.exponent
+name: SL-NAV-SMK-A02
+tags: [smoke, P0]
+---
+# Smoke: main navigation opens every tab without errors (continues the logged-in state from A01 if present)
+- runFlow:
+    when:
+      visible: "Create account"
+    file: subflows/login-demo.yaml
+- tapOn: "Search"
+- takeScreenshot: A02-search
+- tapOn: "Sparks"
+- takeScreenshot: A02-sparks
+- tapOn: "Profile"
+- takeScreenshot: A02-profile
+- assertNotVisible: ".*(went wrong|Network request failed|crashed).*"

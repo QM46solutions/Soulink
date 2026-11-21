@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="Medium_Phone_API_37.0" tests="2" failures="2" time="46.141" timestamp="2026-11-21T11:55:27">
+    <testcase id="SL-AUTH-SMK-A01" name="SL-AUTH-SMK-A01" classname="SL-AUTH-SMK-A01" file="qa\maestro\flows\01-login.yaml" time="28.084" timestamp="2026-11-21T11:55:27" status="ERROR">
+      <properties>
+        <property name="tags" value="smoke, P0"/>
+      </properties>
+      <failure>Unknown error</failure>
+    </testcase>
+    <testcase id="SL-NAV-SMK-A02" name="SL-NAV-SMK-A02" classname="SL-NAV-SMK-A02" file="qa\maestro\flows\02-tabs.yaml" time="17.975" timestamp="2026-11-21T11:55:55" status="ERROR">
+      <properties>
+        <property name="tags" value="smoke, P0"/>
+      </properties>
+      <failure>Element not found: Text matching regex: Search</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

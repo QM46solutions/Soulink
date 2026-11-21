@@ -1,0 +1,50 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Private file links
+    # Subtest: a file opens only with a valid, unexpired signed link
+    ok 1 - a file opens only with a valid, unexpired signed link
+      ---
+      duration_ms: 756.8765
+      type: 'test'
+      ...
+    1..1
+ok 1 - Private file links
+  ---
+  duration_ms: 7261.3809
+  type: 'suite'
+  ...
+# Subtest: Shared post preview (no account)
+    # Subtest: a public post shows its preview for 15 seconds; private accounts and unknown posts do not
+    ok 1 - a public post shows its preview for 15 seconds; private accounts and unknown posts do not
+      ---
+      duration_ms: 635.65
+      type: 'test'
+      ...
+    1..1
+ok 2 - Shared post preview (no account)
+  ---
+  duration_ms: 636.2166
+  type: 'suite'
+  ...
+# Subtest: Group invite links
+    # Subtest: only admins make them; the link shows name + member count, joining needs a login; reset / off
+    ok 1 - only admins make them; the link shows name + member count, joining needs a login; reset / off
+      ---
+      duration_ms: 1802.5198
+      type: 'test'
+      ...
+    1..1
+ok 3 - Group invite links
+  ---
+  duration_ms: 1803.2403
+  type: 'suite'
+  ...
+1..3
+# tests 3
+# suites 3
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12273.9161

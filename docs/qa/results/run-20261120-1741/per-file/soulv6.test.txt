@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: 7 categories × 3 taps, in order; the loyalty question follows what you are looking for
+ok 1 - 7 categories × 3 taps, in order; the loyalty question follows what you are looking for
+  ---
+  duration_ms: 2.8885
+  type: 'test'
+  ...
+# Subtest: answer shapes are checked per kind
+ok 2 - answer shapes are checked per kind
+  ---
+  duration_ms: 0.5577
+  type: 'test'
+  ...
+# Subtest: gut reactions count more than long hesitation
+ok 3 - gut reactions count more than long hesitation
+  ---
+  duration_ms: 0.8566
+  type: 'test'
+  ...
+# Subtest: a photo pick moves the traits it shows, and the first pick counts most
+ok 4 - a photo pick moves the traits it shows, and the first pick counts most
+  ---
+  duration_ms: 0.4301
+  type: 'test'
+  ...
+# Subtest: a crossed "Never", kids and different intentions are deal-breakers for couples, not friends
+ok 5 - a crossed "Never", kids and different intentions are deal-breakers for couples, not friends
+  ---
+  duration_ms: 4.5185
+  type: 'test'
+  ...
+# Subtest: non-negotiables: one crossed caps softly, two are a deal-breaker; a flexible partner can bend
+ok 6 - non-negotiables: one crossed caps softly, two are a deal-breaker; a flexible partner can bend
+  ---
+  duration_ms: 2.2219
+  type: 'test'
+  ...
+# Subtest: similar calm people match well; the same pair scores differently per relation
+ok 7 - similar calm people match well; the same pair scores differently per relation
+  ---
+  duration_ms: 3.6365
+  type: 'test'
+  ...
+# Subtest: sharing rare picks counts for more than sharing common ones
+ok 8 - sharing rare picks counts for more than sharing common ones
+  ---
+  duration_ms: 0.7433
+  type: 'test'
+  ...
+# Subtest: an older Soul DNA (v4) still matches against the new one
+ok 9 - an older Soul DNA (v4) still matches against the new one
+  ---
+  duration_ms: 0.7551
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 119.6867

@@ -1,0 +1,10 @@
+appId: host.exp.exponent
+name: SL-AUTH-SMK-A01
+tags: [smoke, P0]
+---
+# SL-AUTH-SMK-001 (Android): existing user logs in and reaches Home
+- runFlow: subflows/open-app.yaml
+- takeScreenshot: A01-welcome
+- runFlow: subflows/login-demo.yaml
+- assertVisible: "Sparks"
+- takeScreenshot: A01-home

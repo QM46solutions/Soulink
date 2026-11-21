@@ -1,0 +1,9 @@
+# Soulink Android UI flows (Maestro). Run with RUN-ANDROID-QA.bat. The app runs in Expo Go on the emulator and talks
+# to the laptop server (EXPO_PUBLIC_API_URL=http://10.0.2.2:4000), never to production.
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - SL-AUTH-SMK-A01
+    - SL-NAV-SMK-A02

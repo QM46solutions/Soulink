@@ -1,0 +1,38 @@
+SAFE|MU|P0|Critical|API|Block matrix: after A blocks E, nothing of A reaches E (and vice versa)|A and E were Connections with posts, Moments, chat, comments|1) A blocks E 2) As E check profile, posts, Sparks, Moments, chat, search, comments, likes lists, followers lists, notifications, share links 3) Repeat as A for E|—|Every surface hides the other person (404/hidden); no new notifications either way
+SAFE|MU|P0|Critical|API|OBS-009: block removes the Connection, and unblock does not restore access|A and C are Connections; B private|1) A blocks C 2) Check connections table and counts 3) A unblocks C 4) C opens A's Moments, private posts, chat|—|Connection row removed at block; after unblock C is a stranger again (must Connect anew); counts exclude C
+SAFE|FUN|P1|Medium|All|Unblock from Blocked list|A blocked E|1) Settings > Blocked > Unblock|—|E removed from list; relationship starts from none
+SAFE|FUN|P0|High|All|Report user, post, comment, Spark, message with each reason|—|1) Report each target type|10 reasons|Report stored; reporter sees confirmation; invalid reason 400; console Safety queue shows it
+SAFE|FUN|P1|Medium|All|Restrict, mute posts, mute Moments|—|1) Apply each 2) Check effect|—|Muted content gone from viewer's feed/tray; restricted comments hidden from others
+SAFE|FUN|P1|High|API|Banned identity cannot sign up again until ban lifted|Owner bans user|1) Same email/phone/face signs up 2) Ban lifted 3) Try again|—|Refused while banned; allowed after lift
+SAFE|FUN|P1|Medium|All|Limit interactions for 1/7/30 days|—|1) Turn on 2) Stranger comments/connects|—|Refused until date passes
+LEGL|FUN|P1|High|All|Terms and privacy must be accepted before using the app|New user|1) Skip consent|—|Cannot continue; acceptance timestamp stored
+LEGL|FUN|P1|High|API|Copyright report: 36 h window, takedown, appeal, strikes|Post owned by B|1) File report 2) Team decides 3) B appeals|—|Clock and reminders match 36 h; post hidden/restored per decision; strike counted
+LEGL|FUN|P1|High|API|Grievance: ticket, 7-day deadline, 2 h clock for intimate/impersonation|—|1) File each category|—|Ticket number; deadlines per category; console lists urgent first
+LEGL|FUN|P1|High|API|Court order: verified, 3 h takedown, removes linked posts|Support user|1) Record order 2) Verify 3) Act|—|All linked posts removed; audit log entries
+SETT|FUN|P0|High|All|Pause account and come back by logging in|—|1) Pause 2) Others view profile 3) Log in again|—|Profile hidden while paused; login reactivates; data intact
+SETT|FUN|P0|Critical|All|Delete account: 7-day cooling, cancel by login|—|1) Request deletion 2) Log in on day 3|—|Deletion cancelled; account normal
+SETT|FUN|P0|Critical|API|Delete account completes after 7 days|Deletion requested|1) Run scheduled deletion after 7 days 2) Check every table and files|—|Personal data and files gone; others' chats show "deleted user"; no orphan rows; identity kept encrypted for 6-month rejoin block only
+SETT|FUN|P1|Medium|All|Devices list and remote sign-out|2 devices|1) End device 2 from device 1|—|Device 2 signed out on next request
+SETT|FUN|P1|Medium|All|Pulse meter and profile viewers (top 3 free, rest Premium)|Views from 5 people|1) Open viewers as free and Premium|—|Free sees top 3; Premium sees all
+SETT|FUN|P2|Low|All|Time limits, hidden words, notification kinds, app permissions pages|—|1) Change each setting 2) Reopen|—|Saved and applied
+SETT|FUN|P1|Medium|All|Add/verify email and phone on account|—|1) Add email 2) Verify code|—|Verified only after real delivery and code; pending can be cancelled
+BKUP|FUN|P0|Critical|All|Download My Data produces a complete ZIP|Account with profile, posts, photos, Sparks, Moments|1) Settings > Backup > Download 2) Open ZIP|—|Manifest, profile, posts, original media present; nothing belonging to other users; signature present
+BKUP|FUN|P0|Critical|All|Restore brings back a deleted post with its media and original id|Backup taken; post deleted|1) Restore from ZIP|—|Post back with original id and photo
+BKUP|FUN|P0|High|API|Restore keeps only eligible likes/comments|Post had likes from C (Connection), D (now unfollowed), E (blocked), I (deleted)|1) Delete post 2) Restore|—|Only C's interactions return; D, E, I's are not recreated
+BKUP|FUN|P0|High|API|Repeated restore creates no duplicates|Restored once|1) Restore same ZIP again 2) Count rows|—|Row counts unchanged
+BKUP|NEG|P0|Critical|API|Restore refuses foreign, altered, unsafe or wrong files|—|1) Someone else's ZIP 2) Edited ZIP 3) ZIP with ../ paths 4) Non-ZIP 5) Old JSON export|Files|Each refused with a clear reason; nothing written
+BKUP|NEG|P0|Critical|API|Failed restore leaves no partial data|Restore that fails midway (e.g. corrupt media #5 of 10)|1) Start restore 2) Inject failure|—|All-or-nothing per item set; status shows failure; no ghost/orphan rows
+BKUP|XPL|P1|High|Web,Android,iOS|Export on one platform, restore on another|—|1) Download on Android 2) Restore on Web 3) Check on iOS|—|Same content on all three
+BKUP|BND|P1|Medium|API|Large account backup (500 posts, 1 GB media)|Seeded account|1) Export 2) Restore|—|Completes within agreed time; memory stays under server limit
+BKUP|SEC|P0|High|API|Export download link expires and is owner-only|Export ready|1) Other user opens link 2) Owner opens after expiry|—|Both refused
+ADS|FUN|P2|Medium|API|Hourly booking priced from rate card, shows only in its hours and cities|Ads user|1) Quote 2) Book 3) Pay 4) Check outside hours/city|—|Ad shown only when paid and inside hours/cities; frequency cap respected
+ADS|FUN|P2|Medium|All|Ad placements in stories, between posts and Sparks; seen/click counted|Active ad|1) Scroll feed|—|Ad appears in placements; counts increment once per view
+SHOP|UI|P3|Low|Web,Android,iOS|Shop 3D views load and rotate|—|1) Open Shop 2) Drag to rotate|—|Smooth, no missing frames
+UPDT|FUN|P1|High|Android,iOS|Mandatory update screen blocks old versions; offline never blocks|Minimum version raised|1) Open old build online 2) Offline|—|Online: full-screen update page opening the store; offline: app usable
+UPDT|FUN|P1|Medium|All|Report a problem with screenshot and diagnostics|—|1) Report|—|Issue in console with version, model, screen
+CNSL|SEC|P0|Critical|Web|Console role matrix|owner, viewer, support, ads users|1) Each role calls every /console endpoint|—|Allowed only per role table; others 403
+CNSL|SEC|P0|Critical|Web|Console login needs setup key + password + authenticator|—|1) Missing factor 2) Wrong TOTP 3) Brute force|—|Refused; rate-limited
+CNSL|FUN|P2|Medium|Web|Overview, users, growth, performance dashboards load with correct totals|Seeded data|1) Compare numbers to SQL counts|—|Numbers match database
+SHAR|FUN|P1|Medium|Web|Shared post link opens 15 s preview without account|Public post shared|1) Open link logged out|—|Preview limited to 15 s; prompt to join
+SHAR|SEC|P0|High|Web|Share link of private, deleted or blocked content reveals nothing|—|1) Open share link for private post, deleted post|—|Not found; no media URL leaked
+SHAR|FUN|P1|Medium|Android,iOS|Deep links /p/, /s/, /join/ open in the app|App installed|1) Tap link|—|Correct screen in app; web fallback if not installed

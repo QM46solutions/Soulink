@@ -1,0 +1,37 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Comments
+    # Subtest: like, reply (one level) and offense marks
+    ok 1 - like, reply (one level) and offense marks
+      ---
+      duration_ms: 1708.7653
+      type: 'test'
+      ...
+    1..1
+ok 1 - Comments
+  ---
+  duration_ms: 6214.765
+  type: 'suite'
+  ...
+# Subtest: Paid message
+    # Subtest: one message to a non-connection lands in their Requests (test payment); once a day per person
+    ok 1 - one message to a non-connection lands in their Requests (test payment); once a day per person
+      ---
+      duration_ms: 663.4486
+      type: 'test'
+      ...
+    1..1
+ok 2 - Paid message
+  ---
+  duration_ms: 663.9638
+  type: 'suite'
+  ...
+1..2
+# tests 2
+# suites 2
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8005.3786

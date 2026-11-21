@@ -1,0 +1,85 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Chat: 1:1 and message requests
+    # Subtest: message from a stranger lands in Requests; accepting moves it to the inbox
+    ok 1 - message from a stranger lands in Requests; accepting moves it to the inbox
+      ---
+      duration_ms: 2153.0111
+      type: 'test'
+      ...
+    # Subtest: if they connected to you, your message goes straight to their inbox; a plain Follow does not
+    ok 2 - if they connected to you, your message goes straight to their inbox; a plain Follow does not
+      ---
+      duration_ms: 1227.9045
+      type: 'test'
+      ...
+    # Subtest: replying to a request accepts it; the same pair always shares one thread
+    ok 3 - replying to a request accepts it; the same pair always shares one thread
+      ---
+      duration_ms: 656.5551
+      type: 'test'
+      ...
+    # Subtest: messages page newest first; read receipts and unread counts
+    ok 4 - messages page newest first; read receipts and unread counts
+      ---
+      duration_ms: 1288.6633
+      type: 'test'
+      ...
+    # Subtest: unsend your own message only
+    ok 5 - unsend your own message only
+      ---
+      duration_ms: 475.6223
+      type: 'test'
+      ...
+    # Subtest: photos and voice notes
+    ok 6 - photos and voice notes
+      ---
+      duration_ms: 571.6029
+      type: 'test'
+      ...
+    # Subtest: strangers cannot read a conversation; empty messages rejected
+    ok 7 - strangers cannot read a conversation; empty messages rejected
+      ---
+      duration_ms: 1171.3948
+      type: 'test'
+      ...
+    # Subtest: blocking stops messages both ways and hides the thread
+    ok 8 - blocking stops messages both ways and hides the thread
+      ---
+      duration_ms: 684.5658
+      type: 'test'
+      ...
+    # Subtest: deleting a request hides it until they message again
+    ok 9 - deleting a request hides it until they message again
+      ---
+      duration_ms: 716.5045
+      type: 'test'
+      ...
+    1..9
+ok 1 - Chat: 1:1 and message requests
+  ---
+  duration_ms: 14756.3502
+  type: 'suite'
+  ...
+# Subtest: Chat: groups
+    # Subtest: create, rename, add, remove, leave; a group always keeps an admin
+    ok 1 - create, rename, add, remove, leave; a group always keeps an admin
+      ---
+      duration_ms: 1505.478
+      type: 'test'
+      ...
+    1..1
+ok 2 - Chat: groups
+  ---
+  duration_ms: 1506.3469
+  type: 'suite'
+  ...
+1..2
+# tests 10
+# suites 2
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18954.2565

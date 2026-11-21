@@ -1,0 +1,270 @@
+[ {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "EXPO_URL" : "exp://10.0.2.2:8090",
+        "PHONE" : "9000000100",
+        "MAESTRO_CLI_ANALYTICS_NOTIFICATION_DISABLED" : "true",
+        "MAESTRO_CLI_NO_ANALYTICS" : "1",
+        "MAESTRO_FILENAME" : "01-login",
+        "MAESTRO_DEVICE_UDID" : "emulator-5554",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1795242330765,
+    "duration" : 12,
+    "sequenceNumber" : 0,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "defineVariablesCommand" : {
+        "env" : {
+          "EXPO_URL" : "exp://10.0.2.2:8090",
+          "PHONE" : "9000000100",
+          "MAESTRO_CLI_ANALYTICS_NOTIFICATION_DISABLED" : "true",
+          "MAESTRO_CLI_NO_ANALYTICS" : "1",
+          "MAESTRO_FILENAME" : "01-login",
+          "MAESTRO_DEVICE_UDID" : "emulator-5554",
+          "MAESTRO_SHARD_ID" : "1",
+          "MAESTRO_SHARD_INDEX" : "0"
+        },
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "host.exp.exponent",
+        "name" : "SL-AUTH-SMK-A01",
+        "tags" : [ "smoke", "P0" ]
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1795242330786,
+    "duration" : 2,
+    "sequenceNumber" : 1,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "applyConfigurationCommand" : {
+        "config" : {
+          "appId" : "host.exp.exponent",
+          "name" : "SL-AUTH-SMK-A01",
+          "tags" : [ "smoke", "P0" ]
+        },
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "runFlowCommand" : {
+      "commands" : [ {
+        "applyConfigurationCommand" : {
+          "config" : {
+            "appId" : "host.exp.exponent"
+          },
+          "optional" : false
+        }
+      }, {
+        "stopAppCommand" : {
+          "appId" : "host.exp.exponent",
+          "optional" : false
+        }
+      }, {
+        "clearStateCommand" : {
+          "appId" : "host.exp.exponent",
+          "optional" : false
+        }
+      }, {
+        "openLinkCommand" : {
+          "link" : "${EXPO_URL}",
+          "autoVerify" : false,
+          "browser" : false,
+          "optional" : false
+        }
+      }, {
+        "assertConditionCommand" : {
+          "condition" : {
+            "visible" : {
+              "textRegex" : "Create account",
+              "optional" : false
+            }
+          },
+          "timeout" : "300000",
+          "optional" : false
+        }
+      } ],
+      "sourceDescription" : "subflows/open-app.yaml",
+      "config" : {
+        "appId" : "host.exp.exponent"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "FAILED",
+    "timestamp" : 1795242330790,
+    "duration" : 22086,
+    "error" : {
+      "message" : "shell command failed (exit 1): Starting: Intent { act=android.intent.action.VIEW dat=exp://10.0.2.2:8090/... }\nError: Activity not started, unable to resolve Intent { act=android.intent.action.VIEW dat=exp://10.0.2.2:8090/... flg=0x10000000 xflg=0x4 }\n"
+    },
+    "sequenceNumber" : 2,
+    "depth" : 0,
+    "evaluatedCommand" : {
+      "runFlowCommand" : {
+        "commands" : [ {
+          "applyConfigurationCommand" : {
+            "config" : {
+              "appId" : "host.exp.exponent"
+            },
+            "optional" : false
+          }
+        }, {
+          "stopAppCommand" : {
+            "appId" : "host.exp.exponent",
+            "optional" : false
+          }
+        }, {
+          "clearStateCommand" : {
+            "appId" : "host.exp.exponent",
+            "optional" : false
+          }
+        }, {
+          "openLinkCommand" : {
+            "link" : "${EXPO_URL}",
+            "autoVerify" : false,
+            "browser" : false,
+            "optional" : false
+          }
+        }, {
+          "assertConditionCommand" : {
+            "condition" : {
+              "visible" : {
+                "textRegex" : "Create account",
+                "optional" : false
+              }
+            },
+            "timeout" : "300000",
+            "optional" : false
+          }
+        } ],
+        "sourceDescription" : "subflows/open-app.yaml",
+        "config" : {
+          "appId" : "host.exp.exponent"
+        },
+        "optional" : false
+      }
+    },
+    "artifacts" : [ {
+      "type" : "SCREENSHOT",
+      "path" : "screenshots/step-003-runFlow.png"
+    } ]
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "host.exp.exponent"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1795242330794,
+    "duration" : 1,
+    "sequenceNumber" : 3,
+    "depth" : 1,
+    "evaluatedCommand" : {
+      "applyConfigurationCommand" : {
+        "config" : {
+          "appId" : "host.exp.exponent"
+        },
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "stopAppCommand" : {
+      "appId" : "host.exp.exponent",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1795242330797,
+    "duration" : 229,
+    "sequenceNumber" : 4,
+    "depth" : 1,
+    "evaluatedCommand" : {
+      "stopAppCommand" : {
+        "appId" : "host.exp.exponent",
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "clearStateCommand" : {
+      "appId" : "host.exp.exponent",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1795242331028,
+    "duration" : 488,
+    "sequenceNumber" : 5,
+    "depth" : 1,
+    "evaluatedCommand" : {
+      "clearStateCommand" : {
+        "appId" : "host.exp.exponent",
+        "optional" : false
+      }
+    }
+  }
+}, {
+  "command" : {
+    "openLinkCommand" : {
+      "link" : "${EXPO_URL}",
+      "autoVerify" : false,
+      "browser" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "FAILED",
+    "timestamp" : 1795242331516,
+    "duration" : 4406,
+    "error" : {
+      "message" : "shell command failed (exit 1): Starting: Intent { act=android.intent.action.VIEW dat=exp://10.0.2.2:8090/... }\nError: Activity not started, unable to resolve Intent { act=android.intent.action.VIEW dat=exp://10.0.2.2:8090/... flg=0x10000000 xflg=0x4 }\n"
+    },
+    "sequenceNumber" : 6,
+    "depth" : 1,
+    "evaluatedCommand" : {
+      "openLinkCommand" : {
+        "link" : "exp://10.0.2.2:8090",
+        "autoVerify" : false,
+        "browser" : false,
+        "optional" : false
+      }
+    },
+    "artifacts" : [ {
+      "type" : "SCREEN_HIERARCHY",
+      "path" : "screen-hierarchy/step-007-openLink-${EXPO_URL}.json"
+    }, {
+      "type" : "SCREENSHOT",
+      "path" : "screenshots/step-007-openLink-${EXPO_URL}.png"
+    } ]
+  }
+} ]

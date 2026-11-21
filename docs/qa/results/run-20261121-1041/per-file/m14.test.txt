@@ -1,0 +1,48 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Music
+    # Subtest: search needs login; online search is off in tests
+    ok 1 - search needs login; online search is off in tests
+      ---
+      duration_ms: 504.5161
+      type: 'test'
+      ...
+    # Subtest: a bad song reference is refused
+    ok 2 - a bad song reference is refused
+      ---
+      duration_ms: 18.567
+      type: 'test'
+      ...
+    # Subtest: a post keeps the song and where its 30 seconds start
+    ok 3 - a post keeps the song and where its 30 seconds start
+      ---
+      duration_ms: 602.8555
+      type: 'test'
+      ...
+    # Subtest: a Moment can carry a song
+    ok 4 - a Moment can carry a song
+      ---
+      duration_ms: 125.9868
+      type: 'test'
+      ...
+    # Subtest: a Spark can use a picked song instead of an uploaded one
+    ok 5 - a Spark can use a picked song instead of an uploaded one
+      ---
+      duration_ms: 129.6257
+      type: 'test'
+      ...
+    1..5
+ok 1 - Music
+  ---
+  duration_ms: 6103.4633
+  type: 'suite'
+  ...
+1..1
+# tests 5
+# suites 1
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8953.7145

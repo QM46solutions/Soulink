@@ -1,0 +1,54 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Anonymous messages
+    # Subtest: only to Connections: never to someone you are not connected with
+    ok 1 - only to Connections: never to someone you are not connected with
+      ---
+      duration_ms: 1322.0652
+      type: 'test'
+      ...
+    # Subtest: recipient never sees who sent it before the reveal; sender chooses how long
+    ok 2 - recipient never sees who sent it before the reveal; sender chooses how long
+      ---
+      duration_ms: 1164.6943
+      type: 'test'
+      ...
+    # Subtest: only 3 messages until they reply; reply works both ways
+    ok 3 - only 3 messages until they reply; reply works both ways
+      ---
+      duration_ms: 873.0332
+      type: 'test'
+      ...
+    # Subtest: revealed when the chosen time is up, both are told; a new anonymous message can start after
+    ok 4 - revealed when the chosen time is up, both are told; a new anonymous message can start after
+      ---
+      duration_ms: 705.8738
+      type: 'test'
+      ...
+    # Subtest: after a disconnect: hidden from the list and no more anonymous messages
+    ok 5 - after a disconnect: hidden from the list and no more anonymous messages
+      ---
+      duration_ms: 694.6862
+      type: 'test'
+      ...
+    # Subtest: recipient can close it; sender then cannot write
+    ok 6 - recipient can close it; sender then cannot write
+      ---
+      duration_ms: 618.7683
+      type: 'test'
+      ...
+    1..6
+ok 1 - Anonymous messages
+  ---
+  duration_ms: 9629.2508
+  type: 'suite'
+  ...
+1..1
+# tests 6
+# suites 1
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10677.5998

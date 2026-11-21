@@ -1,0 +1,30 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Chat attachments
+    # Subtest: location, contact and poll messages; voting and changing a vote
+    ok 1 - location, contact and poll messages; voting and changing a vote
+      ---
+      duration_ms: 2047.3371
+      type: 'test'
+      ...
+    # Subtest: documents: PDFs go through, HTML is refused
+    ok 2 - documents: PDFs go through, HTML is refused
+      ---
+      duration_ms: 721.7581
+      type: 'test'
+      ...
+    1..2
+ok 1 - Chat attachments
+  ---
+  duration_ms: 7408.6815
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8543.988

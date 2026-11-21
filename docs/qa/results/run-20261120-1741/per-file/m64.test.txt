@@ -1,0 +1,47 @@
+TAP version 13
+# ◇ injected env (14) from .env
+# Subtest: Download My Data: a ZIP with the manifest, profile, posts and the original photos, and nobody else’s data
+ok 1 - Download My Data: a ZIP with the manifest, profile, posts and the original photos, and nobody else’s data
+  ---
+  duration_ms: 5827.3401
+  type: 'test'
+  ...
+# Subtest: Restore: a backup of posts that are still here changes nothing (no duplicates)
+ok 2 - Restore: a backup of posts that are still here changes nothing (no duplicates)
+  ---
+  duration_ms: 340.4868
+  type: 'test'
+  ...
+# Subtest: Restore brings back a deleted post with likes and comments only from current, active, unblocked Connections
+ok 3 - Restore brings back a deleted post with likes and comments only from current, active, unblocked Connections
+  ---
+  duration_ms: 822.4808
+  type: 'test'
+  ...
+# Subtest: Restore recreates a post that is gone, with its original id and photo, and no interactions
+ok 4 - Restore recreates a post that is gone, with its original id and photo, and no interactions
+  ---
+  duration_ms: 485.7003
+  type: 'test'
+  ...
+# Subtest: Restore refuses: someone else’s backup, a changed file, unsafe paths, not a ZIP, an old JSON download
+ok 5 - Restore refuses: someone else’s backup, a changed file, unsafe paths, not a ZIP, an old JSON download
+  ---
+  duration_ms: 281.1964
+  type: 'test'
+  ...
+# Subtest: an expired download link stops working
+ok 6 - an expired download link stops working
+  ---
+  duration_ms: 65.5488
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8954.3135

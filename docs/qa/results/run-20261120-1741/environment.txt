@@ -1,0 +1,8 @@
+Soulink QA run 20261120-1741 
+v24.21.0
+11.19.0
+'git' is not recognized as an internal or external command,
+operable program or batch file.
+'git' is not recognized as an internal or external command,
+operable program or batch file.
+        STATE              : 4  RUNNING 

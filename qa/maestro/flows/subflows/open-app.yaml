@@ -1,0 +1,10 @@
+appId: host.exp.exponent
+---
+# Fresh Expo Go, then open the Soulink project from the laptop's Metro server.
+- stopApp
+- clearState
+- openLink: ${EXPO_URL}
+# first bundle build on the laptop can take a few minutes
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 300000

@@ -1,0 +1,54 @@
+XPLT|XPL|P0|Critical|Web,Android,iOS|Post created on Android appears on iOS and Web|Same account on 3 platforms|1) Post on Android 2) Refresh others|—|Same post, media, caption, order
+XPLT|XPL|P0|High|Web,Android,iOS|Profile edit on Web shows on both phones|—|1) Edit on Web|—|Updated everywhere after refresh
+XPLT|XPL|P0|Critical|Web,Android,iOS|Message from iOS arrives live on Android and Web|A on iOS, C on Android and Web|1) A sends|—|Both C sessions get it live; read state syncs
+XPLT|XPL|P0|High|Web,Android,iOS|Connect/accept on Android shows the same state everywhere|—|1) Accept on Android|—|Relationship identical on all platforms
+XPLT|XPL|P0|High|Web,Android,iOS|Delete on Web removes everywhere|—|1) Delete post on Web|—|Gone on phones after refresh; cached media not shown
+XPLT|XPL|P0|High|Web,Android,iOS|Privacy change on iOS takes effect everywhere|—|1) Go private on iOS 2) Stranger checks on Web|—|Posts hidden immediately
+XPLT|XPL|P1|Medium|Web,Android,iOS|Log out on one platform; others behave as designed|3 sessions|1) Log out on Web|—|Only Web ends
+XPLT|CON|P1|High|Web,Android,iOS|Simultaneous edits from two devices|—|1) Edit bio on Web and Android at once|—|Last write wins consistently; no corruption
+DATA|DB|P0|Critical|API|Post-run integrity scan: no orphans or duplicates|After any suite|1) Run integrity SQL pack (likes/comments/messages/members/follows/requests/files referencing missing rows; duplicate pairs)|—|Zero rows from every check
+DATA|DB|P1|High|API|Unique constraints hold (follows, likes, connections, usernames, faces)|—|1) Attempt duplicate inserts via API in parallel|—|One row each
+DATA|DB|P1|High|API|Migrations apply cleanly on empty DB and are idempotent|Empty DB|1) migrate 2) migrate again|—|All 64 applied once; second run no-op
+DATA|DB|P1|High|API|Migration upgrade from a copy of production-shaped data|Prod-like data copy (anonymised)|1) Apply new migrations|—|No errors; data preserved
+DATA|DB|P1|Medium|API|Transactions roll back on error|—|1) Force failure mid-request in multi-write endpoints|—|No partial writes
+PERF|PRF|P1|High|API|Load: 200 concurrent virtual users on core journeys for 15 min|E1 with seeded data|1) k6 mix: feed, profile, post, like, message|—|p95 < 800 ms; errors < 1%
+PERF|PRF|P2|Medium|API|Spike: 0 to 200 users in 30 s|—|1) k6 spike|—|Recovers; no crash; errors return to < 1% within 1 min
+PERF|PRF|P2|Medium|API|Soak: 50 users for 2 h|—|1) k6 soak|—|No memory growth beyond 320 MB heap; latency stable
+PERF|PRF|P2|Medium|API|Volume: 100k posts, 1M messages|Seeded DB|1) Feed, search, chat history queries|—|p95 within target; no table scans on hot queries
+PERF|PRF|P1|High|API|Uploads under load: 20 parallel 50 MB Sparks|—|1) Upload in parallel|—|No out-of-memory; all succeed or fail cleanly
+PERF|PRF|P2|Medium|Android,iOS|App launch and screen times|Release build|1) Cold start 2) Open Home, Sparks, Chat|—|Cold start < 3 s on mid-range device; telemetry matches
+SECU|SEC|P0|Critical|API|IDOR/BOLA matrix over every endpoint taking an id|Personas A (owner) and X (attacker)|1) X calls each endpoint in API-INVENTORY with A's object ids|—|403/404 everywhere; no data in body
+SECU|SEC|P0|Critical|API|Every protected endpoint refuses missing/invalid token|—|1) Call all endpoints with no token, expired session, garbage token|—|401 for all except documented public ones
+SECU|SEC|P0|High|API|SQL injection on all text inputs|—|1) Payloads in query, body, path|Standard payload list|No SQL errors, no data change
+SECU|SEC|P0|High|Web|Stored XSS in captions, bios, comments, messages, group names|—|1) Save script payloads 2) View on Web and console|<img onerror>, <script>|Rendered as text; no execution
+SECU|SEC|P0|High|API|Upload abuse: wrong type, polyglot, huge, zip bomb in restore|—|1) Upload each|Files|Rejected; server stays healthy
+SECU|SEC|P0|High|API|Media links are signed and expire|—|1) Open /uploads path without token 2) After expiry 3) Another user's private media with own token|—|403 link_expired / not found
+SECU|SEC|P1|High|API|Security headers, CORS and transport|Prod-like config|1) Check helmet headers 2) Cross-origin request from other site|—|Headers present; CORS limited to app origins; HTTPS only
+SECU|SEC|P1|High|API|Errors never expose stack traces or SQL|—|1) Trigger 400/404/500|—|Generic JSON errors only
+SECU|SEC|P1|High|API|OWASP ZAP baseline + API scan on E1|—|1) Run ZAP|—|No High findings open
+SECU|SEC|P1|High|Android|MobSF static scan of release APK|—|1) Scan APK|—|No High findings (exported components, cleartext, secrets)
+SECU|SEC|P1|High|Android,iOS|Tokens kept in secure storage, not plain AsyncStorage|—|1) Inspect app storage on emulator|—|JWT only in SecureStore/Keychain
+SECU|SEC|P1|Medium|API|Dependency audit triage|—|1) npm audit server and mobile|—|No exploitable runtime High/Critical left
+SECU|SEC|P1|High|Android,iOS|Deep links cannot trigger actions without the user|—|1) Open crafted soulink:// links|—|Only navigation; no state change
+SECU|SEC|P2|Medium|Android,iOS|Screenshots blocked on sensitive screens where designed|—|1) Screenshot in private chat|—|Blocked or warned per design
+A11Y|A11Y|P1|Medium|Web|axe-core: no serious/critical violations on key screens|—|1) Run axe on login, home, profile, chat, settings|—|0 serious/critical
+A11Y|A11Y|P1|Medium|Android|TalkBack reads all controls with labels|TalkBack on|1) Navigate core journeys|—|Every button has a meaningful label; focus order logical
+A11Y|A11Y|P1|Medium|iOS|VoiceOver reads all controls with labels|VoiceOver on|1) Navigate core journeys|—|Same as TalkBack
+A11Y|A11Y|P2|Medium|All|Large text (200%) does not cut off content|—|1) Raise system font size|—|Text wraps, nothing clipped
+A11Y|A11Y|P2|Medium|All|Colour contrast >= 4.5:1 for text|—|1) Measure key screens|—|Passes
+A11Y|A11Y|P2|Low|All|Touch targets >= 44 pt|—|1) Measure buttons|—|Passes
+NETW|NET|P0|High|Android,iOS|Post upload survives network drop|—|1) Start upload 2) Drop network 3) Restore|—|Clear failure and retry; no duplicate post; no lost caption
+NETW|NET|P1|Medium|Android,iOS|Slow 3G and 500 ms latency|Network throttled|1) Use feed, chat, upload|—|Loading states shown; no crashes; timeouts handled
+NETW|NET|P1|Medium|Android,iOS|Switch Wi-Fi to mobile data mid-chat|—|1) Switch|—|Socket reconnects; no missed messages
+NETW|NET|P1|Medium|All|Server waking (503 waking)|Server cold|1) Open app|—|"Waking up" message then normal
+INST|INS|P0|High|Android|Fresh install from Play internal testing|—|1) Install 2) Sign up|—|Works end to end
+INST|INS|P0|High|Android,iOS|Store update keeps login and data|Old version logged in|1) Update to new build|—|Still logged in; settings kept
+INST|INS|P1|Medium|Android,iOS|OTA update applies on restart|New OTA on channel|1) Open app 2) Update Now 3) Restart|—|New version running; data kept
+INST|INS|P1|Medium|Android,iOS|Reinstall: login required again, data on server intact|—|1) Uninstall 2) Install|—|Login works; all content back
+UI|UI|P1|Medium|iOS|Screens fit iPhone 17 Pro Max and small iPhones (safe areas)|—|1) Visit every screen|—|No cut-off or overlap with notch/home bar
+UI|UI|P1|Medium|Android|Screens fit small and large Android phones; back button behaviour|—|1) Visit every screen 2) Press Back|—|No clipping; Back goes to previous screen or exits from Home
+UI|UI|P1|Medium|Web|Desktop, tablet, phone viewports in Chrome, Edge, Firefox, Safari|—|1) Visit key screens in each|—|Layout intact; no console errors
+UI|UI|P2|Low|All|Empty states, loading indicators, error and success messages are consistent|—|1) Trigger each state|—|Consistent wording and style
+UI|UI|P2|Low|Android,iOS|Keyboard does not cover inputs (chat, comments, forms)|—|1) Focus each input|—|Input stays visible
+CICD|REG|P0|High|API|Smoke suite S0 green before every push|—|1) Run RUN-QA smoke|—|All pass; push blocked otherwise
+CICD|REG|P1|High|API|Full regression S2 green before release|—|1) Run RUN-QA.bat|—|All pass; report archived
