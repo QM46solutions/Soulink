@@ -688,7 +688,7 @@ export default function SoulGames() {
   const title = q.kind === 'more' && q.text === 'Which matters more?' ? 'Which matters more to you?' : q.text;
   const lastOne = i + 1 >= steps.length;
   return (
-    <BrandScreen back onBack={back} center={false}
+    <BrandScreen back onBack={back} center={false} fit={false}
       right={<><Bar value={(i + (ready(q, v) ? 1 : 0)) / Math.max(1, steps.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
       <View style={{ marginTop: space.md, marginBottom: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>

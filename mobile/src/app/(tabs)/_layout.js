@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useRealtime } from '../../lib/realtime';
 import { useAuth } from '../../lib/auth';
-import { confirm } from '../../lib/confirm';
+import { confirm, notice } from '../../lib/confirm';
+import { enablePush, pushAfterLogin, setPushChoice } from '../../lib/push';
 import { mediaUrl } from '../../lib/api';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router/js-tabs';
@@ -34,9 +35,46 @@ function useEmailReminder(user) {
   }, [user?.onboardingDone, user?.needsEmail]);
 }
 
+// After logging in: explain notifications and ask once on this phone. Only "Allow" shows the phone's own question,
+// and notifications are switched on only if the phone then allows them. "Not now" is remembered (no asking at every
+// login); Settings › Notifications turns them on later. Someone who said yes before is reconnected quietly.
+let pushAsked = false;
+function usePushAsk(user) {
+  useEffect(() => {
+    if (pushAsked || !user?.id || !user.onboardingDone || user.needsEmail) return undefined; // the email reminder goes first
+    const t = setTimeout(async () => {
+      pushAsked = true;
+      const next = await pushAfterLogin();
+      if (next === 'reconnect') { enablePush().catch(() => {}); return; }
+      if (next !== 'ask') return;
+      const yes = await confirm('Turn on notifications?',
+        'Soulink can tell you about new messages, Connect requests and replies, even when the app is closed. You choose which kinds in Settings › Notifications, and can switch them off any time.',
+        { confirmText: 'Allow', cancelText: 'Not now' });
+      if (!yes) { await setPushChoice('later'); return; }
+      try {
+        await enablePush();
+        await setPushChoice('allowed');
+      } catch (e) {
+        // the phone said no: notifications stay off, and we don't ask again
+        if (e.code === 'blocked') {
+          const open = await confirm('Notifications are off', e.message, { confirmText: 'Open phone settings', cancelText: 'Not now' });
+          // they went to allow it: the next time Soulink opens it connects them (if the phone now allows it)
+          await setPushChoice(open ? 'allowed' : 'later');
+          if (open) Linking.openSettings().catch(() => {});
+        } else {
+          await setPushChoice('later');
+          if (e.code !== 'declined') notice("Couldn't turn on notifications", e.message || String(e));
+        }
+      }
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [user?.id, user?.onboardingDone, user?.needsEmail]);
+}
+
 export default function TabsLayout() {
   const { user } = useAuth();
   useEmailReminder(user);
+  usePushAsk(user);
   const { refreshUnread } = useRealtime();
   const insets = useSafeAreaInsets();
   return (

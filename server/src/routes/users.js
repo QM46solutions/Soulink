@@ -130,6 +130,7 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
     termsVersion: z.string().max(20).optional(),
   }).parse(req.body);
   const { acceptTerms, termsVersion } = data; delete data.acceptTerms; delete data.termsVersion;
+  if (data.isPrivate === undefined) data.isPrivate = true; // new accounts are private unless the person chose public
   if (config.faceRequired && !req.user.face_verified) throw badRequest('Complete the face scan first', 'face_required');
   // every account has a confirmed email (it can only be set through a code sent to it): sign-in and recovery
   if (config.signupEmailRequired && !req.user.email && !isReview(req.user.phone)) throw badRequest('Add and confirm your email first', 'email_required');

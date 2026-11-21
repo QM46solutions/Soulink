@@ -11,6 +11,9 @@ import { api } from './api';
 
 const TOKEN = 'soulink.expoPushToken';
 const WANT = 'soulink.pushWanted';
+// The person's answer to "Turn on notifications?" on this phone: 'allowed' | 'later'. Kept when logging out, so
+// the question is asked once per phone, not at every login (Settings › Notifications changes it any time).
+const CHOICE = 'soulink.pushChoice';
 const projectId = () => Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId || null;
 
 // notifications that arrive while the app is open still show as a banner
@@ -51,15 +54,40 @@ export async function pushEnabled() {
 export async function enablePush() {
   if (!projectId()) throw new Error('Notifications will work in the installed Soulink app (TestFlight or the Play Store version).');
   await channel().catch(() => {});
-  let { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
-  if (status !== 'granted') throw new Error('Notifications are off for Soulink. Allow them in your phone’s Settings › Notifications › Soulink, then try again.');
+  let { status, canAskAgain } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted' && canAskAgain !== false) ({ status, canAskAgain } = await Notifications.requestPermissionsAsync());
+  if (status !== 'granted') {
+    // Refused before (or "Don't allow" in the phone's own question): the phone won't ask again, only its Settings can
+    const e = new Error(canAskAgain === false
+      ? 'Notifications are turned off for Soulink in your phone settings. Open Settings › Notifications › Soulink and allow them, then come back.'
+      : 'You chose not to allow notifications. You can turn them on any time in Settings › Notifications.');
+    e.code = canAskAgain === false ? 'blocked' : 'declined';
+    throw e;
+  }
   try { await save(await token()); return true; }
   catch (e) {
     const m = String(e?.message || '');
     if (/firebase|fcm|google/i.test(m)) throw new Error('Android notifications aren’t set up in this version of the app yet. They will work after the next app update from the Play Store / test link.');
     throw new Error(`Couldn't connect this phone to notifications. ${m}`.trim());
   }
+}
+
+export const pushChoice = async () => { try { return await AsyncStorage.getItem(CHOICE); } catch { return null; } };
+export const setPushChoice = async (c) => { try { await AsyncStorage.setItem(CHOICE, c); } catch { /* asked again next time */ } };
+
+/**
+ * After logging in: 'ask' (never asked on this phone: explain, then ask), 'reconnect' (they said yes before and the
+ * phone still allows it: connect this login quietly) or 'none'. Never asks the phone's own question by itself.
+ */
+export async function pushAfterLogin() {
+  try {
+    if (!projectId()) return 'none';
+    const choice = await pushChoice();
+    if (choice === 'later') return 'none';
+    if (await pushEnabled()) return 'none';
+    if (choice === 'allowed') return (await Notifications.getPermissionsAsync()).status === 'granted' ? 'reconnect' : 'none';
+    return 'ask';
+  } catch { return 'none'; }
 }
 
 /** Switching notifications off (Settings, or logging out): this phone stops getting them. */

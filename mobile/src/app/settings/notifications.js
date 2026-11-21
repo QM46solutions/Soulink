@@ -1,10 +1,10 @@
 // Settings > Notifications: switch phone notifications on/off, and choose which kinds reach you.
 import { useEffect, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { Linking, ScrollView } from 'react-native';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { notice } from '../../lib/confirm';
-import { disablePush, enablePush, pushEnabled, pushSupport, sendTestPush } from '../../lib/push';
+import { confirm, notice } from '../../lib/confirm';
+import { disablePush, enablePush, pushEnabled, pushSupport, sendTestPush, setPushChoice } from '../../lib/push';
 import { MenuRow, Note, Section, Toggle } from '../../components/SettingsUI';
 import { ErrorText, s } from '../../components/ui';
 import { feedbackPrefs, setFeedbackPrefs } from '../../lib/feedback';
@@ -31,9 +31,14 @@ export default function NotificationSettings() {
   const togglePhone = async (on) => {
     setBusy(true); setError(null);
     try {
-      if (on) { await enablePush(); setPhoneOn(true); await sendTestPush().catch(() => {}); }
-      else { await disablePush(); setPhoneOn(false); }
-    } catch (e) { notice("Couldn't turn on notifications", e.message || String(e)); setPhoneOn(await pushEnabled()); }
+      if (on) { await enablePush(); await setPushChoice('allowed'); setPhoneOn(true); await sendTestPush().catch(() => {}); }
+      else { await disablePush(); await setPushChoice('later'); setPhoneOn(false); }
+    } catch (e) {
+      setPhoneOn(await pushEnabled());
+      if (e.code === 'blocked') {
+        if (await confirm('Notifications are off', e.message, { confirmText: 'Open phone settings', cancelText: 'Not now' })) Linking.openSettings().catch(() => {});
+      } else notice("Couldn't turn on notifications", e.message || String(e));
+    }
     finally { setBusy(false); }
   };
   const prefs = user.settings.notifyPrefs || {};

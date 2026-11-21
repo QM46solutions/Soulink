@@ -4,7 +4,7 @@
 //   1 look straight  →  2 turn your head one way  →  3 turn the other way   (proves a live person)
 // The server turns the scan into a face fingerprint and blocks faces that already have an account.
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Easing, Linking, Platform, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +24,10 @@ const POSES = [
 const STRAIGHT = 0.18;   // |yaw| at most this = looking straight
 const TURNED = 0.22;     // |yaw| at least this = head turned
 const GIVE_UP_MS = 90000;
+const CAMERA_START_MS = 12000; // some Android phones never report "camera ready": we stop waiting after this
+const MAX_HICCUPS = 5;         // a dropped request or a missed photo is retried; this many in a row ends the scan
+// A slow or dropped connection, a busy server or a camera that missed one photo: worth another try, not a failure
+const passing = (e) => !e?.status || e.status === 0 || e.status === 408 || e.status === 429 || e.status >= 500;
 const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
 function Ring({ spin, children, color }) {
@@ -60,9 +64,11 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   const [error, setError] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [coach, setCoach] = useState(null); // { text, good }
+  const [blocked, setBlocked] = useState(false); // camera permission turned off for good: only phone Settings can fix it
   const cam = useRef(null);
   const running = useRef(false);
   const alive = useRef(true);
+  const gen = useRef(0); // which scan is current: a scan that was stopped never reports back
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => () => { alive.current = false; }, []);
@@ -73,31 +79,72 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   }, [spin]);
 
   const snap = async () => {
+    if (!cam.current) throw new Error('camera not ready');
     const pic = await cam.current.takePictureAsync({ quality: 0.6, shutterSound: false });
     const small = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
     return small.base64;
   };
 
+  // Some phones (mostly Android) never say the camera is ready: try taking photos anyway after a while
+  useEffect(() => {
+    if (phase !== 'scanning' || cameraReady) return undefined;
+    const t = setTimeout(() => { if (alive.current) setCameraReady(true); }, CAMERA_START_MS);
+    return () => clearTimeout(t);
+  }, [phase, cameraReady]);
+
+  // Leaving the app mid-scan (a call, the notification shade) stops the camera: pause the scan and start again
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s !== 'active' && phase === 'scanning' && running.current) {
+        gen.current += 1; running.current = false; // the running loop stops at its next step
+        setError('The scan stopped because Soulink went to the background. Tap Try again to scan.');
+        setPhase('failed');
+      }
+    });
+    return () => sub.remove();
+  }, [phase]);
+
   // Live loop: check a frame, coach, and keep it when it's clear and the head is in the right position
   useEffect(() => {
     if (phase !== 'scanning' || !cameraReady || running.current) return;
     running.current = true;
+    const g = gen.current;
+    const mine = () => alive.current && gen.current === g; // a cancelled scan stops quietly
     (async () => {
       try {
         const frames = [];
         let firstTurn = 0;
         let lastHint = null;
+        let hiccups = 0;
         const started = Date.now();
         await sleep(500); // let the camera settle its exposure
         while (frames.length < POSES.length) {
-          if (!alive.current) return;
+          if (!mine()) return;
           if (Date.now() - started > GIVE_UP_MS) {
             throw new Error(lastHint ? `We couldn't finish the scan. ${lastHint}` : "We couldn't finish the scan. Try again in better light.");
           }
           const i = frames.length;
-          const shot = await snap();
-          const c = await api('/face/check', { method: 'POST', body: { frame: shot }, timeoutMs: 20000 });
-          if (!alive.current) return;
+          let shot; let c;
+          try {
+            shot = await snap();
+            c = await api('/face/check', { method: 'POST', body: { frame: shot }, timeoutMs: 20000 });
+            hiccups = 0;
+          } catch (e) {
+            if (!mine()) return;
+            // one missed photo or a dropped request used to end the whole scan: now it tries again
+            if (!passing(e) && e.message !== 'camera not ready' && !/camera|capture|picture|image/i.test(e.message || '')) throw e;
+            hiccups += 1;
+            if (hiccups >= MAX_HICCUPS) {
+              throw new Error(e.status === 429 ? 'Too many tries for now. Wait a few minutes, then tap Try again.'
+                : e.status != null && e.status !== 0 ? 'Our face check is busy right now. Wait a minute, then tap Try again.'
+                  : e.status === 0 ? 'Your internet connection dropped during the scan. Check it, then tap Try again.'
+                    : "The camera couldn't take a photo. Close other apps that use the camera, then tap Try again.");
+            }
+            setCoach({ text: e.status === 0 ? 'Slow connection, still trying…' : 'Hold on, trying again…', good: false });
+            await sleep(1000 * hiccups);
+            continue;
+          }
+          if (!mine()) return;
           if (!c.ok) { lastHint = c.hint; setCoach({ text: c.hint, good: false }); continue; }
           const yaw = c.yaw || 0;
           const turned = Math.abs(yaw) >= TURNED;
@@ -130,22 +177,35 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
             }
           } else throw e;
         }
-        if (!alive.current) return;
+        if (!mine()) return;
         setPhase('done');
         onVerified?.(r.user);
       } catch (e) {
-        if (!alive.current) return;
+        if (!mine()) return;
         setError(e.message || 'Something went wrong. Please try again.');
         setPhase('failed');
-      } finally { running.current = false; }
+      } finally { if (gen.current === g) running.current = false; }
     })();
   }, [phase, cameraReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
     if (!agreed) return;
     setError(null); setShots(0); setPose(0); setCameraReady(false); setCoach(null);
-    const p = permission?.granted ? permission : await requestPermission();
-    if (!p.granted) { setError('Soulink needs your camera for the face scan. Allow camera access and try again.'); setPhase('failed'); return; }
+    let p = permission;
+    if (!p?.granted) {
+      try { p = await requestPermission(); } catch { p = null; }
+    }
+    if (!p?.granted) {
+      // asked before and refused for good: the phone won't show the question again, only its Settings can allow it
+      const forGood = p && p.canAskAgain === false && Platform.OS !== 'web';
+      setBlocked(!!forGood);
+      setError(forGood
+        ? 'Camera access is turned off for Soulink. Open phone settings, allow Camera, then come back and tap Try again.'
+        : 'Soulink needs your camera for the face scan. Allow camera access and try again.');
+      setPhase('failed');
+      return;
+    }
+    setBlocked(false);
     setPhase('scanning');
   };
 
@@ -175,7 +235,8 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           </View>
         )}
         <Consent face value={agreed} onChange={setAgreed} />
-        <Button title={failed ? 'Try again' : 'Start face scan'} onPress={start} disabled={!agreed} style={{ marginTop: space.lg }} />
+        {failed && blocked ? <Button variant="ghost" title="Open phone settings" onPress={() => Linking.openSettings().catch(() => {})} style={{ marginTop: space.lg }} /> : null}
+        <Button title={failed ? 'Try again' : 'Start face scan'} onPress={start} disabled={!agreed} style={{ marginTop: failed && blocked ? space.sm : space.lg }} />
       </View>
     );
   }

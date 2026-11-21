@@ -70,7 +70,7 @@ export default function Setup() {
   const [isCreator, setIsCreator] = useState(false);
   const [interests, setInterests] = useState([]);
   const [bio, setBio] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true); // private by default: they can choose public here or later in Settings
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const debounce = useRef(null);
@@ -212,7 +212,7 @@ export default function Setup() {
             <Ionicons name={isPrivate ? 'lock-closed' : 'earth'} size={20} color={colors.aura} style={{ marginRight: space.md }} />
             <View style={{ flex: 1, marginRight: space.md }}>
               <Text style={{ color: colors.text, fontFamily: fonts.semibold }}>{isPrivate ? 'Private account' : 'Public account'}</Text>
-              <Text style={[s.hint, { marginLeft: 0 }]}>{isPrivate ? 'Only your Connections see your posts and Sparks.' : 'Anyone on Soulink can see your posts.'}</Text>
+              <Text style={[s.hint, { marginLeft: 0 }]}>{isPrivate ? 'Only your Connections see your posts and Sparks.' : 'Anyone on Soulink can see your posts and Sparks.'}</Text>
             </View>
             <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.soul, false: colors.border }} thumbColor="#fff" />
           </View>

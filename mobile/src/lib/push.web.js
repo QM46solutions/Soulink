@@ -109,3 +109,9 @@ export async function resyncPush() {
 
 /** Phone-app only (see push.js): taps on a notification open its screen. The web version uses the service worker. */
 export function usePushTaps() {}
+
+// The "Turn on notifications?" question after logging in is for the phone app; in a browser it stays in Settings
+// (browsers only allow the question straight after a tap, and iPhone needs the Home Screen icon first).
+export const pushChoice = async () => null;
+export const setPushChoice = async () => {};
+export const pushAfterLogin = async () => 'none';

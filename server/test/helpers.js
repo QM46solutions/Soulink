@@ -40,7 +40,8 @@ export async function makeUser(overrides = {}) {
   const done = await api()
     .post('/users/me/complete-onboarding')
     .set('Authorization', `Bearer ${token}`)
-    .send({ username, displayName: overrides.displayName || `User ${phone.slice(-4)}`, birthDate: '1995-05-10' })
+    // tests make public accounts unless they ask for private (real sign-ups are private by default)
+    .send({ username, displayName: overrides.displayName || `User ${phone.slice(-4)}`, birthDate: '1995-05-10', isPrivate: !!overrides.isPrivate })
     .expect(200);
   if (overrides.isPrivate) {
     await api().patch('/users/me').set('Authorization', `Bearer ${token}`).send({ isPrivate: true }).expect(200);

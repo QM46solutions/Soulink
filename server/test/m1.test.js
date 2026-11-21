@@ -126,6 +126,17 @@ describe('Follow graph (Instagram rules)', () => {
     assert.equal(p2.body.counts.followers, 0);
   });
 
+  test('a new account is private unless the person chooses public', async () => {
+    const phone = `8${String(Date.now()).slice(-9)}`;
+    const req1 = await api().post('/auth/otp/request').send({ phone }).expect(200);
+    const v = await api().post('/auth/otp/verify').send({ phone, code: req1.body.devCode }).expect(200);
+    const h = { Authorization: `Bearer ${v.body.token}` };
+    const done = await api().post('/users/me/complete-onboarding').set(h).send({ username: `priv${phone.slice(-6)}`, displayName: 'Private Person', birthDate: '1995-05-10' }).expect(200);
+    assert.equal(done.body.user.settings.isPrivate, true);
+    const pub = await api().patch('/users/me').set(h).send({ isPrivate: false }).expect(200);
+    assert.equal(pub.body.user.settings.isPrivate, false);
+  });
+
   test('private account: Connect only (Follow is refused); an old pending follow request can still be accepted', async () => {
     const a = await makeUser(); const b = await makeUser({ isPrivate: true });
     const no = await api().post(`/users/${b.user.id}/follow`).set(a.h).expect(403);

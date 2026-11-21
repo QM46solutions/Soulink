@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GradientText, Divider } from './brand';
 import { colors, fonts, space } from '../lib/theme';
 
-export function BrandScreen({ children, back, onBack, right, center = true }) {
+export function BrandScreen({ children, back, onBack, right, center = true, fit = true }) {
   const goBack = onBack || (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -28,6 +28,7 @@ export function BrandScreen({ children, back, onBack, right, center = true }) {
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FitContent
           center={center}
+          fit={fit}
           contentContainerStyle={{ paddingHorizontal: space.xl, paddingBottom: space.xl }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

@@ -9,11 +9,12 @@ import { useKeepFocusedVisible } from '../lib/keyboard';
 
 const MIN_SCALE = 0.75;
 
-export default function FitContent({ children, contentContainerStyle, center = true, ...scrollProps }) {
+export default function FitContent({ children, contentContainerStyle, center = true, fit = true, ...scrollProps }) {
   const [box, setBox] = useState({ w: 0, h: 0 }); // the space the screen has (inside its padding)
   const [natural, setNatural] = useState(0); // how tall the content is at full size
   const [scale, setScale] = useState(1);
   const keyboard = useRef(false);
+  const changes = useRef([]); // when the scale last changed: guards against a back-and-forth loop
   const scrollRef = useRef(null);
   const keep = useKeepFocusedVisible(scrollRef);
 
@@ -25,10 +26,18 @@ export default function FitContent({ children, contentContainerStyle, center = t
 
   // pick the scale whenever the space or the content changes (not while the keyboard is up)
   useEffect(() => {
-    if (!box.h || !natural || keyboard.current) return;
+    if (!fit || !box.h || !natural || keyboard.current) return;
     const k = natural > box.h ? box.h / natural : 1;
     const next = k >= 1 ? 1 : Math.max(MIN_SCALE, Math.floor(k * 100) / 100);
-    if (Math.abs(next - scale) > 0.01 || (next === 1 && scale !== 1)) setScale(next);
+    if (!(Math.abs(next - scale) > 0.01 || (next === 1 && scale !== 1))) return;
+    // Shrinking re-wraps the text in a wider box, which changes the height, which can call for the other scale
+    // again: the page shook. Growing back needs clear room (4%), and after 3 changes in 2 seconds the scale holds.
+    if (next > scale && natural * next > box.h * 0.96) return;
+    const now = Date.now();
+    changes.current = changes.current.filter((t) => now - t < 2000);
+    if (changes.current.length >= 3) return;
+    changes.current.push(now);
+    setScale(next);
   }, [box.h, natural]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pad = flat(contentContainerStyle);
@@ -41,7 +50,7 @@ export default function FitContent({ children, contentContainerStyle, center = t
     if (Math.abs(w - box.w) > 1 || (Math.abs(h - box.h) > 1 && !keyboard.current)) setBox({ w, h: keyboard.current ? box.h : h });
   };
 
-  const scaled = scale < 1 && box.w > 0;
+  const scaled = fit && scale < 1 && box.w > 0;
   return (
     <ScrollView
       {...scrollProps}
