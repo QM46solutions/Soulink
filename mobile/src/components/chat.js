@@ -636,7 +636,16 @@ export function TranslateSetup({ visible, value, onClose, onStart, onStop }) {
   const [to, setTo] = useState(value?.to || 'en');
   const [output, setOutput] = useState(value?.output || 'text');
   const [voiceOk, setVoiceOk] = useState(trCaps ? trCaps.voice : false);
-  useEffect(() => { if (visible) { setTo(value?.to || 'en'); setOutput(value?.output || 'text'); loadTrCaps().then((c) => { setVoiceOk(!!c.voice); if (!c.voice) setOutput('text'); }); } }, [visible, value]);
+  // Start from the current choice only when the sheet opens. The chat screen re-renders often (new messages, typing),
+  // and `value` is a fresh object each time, so depending on it reset the picked language straight back to the default.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  useEffect(() => {
+    if (!visible) return;
+    const v = valueRef.current;
+    setTo(v?.to || 'en'); setOutput(v?.output || 'text');
+    loadTrCaps().then((c) => { setVoiceOk(!!c.voice); if (!c.voice) setOutput('text'); });
+  }, [visible]);
   const backdropClose = useSafeClose(visible, onClose);
   const bottomPad = useBottomInset();
   if (!visible) return null;
