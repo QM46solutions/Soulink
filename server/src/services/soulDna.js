@@ -65,7 +65,10 @@ export function cleanAnswers(answers) {
   return out;
 }
 /** Only answers to today's activities (older Soul DNA answers live on in the Soul DNA itself, as its base). */
-export const knownAnswers = (answers) => Object.fromEntries(Object.entries(answers || {}).filter(([id]) => QMAP[id]));
+// Answers to today's activities only, and only in today's shape: a few ids are reused from the v6 games with a
+// different kind (cf3 was a number, now an object), and an old-shaped answer would score as NaN (and fail the save).
+// The v6 answers themselves carry on through the v6 Soul DNA (its `base`).
+export const knownAnswers = (answers) => Object.fromEntries(Object.entries(answers || {}).filter(([id, v]) => QMAP[id] && validAnswer(QMAP[id], v)));
 export const answeredCount = (answers, plan) => plan.filter((id) => answers?.[id] !== undefined).length;
 /** The whole first session played. */
 export const isComplete = (answers, plan) => plan.every((id) => answers?.[id] !== undefined);

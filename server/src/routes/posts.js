@@ -162,6 +162,7 @@ r.get('/user/:userId', ah(async (req, res) => {
 r.get('/saved', ah(async (req, res) => {
   const rows = await many(`${SELECT} JOIN saved_posts sv2 ON sv2.post_id = p.id AND sv2.user_id = $1
     WHERE p.deleted_at IS NULL AND p.is_anonymous = 0 AND (p.archived_at IS NULL OR p.author_id = $1) AND (p.suspended_at IS NULL OR p.author_id = $1)
+      AND (u.is_private = 0 OR p.author_id = $1 OR EXISTS (SELECT 1 FROM connections pc WHERE (pc.user_a = $1 AND pc.user_b = p.author_id) OR (pc.user_b = $1 AND pc.user_a = p.author_id)))
       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=p.author_id) OR (b.blocker_id=p.author_id AND b.blocked_id=$1))
     ORDER BY sv2.created_at DESC`, [req.user.id]);
   res.json({ posts: rows.map((x) => postView(x, req.user.id)) });

@@ -39,9 +39,10 @@ export async function relationship(viewerId, targetId) {
   };
 }
 
-/** Can the viewer see this user's posts, stories and follower lists? (Instagram rules) */
+/** Can the viewer see this user's posts, Sparks, stories and follower lists?
+ *  Public: everyone. Private: only their Connections (a one-way follow is not enough, even one from before they went private). */
 export function canViewContent(target, rel) {
-  return rel.isMe || !target.is_private || rel.following === 'accepted' || !!rel.connected;
+  return rel.isMe || !target.is_private || !!rel.connected;
 }
 
 export async function counts(userId) {

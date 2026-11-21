@@ -148,7 +148,7 @@ export default function CreatePost() {
         </Pressable>
         <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onPick={setMusic} />
         <View style={{ marginTop: space.lg }}><CityField value={place} onChange={setPlace} autoLocate={false} label="📍 Add location (optional)" /></View>
-        <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>Seen by your Connections and Followers{user.settings?.isPrivate ? '' : ' and anyone who visits your profile'}</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, textAlign: 'center', marginTop: 4 }}>{user.settings?.isPrivate ? 'Seen only by your Connections' : 'Seen by your Connections, Followers and anyone who visits your profile'}</Text>
         {/* community rule, told to the person posting (not to people who mark posts) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: space.lg, padding: space.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(26,24,40,0.7)' }}>
           <Ionicons name="alert-circle" size={17} color={colors.aura} style={{ marginRight: 8, marginTop: 1 }} />

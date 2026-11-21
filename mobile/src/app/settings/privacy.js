@@ -33,7 +33,7 @@ export default function AccountPrivacy() {
     <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: 40 }}>
       <ErrorText>{error || err}</ErrorText>
       <Section>Who can see you</Section>
-      <Toggle title="Private account" text="Only people you've accepted (your Connections and Followers) see your posts." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
+      <Toggle title="Private account" text="Only your Connections see your posts, Sparks and stories. Other people see just your name and photo." value={user.settings.isPrivate} onChange={(v) => update({ isPrivate: v })} />
       <Toggle title="Show me in Discover" text="Let Soulink suggest you to people who match you above 75%." value={user.settings.showInDiscover} onChange={(v) => update({ showInDiscover: v })} />
       <Toggle title="Show my Pulse meter" text={user.settings.showPulse === false ? 'Off: the Pulse meter is hidden on your profile.' : 'Shows how active and loved your profile is, on your profile.'} value={user.settings.showPulse !== false} onChange={(v) => update({ showPulse: v })} />
 

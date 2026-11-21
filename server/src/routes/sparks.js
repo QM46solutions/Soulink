@@ -133,9 +133,9 @@ const SELECT = `SELECT s.*,
     CASE WHEN EXISTS (SELECT 1 FROM connections cn WHERE (cn.user_a = $1 AND cn.user_b = s.author_id) OR (cn.user_b = $1 AND cn.user_a = s.author_id)) THEN 1 ELSE 0 END AS connected,
     u.id AS uid, u.username, u.display_name, u.avatar_url, u.is_private, u.face_verified, u.soul_type
   FROM sparks s JOIN users u ON u.id = s.author_id`;
-// Sparks are a public stage, except from private accounts (only their Connections / Followers see those) and blocked people
+// Sparks are a public stage, except from private accounts (only their Connections see those) and blocked people
 const VISIBLE = `s.deleted_at IS NULL AND (s.suspended_at IS NULL OR s.author_id = $1) AND (u.deactivated_at IS NULL OR s.author_id = $1)
-  AND (u.is_private = 0 OR s.author_id = $1 OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.followee_id = s.author_id AND f.status = N'accepted'))
+  AND (u.is_private = 0 OR s.author_id = $1 OR EXISTS (SELECT 1 FROM connections pc WHERE (pc.user_a = $1 AND pc.user_b = s.author_id) OR (pc.user_b = $1 AND pc.user_a = s.author_id)))
   AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = $1 AND b.blocked_id = s.author_id) OR (b.blocker_id = s.author_id AND b.blocked_id = $1))`;
 
 const parse = (v) => { try { return JSON.parse(v || 'null'); } catch { return null; } };

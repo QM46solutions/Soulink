@@ -142,9 +142,11 @@ describe('Follow graph (Instagram rules)', () => {
     assert.equal(bp.body.relationship.requestedYou, true);
 
     await api().post(`/users/me/follow-requests/${a.user.id}/accept`).set(b.h).expect(200);
+    // A private account's posts and lists are for its Connections only: an accepted old follow is not enough
     const p2 = await api().get(`/users/u/${b.user.username}`).set(a.h).expect(200);
-    assert.equal(p2.body.canViewContent, true);
-    const fl = await api().get(`/users/${b.user.id}/followers`).set(a.h).expect(200);
+    assert.equal(p2.body.canViewContent, false);
+    await api().get(`/users/${b.user.id}/followers`).set(a.h).expect(403);
+    const fl = await api().get(`/users/${b.user.id}/followers`).set(b.h).expect(200);
     assert.equal(fl.body.users[0].id, a.user.id);
 
     const notes = await api().get('/notifications').set(a.h).expect(200);

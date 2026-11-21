@@ -45,7 +45,7 @@ export function buildMind(answers = {}, base = null) {
   for (const t of Object.keys(TRAITS)) ev[t] = [PRIOR.w, PRIOR.w * PRIOR.m, PRIOR.w * PRIOR.m * PRIOR.m];
   const add = (set, w) => {
     for (const [t, v] of Object.entries(set || {})) {
-      if (!ev[t] || !(w > 0)) continue;
+      if (!ev[t] || !(w > 0) || !Number.isFinite(v)) continue; // a malformed answer adds no evidence
       ev[t][0] += w; ev[t][1] += w * v; ev[t][2] += w * v * v;
     }
   };

@@ -212,7 +212,7 @@ export default function Setup() {
             <Ionicons name={isPrivate ? 'lock-closed' : 'earth'} size={20} color={colors.aura} style={{ marginRight: space.md }} />
             <View style={{ flex: 1, marginRight: space.md }}>
               <Text style={{ color: colors.text, fontFamily: fonts.semibold }}>{isPrivate ? 'Private account' : 'Public account'}</Text>
-              <Text style={[s.hint, { marginLeft: 0 }]}>{isPrivate ? 'Only people you approve see your posts.' : 'Anyone on Soulink can see your posts.'}</Text>
+              <Text style={[s.hint, { marginLeft: 0 }]}>{isPrivate ? 'Only your Connections see your posts and Sparks.' : 'Anyone on Soulink can see your posts.'}</Text>
             </View>
             <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.soul, false: colors.border }} thumbColor="#fff" />
           </View>
