@@ -68,12 +68,14 @@ function Instructions({ list, at, optional }) {
             <View style={{ width: 24, height: 24, borderRadius: 12, marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: state === 'done' ? colors.mint : state === 'now' ? colors.spark : 'transparent', borderWidth: state === 'next' ? 1.5 : 0, borderColor: colors.dim }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: state === 'next' ? colors.dim : '#0e0c16' }}>{state === 'done' ? '✓' : k + 1}</Text>
             </View>
-            <Text style={{ flex: 1, fontFamily: state === 'now' ? fonts.bold : fonts.medium, fontSize: 15, lineHeight: 20, color: state === 'next' ? colors.dim : state === 'done' ? colors.muted : colors.text }}>{t}</Text>
+            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: state === 'next' ? colors.dim : state === 'done' ? colors.muted : colors.text }}>{t}</Text>
           </View>
         );
       })}
-      {done && !optional ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>All set: tap Next</Text> : null}
-      {optional ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>Nothing you must have? Just tap Next</Text> : null}
+      {/* always takes its line, so the page doesn't jump when the answer is complete */}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 19, color: colors.mint, marginLeft: 34, opacity: optional || done ? 1 : 0 }} accessibilityElementsHidden={!(optional || done)} importantForAccessibility={optional || done ? 'auto' : 'no-hide-descendants'}>
+        {optional ? 'Nothing you must have? Just tap Next' : 'All set: tap Next'}
+      </Text>
     </View>
   );
 }
@@ -118,7 +120,7 @@ const DIAL_HELP = ['I can bend on this', 'It matters a lot', 'I won’t cross th
 function Dial({ value, onPick, labels }) {
   const waiting = !Number.isInteger(value);
   return (
-    <View style={{ marginTop: space.lg, padding: 12, borderRadius: 16, borderWidth: waiting ? 1.5 : 1, borderColor: waiting ? colors.spark : colors.border, backgroundColor: waiting ? 'rgba(255,107,157,0.06)' : 'transparent' }}>
+    <View style={{ marginTop: space.lg, padding: 12, borderRadius: 16, borderWidth: 1.5, borderColor: waiting ? colors.spark : colors.border, backgroundColor: waiting ? 'rgba(255,107,157,0.06)' : 'transparent' }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.text, marginBottom: 10 }}>How firm are you on this?</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {labels.map((l, k) => (
@@ -688,7 +690,7 @@ export default function SoulGames() {
   const title = q.kind === 'more' && q.text === 'Which matters more?' ? 'Which matters more to you?' : q.text;
   const lastOne = i + 1 >= steps.length;
   return (
-    <BrandScreen back onBack={back} center={false} fit={false}
+    <BrandScreen key={q.id} back onBack={back} center={false} fit={false}
       right={<><Bar value={(i + (ready(q, v) ? 1 : 0)) / Math.max(1, steps.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
       <View style={{ marginTop: space.md, marginBottom: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>

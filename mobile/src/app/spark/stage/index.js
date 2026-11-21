@@ -126,9 +126,10 @@ export default function Stage() {
         ))}
       </View>
       <View style={{ height: space.md }} />
-      {data.posts.length ? data.posts.map((s) => (
+      {data.posts.length ? data.posts.map((s, k) => (
         <View key={s.id} onLayout={(e) => { spots.current[s.id] = { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height }; pickOnScreen(); }}>
-          <SparkCard spark={s} active={onScreen === s.id} onDeleted={() => load()} />
+          <SparkCard spark={s} active={onScreen === s.id} onDeleted={() => load()}
+            near={Math.abs(k - Math.max(0, data.posts.findIndex((x) => x.id === onScreen))) <= 2} />
         </View>
       )) : (
         <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.muted, textAlign: 'center', padding: space.xl }}>

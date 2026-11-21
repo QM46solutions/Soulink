@@ -36,28 +36,84 @@ function Thinking() {
   );
 }
 
+// Close scores, very short sides or the word-based basic judge: the result is a lean, not a clear call
+const CLOSE = 5;
+const UPSELL = /\s*Turn on the free Soulink AI[^.]*\.?/i; // older verdicts carried this line (it's for the team's laptop setup)
+const HOW = {
+  basic: 'Scored on the words each side used: calm, specific details and owning a mistake score higher; harsh words and shouting score lower.',
+  ai: 'Each side gets a fairness score from 0 to 100 for sticking to the facts given, listening to the other side, respect, and what a reasonable person would do. The higher score is the verdict.',
+};
+
 function Verdict({ c }) {
   const v = c.verdict;
   const won = (seat) => v.winnerSeats.includes(seat);
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(pop, { toValue: 1, friction: 6, useNativeDriver: true }).start(); }, [pop]);
-  const winners = c.people.filter((p) => won(p.seat));
+  const score = (seat) => (v.people.find((q) => q.seat === seat) || {}).fairness ?? 0;
+  // the scoreboard: highest score first
+  const board = [...c.people].sort((a, b) => score(b.seat) - score(a.seat));
+  const top = board[0]; const second = board[1];
+  const margin = second ? score(top.seat) - score(second.seat) : 0;
+  const split = v.winnerSeats.length !== 1 || margin < CLOSE;
+  const short = c.people.filter((p) => String(p.statement || '').split(/\s+/).filter(Boolean).length < 15).map((p) => p.name);
+  const basic = c.judge === 'basic';
+  const caveats = [
+    split ? `The scores are only ${margin} point${margin === 1 ? '' : 's'} apart: treat this as too close to call.` : null,
+    short.length ? `${short.join(' and ')} wrote very little, so the Referee had less to go on.` : null,
+    basic ? 'This is the quick word-based judge, not a full read of the story.' : null,
+  ].filter(Boolean);
+  const summary = String(v.summary || '').replace(UPSELL, '').trim();
+  const headline = split
+    ? `Too close to call: ${board.slice(0, 2).map((p) => `${p.name} ${score(p.seat)}%`).join(' vs ')}`
+    : `${top.name} leads with ${score(top.seat)}%${second ? ` vs ${second.name} ${score(second.seat)}%` : ''}`;
   return (
     <BrandScreen back center={false}>
-      <Animated.View style={{ alignItems: 'center', opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }}>
+      <Animated.View style={{ opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }}>
         <PillTag style={{ alignSelf: 'center' }}>The verdict</PillTag>
-        <View style={{ flexDirection: 'row', marginTop: space.lg }}>
-          {winners.map((p) => (
-            <View key={p.seat} style={{ alignItems: 'center', marginHorizontal: space.sm }}>
-              <MaterialCommunityIcons name="crown" size={30} color={colors.gold} />
-              <Bubble name={p.name} user={p.user} highlight size={80} />
-              <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 16, marginTop: 6 }}>{p.name}</Text>
-            </View>
-          ))}
-        </View>
-        <GradientText style={{ fontFamily: fonts.display, fontSize: 24, lineHeight: 32, textAlign: 'center', marginTop: space.lg }}>{v.headline}</GradientText>
-        {v.summary ? <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.text, textAlign: 'center', marginTop: space.sm }}>{v.summary}</Text> : null}
+        {/* the result first: who scored higher, and by how much */}
+        <GradientText style={{ fontFamily: fonts.display, fontSize: 24, lineHeight: 31, textAlign: 'center', marginTop: space.md }}>{headline}</GradientText>
+        <GlassCard style={{ marginTop: space.lg, paddingVertical: space.md }}>
+          {board.map((p, k) => {
+            const pct = score(p.seat); const lead = !split && k === 0;
+            return (
+              <View key={p.seat} style={{ marginTop: k ? space.md : 0 }} accessible accessibilityLabel={`${p.name}: ${pct} percent${lead ? ', higher score' : ''}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Bubble name={p.name} user={p.user} size={34} highlight={lead} />
+                  <Text style={{ flex: 1, marginLeft: space.sm, color: colors.text, fontFamily: fonts.displayBold, fontSize: 16 }} numberOfLines={1}>{p.name}</Text>
+                  {lead ? <MaterialCommunityIcons name="crown" size={20} color={colors.gold} style={{ marginRight: 6 }} /> : null}
+                  <Text style={{ color: lead ? colors.gold : colors.text, fontFamily: fonts.display, fontSize: 22 }}>{pct}%</Text>
+                </View>
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, marginTop: 6, overflow: 'hidden' }}>
+                  <LinearGradient colors={lead ? [colors.gold, colors.spark] : gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${pct}%`, height: 8 }} />
+                </View>
+              </View>
+            );
+          })}
+        </GlassCard>
       </Animated.View>
+
+      {/* how the score was reached, and what it can't tell you */}
+      <GlassCard style={{ marginTop: space.md }}>
+        <Text style={[s.label, { marginLeft: 0 }]}>How the score works</Text>
+        <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 }}>{basic ? HOW.basic : HOW.ai}</Text>
+        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: space.sm }}>
+          It’s based only on what each of you wrote, not on what really happened. It’s an opinion to help you talk it through, not proof of who is right.
+        </Text>
+        {caveats.length ? (
+          <View style={{ marginTop: space.sm, padding: 10, borderRadius: 12, backgroundColor: 'rgba(245,200,66,0.10)', borderWidth: 1, borderColor: 'rgba(245,200,66,0.45)' }}>
+            <Text style={{ color: colors.gold, fontFamily: fonts.semibold, fontSize: 13.5, marginBottom: 2 }}>Inconclusive</Text>
+            {caveats.map((t) => <Text key={t} style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 }}>• {t}</Text>)}
+          </View>
+        ) : null}
+      </GlassCard>
+
+      {v.headline || summary ? (
+        <View style={{ marginTop: space.lg }}>
+          <Text style={[s.label, { marginLeft: 0 }]}>The Referee says</Text>
+          {v.headline ? <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, lineHeight: 24, color: colors.text }}>{v.headline}</Text> : null}
+          {summary ? <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.text, marginTop: 4 }}>{summary}</Text> : null}
+        </View>
+      ) : null}
 
       {v.safety ? (
         <GlassCard style={{ marginTop: space.xl, borderColor: 'rgba(66,232,192,0.5)' }}>
@@ -66,17 +122,15 @@ function Verdict({ c }) {
       ) : null}
 
       <Text style={[s.label, { marginTop: space.xl, marginLeft: 0 }]}>Everyone's side</Text>
-      {c.people.map((p) => {
+      {board.map((p) => {
         const x = v.people.find((q) => q.seat === p.seat) || {};
+        const lead = !split && p.seat === top.seat;
         return (
-          <GlassCard key={p.seat} style={{ marginBottom: space.md, borderColor: won(p.seat) ? 'rgba(245,200,66,0.6)' : colors.border }}>
+          <GlassCard key={p.seat} style={{ marginBottom: space.md, borderColor: lead ? 'rgba(245,200,66,0.6)' : colors.border }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Bubble name={p.name} user={p.user} size={40} highlight={won(p.seat)} />
+              <Bubble name={p.name} user={p.user} size={40} highlight={lead} />
               <Text style={{ flex: 1, marginLeft: space.md, color: colors.text, fontFamily: fonts.displayBold, fontSize: 16 }}>{p.name}</Text>
-              <Text style={{ color: won(p.seat) ? colors.gold : colors.aura, fontFamily: fonts.display, fontSize: 18 }}>{x.fairness}%</Text>
-            </View>
-            <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, marginTop: space.sm, overflow: 'hidden' }}>
-              <LinearGradient colors={won(p.seat) ? [colors.gold, colors.spark] : gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${x.fairness}%`, height: 6 }} />
+              <Text style={{ color: lead ? colors.gold : colors.aura, fontFamily: fonts.display, fontSize: 18 }}>{x.fairness}%</Text>
             </View>
             <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: space.sm, fontStyle: 'italic' }} numberOfLines={4}>"{p.statement}"</Text>
             {x.strength ? <Text style={{ color: colors.mint, fontFamily: fonts.medium, fontSize: 13, marginTop: space.sm }}>✓ {x.strength}</Text> : null}
@@ -91,7 +145,7 @@ function Verdict({ c }) {
         </GlassCard>
       ) : null}
       <Text style={{ color: colors.dim, fontFamily: fonts.body, fontSize: 12, textAlign: 'center', marginTop: space.lg }}>
-        {c.judge === 'claude' ? 'Judged by Claude AI' : c.judge === 'ollama' ? 'Judged by the free Soulink AI' : 'Quick verdict by the basic judge. Turn on the free Soulink AI for full verdicts.'}
+        {c.judge === 'claude' ? 'Judged by Claude AI' : basic ? 'Quick verdict by the basic judge' : 'Judged by Soulink AI'}
         {' · AI-generated opinion, not legal advice'}
       </Text>
       <Button title="New argument" style={{ marginTop: space.lg }} onPress={() => router.replace('/argue')} />

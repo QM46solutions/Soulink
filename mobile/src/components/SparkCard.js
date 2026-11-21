@@ -6,7 +6,8 @@ import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, Scro
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { api, shareBase } from '../lib/api';
+import { Image } from 'expo-image';
+import { api, mediaUrl, shareBase } from '../lib/api';
 import { confirm, notice } from '../lib/confirm';
 import { DIETS, FIT_LEVELS, FIT_TYPES, NEWS_TOPICS, catOf, micTopicOf } from '../lib/sparks';
 import SparkVideo from './SparkVideo';
@@ -33,7 +34,20 @@ const Chip = ({ icon, text, color = colors.text, onPress }) => (
 );
 
 // variant 'reel': full screen (the Sparks feed), video edge to edge, actions down the right, who / caption at the bottom.
-export default function SparkCard({ spark, onDeleted, active = true, variant = 'card', height = 640 }) {
+/** A Spark that isn't near the screen yet: its cover in the same space as the video, without a video player.
+ *  Every video player starts downloading at once, and on Android a list of 20 of them ran the phone out of memory. */
+function SparkStill({ spark, height, fill }) {
+  const poster = spark.details?.edit?.poster || spark.details?.poster;
+  return (
+    <View style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      {poster ? <Image source={{ uri: mediaUrl(poster) }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="contain" transition={120} /> : null}
+      <Ionicons name="play" size={42} color="rgba(255,255,255,0.7)" />
+    </View>
+  );
+}
+
+/** near: false = far from the screen in a long list; shows the cover instead of loading the video. */
+export default function SparkCard({ spark, onDeleted, active = true, variant = 'card', height = 640, near = true }) {
   const cat = catOf(spark.category);
   const d = spark.details || {};
   const [reacted, setReacted] = useState(spark.reacted);
@@ -206,6 +220,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View style={{ height, backgroundColor: '#000', overflow: 'hidden' }}>
         {spark.voice
           ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
+          : !near ? <SparkStill spark={spark} height={height} fill />
           : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} fill autoPlay height={height} onFirstPlay={onFirstPlay}
               muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike}
               mini onToggleMute={toggleSparksMuted} onOpen={() => setFull(true)} timeRef={timeRef} miniBottom={18} />}
@@ -334,6 +349,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
       <View>
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
+          : !near ? <SparkStill spark={spark} height={520} />
           : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} autoPlay onFirstPlay={onFirstPlay}
               mini muted={muted} onToggleMute={toggleSparksMuted} onAutoMuted={() => setSparksMuted(true)} onOpen={() => setFull(true)} onDoubleTap={doubleTapLike} timeRef={timeRef} />}
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',

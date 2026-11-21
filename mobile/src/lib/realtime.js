@@ -15,12 +15,20 @@ export function RealtimeProvider({ children }) {
   const [unread, setUnread] = useState({ chats: 0, requests: 0, notifications: 0 });
   const [connected, setConnected] = useState(false);
 
+  const unreadAt = useRef(0); const unreadBusy = useRef(false); const unreadLater = useRef(null);
   const refreshUnread = useCallback(async () => {
-    // chats/requests/anon for the Messages badge, notifications for the bell
+    // chats/requests/anon for the Messages badge, notifications for the bell. Opening a screen, the live connection
+    // and a new message often ask at the same moment: one request covers them (it fired 2-3 times per screen), and
+    // one more follows shortly after so a change in between is never missed
+    if (unreadBusy.current || Date.now() - unreadAt.current < 1500) {
+      if (!unreadLater.current) unreadLater.current = setTimeout(() => { unreadLater.current = null; refreshUnread(); }, 1600);
+      return;
+    }
+    unreadBusy.current = true; unreadAt.current = Date.now();
     try {
-      const [c, n] = await Promise.all([api('/conversations/unread'), api('/notifications/unread').catch(() => ({ count: 0 }))]);
+      const [c, n] = await Promise.all([api('/conversations/unread', { background: true }), api('/notifications/unread', { background: true }).catch(() => ({ count: 0 }))]);
       setUnread({ ...c, notifications: n.count || 0 });
-    } catch { /* offline */ }
+    } catch { /* offline */ } finally { unreadBusy.current = false; }
   }, []);
 
   useEffect(() => {
@@ -54,7 +62,7 @@ export function RealtimeProvider({ children }) {
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshUnread(); });
     // safety net: badges stay right even if a live update is missed (weak network, phone link)
     const poll = setInterval(refreshUnread, 20000);
-    return () => { clearInterval(poll); sub.remove(); socket.disconnect(); socketRef.current = null; setConnected(false); };
+    return () => { clearInterval(poll); clearTimeout(unreadLater.current); unreadLater.current = null; sub.remove(); socket.disconnect(); socketRef.current = null; setConnected(false); };
   }, [user?.id, user?.onboardingDone, refreshUnread]);
 
   /** Subscribe to a live event. Returns an unsubscribe function. */

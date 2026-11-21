@@ -850,7 +850,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
       {trBusy ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: space.md, marginTop: 6, padding: space.md, borderRadius: 16, backgroundColor: 'rgba(20,17,34,0.98)', borderWidth: 1, borderColor: colors.border }}>
           <ActivityIndicator color={colors.aura} size="small" />
-          <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginLeft: 10, flex: 1 }}>{`Translating into ${langName(tr?.to)}${tr?.output === 'voice' ? ' and making the voice note' : ''}… this can take up to a minute on the laptop`}</Text>
+          <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 13, marginLeft: 10, flex: 1 }}>{`Translating into ${langName(tr?.to)}${tr?.output === 'voice' ? ' and making the voice note' : ''}… this can take up to a minute`}</Text>
         </View>
       ) : null}
       {trError ? <Text style={{ fontFamily: fonts.body, color: colors.danger, fontSize: 13, paddingHorizontal: space.lg, paddingTop: 6 }}>{trError}</Text> : null}

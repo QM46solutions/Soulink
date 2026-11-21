@@ -108,6 +108,9 @@ export default function Sparks() {
   // listOn: undefined = nothing scrolled yet (the first one plays); '' = none is on screen enough (none plays)
   const listViewable = useRef(({ viewableItems }) => setListOn(viewableItems.find((v) => !v.item?.__ad)?.key || '')).current;
   const listViewConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  // the one playing, and where it is in the list (cards more than 2 away show their cover, not a video player)
+  const listActive = listOn === undefined ? data.find((x) => !x.__ad)?.id : listOn;
+  const listAt = Math.max(0, data.findIndex((x) => (x.key || x.id) === listActive || x.id === listActive));
   if (mode === 'list') {
     return (
       <View style={{ flex: 1, width: '100%', maxWidth: web ? 640 : undefined, alignSelf: 'center' }}>
@@ -115,8 +118,13 @@ export default function Sparks() {
           data={data}
           keyExtractor={(s) => s.key || s.id}
           ListHeaderComponent={chips}
-          renderItem={({ item }) => (item.__ad ? <SparkAd ad={item.__ad} />
-            : <SparkCard spark={item} active={(listOn === undefined ? data.find((x) => !x.__ad)?.id : listOn) === item.id} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+          renderItem={({ item, index }) => (item.__ad ? <SparkAd ad={item.__ad} />
+            : <SparkCard spark={item} active={listActive === item.id} near={Math.abs(index - listAt) <= 2} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+          extraData={listActive}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={7}
+          removeClippedSubviews={!web}
           onViewableItemsChanged={listViewable}
           viewabilityConfig={listViewConfig}
           onEndReached={loadMore}

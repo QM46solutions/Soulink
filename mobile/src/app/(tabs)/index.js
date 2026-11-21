@@ -124,6 +124,11 @@ export default function Home() {
       keyExtractor={(p) => p.key || p.id}
       renderItem={({ item }) => item.__ad ? <FeedAd ad={item.__ad} /> : <PostCard post={item} onDeleted={(pid) => setFeed((f) => ({ ...f, posts: f.posts.filter((x) => x.id !== pid) }))} />}
       ListHeaderComponent={composer}
+      // fewer posts kept ready off screen: each video post holds a video player (Android ran short of memory)
+      initialNumToRender={4}
+      maxToRenderPerBatch={4}
+      windowSize={9}
+      removeClippedSubviews={Platform.OS === 'android'}
       contentContainerStyle={{ paddingTop: space.md, paddingBottom: space.xxl }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}

@@ -42,10 +42,14 @@ export default function CastingCall() {
       keyExtractor={(s) => s.id}
       onViewableItemsChanged={viewable}
       viewabilityConfig={viewConfig}
-      renderItem={({ item }) => (
+      initialNumToRender={3}
+      maxToRenderPerBatch={3}
+      windowSize={7}
+      renderItem={({ item, index }) => (
         <View>
           {c.pickedSparkId === item.id ? <Text style={{ fontFamily: fonts.bold, color: colors.gold, fontSize: 14, marginLeft: space.lg, marginBottom: 6 }}>🌟 Picked for the role</Text> : null}
-          <SparkCard spark={item} active={(onScreen === undefined ? data.auditions[0]?.id : onScreen) === item.id} onDeleted={load} />
+          <SparkCard spark={item} active={(onScreen === undefined ? data.auditions[0]?.id : onScreen) === item.id} onDeleted={load}
+            near={Math.abs(index - Math.max(0, data.auditions.findIndex((x) => x.id === (onScreen === undefined ? data.auditions[0]?.id : onScreen)))) <= 2} />
           {c.mine && c.open ? <GradButton title="Pick this audition" icon="star" onPress={() => pick(item.id)} style={{ marginHorizontal: space.lg, marginTop: -space.md, marginBottom: space.xl, height: 44 }} /> : null}
         </View>
       )}

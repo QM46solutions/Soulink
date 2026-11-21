@@ -103,12 +103,28 @@ export const forceSignOut = (code) => onUnauthorized(code);
 
 // If the free cloud database paused while the app was open (an hour without use), the next request
 // can time out while it resumes. Then: wake it, and try that request once more (reads only).
+// One wake-up at a time, shared by every request that is waiting: before, each failed request ran its own
+// 100-second wake loop, so a weak connection on a busy screen (feed + badges + telemetry) kept many loops going and
+// the app looked frozen for up to two minutes. Background requests (badges, polling) don't wait at all.
+let waking = null;
+function wakeOnce() {
+  if (!waking) {
+    waking = (async () => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < 60000) {
+        if ((await wakeServer()) === 'ready') return true;
+        await new Promise((r) => setTimeout(r, 2500));
+      }
+      return false;
+    })().finally(() => { setTimeout(() => { waking = null; }, 0); });
+  }
+  return waking;
+}
 export async function api(path, opts = {}) {
   try { return await apiOnce(path, opts); } catch (e) {
     const read = !opts.method || opts.method === 'GET';
-    if (!(e.status === 503 || e.code === 'network' || e.code === 'waking') || (!read && e.code !== 'waking')) throw e;
-    const t0 = Date.now();
-    while (Date.now() - t0 < 100000 && (await wakeServer()) !== 'ready') await new Promise((r) => setTimeout(r, 2500));
+    if (opts.background || !(e.status === 503 || e.code === 'network' || e.code === 'waking') || (!read && e.code !== 'waking')) throw e;
+    if (!(await wakeOnce())) throw e; // still not reachable after a minute: show the screen's error (with Try again)
     return apiOnce(path, opts);
   }
 }

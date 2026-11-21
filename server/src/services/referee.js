@@ -134,7 +134,7 @@ function basicVerdict(topic, people) {
   return {
     winnerSeats: winners,
     headline: winners.length > 1 ? `Too close to call: ${names(winners)}` : `${names(winners)} made the fairer case`,
-    summary: 'Quick verdict from the basic judge: it rewards calm, specific and fair points and marks down harsh words. Turn on the free Soulink AI (INSTALL-FREE-AI) for a verdict that understands the whole story.',
+    summary: 'Quick verdict from the basic judge: it rewards calm, specific and fair points and marks down harsh words. It reads the words used, not the whole story.',
     people: scored.map((s) => ({
       seat: s.seat, name: s.name, fairness: s.score,
       strength: s.fair ? 'Showed they could see the other side.' : s.specific ? 'Gave specific details.' : 'Shared their side.',
