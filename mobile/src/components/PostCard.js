@@ -281,7 +281,7 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
       { label: pinned ? 'Unpin from profile' : 'Pin to your profile', onPress: pin },
       { label: archived ? 'Show on profile' : 'Archive', onPress: archive },
       { label: 'Edit', onPress: () => { setDraft(caption || ''); setEditing(true); } },
-      ...(!archived && !post.suspended ? [{ label: 'Boost post', onPress: () => setBoostOpen(true) }] : []),
+      ...(!archived && !post.suspended ? [{ label: 'Spread post', onPress: () => setBoostOpen(true) }] : []),
       { label: hideLikes ? 'Show like count' : 'Hide like count', onPress: () => setOption({ hideLikes: !hideLikes }) },
       { label: commentsOff ? 'Turn on commenting' : 'Turn off commenting', onPress: () => setOption({ commentsOff: !commentsOff }) },
       { label: music ? 'Change music' : 'Add music', onPress: () => setMusicOpen(true) },
@@ -365,14 +365,14 @@ export default function PostCard({ post, onDeleted, showAllComments, onChanged }
           label={post.mine ? `${offenses} offense marks on your post` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
           <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
         </Action>
-        {/* your own post: Boost it to people who don't follow you yet (the same "Spread around" as Sparks) */}
+        {/* your own post: Spread it to people who don't follow you yet (the same "Spread around" as Sparks) */}
         {post.mine && !archived && !post.suspended ? (<>
           <View style={{ flex: 1 }} />
-          <Pressable onPress={() => setBoostOpen(true)} accessibilityLabel="Boost post"
+          <Pressable onPress={() => setBoostOpen(true)} accessibilityLabel="Spread post"
             style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, height: 34, borderRadius: 17, overflow: 'hidden', opacity: hovered ? 0.9 : 1 })}>
             <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <MaterialCommunityIcons name="bullhorn-variant" size={16} color="#14121f" style={{ marginRight: 5 }} />
-            <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13 }}>Boost</Text>
+            <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13 }}>Spread</Text>
           </Pressable>
         </>) : null}
       </View>

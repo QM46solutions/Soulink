@@ -220,8 +220,8 @@ ${P.mandatory ? '<p class="small"><span class="pill p-bad">Mandatory</span> ever
     const items = months.map((m) => ({ label: new Date(m + '-01T00:00:00').toLocaleDateString('en-IN', { month: 'short' }), stack: [{ value: val(d.ads, m), color: 'var(--accent)' }, { value: val(d.paidMessages, m), color: 'var(--accent2)' }, { value: val(d.boosts, m), color: 'var(--accent3)' }] }));
     const tot = (m) => val(d.ads, m) + val(d.paidMessages, m) + val(d.boosts, m);
     const cur = tot(months[5]); const prev = tot(months[4]);
-    return `<div class="grid k4">${kpi('This month', rs(cur), prev ? `${cur >= prev ? '▲' : '▼'} ${Math.abs(pct(cur - prev, prev))}% vs last month` : '', cur >= prev ? 'up' : 'dn')}${kpi('Ads', rs(val(d.ads, months[5])), 'payments recorded this month')}${kpi('Paid messages + Spark boosts', rs(val(d.paidMessages, months[5]) + val(d.boosts, months[5])), 'from app users')}${kpi('Premium users', fmt(d.premiumUsers), 'accounts with Premium')}</div>
-<div class="panel mt"><h3>Money in, by month</h3>${columns(items, { h: 220 })}<div class="legend"><span><i style="background:var(--accent)"></i>Ads</span><span><i style="background:var(--accent2)"></i>Paid messages</span><span><i style="background:var(--accent3)"></i>Spark boosts</span></div></div>`;
+    return `<div class="grid k4">${kpi('This month', rs(cur), prev ? `${cur >= prev ? '▲' : '▼'} ${Math.abs(pct(cur - prev, prev))}% vs last month` : '', cur >= prev ? 'up' : 'dn')}${kpi('Ads', rs(val(d.ads, months[5])), 'payments recorded this month')}${kpi('Paid messages + Spreads', rs(val(d.paidMessages, months[5]) + val(d.boosts, months[5])), 'from app users')}${kpi('Premium users', fmt(d.premiumUsers), 'accounts with Premium')}</div>
+<div class="panel mt"><h3>Money in, by month</h3>${columns(items, { h: 220 })}<div class="legend"><span><i style="background:var(--accent)"></i>Ads</span><span><i style="background:var(--accent2)"></i>Paid messages</span><span><i style="background:var(--accent3)"></i>Spreads</span></div></div>`;
   };
 
   VIEWS.safety = async () => {

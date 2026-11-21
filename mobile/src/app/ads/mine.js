@@ -96,7 +96,7 @@ export default function MyAds() {
 
       {d.boosts.length ? (
         <>
-          <H>{`Spark boosts · ${inr(t.boosts)} paid`}</H>
+          <H>{`Spreads · ${inr(t.boosts)} paid`}</H>
           {d.boosts.map((b) => (
             <Text key={b.id} onPress={() => router.push(`/spark/${b.sparkId}`)} style={{ fontFamily: fonts.body, fontSize: 13.5, lineHeight: 20, color: colors.text, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
               {`${b.caption ? `"${b.caption.slice(0, 40)}" · ` : ''}${inr(b.amount)} · ${b.days} day${b.days === 1 ? '' : 's'} · ${b.city || 'all cities'}, ${b.ageMin}-${b.ageMax} · ${num(b.views)} views${new Date(b.endsAt) > new Date() && b.status === 'active' ? ' · running' : ''}`}

@@ -303,7 +303,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
             {spark.place ? <Chip icon="location" text={spark.place} onPress={openPlace} /> : null}
             {spark.music ? <Chip icon="musical-notes" text={spark.music.title} /> : null}
             {hasSheet ? <Chip icon={spark.category === 'cooking' ? 'reader' : 'list'} text={spark.category === 'cooking' ? 'Recipe' : 'Moves'} color={colors.gold} onPress={() => setRecipe(true)} /> : null}
-            {tryable ? <Chip text={`${spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · ${tried}`} color={iTried ? colors.mint : '#fff'} onPress={tryIt} /> : null}
+            {tryable ? <Chip icon={iTried ? 'checkmark-circle' : spark.category === 'fitness' ? 'barbell-outline' : 'restaurant-outline'} text={`${spark.category === 'fitness' ? 'I did it' : 'I tried it'} · ${tried}`} color={iTried ? colors.mint : '#fff'} onPress={tryIt} /> : null}
             {spark.category === 'news' && d.source ? <Chip icon="open-outline" text="Source" color={colors.aura} onPress={() => openUrl(d.source)} /> : null}
           </View>
         </View>
@@ -412,7 +412,8 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           ) : null}
           {tryable ? (
             <Pressable onPress={tryIt} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: iTried ? colors.mint : colors.border, backgroundColor: iTried ? 'rgba(66,232,192,0.14)' : 'transparent', marginRight: 8 }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }}>{spark.category === 'fitness' ? (iTried ? '✅ I did it' : '🏃 I did it') : (iTried ? '✅ I tried it' : '🧑‍🍳 I tried it')} · {tried}</Text>
+              <Ionicons name={iTried ? 'checkmark-circle' : spark.category === 'fitness' ? 'barbell-outline' : 'restaurant-outline'} size={15} color={iTried ? colors.mint : colors.aura} style={{ marginRight: 5 }} />
+              <Text style={{ fontFamily: fonts.semibold, color: colors.text, fontSize: 13 }} accessibilityLabel={`${spark.category === 'fitness' ? 'I did it' : 'I tried it'}${iTried ? ', done' : ''}, ${tried}`}>{spark.category === 'fitness' ? 'I did it' : 'I tried it'} · {tried}</Text>
             </Pressable>
           ) : null}
           {spark.category === 'news' && d.source ? (

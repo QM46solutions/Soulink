@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import ProfileHeader, { ProfileAction, ProfileTabs } from '../../components/Prof
 import ProfileSparks from '../../components/ProfileSparks';
 import MatchPanel from '../../components/MatchPanel';
 import ConnectSheet from '../../components/ConnectSheet';
+import { Incoming } from '../connections/requests';
 import PaidMessageSheet from '../../components/PaidMessageSheet';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
@@ -27,6 +28,7 @@ export default function UserProfile() {
   const [reporting, setReporting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef(null); const decideY = useRef(0); // the Accept · Hold · Reject card
 
   const [conn, setConn] = useState(null);
   const [posts, setPosts] = useState(null);
@@ -84,7 +86,7 @@ export default function UserProfile() {
   const connectBack = async () => {
     if (needSoul()) return;
     setBusy(true);
-    try { const r = await api(`/connections/back/${target.id}`, { method: 'POST' }); await load(); if (r.conversationId) router.push(`/chat/${r.conversationId}`); }
+    try { await api(`/connections/back/${target.id}`, { method: 'POST' }); await load(); } // Connections now; Message is on the profile
     catch (e) { notice('Oops', e.message); } finally { setBusy(false); }
   };
   const disconnect = async () => {
@@ -110,7 +112,8 @@ export default function UserProfile() {
   let connectBtn = null;
   if (rel.isMe) connectBtn = <ProfileAction title="Edit profile" onPress={() => router.push('/edit-profile')} />;
   else if (conn?.connected) connectBtn = <ProfileAction title="Connected" icon="checkmark-done" onPress={disconnect} loading={busy} />;
-  else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title="Respond" onPress={() => router.push('/activity')} />;
+  // they've asked to connect: the Accept · Hold · Reject card is right here on their profile (below the buttons)
+  else if (conn?.request?.direction === 'incoming') connectBtn = <ProfileAction primary title={conn.request.status === 'held' ? 'On hold · decide' : 'Respond below'} icon="arrow-down" onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, decideY.current - 12), animated: true })} />;
   else if (conn?.theyConnect) connectBtn = <ProfileAction primary title="Connect back" onPress={connectBack} loading={busy} />;
   else if (conn?.iConnect) connectBtn = <ProfileAction title="Connected" icon="checkmark" onPress={disconnect} loading={busy} />;
   else if (conn?.request) connectBtn = <ProfileAction title={conn.request.status === 'held' ? 'On hold' : 'Requested'} icon={conn.request.status === 'held' ? 'pause-outline' : 'time-outline'} onPress={() => router.push('/activity')} />;
@@ -137,7 +140,7 @@ export default function UserProfile() {
   const anonBtn = !rel.isMe && anon?.allowed && conn?.connected ? <ProfileAction icon="eye-off-outline" label="Send an anonymous note" onPress={goAnon} /> : null;
 
   return (
-    <ScrollView style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
+    <ScrollView ref={scrollRef} style={s.screen} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       <ProfileHeader
         user={target}
         counts={data.counts}
@@ -153,6 +156,11 @@ export default function UserProfile() {
       />
       {conn?.connected ? (
         <Text style={{ fontFamily: fonts.semibold, color: colors.mint, fontSize: 13, textAlign: 'center', marginBottom: space.sm }}>Connected · {conn.connected.intentLabel}</Text>
+      ) : null}
+      {!rel.isMe && conn?.request?.direction === 'incoming' && conn.request.user ? (
+        <View onLayout={(e) => { decideY.current = e.nativeEvent.layout.y; }} style={{ paddingHorizontal: space.lg, marginBottom: space.md }}>
+          <Incoming r={conn.request} onDone={load} />
+        </View>
       ) : null}
       {conn?.theyConnect && !conn?.connected && !rel.isMe ? <Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: -space.sm, marginBottom: space.sm }}>Connected to you · connect back to become Connections</Text> : null}
       {/* Posts · Sparks · Soul Score. The Soul Score tab shows before and after you're connected, even on private accounts */}

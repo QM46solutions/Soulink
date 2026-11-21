@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
-import { confirm } from '../../lib/confirm';
+import { confirm, notice } from '../../lib/confirm';
 import { BrandHeader } from '../../components/BrandScreen';
 import { GlassCard } from '../../components/brand';
 import { IntentChip, ScorePill } from '../../components/Choice';
@@ -48,7 +48,8 @@ function Person({ r }) {
   );
 }
 
-function Incoming({ r, onDone }) {
+/** One incoming request: Accept (or accept as something else) · Hold · Reject. Also shown on that person's profile. */
+export function Incoming({ r, onDone }) {
   const [mode, setMode] = useState(null); // accept-as | hold
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -59,16 +60,12 @@ function Incoming({ r, onDone }) {
   const accept = (asIntent) => run(async () => {
     const res = await api(`/connections/requests/${r.id}/accept`, { method: 'POST', body: asIntent ? { asIntent } : {} });
     feedback('connect');
-    if (res.mutual && res.conversationId) { onDone(); router.push(`/chat/${res.conversationId}`); return; }
-    // they're now connected to you: ask to connect back (both ways = Connections, and a chat opens)
+    // Accepting never opens a chat: you start one from their profile (Message) or Search, when you want to
+    if (res.mutual) { onDone(); notice(`You and ${first} are Connections`, 'Say hi any time: open their profile and tap Message.'); return; }
+    // they're now connected to you: ask to connect back (both ways = Connections)
     const back = await confirm(`Connect back with ${first}?`,
-      `${first} is now connected to you. Connect back to become Connections and start chatting.`, { confirmText: 'Connect back', cancelText: 'Not now' });
-    if (back) {
-      const b = await api(`/connections/back/${r.user.id}`, { method: 'POST' });
-      onDone();
-      if (b.conversationId) router.push(`/chat/${b.conversationId}`);
-      return;
-    }
+      `${first} is now connected to you. Connect back to become Connections, then message them from their profile whenever you like.`, { confirmText: 'Connect back', cancelText: 'Not now' });
+    if (back) await api(`/connections/back/${r.user.id}`, { method: 'POST' });
     onDone();
   });
   const hold = (days) => run(async () => { await api(`/connections/requests/${r.id}/hold`, { method: 'POST', body: { days } }); setMode(null); setBusy(false); onDone(); });

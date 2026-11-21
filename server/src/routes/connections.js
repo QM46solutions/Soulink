@@ -147,14 +147,17 @@ r.get('/requests', ah(async (req, res) => {
 
 // ---------- the Connect model ----------
 // A connects to B  = follow A -> B (accepted)  → A is one of B's Followers
-// both directions  = a connections row           → "Connections" (+ a chat opens)
+// both directions  = a connections row           → "Connections" (they may chat: either one starts it from the
+//                                                   profile's Message button or Search; no chat is made by itself)
 // (a plain Follow, kind 'follow', is not a connection: it becomes one when a Connect request is accepted)
 const followSql = `IF NOT EXISTS (SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)
                      INSERT INTO follows (follower_id, followee_id, status, kind) VALUES ($1, $2, N'accepted', N'connect')
                    ELSE UPDATE follows SET status=N'accepted', kind=N'connect' WHERE follower_id=$1 AND followee_id=$2`;
 const connectsTo = async (a, b) => !!(await one(`SELECT 1 AS y FROM follows WHERE follower_id=$1 AND followee_id=$2 AND status=N'accepted' AND kind=N'connect'`, [a, b]));
 
-/** Both people are connected to each other: Connections row, chat, welcome message. Returns the conversation. */
+/** Both people are connected to each other: the Connections row. No chat is created here (they start one from the
+ *  profile's Message button or Search). A chat that already exists (a request on hold had one) moves to Chats.
+ *  Returns that existing conversation, or null. */
 async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null, note = null, noteFrom = null } = {}) {
   const [a, b] = pairOf(x, y);
   const key = directKey(x, y);
@@ -162,8 +165,8 @@ async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null,
     await c.query(followSql, [x, y]);
     await c.query(followSql, [y, x]);
     await c.query(`IF NOT EXISTS (SELECT 1 FROM connections WHERE user_a=$1 AND user_b=$2) INSERT INTO connections (user_a, user_b, intent, request_id) VALUES ($1, $2, $3, $4)`, [a, b, theIntent, requestId]);
-    let cv = (await c.query('SELECT * FROM conversations WHERE direct_key=$1', [key])).rows[0];
-    if (!cv) cv = (await c.query('INSERT INTO conversations (is_group, created_by, direct_key) OUTPUT INSERTED.* VALUES (0, $1, $2)', [y, key])).rows[0];
+    const cv = (await c.query('SELECT * FROM conversations WHERE direct_key=$1', [key])).rows[0];
+    if (!cv) return null;
     for (const uid of [x, y]) {
       await c.query(`IF NOT EXISTS (SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2)
                        INSERT INTO conversation_members (conversation_id, user_id, is_request) VALUES ($1, $2, 0)
@@ -171,6 +174,7 @@ async function makeMutual(x, y, theIntent, { requestId = null, soulScore = null,
     }
     return cv;
   });
+  if (!conv) return null;
   const label = INTENTS[theIntent] || INTENTS.friendship;
   await systemMessage(conv, `You're connected for ${label.label} ${label.emoji}${soulScore ? ` · Soul Score ${soulScore}%` : ''}`);
   return conv;
@@ -197,12 +201,14 @@ r.post('/requests/:id/accept', requireSoul, ah(async (req, res) => {
     if (!upd) throw conflict('This request is no longer open', 'closed');
     await c.query(followSql, [q.from_id, q.to_id]);
   });
-  let conv = null;
+  let conv = null; let mutual = false;
   if (connectBack || (await connectsTo(q.to_id, q.from_id))) {
     conv = await makeMutual(q.from_id, q.to_id, finalIntent, { requestId: q.id, soulScore: q.soul_score, note: q.note, noteFrom: q.from_id });
+    mutual = true;
   }
-  await notify(q.from_id, q.to_id, 'connect_accepted', q.id, { intent: q.intent, acceptedIntent: finalIntent !== q.intent ? finalIntent : null, conversationId: conv?.id || null, mutual: !!conv });
-  res.json({ ok: true, mutual: !!conv, canConnectBack: !conv, conversationId: conv?.id || null, intent: finalIntent, user: userCard(from) });
+  // conversationId: only a chat that already existed (from a hold); accepting never opens or creates one
+  await notify(q.from_id, q.to_id, 'connect_accepted', q.id, { intent: q.intent, acceptedIntent: finalIntent !== q.intent ? finalIntent : null, conversationId: conv?.id || null, mutual });
+  res.json({ ok: true, mutual, canConnectBack: !mutual, conversationId: conv?.id || null, intent: finalIntent, user: userCard(from) });
 }));
 
 // Connect back with someone who is connected to you → you're Connections (chat opens)
@@ -213,12 +219,12 @@ r.post('/back/:userId', requireSoul, ah(async (req, res) => {
   const existing = await connectionBetween(req.user.id, other.id);
   if (existing) {
     const cv = await one('SELECT id FROM conversations WHERE direct_key=$1', [directKey(req.user.id, other.id)]);
-    return res.json({ ok: true, conversationId: cv?.id || null, already: true });
+    return res.json({ ok: true, mutual: true, conversationId: cv?.id || null, already: true });
   }
   const q = await one(`SELECT TOP 1 * FROM connection_requests WHERE from_id=$1 AND to_id=$2 AND status=N'accepted' ORDER BY responded_at DESC`, [other.id, req.user.id]);
   const conv = await makeMutual(other.id, req.user.id, q?.accepted_intent || q?.intent || 'friendship', { requestId: q?.id || null, soulScore: q?.soul_score || null });
-  await notify(other.id, req.user.id, 'connect_back', conv.id, { conversationId: conv.id });
-  res.json({ ok: true, conversationId: conv.id });
+  await notify(other.id, req.user.id, 'connect_back', q?.id || null, { conversationId: conv?.id || null, userId: req.user.id });
+  res.json({ ok: true, mutual: true, conversationId: conv?.id || null });
 }));
 
 // Disconnect: stop being connected to them (if you were Connections, they stay connected to you as a Follower)

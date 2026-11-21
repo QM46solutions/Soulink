@@ -198,8 +198,8 @@ r.post('/:id/spread', ah(async (req, res) => {
     paymentRef: z.string().max(120).optional(),
   }).refine((v) => v.ageMax >= v.ageMin, 'Check the ages').parse(req.body || {});
   const full = await one('SELECT is_anonymous, archived_at, suspended_at FROM posts WHERE id=$1', [p.id]);
-  if (full?.is_anonymous || full?.archived_at || full?.suspended_at) throw badRequest("This post can't be boosted", 'not_boostable');
-  if (await currentPostSpread(p.id)) throw badRequest('This post is already boosted', 'already_spreading');
+  if (full?.is_anonymous || full?.archived_at || full?.suspended_at) throw badRequest("This post can't be spread", 'not_boostable');
+  if (await currentPostSpread(p.id)) throw badRequest('This post is already spreading', 'already_spreading');
   if (d.city === 'mine' && !req.user.city) throw badRequest('Add your city in your profile first, or pick All of India', 'no_city');
   const plan = SPREAD_PLANS.find((x) => x.days === d.days);
   const mode = takePayment(d.paymentRef); // 'test' on the laptop: nothing is charged

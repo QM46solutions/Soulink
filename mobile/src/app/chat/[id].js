@@ -302,7 +302,7 @@ export default function Chat() {
     const tmpId = retryId || `tmp-${++tmpSeq}`;
     const reply = retryId ? null : replyTo;
     setReplyTo(null);
-    const tmp = { id: tmpId, conversationId: id, senderId: me.id, kind: 'text', body, createdAt: new Date().toISOString(), status: 'sending', replyTo: reply ? { id: reply.id, senderId: reply.senderId, text: previewOf(reply) } : null };
+    const tmp = { id: tmpId, conversationId: id, senderId: me.id, kind: 'text', body, createdAt: new Date().toISOString(), status: 'sending', replyTo: reply ? { id: reply.id, senderId: reply.senderId, kind: reply.kind, text: previewOf(reply) } : null };
     setMessages((cur) => (retryId ? cur.map((m) => (m.id === retryId ? tmp : m)) : [tmp, ...cur]));
     try {
       const r = await api(`/conversations/${id}/messages`, { method: 'POST', body: { body, ...(reply ? { replyToId: reply.id } : {}) } });
@@ -606,7 +606,7 @@ export default function Chat() {
         {conv.held ? <HeldBar held={conv.held} name={conv.other?.displayName?.split(' ')[0] || conv.other?.username} onChanged={(gone) => (gone ? router.back() : load())} /> : null}
         {soulmojiOpen ? <SoulmojiPanel onSend={sendSoulmoji} onClose={() => setSoulmojiOpen(false)} /> : null}
         <Composer
-          replyTo={replyTo ? { name: nameOfSender(replyTo.senderId), text: previewOf(replyTo) } : null}
+          replyTo={replyTo ? { name: nameOfSender(replyTo.senderId), kind: replyTo.kind, text: previewOf(replyTo) } : null}
           onCancelReply={() => setReplyTo(null)}
           onSoulmoji={() => setSoulmojiOpen((o) => !o)}
           soulmojiOpen={soulmojiOpen}

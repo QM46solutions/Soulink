@@ -49,16 +49,18 @@ describe('Connect requests', () => {
     assert.equal((await send(b, a).expect(409)).body.error.code, 'incoming_pending');
   });
 
-  test('accept (as something else) creates the connection and a chat; sender is told', async () => {
+  test('accept (as something else) creates the connection but no chat; sender is told', async () => {
     const [a, b] = await pair();
     const q = (await send(a, b, { intent: 'dating', note: 'Hi from the gym!' }).expect(201)).body.request;
     const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ asIntent: 'friendship', connectBack: true }).expect(200);
     assert.equal(acc.body.intent, 'friendship');
     const status = (await api().get(`/connections/status/${b.user.id}`).set(a.h).expect(200)).body;
     assert.equal(status.connected.intent, 'friendship');
-    const msgs = (await api().get(`/conversations/${acc.body.conversationId}/messages`).set(a.h).expect(200)).body.messages;
-    const texts = msgs.map((m) => m.body);
-    assert.ok(texts.some((t) => /connected for Friendship/.test(t)), texts.join(' | '));
+    // no chat is made by accepting: neither inbox has one until someone taps Message
+    assert.equal(acc.body.conversationId, null);
+    for (const u of [a, b]) assert.equal((await api().get('/conversations?box=inbox').set(u.h).expect(200)).body.conversations.length, 0);
+    const conv = (await api().post('/conversations/direct').set(a.h).send({ userId: b.user.id }).expect(200)).body.conversation.id;
+    const texts = (await api().get(`/conversations/${conv}/messages`).set(a.h).expect(200)).body.messages.map((m) => m.body);
     assert.ok(!texts.includes('Hi from the gym!'));
     const n = await notes(a);
     assert.equal(n[0].type, 'connect_accepted');
@@ -186,7 +188,8 @@ describe('Connect requests', () => {
     assert.equal(cb.connections, 0);
     assert.equal((await send(b, a).expect(409)).body.error.code, 'can_connect_back');
     const back = (await api().post(`/connections/back/${a.user.id}`).set(b.h).expect(200)).body;
-    assert.ok(back.conversationId);
+    assert.equal(back.mutual, true);
+    assert.equal(back.conversationId, null); // Connections now, but no chat until one of them taps Message
     cb = await me(b);
     assert.equal(cb.followers, 1); // still connected to b, so still counted as a Follower
     assert.equal(cb.connections, 1);

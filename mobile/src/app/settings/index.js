@@ -81,7 +81,7 @@ export default function Settings() {
 
       <Section>More</Section>
       {user.isAdmin ? <MenuRow icon="musical-notes" title="Copyright reports" text="Soulink team: decide within 36 hours" onPress={go('/admin/copyright')} tint={['#ff6b9d', '#7c5cfc']} /> : null}
-      {hasAds ? <MenuRow icon="stats-chart" title="My ads" text="Spent, left, views and taps for your ads and Spark boosts" onPress={go('/ads/mine')} tint={['#42e8c0', '#7c5cfc']} /> : null}
+      {hasAds ? <MenuRow icon="stats-chart" title="My ads" text="Spent, left, views and taps for your ads and Spreads" onPress={go('/ads/mine')} tint={['#42e8c0', '#7c5cfc']} /> : null}
       <MenuRow icon="cloud-download" title="Update App" text="Check for the latest version of Soulink." onPress={go('/settings/update-app')} tint={['#42e8c0', '#3fa9f5']} />
       <MenuRow icon="chatbox-ellipses" title="Report a problem" text="Something not working? Tell the Soulink team" onPress={go('/settings/report-problem')} tint={['#ff9a5a', '#f5c842']} />
       <MenuRow icon="information-circle" title="About" text="Soulink version, terms and privacy" onPress={go('/settings/about')} tint={['#b08fff', '#7c5cfc']} />

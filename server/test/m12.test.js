@@ -10,7 +10,8 @@ describe('Private chat', () => {
   test('messages sent in private chat vanish after they are seen and a member leaves', async () => {
     const a = await makeUser(); const b = await makeUser(); await makeDna(a, 0); await makeDna(b, 1);
     const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
-    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200)).body.conversationId;
+    await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
+  const conv = (await api().post('/conversations/direct').set(b.h).send({ userId: a.user.id }).expect(200)).body.conversation.id; // accepting doesn't open a chat
     const send = (u, body) => api().post(`/conversations/${conv}/messages`).set(u.h).send({ body }).expect(201);
     const list = async (u) => (await api().get(`/conversations/${conv}/messages`).set(u.h).expect(200)).body.messages;
     await send(a, 'normal message');

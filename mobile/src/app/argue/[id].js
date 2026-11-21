@@ -102,7 +102,12 @@ function Verdict({ c }) {
         {caveats.length ? (
           <View style={{ marginTop: space.sm, padding: 10, borderRadius: 12, backgroundColor: 'rgba(245,200,66,0.10)', borderWidth: 1, borderColor: 'rgba(245,200,66,0.45)' }}>
             <Text style={{ color: colors.gold, fontFamily: fonts.semibold, fontSize: 13.5, marginBottom: 2 }}>Inconclusive</Text>
-            {caveats.map((t) => <Text key={t} style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 }}>• {t}</Text>)}
+            {caveats.map((t) => (
+              <View key={t} style={{ flexDirection: 'row', marginTop: 2 }}>
+                <Ionicons name="information-circle-outline" size={15} color={colors.gold} style={{ marginRight: 6, marginTop: 2 }} />
+                <Text style={{ flex: 1, color: colors.text, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 }}>{t}</Text>
+              </View>
+            ))}
           </View>
         ) : null}
       </GlassCard>
@@ -133,8 +138,18 @@ function Verdict({ c }) {
               <Text style={{ color: lead ? colors.gold : colors.aura, fontFamily: fonts.display, fontSize: 18 }}>{x.fairness}%</Text>
             </View>
             <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: space.sm, fontStyle: 'italic' }} numberOfLines={4}>"{p.statement}"</Text>
-            {x.strength ? <Text style={{ color: colors.mint, fontFamily: fonts.medium, fontSize: 13, marginTop: space.sm }}>✓ {x.strength}</Text> : null}
-            {x.blindSpot ? <Text style={{ color: colors.gold, fontFamily: fonts.medium, fontSize: 13, marginTop: 4 }}>⚠ {x.blindSpot}</Text> : null}
+            {x.strength ? (
+              <View style={{ flexDirection: 'row', marginTop: space.sm }} accessible accessibilityLabel={`Got right: ${x.strength}`}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.mint} style={{ marginRight: 6, marginTop: 1 }} />
+                <Text style={{ flex: 1, color: colors.mint, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 }}>{x.strength}</Text>
+              </View>
+            ) : null}
+            {x.blindSpot ? (
+              <View style={{ flexDirection: 'row', marginTop: 4 }} accessible accessibilityLabel={`Missed: ${x.blindSpot}`}>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.gold} style={{ marginRight: 6, marginTop: 1 }} />
+                <Text style={{ flex: 1, color: colors.gold, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 }}>{x.blindSpot}</Text>
+              </View>
+            ) : null}
           </GlassCard>
         );
       })}

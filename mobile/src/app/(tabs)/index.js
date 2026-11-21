@@ -87,6 +87,15 @@ export default function Home() {
     try { setFeed(await api('/feed')); } catch { setFeed((f) => f || { connections: 0, posts: [] }); }
   }, []);
   useFocusEffect(useCallback(() => { if (user.soulReady) load(); }, [user.soulReady, load]));
+  // Tapping Home while already on Home: back to the top of the feed, and fresh posts (coming from another tab,
+  // the focus above already refreshes it)
+  const listRef = useRef(null);
+  useEffect(() => navigation.addListener('tabPress', () => {
+    if (!navigation.isFocused() || !user.soulReady) return;
+    try { listRef.current?.scrollToOffset?.({ offset: 0, animated: true }); listRef.current?.scrollTo?.({ y: 0, animated: true }); } catch { /* not laid out yet */ }
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  }), [navigation, load, user.soulReady]);
 
   if (!user.soulReady) {
     return (
@@ -100,7 +109,7 @@ export default function Home() {
 
   if (!feed.posts.length) {
     return (
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: space.md }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
+      <ScrollView ref={listRef} contentContainerStyle={{ flexGrow: 1, paddingTop: space.md }} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.aura} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
         {composer}
         {ads[0] ? <FeedAd ad={ads[0]} /> : null}
         {feed.connections === 0 ? (
@@ -120,6 +129,7 @@ export default function Home() {
 
   return (
     <FlatList
+      ref={listRef}
       data={withAds(feed.posts, ads, 4)}
       keyExtractor={(p) => p.key || p.id}
       renderItem={({ item }) => item.__ad ? <FeedAd ad={item.__ad} /> : <PostCard post={item} onDeleted={(pid) => setFeed((f) => ({ ...f, posts: f.posts.filter((x) => x.id !== pid) }))} />}

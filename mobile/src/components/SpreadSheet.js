@@ -55,7 +55,7 @@ export default function SpreadSheet({ visible, onClose, spark, post, onChanged }
   };
   const sp = status?.spread;
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={spark ? 'Spread around' : 'Boost your post'}>
+    <BottomSheet visible={visible} onClose={onClose} title={spark ? 'Spread around' : 'Spread your post'}>
       <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ padding: space.lg }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
@@ -70,7 +70,7 @@ export default function SpreadSheet({ visible, onClose, spark, post, onChanged }
 
         {status === undefined ? <ActivityIndicator color={colors.aura} style={{ marginTop: space.xl }} /> : sp ? (
           <View style={{ marginTop: space.lg, padding: space.lg, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(66,232,192,0.4)', backgroundColor: 'rgba(66,232,192,0.08)' }}>
-            <Text style={{ fontFamily: fonts.bold, color: colors.mint, fontSize: 16 }}>{spark ? 'Spreading' : 'Boosted'} · {daysLeft(sp.endsAt)} {daysLeft(sp.endsAt) === 1 ? 'day' : 'days'} left</Text>
+            <Text style={{ fontFamily: fonts.bold, color: colors.mint, fontSize: 16 }}>Spreading · {daysLeft(sp.endsAt)} {daysLeft(sp.endsAt) === 1 ? 'day' : 'days'} left</Text>
             <Text style={{ fontFamily: fonts.body, color: colors.text, fontSize: 13.5, marginTop: 6 }}>
               {sp.city ? `In ${sp.city}` : 'All of India'} · ages {sp.ageMin}–{sp.ageMax} · {sp.days}-day plan{sp.test ? ' (test, free)' : ` · ₹${sp.priceInr}`}
             </Text>
@@ -78,7 +78,7 @@ export default function SpreadSheet({ visible, onClose, spark, post, onChanged }
               <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 22 }}>{sp.impressions}</Text><Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12 }}>times shown</Text></View>
               <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.displayBold, color: colors.text, fontSize: 22 }}>{spark ? (status.views ?? 0) : (status.likes ?? 0)}</Text><Text style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12 }}>{spark ? 'views in all' : '👌🏻 in all'}</Text></View>
             </View>
-            <Pressable onPress={stop} disabled={busy} style={{ marginTop: space.md, alignSelf: 'flex-start' }}><Text style={{ fontFamily: fonts.semibold, color: colors.danger, fontSize: 13.5 }}>{spark ? 'Stop spreading' : 'Stop boosting'}</Text></Pressable>
+            <Pressable onPress={stop} disabled={busy} style={{ marginTop: space.md, alignSelf: 'flex-start' }}><Text style={{ fontFamily: fonts.semibold, color: colors.danger, fontSize: 13.5 }}>Stop spreading</Text></Pressable>
           </View>
         ) : (
           <>
@@ -95,7 +95,7 @@ export default function SpreadSheet({ visible, onClose, spark, post, onChanged }
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
               {AGES.map(([a, b], i) => <Choice key={i} wide on={ages === i} onPress={() => setAges(i)} title={`${a}–${b}`} />)}
             </View>
-            {info && !info.available ? <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.gold, marginTop: space.md, textAlign: 'center' }}>{spark ? 'Spread around' : 'Boost'} is coming soon: payments aren't switched on yet.</Text> : null}
+            {info && !info.available ? <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.gold, marginTop: space.md, textAlign: 'center' }}>Spread is coming soon: payments aren't switched on yet.</Text> : null}
             {info?.test ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.dim, marginTop: space.md, textAlign: 'center' }}>Test mode on this laptop: no money is taken.</Text> : null}
             {error ? <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.danger, marginTop: space.sm, textAlign: 'center' }}>{error}</Text> : null}
             <Pressable onPress={start} disabled={busy || !info?.available}
@@ -103,7 +103,7 @@ export default function SpreadSheet({ visible, onClose, spark, post, onChanged }
               <LinearGradient colors={gradients.button} start={{ x: 0, y: 0.3 }} end={{ x: 1, y: 0.7 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
               {busy ? <ActivityIndicator color="#fff" /> : (<>
                 <Ionicons name="megaphone" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{info?.test ? (spark ? 'Spread it (test, free)' : 'Boost it (test, free)') : `Pay ₹${plan?.priceInr ?? ''} & ${spark ? 'spread' : 'boost'}`}</Text>
+                <Text style={{ fontFamily: fonts.bold, color: '#fff', fontSize: 15 }}>{info?.test ? 'Spread it (test, free)' : `Pay ₹${plan?.priceInr ?? ''} & spread`}</Text>
               </>)}
             </Pressable>
             <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.dim, marginTop: space.md, textAlign: 'center', lineHeight: 16 }}>

@@ -12,7 +12,8 @@ async function chat() {
   const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
   const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
   const acc = await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
-  return { a, b, conv: acc.body.conversationId };
+  assert.equal(acc.body.mutual, true);
+  return { a, b, conv: (await api().post('/conversations/direct').set(b.h).send({ userId: a.user.id }).expect(200)).body.conversation.id }; // accepting doesn't open a chat
 }
 
 describe('Message-box translator', () => {

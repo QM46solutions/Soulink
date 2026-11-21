@@ -53,7 +53,8 @@ describe('Post offense, suspension and share', () => {
   test('share into a chat sends a post message; outside share is counted', async () => {
     const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
     const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
-    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200)).body.conversationId;
+    await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
+  const conv = (await api().post('/conversations/direct').set(b.h).send({ userId: a.user.id }).expect(200)).body.conversation.id; // accepting doesn't open a chat
     const p = await textPost(a, 'share me');
     const r = (await api().post(`/posts/${p.id}/share`).set(b.h).send({ conversationIds: [conv] }).expect(200)).body;
     assert.equal(r.sent, 1);
@@ -107,7 +108,8 @@ describe('Moments (Home +): story for 24 h, chat Moments open once / replay once
   async function connected() {
     const a = await makeUser(); const b = await makeUser(); await quiz(a); await quiz(b, 1);
     const q = (await api().post('/connections/requests').set(a.h).send({ toUserId: b.user.id, intent: 'friendship' }).expect(201)).body.request;
-    const conv = (await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200)).body.conversationId;
+    await api().post(`/connections/requests/${q.id}/accept`).set(b.h).send({ connectBack: true }).expect(200);
+  const conv = (await api().post('/conversations/direct').set(b.h).send({ userId: a.user.id }).expect(200)).body.conversation.id; // accepting doesn't open a chat
     return { a, b, conv };
   }
 

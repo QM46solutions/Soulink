@@ -44,9 +44,36 @@ export function ConversationAvatar({ conversation, size = 52 }) {
 
 // ---------- inbox row ----------
 
+// What a message that isn't text shows in the chat list: a drawn icon in Soulink's colours and a plain word
+// (no emoji glyphs, which look different on every phone). Text messages, and the emojis people send, show as sent.
+const KIND_PREVIEW = {
+  image: ['image-outline', () => 'Photo'],
+  voice: ['microphone-outline', () => 'Voice message'],
+  soulmoji: ['emoticon-happy-outline', () => 'Soulmoji'],
+  post: ['card-text-outline', () => 'Shared a post'],
+  moment: ['camera-iris', () => 'Moment'],
+  location: ['map-marker-outline', () => 'Location'],
+  contact: ['account-box-outline', (m) => m.contact?.displayName || 'Contact'],
+  document: ['file-document-outline', (m) => m.document?.name || 'Document'],
+  poll: ['poll', (m) => m.poll?.question || 'Poll'],
+  game: ['gamepad-variant-outline', () => 'OX game'],
+};
+/** { icon, text } for the chat list's second line. `text` keeps the "You: " the server adds to your own messages. */
+export function previewParts(lm) {
+  if (!lm) return null;
+  const mine = typeof lm.text === 'string' && lm.text.startsWith('You: ');
+  const you = mine ? 'You: ' : '';
+  if (lm.deleted) return { icon: 'cancel', text: `${you}Message unsent` };
+  const k = KIND_PREVIEW[lm.kind];
+  if (k) return { icon: k[0], text: `${you}${k[1](lm)}` };
+  if (lm.momentRef) return { icon: 'reply-outline', text: `${you}Moment: ${lm.body || ''}` };
+  return { icon: null, text: lm.text || '' };
+}
+
 export const ConversationRow = memo(function ConversationRow({ conversation, onPress, onLongPress, tag }) {
   const unread = conversation.unreadCount > 0;
   const lm = conversation.lastMessage;
+  const parts = previewParts(lm);
   return (
     <Pressable onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [st.row, pressed && { backgroundColor: 'rgba(124,92,252,0.08)' }]}>
       <ConversationAvatar conversation={conversation} />
@@ -55,10 +82,13 @@ export const ConversationRow = memo(function ConversationRow({ conversation, onP
           <Text numberOfLines={1} style={[st.rowTitle, unread && { fontFamily: fonts.bold, color: '#fff' }]}>{conversation.title}</Text>
           {!conversation.isGroup && conversation.other?.verified ? <VerifiedBadge size={13} /> : null}
         </View>
-        <Text numberOfLines={1} style={[st.rowSub, unread && { color: colors.text, fontFamily: fonts.semibold }]}>
-          {lm ? `${lm.text}` : conversation.isGroup ? `${conversation.members.length} members` : 'Say hi 👋'}
-          {lm ? <Text style={{ color: colors.dim }}>{`  ·  ${ago(lm.createdAt)}`}</Text> : null}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+          {parts?.icon ? <MaterialCommunityIcons name={parts.icon} size={15} color={unread ? colors.aura : colors.muted} style={{ marginRight: 4 }} /> : null}
+          <Text numberOfLines={1} style={[st.rowSub, { marginTop: 0, flexShrink: 1 }, unread && { color: colors.text, fontFamily: fonts.semibold }]}>
+            {lm ? parts.text : conversation.isGroup ? `${conversation.members.length} members` : 'Say hi'}
+            {lm ? <Text style={{ color: colors.dim }}>{`  ·  ${ago(lm.createdAt)}`}</Text> : null}
+          </Text>
+        </View>
         {tag ? <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11, color: tag.color || colors.gold, marginTop: 3 }}>{tag.text}</Text> : null}
       </View>
       {unread ? (
@@ -99,12 +129,24 @@ function BubbleShell({ mine, children, style, flat }) {
 
 export const REACTIONS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
+/** A replied-to message in one line: text as written, or (photo, voice note, post…) a drawn icon and a word. */
+function QuotedText({ q, style, lines }) {
+  const k = q?.kind && q.kind !== 'text' ? KIND_PREVIEW[q.kind] : null;
+  if (!k) return <Text style={style} numberOfLines={lines}>{q?.text}</Text>;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <MaterialCommunityIcons name={k[0]} size={14} color={colors.aura} style={{ marginRight: 4 }} />
+      <Text style={style} numberOfLines={lines}>{k[1](q)}</Text>
+    </View>
+  );
+}
+
 /** The quoted message shown above a reply (Instagram style). */
 function ReplyQuote({ replyTo, mine, senderName }) {
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '100%', marginBottom: 6, paddingHorizontal: 12, paddingTop: 7, paddingBottom: 8, borderRadius: 16, backgroundColor: 'rgba(42,39,64,0.7)', borderLeftWidth: 3, borderLeftColor: colors.aura }}>
       <Text style={{ color: colors.muted, fontFamily: fonts.semibold, fontSize: 11, marginBottom: 2 }}>{senderName ? `Replying to ${senderName}` : 'Reply'}</Text>
-      <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, opacity: 0.8 }} numberOfLines={2}>{replyTo.text}</Text>
+      <QuotedText q={replyTo} lines={2} style={{ color: colors.text, fontFamily: fonts.body, fontSize: 13, opacity: 0.8 }} />
     </View>
   );
 }
@@ -495,9 +537,12 @@ export function MessageMenu({ message, mine, onClose, onReact, onReply, onUnsend
           </View>
         ) : null}
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: 12, borderRadius: 18, backgroundColor: mine ? 'rgba(124,92,252,0.35)' : colors.card, marginBottom: space.md }}>
-          <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>
-            {message.kind === 'text' ? message.body : message.kind === 'soulmoji' ? '✨ Soulmoji' : message.kind === 'image' ? '📷 Photo' : message.kind === 'moment' ? '📸 Moment' : message.kind === 'game' ? '🎮 OX game' : message.kind === 'location' ? '📍 Location' : message.kind === 'contact' ? '👤 Contact' : message.kind === 'document' ? '📄 Document' : message.kind === 'poll' ? '📊 Poll' : '🎤 Voice message'}
-          </Text>
+          {message.kind === 'text' ? <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={4}>{message.body}</Text> : (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name={(KIND_PREVIEW[message.kind] || KIND_PREVIEW.voice)[0]} size={18} color={colors.aura} style={{ marginRight: 6 }} />
+              <Text style={{ color: colors.text, fontFamily: fonts.body, fontSize: 15 }} numberOfLines={2}>{(KIND_PREVIEW[message.kind] || KIND_PREVIEW.voice)[1](message)}</Text>
+            </View>
+          )}
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', minWidth: 200, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
           {items.map(([icon, label, fn, danger], i) => (
@@ -875,7 +920,7 @@ export function Composer({ onSendText, onSendMedia, onTyping, disabled, disabled
         <View style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: colors.aura, marginRight: 10 }} />
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.aura, fontFamily: fonts.semibold, fontSize: 12 }}>Replying to {replyTo.name}</Text>
-          <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13 }} numberOfLines={1}>{replyTo.text}</Text>
+          <QuotedText q={replyTo} lines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13 }} />
         </View>
         <Pressable onPress={onCancelReply} hitSlop={10} accessibilityLabel="Cancel reply"><Ionicons name="close" size={18} color={colors.muted} /></Pressable>
       </View>

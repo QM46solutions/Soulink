@@ -109,7 +109,7 @@
     { id: 'ads', t: 'Ads & customers', i: 'mega', g: 'Business', roles: ['owner', 'ads', 'viewer'], s: 'Customers, their bookings, payments and ad performance' },
     { id: 'book', t: 'New ad booking', i: 'cal', g: 'Business', roles: ['owner', 'ads'], s: 'Book hours for a customer: placement, cities and schedule' },
     { id: 'rates', t: 'Ad rate card', i: 'card', g: 'Business', roles: ['owner', 'ads', 'viewer'], s: 'Hourly prices per placement and city' },
-    { id: 'revenue', t: 'Revenue', i: 'rupee', g: 'Business', roles: ['owner', 'viewer'], s: 'Money in from ads, paid messages and Spark boosts' },
+    { id: 'revenue', t: 'Revenue', i: 'rupee', g: 'Business', roles: ['owner', 'viewer'], s: 'Money in from ads, paid messages and Spreads' },
     { id: 'safety', t: 'Safety & reports', i: 'shield', g: 'Trust', roles: ['owner', 'support'], s: 'Reported users and content, copyright notices and bans' },
     { id: 'legal', t: 'Legal & compliance', i: 'scale', g: 'Trust', roles: ['owner', 'support'], s: 'Complaints to the Grievance Officer, police and court orders, and bans, with their legal deadlines' },
     { id: 'team', t: 'Team & access', i: 'key', g: 'Trust', roles: ['owner'], s: 'Who can sign in to this console, and what each person did' }

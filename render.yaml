@@ -1,11 +1,11 @@
-# Render (free plan): one web service = the Soulink web app + its API on one https address.
+# Render (paid Standard plan since 21 Nov 2026: 1 CPU, 2 GB, never sleeps): one web service = the Soulink web app + its API on one https address.
 # The code comes from the "deploy" branch, which GitHub builds automatically (.github/workflows/deploy.yml).
 # Secrets marked sync:false are typed in once in the Render dashboard (see docs/CLOUD-HOSTING.md).
 services:
   - type: web
     name: soulink
     runtime: node
-    plan: free
+    plan: standard
     region: singapore
     branch: deploy
     autoDeploy: true
@@ -17,17 +17,22 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
-      # free plan = 512 MB: let Node clean up memory earlier
+      # Standard plan = 2 GB: room for the face check and video work, with headroom for the rest of the process
       - key: NODE_OPTIONS
-        value: --max-old-space-size=320
+        value: --max-old-space-size=1536
       - key: WEB_DIR
         value: web
       - key: STORAGE
         value: db
       - key: AI_PROVIDER
         value: basic
+      # login codes by SMS through Message Central VerifyNow (its customer id + password are set in the dashboard)
       - key: SMS_PROVIDER
-        value: console
+        value: messagecentral
+      - key: MESSAGECENTRAL_CUSTOMER_ID
+        sync: false
+      - key: MESSAGECENTRAL_PASSWORD
+        sync: false
       - key: DB_PORT
         value: "1433"
       - key: DB_ENCRYPT
@@ -106,9 +111,9 @@ services:
       # No free Premium for public users (Premium features only; login is always free)
       - key: PREMIUM_FREE_TRIAL
         value: "false"
-      # Phone sign-in stays off until MSG91 + DLT are live and tested (then "true")
+      # Phone sign-in is live (Message Central, tested 20 Nov 2026)
       - key: PHONE_LOGIN
-        value: "false"
+        value: "true"
       # Team test numbers / emails (comma-separated) that may sign in while phone codes are off, and see the
       # code on screen in test mode. Must be empty before public launch.
       - key: TEST_LOGIN_TARGETS
