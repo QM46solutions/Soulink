@@ -1,4 +1,4 @@
-// Build 1: Soul DNA (v5: the 7 games, predicted compatibility), connecting rules, home feed, place search.
+// Build 1: Soul DNA (v7: 8 categories of activities, predicted compatibility), connecting rules, home feed, place search.
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, resetDb, makeUser, closePool, makeDna, sampleAnswers, query } from './helpers.js';
@@ -10,27 +10,24 @@ after(() => closePool());
 const takeQuiz = (u, k = 0) => makeDna(u, k);
 
 describe('Soul DNA', () => {
-  test('the games, in order, with no scoring sent to the phone', async () => {
+  test('the first session: 11 activities across 8 categories, with no scoring sent to the phone', async () => {
     const u = await makeUser();
     const r = await api().get('/soul/dna').set(u.h).expect(200);
-    assert.equal(r.body.total, 21, `got ${r.body.total} items`);
-    assert.equal(r.body.sections.length, 7);
+    assert.equal(r.body.total, 11, `got ${r.body.total} items`);
+    assert.equal(r.body.sections.length, 8);
     assert.equal(r.body.plan.length, r.body.total);
-    assert.ok(r.body.questions.length > r.body.total, 'both loyalty versions are sent; the app shows the right one');
+    assert.ok(r.body.questions.length > r.body.total, 'the whole bank is sent; check-ins use the rest');
     const kinds = new Set(r.body.questions.map((q) => q.kind));
-    for (const k of ['photos', 'pick', 'react', 'vs', 'loyal', 'me', 'boxes']) assert.ok(kinds.has(k), k);
-    assert.ok(r.body.questions.filter((q) => q.kind === 'photos').every((q) => q.photos.length >= 8 && q.photos.length <= 15));
+    for (const k of ['react', 'more', 'slider', 'rank', 'day', 'tiles', 'habits', 'needs']) assert.ok(kinds.has(k), k);
     const raw = JSON.stringify(r.body.questions);
     assert.equal(raw.includes('"set"') || raw.includes('intent_') || raw.includes('r_fight'), false);
     assert.equal(r.body.completed, false);
-    // gut-reaction timing and the firmness dial are part of the answer
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { em1: { o: 1, ms: 1800, ch: 1 }, va1: { o: 0, f: 2, ms: 2100 }, g_nature: { s: [0, 4], ms: 4000 } } }).expect(200);
+    // gut-reaction timing and the firmness dial are part of the answer; It depends / Skip are answers too
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { tb1: { o: 1, ms: 1800, ch: 1 }, va1: { o: 0, f: 2, ms: 2100 }, in1: { s: [0, 4], ms: 4000 }, cf1: { skip: true, d: 1 } } }).expect(200);
     await api().put('/soul/dna/answers').set(u.h).send({ answers: { va1: { o: 0 } } }).expect(400);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { g_nature: { s: [1, 1] } } }).expect(400);
-    await api().put('/soul/dna/answers').set(u.h).send({ answers: { g_nature: { s: [0, 1, 2, 3] } } }).expect(400);
-    // friendship seekers get the friend version of the loyalty game
-    const f = (await api().put('/soul/dna/answers').set(u.h).send({ answers: { it_look: 2 } }).expect(200)).body;
-    assert.ok(f.plan.includes('lf2') && !f.plan.includes('lp3'));
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { in1: { s: [1, 1] } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { in1: { s: [0, 1, 2, 3] } } }).expect(400);
+    await api().put('/soul/dna/answers').set(u.h).send({ answers: { re5: { skip: true } } }).expect(400);
   });
 
   test('an older Soul DNA keeps matching, and its owner can play the new games for free', async () => {
@@ -48,20 +45,38 @@ describe('Soul DNA', () => {
     assert.equal((await api().get('/soul/dna').set(u.h)).body.completed, true);
   });
 
+  test('a v6 Soul DNA keeps working; its owner is invited (optionally) to refresh it, and nothing is lost', async () => {
+    const u = await makeUser();
+    await takeQuiz(u, 0);
+    await query("UPDATE soul_dna SET dna=JSON_MODIFY(dna, '$.v', 6), answers=N'{}' WHERE user_id=$1", [u.user.id]);
+    await query('UPDATE users SET soul_version=6 WHERE id=$1', [u.user.id]);
+    const me = (await api().get('/users/me').set(u.h)).body.user;
+    assert.equal(me.soulRefresh, true); assert.equal(me.soulUpgrade, false); assert.equal(me.soulReady, true);
+    const d = (await api().get('/soul/dna').set(u.h).expect(200)).body;
+    assert.equal(d.completed, true); assert.equal(d.refresh, true);
+    const ci = (await api().get('/soul/dna/checkin').set(u.h).expect(200)).body;
+    assert.deepEqual(ci.ids, d.plan, 'refreshing starts with the new first session');
+    const r = (await api().put('/soul/dna/answers').set(u.h).send({ answers: { li1: { v: 0 } } }).expect(200)).body;
+    assert.equal(r.updated, true);
+    assert.ok(r.me.categories.find((c) => c.key === 'conflict').earlier, 'categories not refreshed yet come from the earlier Soul DNA');
+  });
+
   test('progress is saved and resumable; finishing gives a Soul type', async () => {
     const u = await makeUser();
     assert.equal((await api().get('/users/me').set(u.h)).body.user.soulReady, false);
-    const all = sampleAnswers(0); const ids = Object.keys(all);
-    const half = Object.fromEntries(ids.slice(0, 10).map((id) => [id, all[id]]));
+    const all = sampleAnswers(0);
+    const { plan } = (await api().get('/soul/dna').set(u.h)).body;
+    const half = Object.fromEntries(plan.slice(0, 5).map((id) => [id, all[id]]));
     const p = await api().put('/soul/dna/answers').set(u.h).send({ answers: half }).expect(200);
-    assert.equal(p.body.answered, 10);
+    assert.equal(p.body.answered, 5);
     const inc = await api().post('/soul/dna/complete').set(u.h).expect(400);
     assert.equal(inc.body.error.code, 'incomplete');
-    assert.equal((await api().get('/soul/dna').set(u.h)).body.answered, 10);
+    assert.equal((await api().get('/soul/dna').set(u.h)).body.answered, 5);
     const r = await takeQuiz(u);
     assert.equal(r.body.user.soulReady, true);
     assert.ok(r.body.soul.type.startsWith('The '));
-    assert.equal(r.body.me.dims.length, 7);
+    assert.equal(r.body.me.dims.length, 8);
+    assert.equal(r.body.me.categories.length, 8);
     assert.ok(r.body.me.summary.length >= 3, 'how you think, in words');
     const me = await api().get('/soul/dna/me').set(u.h).expect(200);
     assert.equal(me.body.ready, true);
@@ -87,16 +102,20 @@ describe('Soul DNA', () => {
     assert.notEqual(other.relation, 'lifepartner');
   });
 
-  test('first Soul DNA is free; retaking it is Premium', async () => {
+  test('Soul DNA is free, and so are check-ins and updates; starting over is Premium', async () => {
     const u = await makeUser();
     await takeQuiz(u, 0);
-    const again = await api().put('/soul/dna/answers').set(u.h).send({ answers: { v1: 1 } }).expect(403);
-    assert.equal(again.body.error.code, 'premium_required');
+    const ci = (await api().get('/soul/dna/checkin').set(u.h).expect(200)).body;
+    assert.ok(ci.ids.length >= 1 && ci.questions.length === ci.ids.length);
+    const upd = (await api().put('/soul/dna/answers').set(u.h).send({ answers: { cf1: { o: 1 } } }).expect(200)).body;
+    assert.equal(upd.updated, true); assert.equal(upd.me.categories.length, 8);
+    const cat = (await api().get('/soul/dna/checkin?category=conflict').set(u.h).expect(200)).body;
+    assert.ok(cat.ids.includes('cf1') && cat.answers.cf1);
     assert.equal((await api().post('/soul/dna/retake').set(u.h).expect(403)).body.error.code, 'premium_required');
     await query('UPDATE users SET is_premium=1 WHERE id=$1', [u.user.id]);
     await api().post('/soul/dna/retake').set(u.h).expect(200);
     const d = (await api().get('/soul/dna').set(u.h).expect(200)).body;
-    assert.equal(d.answered, 0); assert.equal(d.canRetake, true);
+    assert.equal(d.answered, 0); assert.equal(d.canRetake, true); assert.equal(d.retaking, true);
     assert.equal((await api().get('/users/me').set(u.h)).body.user.soulReady, true, 'old Soul DNA stays until the new one is done');
     await takeQuiz(u, 4);
   });

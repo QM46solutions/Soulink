@@ -1,245 +1,242 @@
-// Soul DNA v6: 7 categories × 3 = 21 taps. Each category opens with ONE photo grid ("which of these is you?",
-// 8 to 12 real photos, pick up to 3, the order you tap is your ranking), then two quick questions.
-// Each category is built on a published psychology instrument (see docs/SOUL-DNA-GAMES.md); the item wording is
-// our own. Every option quietly moves the person's mind model on one or more TRAITS (0-100). Nobody sees these
-// numbers: the app only gets the text, the photos and the kind of each item.
+// Soul DNA v7: 8 fixed categories, each with a bank of short, playful activities (docs/SOUL-DNA-V7.md).
+// Every activity measures named traits; no answer is the "right" one. Everyone plays the same categories but not
+// always the same activities, so results stay comparable: every activity feeds the SAME traits for its category,
+// and 4 anchors are the same for everyone. A category score always comes from several answers.
 //
-// Item kinds (what the app shows, and what an answer looks like)
-//   photos     a photo grid, pick 1 to `max` (in order)  { s: [indices] }   first pick counts most
-//   pick       one of a few answers (what you want)       { o }
-//   react      one of 3-5 answers (gut-reaction time noted) { o }
-//   vs         two cards + a firmness dial                { o, f }          f: 0 flexible, 1 firm, 2 non-negotiable
-//   loyal      one of 4 answers + the firmness dial       { o, f }          (partner or friend version)
-//   me         lifestyle photos: tap all that are you     { s: [keys] }
-//   boxes      chips for a partner: Must / Never          { must: [keys], never: [keys] }   (the rest = flexible)
-// Any single answer may also carry ms (time to answer) and ch (times changed).
-//
-// TRAITS (what we model)
-//  intent       intent_serious, intent_pace, intent_family
-//  personality  b_E, b_A, b_C, b_O, b_S (Big Five) + energy, curiosity, depth, humor, dec_head, dec_lead
-//  emotion      att_anx, att_avo (attachment), r_seek, r_withdraw, r_heat, read_sense, rec_speed
-//  values       v_family, v_freedom, v_security, v_ambition, v_love, v_honesty, v_tradition,
-//               gt_money, gt_family, gt_home, gt_career (how firmly they hold that area), home_dir, dec_risk
-//  loyalty      integ, loyal, boundary, jealousy, read_trust
-//  flex         gt_social
-//  rhythm       chrono (early bird → night owl), adventure
-//  conflict     r_fight, r_fix, rec_apology, rec_forgive
+// Activity kinds (what the app shows, and what an answer looks like). All but habits / needs may also be answered
+// { skip: true } ("It depends" or Skip; { skip: true, d: 1 } for "It depends"): kept, moves nothing, so that trait
+// simply stays less sure.
+//   react    choose what you'd do / reaction / conversation cards / choose what fits   { o }
+//   more     pick what matters more (2 cards); `firm`: a firmness dial too             { o, f? }
+//   slider   a point between two ends, 5 stops (0-4)                                   { v }
+//   rank     put 4 in order                                                            { r: [4 indices, first = most] }
+//   day      build your ideal day: one per slot                                        { s: [i, i, i] }
+//   tiles    pick up to 3 from a visual set (drawn icons, not photos)                  { s: [indices] }
+//   habits   quick taps about you, one per group (-1 = prefer not to say)              { food, drinks, smoke, pets, faith }
+//   needs    what you need in a partner: Must / Nice to have / Never per chip          { key: 'must' | 'nice' | 'never' }
+// Any answer may also carry ms (time to answer) and ch (times changed).
+// Traits are the v6 ones (0-100), so a Soul DNA made with the v6 games still matches against a v7 one.
 
 export const LAYERS = [
-  { key: 'personality', title: 'Your nature', game: '1' },
-  { key: 'emotion', title: 'Your feelings', game: '2' },
-  { key: 'values', title: 'What matters most', game: '3' },
-  { key: 'loyalty', title: 'Love and loyalty', game: '4' },
-  { key: 'flex', title: 'Your lifestyle', game: '5' },
-  { key: 'rhythm', title: 'Your day', game: '6' },
-  { key: 'conflict', title: 'After a disagreement', game: '7' },
+  { key: 'social', title: 'Social style' },
+  { key: 'comm', title: 'Communication' },
+  { key: 'conflict', title: 'Conflict' },
+  { key: 'trust', title: 'Trust and boundaries' },
+  { key: 'values', title: 'Values' },
+  { key: 'lifestyle', title: 'Lifestyle' },
+  { key: 'interests', title: 'Interests' },
+  { key: 'expect', title: 'Relationship expectations' },
 ];
 
+/** trait → the category it belongs to (for "how sure we are" per category) */
 export const TRAITS = {
-  intent_serious: 'intent', intent_pace: 'intent', intent_family: 'intent',
-  b_E: 'personality', b_A: 'personality', b_C: 'personality', b_O: 'personality', b_S: 'personality',
-  energy: 'personality', curiosity: 'personality', depth: 'personality', humor: 'personality', dec_head: 'personality', dec_lead: 'personality',
-  att_anx: 'emotion', att_avo: 'emotion', r_seek: 'emotion', r_withdraw: 'emotion', r_heat: 'emotion', read_sense: 'emotion', rec_speed: 'emotion',
+  b_E: 'social', energy: 'social', gt_social: 'social', b_O: 'social',
+  r_seek: 'comm', read_sense: 'comm', depth: 'comm', humor: 'comm', curiosity: 'comm',
+  r_fight: 'conflict', r_fix: 'conflict', r_withdraw: 'conflict', r_heat: 'conflict', rec_apology: 'conflict', rec_forgive: 'conflict', rec_speed: 'conflict', b_S: 'conflict',
+  att_anx: 'trust', att_avo: 'trust', integ: 'trust', boundary: 'trust', jealousy: 'trust', read_trust: 'trust', loyal: 'trust',
   v_family: 'values', v_freedom: 'values', v_security: 'values', v_ambition: 'values', v_love: 'values', v_honesty: 'values', v_tradition: 'values',
-  gt_money: 'values', gt_family: 'values', gt_home: 'values', gt_career: 'values', home_dir: 'values', dec_risk: 'values',
-  integ: 'loyalty', loyal: 'loyalty', boundary: 'loyalty', jealousy: 'loyalty', read_trust: 'loyalty',
-  gt_social: 'flex',
-  chrono: 'rhythm', adventure: 'rhythm',
-  r_fight: 'conflict', r_fix: 'conflict', rec_apology: 'conflict', rec_forgive: 'conflict',
+  gt_money: 'values', gt_family: 'values', gt_home: 'values', gt_career: 'values', home_dir: 'values', b_A: 'values', dec_head: 'values', dec_lead: 'values', dec_risk: 'values',
+  chrono: 'lifestyle', adventure: 'lifestyle', b_C: 'lifestyle',
+  intent_serious: 'expect', intent_pace: 'expect', intent_family: 'expect', pref_similar: 'expect',
 };
 
 /** The firmness dial → how firmly an area is held (give and take), and how much the answer counts. */
 export const FIRM = { level: [25, 60, 90], weight: [0.9, 1.1, 1.35], labels: ['Flexible', 'Firm', 'Non-negotiable'] };
-/** How much each pick in a photo grid counts: 1st, 2nd, 3rd. */
+/** How much each pick counts by position: tiles (1st, 2nd, 3rd) and rank (1st … 4th). */
 export const RANK_WEIGHT = [1.25, 1.0, 0.8];
+export const ORDER_WEIGHT = [1.2, 0.8, 0.4, 0.2];
+/** A ranked value (va0 / va2): 1st → 90 … 4th → 30. */
+export const ORDER_VALUE = [90, 70, 50, 30];
+/** Answer weights by kind: picture picks are preference data and never decide a trait alone; anchors count a bit more. */
+export const KIND_WEIGHT = { tiles: 0.6, day: 0.8 };
+export const ANCHOR_WEIGHT = 1.2;
 
-/** Lifestyle chips (game 5). `me` = the caption on the "which of these are you?" photo; `photo` = an Unsplash id.
- *  "Wants kids" isn't shown as a photo: the kids question right after answers it. */
-export const CHIPS = [
-  { key: 'smoke', label: 'Smokes', me: 'I smoke', photo: '1556575082-d2fe8144347d' },
-  { key: 'drink', label: 'Drinks', me: 'I drink', photo: '1764510376019-39d305752e9d' },
-  { key: 'pets', label: 'Has pets', me: 'Pet lover', photo: '1522276498395-f4f68f7f8454' },
-  { key: 'kids', label: 'Wants kids' },
-  { key: 'family_home', label: 'Lives with family after marriage', me: 'Living with family after marriage', photo: '1578496780896-7081cc23c111' },
-  { key: 'relocate', label: 'Willing to move cities', me: 'Happy to move cities', photo: '1714647211902-bb711d643a17' },
-  { key: 'veg', label: 'Vegetarian', me: 'Vegetarian', photo: '1742281257687-092746ad6021' },
-  { key: 'faith', label: 'Practises a faith', me: 'Practise my faith', photo: '1764078680838-7bc41044286a' },
-  { key: 'nightlife', label: 'Loves night-outs', me: 'Love night-outs', photo: '1545128485-c400e7702796' },
+// ---------- lifestyle quick taps (li5) and partner needs (re5) ----------
+export const HABITS = [
+  { key: 'food', label: 'Food', options: ['Vegetarian', 'Eggetarian', 'Non-veg', 'Vegan'] },
+  { key: 'drinks', label: 'Drinks', options: ['Never', 'Socially', 'Often'] },
+  { key: 'smoke', label: 'Smoking', options: ['Never', 'Socially', 'Regularly'] },
+  { key: 'pets', label: 'Pets', options: ['Have one', 'Love them', 'Not for me'] },
+  { key: 'faith', label: 'Faith', options: ['Practise it', 'Spiritual', 'Not really'] },
 ];
-export const CHIP_KEYS = CHIPS.map((c) => c.key);
-export const ME_CHIP_KEYS = CHIPS.filter((c) => c.photo).map((c) => c.key);
-/** What describing yourself with a chip says about you. */
-export const CHIP_SET = { relocate: { home_dir: 80 }, family_home: { v_family: 72, home_dir: 20 }, faith: { v_tradition: 66 }, nightlife: { energy: 78, chrono: 70 }, pets: { b_A: 60 } };
+export const HABIT_KEYS = HABITS.map((h) => h.key);
+/** Quick taps → the lifestyle keys a partner's Must / Never is checked against (v6's chip keys, plus drink_often). */
+export function habitKeys(h = {}) {
+  const out = [];
+  if (h.food === 0 || h.food === 3) out.push('veg');
+  if (h.drinks === 1 || h.drinks === 2) out.push('drink');
+  if (h.drinks === 2) out.push('drink_often');
+  if (h.smoke === 1 || h.smoke === 2) out.push('smoke');
+  if (h.pets === 0 || h.pets === 1) out.push('pets');
+  if (h.faith === 0) out.push('faith');
+  return out;
+}
 
-// ---------- the items ----------
-// o(label, set, extra)  extra: { key } for "what you want" picks, { s } strictness 0-3 for loyalty, { tag } for
-//   analysis, { photo } an Unsplash photo id (free for commercial use: unsplash.com/license)
-const o = (label, set, extra = {}) => ({ label, set, ...extra });
-const p = (label, photo, set) => ({ label, photo, set });
+/** What you need in a partner. treat: how they treat you (checked against the other person's traits: [trait,
+ *  threshold, 'low' when lower is what's wanted]); life: life together (checked against their quick taps and
+ *  answers). Only life chips can be a Never. */
+export const NEEDS = [
+  { key: 'word', group: 'treat', label: 'Keeps their word', trait: ['integ', 62] },
+  { key: 'time', group: 'treat', label: 'Makes time for me', trait: ['att_avo', 45, 'low'] },
+  { key: 'family', group: 'treat', label: 'Respects my family', trait: ['v_family', 55] },
+  { key: 'career', group: 'treat', label: 'Backs my career', trait: ['v_ambition', 50] },
+  { key: 'space', group: 'treat', label: 'Gives me space', trait: ['att_avo', 45] },
+  { key: 'chores', group: 'treat', label: 'Shares the housework', trait: ['b_C', 50] },
+  { key: 'talk', group: 'treat', label: 'Talks things through', trait: ['r_fix', 55] },
+  { key: 'laugh', group: 'treat', label: 'Makes me laugh', trait: ['humor', 55] },
+  { key: 'near_family', group: 'life', label: 'Lives near my family' },
+  { key: 'relocate', group: 'life', label: 'Open to moving cities' },
+  { key: 'faith', group: 'life', label: 'Shares my faith' },
+  { key: 'same_food', group: 'life', label: 'Same food habits' },
+  { key: 'no_smoke', group: 'life', label: 'Doesn’t smoke' },
+  { key: 'light_drink', group: 'life', label: 'Drinks socially or not at all' },
+  { key: 'pets', group: 'life', label: 'Loves pets' },
+  { key: 'kids', group: 'life', label: 'Wants kids' },
+];
+export const NEED_MAP = Object.fromEntries(NEEDS.map((n) => [n.key, n]));
+export const NEED_LEVELS = ['must', 'nice', 'never'];
+
+/** Interest tiles (in1): a drawn icon each (the app draws it in Soulink's colours; no stock photos). */
+export const INTEREST_TILES = [
+  ['Music', 'music'], ['Movies', 'movie-open'], ['Cricket', 'cricket'], ['Football', 'soccer'], ['Gym', 'dumbbell'], ['Running', 'run'],
+  ['Yoga', 'yoga'], ['Trekking', 'hiking'], ['Travel', 'airplane'], ['Cooking', 'chef-hat'], ['Food hunting', 'food'], ['Reading', 'book-open-variant'],
+  ['Gaming', 'controller'], ['Photography', 'camera'], ['Art and design', 'palette'], ['Dance', 'human-female-dance'], ['Tech and startups', 'rocket-launch'], ['Fashion', 'hanger'],
+  ['Spirituality', 'meditation'], ['Volunteering', 'hand-heart'], ['Pets', 'paw'], ['Anime', 'star-four-points'], ['Stand-up comedy', 'microphone-variant'], ['Cars and bikes', 'motorbike'],
+];
+
+// ---------- the bank ----------
+// o(label, set, extra): extra { tag } an interest tag, { s } how strict a trust line is (0 relaxed → 3 strict),
+// { key } a value kept as is (kids, life stage), { t } the one value a ranked card stands for, { icon } a tile icon
+const o = (label, set = {}, extra = {}) => ({ label, set, ...extra });
 const it = (id, layer, kind, text, options, more = {}) => ({ id, layer, kind, text, options, ...more });
+const ends = (left, lset, right, rset) => [o(left, lset), o(right, rset)];
 
 export const SCENARIOS = [
-  // ---------- 1. your nature (Big Five, IPIP) ----------
-  it('g_nature', 'personality', 'photos', 'Which of these are you?', [
-    p('Life of the party', '1655459765544-39065b741a9e', { b_E: 88, energy: 85 }),
-    p('Lost in a good book', '1587210489914-6992e0797d55', { b_E: 28, depth: 72, b_O: 62 }),
-    p('The planner', '1524850011238-e3d235c7d4c9', { b_C: 88, dec_head: 70, dec_risk: 30 }),
-    p('Always up for an adventure', '1627894485200-b92fb4353967', { b_O: 78, adventure: 88, curiosity: 75 }),
-    p('The shoulder to lean on', '1539541417736-3d44c90da315', { b_A: 88, read_sense: 80 }),
-    p('Takes the lead', '1776039230119-6e69e241512d', { b_E: 72, dec_lead: 88 }),
-    p('Calm in any storm', '1506126613408-eca07ce68773', { b_S: 88, r_heat: 15, rec_speed: 70 }),
-    p('The creative one', '1595351298020-038700609878', { b_O: 88, curiosity: 78 }),
-    p('Always the joker', '1573496546038-82f9c39f6365', { humor: 90, b_E: 65 }),
-    p('Deep talks over chai', '1604881988758-f76ad2f7aac1', { depth: 88, b_O: 70 }),
-    p('Gets things done', '1768055105012-4c53791b2877', { b_C: 85, v_ambition: 65 }),
-    p('Fitness first', '1761839258420-5c3e2f2e2a74', { b_C: 70, energy: 72 })], { max: 3 }),
-  it('pe_cancel', 'personality', 'react', 'Friends cancel your plans at the last minute. You…', [
-    o('Feel relieved: a quiet night in', { b_E: 22, energy: 28 }, { tag: 'introvert' }),
-    o('Call someone else and go out anyway', { b_E: 85, energy: 82 }, { tag: 'extravert' }),
-    o('Stay annoyed for a while', { b_S: 22, r_heat: 70, rec_speed: 25 }, { tag: 'reactive' }),
-    o('Make a new plan for myself', { b_S: 72, b_C: 62, rec_speed: 80 }, { tag: 'steady' })]),
-  it('pe_team', 'personality', 'react', 'In a group project, you’re the one who…', [
-    o('Leads and divides the work', { dec_lead: 88, b_E: 70, b_C: 65 }, { tag: 'lead' }),
-    o('Brings the new ideas', { b_O: 85, curiosity: 78 }, { tag: 'ideas' }),
-    o('Quietly does most of the work', { b_C: 85, b_E: 30 }, { tag: 'doer' }),
-    o('Keeps everyone getting along', { b_A: 88, rec_forgive: 65, r_fight: 20 }, { tag: 'peace' }),
-    o('Finishes it at the last minute', { b_C: 15, dec_risk: 62 }, { tag: 'late' })]),
+  // ---------- 1. social style ----------
+  it('so1', 'social', 'react', 'A friend invites you to a party where you only know them.', [
+    o('Go and meet new people', { b_E: 85, energy: 80 }), o('Go, and mostly stay with my friend', { b_E: 50 }),
+    o('Go for an hour, then head home', { b_E: 35, energy: 40 }), o('Suggest something smaller instead', { b_E: 25, gt_social: 30 })], { look: 'scenario' }),
+  it('so2', 'social', 'slider', 'My ideal Saturday evening', ends('A big group out', { b_E: 90, energy: 85 }, 'One or two people, in', { b_E: 15, energy: 25 })),
+  it('so3', 'social', 'more', 'Which suits you?', [o('Lots of friends I see now and then', { gt_social: 80 }), o('A few friends I see all the time', { gt_social: 25 })]),
+  it('so4', 'social', 'react', 'You walk into a wedding full of people you don’t know.', [
+    o('Start chatting with whoever’s nearby', { b_E: 85 }), o('Find the food, then chat', { b_E: 55 }),
+    o('Wait for someone to come over', { b_E: 30 }), o('Stay with the people I came with', { b_E: 40, gt_social: 30 })], { look: 'reaction' }),
+  it('so5', 'social', 'rank', 'Best way to recharge after a long week', [
+    o('A night out with friends', { b_E: 85, energy: 85 }), o('A quiet night alone', { b_E: 20, energy: 25 }),
+    o('Dinner with family', { v_family: 70 }), o('A movie with one close friend', { b_E: 45 })]),
 
-  // ---------- 2. your feelings (attachment, emotion regulation) ----------
-  it('g_feel', 'emotion', 'photos', 'When something upsets you, which of these is you?', [
-    p('Call a friend right away', '1663743629961-c6134ef1afc9', { r_seek: 85, att_avo: 20, b_E: 65 }),
-    p('Headphones on, world off', '1625786682948-2168238883d2', { r_withdraw: 75, att_avo: 60 }),
-    p('Let the tears out', '1521075486433-bf4052bb37bc', { b_S: 32, rec_speed: 55, att_avo: 25 }),
-    p('A hug, not advice', '1722385036849-76f0d7b97f0b', { r_seek: 72, att_avo: 15, att_anx: 55 }),
-    p('Write it all down', '1517971071642-34a2d3ecc9cd', { depth: 70, rec_speed: 60, r_heat: 30 }),
-    p('Overthink it all night', '1718986786855-4d2dcee21cb7', { att_anx: 78, b_S: 25 }),
-    p('Want to be left alone', '1620578077783-33e254311182', { att_avo: 80, r_withdraw: 85 }),
-    p('A long walk alone', '1592903204858-e288251ad9cc', { r_withdraw: 55, rec_speed: 65, r_heat: 25 }),
-    p('Talk it through', '1573497491208-6b1acb260507', { r_fix: 75, att_avo: 20, read_sense: 65 }),
-    p('Laugh it off', '1760032058836-f9ecf82b9926', { humor: 85, rec_speed: 82 }),
-    p('Sleep on it', '1758273239813-cecda76c6c19', { rec_speed: 70, r_heat: 20, b_S: 65 }),
-    p('Cook or clean to calm down', '1556911073-a517e752729c', { rec_speed: 65, b_C: 60 })], { max: 3 }),
-  it('em1', 'emotion', 'react', 'Someone close hasn’t replied in 6 hours.', [
-    o('They’re busy, no worries', { att_anx: 18, att_avo: 30, read_trust: 72 }, { tag: 'secure' }),
-    o('Something feels wrong…', { att_anx: 80, r_seek: 65 }, { tag: 'anxious' }),
-    o('Text again… and again', { att_anx: 92, r_seek: 85, r_heat: 60 }, { tag: 'anxious' }),
-    o('Fine, I won’t reply either', { att_avo: 70, r_withdraw: 70, r_heat: 55 }, { tag: 'avoidant' }),
-    o('Didn’t even notice', { att_avo: 75, att_anx: 10 }, { tag: 'avoidant' })]),
-  it('em5', 'emotion', 'react', 'Someone close wants to spend every evening with you.', [
-    o('Love it', { att_avo: 10, att_anx: 55, energy: 60 }, { tag: 'close' }),
-    o('Nice, but I need me-time too', { att_avo: 45, att_anx: 20 }, { tag: 'secure' }),
-    o('Feels suffocating', { att_avo: 90, v_freedom: 80 }, { tag: 'avoidant' }),
-    o('Finally, someone who wants me', { att_anx: 88, r_seek: 75 }, { tag: 'anxious' }),
-    o('Let’s plan it together', { att_avo: 30, att_anx: 25, r_fix: 60 }, { tag: 'secure' })]),
+  // ---------- 2. communication ----------
+  it('co1', 'comm', 'react', 'Which would you most enjoy talking about over chai?', [
+    o('Big dreams and plans', { depth: 80 }), o('Funny stories from the week', { humor: 80 }),
+    o('What’s happening in the world', { depth: 60, curiosity: 70 }), o('How we’re really feeling', { read_sense: 80, depth: 75 })], { look: 'cards' }),
+  it('co2', 'comm', 'more', 'When something’s on my mind', [o('I say it straight away', { r_seek: 80 }), o('I wait for the right moment', { r_seek: 35 })]),
+  it('co3', 'comm', 'slider', 'My texting style', ends('Short and quick', { depth: 30 }, 'Long and detailed', { depth: 80 })),
+  it('co4', 'comm', 'react', 'A friend seems quiet today but says they’re fine.', [
+    o('Gently ask again later', { read_sense: 85 }), o('Take them at their word', { read_sense: 35, read_trust: 70 }),
+    o('Try to cheer them up', { humor: 70, read_sense: 60 }), o('Give them some space', { att_avo: 55, read_sense: 55 })], { look: 'scenario' }),
+  it('co5', 'comm', 'react', 'Someone makes a joke about you in a group.', [
+    o('Laugh along', { humor: 80 }), o('Joke back', { humor: 85, r_fight: 40 }),
+    o('Tell them later it wasn’t okay', { r_fix: 75 }), o('Let it pass', { rec_forgive: 70, r_fight: 15 })], { look: 'reaction' }),
 
-  // ---------- 3. what matters most (Schwartz values) ----------
-  it('g_values', 'values', 'photos', 'Pick the 3 that matter most to you', [
-    p('Family', '1576089073624-b5751a8f4de9', { v_family: 90 }),
-    p('Career and success', '1577962917302-cd874c4e31d2', { v_ambition: 90, gt_career: 65 }),
-    p('Freedom to travel', '1694932845880-d8ad94f23ea6', { v_freedom: 88, adventure: 70 }),
-    p('Traditions and festivals', '1577083753695-e010191bacb5', { v_tradition: 90 }),
-    p('Faith', '1689586543311-7ec56db0ebd9', { v_tradition: 80 }),
-    p('Love', '1748176952054-db738247a927', { v_love: 90 }),
-    p('Money in the bank', '1633158829556-6ea20ad39b4f', { v_security: 90, gt_money: 65, dec_risk: 25 }),
-    p('Learning and growing', '1741699428220-65f37f3fbbcb', { curiosity: 85, b_O: 70 }),
-    p('Health and fitness', '1517836357463-d25dfeac3438', { b_C: 65, energy: 65 }),
-    p('Friends', '1672135620913-2e8dae4b46e2', { energy: 65, b_E: 65 }),
-    p('Helping others', '1599059813005-11265ba4b4ce', { b_A: 85, read_sense: 65 })], { max: 3, exact: true }),
-  it('va1', 'values', 'vs', 'Which matters more to you?', [
-    o('A dream job abroad', { v_ambition: 80, home_dir: 85, v_freedom: 65 }),
-    o('Staying close to family', { v_family: 85, home_dir: 15 })], { firm: 'gt_home' }),
-  it('va6', 'values', 'vs', 'Which matters more to you?', [
-    o('My family’s approval of my partner', { v_tradition: 80, v_family: 80 }),
-    o('My choice, my life', { v_freedom: 85, v_tradition: 25 })], { firm: 'gt_family' }),
+  // ---------- 3. conflict ----------
+  it('cf1', 'conflict', 'more', 'After an argument, I’d rather', [
+    o('Talk it through now', { r_fix: 85, rec_speed: 70, r_withdraw: 20 }), o('Take time to cool down first', { r_withdraw: 60, rec_speed: 40, r_heat: 30, r_fix: 35 })], { anchor: true }),
+  it('cf2', 'conflict', 'react', 'A friend cancels on you for the third time.', [
+    o('Tell them it hurts', { r_fix: 80, r_heat: 40 }), o('Let it go, people get busy', { rec_forgive: 80, r_fight: 15, r_fix: 40 }),
+    o('Make fewer plans with them', { r_withdraw: 75, rec_forgive: 30, r_fix: 25 }), o('Joke about it, but make the point', { humor: 70, r_fix: 60 })], { look: 'scenario' }),
+  it('cf3', 'conflict', 'slider', 'In a disagreement, I usually', ends('Speak up straight away', { r_fight: 85 }, 'Keep the peace', { r_fight: 15 })),
+  it('cf4', 'conflict', 'rank', 'What fixes things after a fight?', [
+    o('A sincere sorry', { rec_apology: 85 }), o('A hug or a small gesture', { v_love: 75, rec_forgive: 70 }),
+    o('Talking about what went wrong', { r_fix: 85 }), o('Some time apart first', { r_withdraw: 65, r_fix: 30 })]),
+  it('cf5', 'conflict', 'react', 'Your partner spends a lot of money without telling you.', [
+    o('Ask calmly what happened', { r_fix: 85, r_heat: 20 }), o('Tell them I’m upset', { r_fight: 70, r_heat: 60 }),
+    o('Leave it, it’s their money', { r_withdraw: 45, dec_lead: 30, r_fix: 30 }), o('Agree how we’ll handle it next time', { r_fix: 75, dec_head: 70 })], { look: 'scenario' }),
 
-  // ---------- 4. love and loyalty (Investment Model, jealousy research) ----------
-  it('it_look', 'loyalty', 'pick', 'What are you looking for on Soulink?', [
-    o('Marriage', { intent_serious: 95, intent_family: 78, intent_pace: 70 }, { key: 'marriage' }),
-    o('A serious relationship', { intent_serious: 80, intent_pace: 55 }, { key: 'serious' }),
-    o('Friendship', { intent_serious: 40, intent_pace: 40 }, { key: 'friendship' }),
-    o('Still exploring', { intent_serious: 25, intent_pace: 30 }, { key: 'exploring' })]),
-  it('g_loyal', 'loyalty', 'photos', 'What does loyalty mean to you?', [
-    p('Growing old together', '1625690987114-86f5af994b49', { loyal: 90, intent_serious: 75 }),
-    p('There in the hard times', '1714640693995-43e8852ab6b5', { loyal: 88, rec_forgive: 65 }),
-    p('Keeping my word', '1659352790996-871ea0804eec', { integ: 88, v_honesty: 80 }),
-    p('No one else comes first', '1779475559689-a19f9c339352', { integ: 90, boundary: 15, jealousy: 60 }),
-    p('The family’s blessing', '1621801306185-8c0ccf9c8eb8', { v_tradition: 80, v_family: 75 }),
-    p('Talking every day', '1522125670776-3c7abb882bc2', { att_anx: 65, r_seek: 70 }),
-    p('Space to be myself', '1522075782449-e45a34f1ddfb', { v_freedom: 85, att_avo: 60, boundary: 70 }),
-    p('Little surprises', '1526047932273-341f2a7631f9', { v_love: 85, read_sense: 65 }),
-    p('Having each other’s back', '1511632765486-a01980e01a18', { loyal: 85 }),
-    p('Celebrating every win', '1680459520309-189cf5b22212', { v_love: 70, energy: 65 })], { max: 3 }),
-  // s = how strict the line is (0 relaxed → 3 strict). Two people's lines are matched, never judged.
-  it('lp3', 'loyalty', 'loyal', 'Someone attractive at work flirts with you.', [
-    o('Shut it down', { integ: 92, boundary: 10 }, { s: 3 }),
-    o('Harmless fun', { integ: 30, boundary: 90 }, { s: 0 }),
-    o('Tell my partner', { integ: 80, boundary: 30, v_honesty: 75 }, { s: 2 }),
-    o('Depends on the person', { integ: 50, boundary: 60 }, { s: 1 })], { variant: 'partner', line: 'flirting' }),
-  it('lf2', 'loyalty', 'loyal', 'A friend tells you a secret. Others push you to share it.', [
-    o('Never share', { integ: 90, loyal: 80 }, { s: 3 }),
-    o('Drop a hint', { integ: 45 }, { s: 1 }),
-    o('Share if it’s harmless', { integ: 40 }, { s: 1 }),
-    o('Share it', { integ: 15 }, { s: 0 })], { variant: 'friend', line: 'keeping secrets' }),
+  // ---------- 4. trust and boundaries (fits a friend or a partner) ----------
+  it('tb1', 'trust', 'react', 'Someone close hasn’t replied in 6 hours.', [
+    o('They’re busy, I’ll hear later', { att_anx: 20, read_trust: 75 }), o('Send one more message to check', { att_anx: 55 }),
+    o('Call to make sure all is fine', { att_anx: 70, r_seek: 70 }), o('Get on with my day, I hardly notice', { att_avo: 65, att_anx: 15 })], { look: 'scenario', anchor: true }),
+  it('tb2', 'trust', 'slider', 'In a close relationship, I like', ends('Most free evenings together', { att_avo: 15 }, 'Plenty of time apart', { att_avo: 85 })),
+  it('tb3', 'trust', 'more', 'Phones in a relationship', [o('Open, nothing to hide', { boundary: 20 }), o('Private, even when we’re close', { boundary: 80 })]),
+  it('tb4', 'trust', 'react', 'Someone you’re close to suddenly has a new best friend.', [
+    o('Happy for them', { jealousy: 15, read_trust: 80 }), o('Curious, I’d ask about them', { jealousy: 40 }),
+    o('I’d want to meet them', { jealousy: 55 }), o('I’d say if I feel left out', { r_seek: 70, jealousy: 50 })], { look: 'scenario' }),
+  it('tb5', 'trust', 'rank', 'Loyalty means most when someone', [
+    o('Keeps their promises', { integ: 85 }), o('Is there in hard times', { loyal: 85 }),
+    o('Is honest even when it’s hard', { v_honesty: 85 }), o('Keeps what we share private', { integ: 80, loyal: 70 })]),
+  // id lp3: the same trust line as v6, so older and newer Soul DNA compare on it
+  it('lp3', 'trust', 'react', 'You’re seeing someone, and a person you find attractive flirts with you.', [
+    o('Make it clear I’m taken', { integ: 90, boundary: 15 }, { s: 3 }), o('Stay friendly, nothing more', { integ: 65, boundary: 55 }, { s: 1 }),
+    o('Mention it to my partner', { v_honesty: 80, integ: 80 }, { s: 2 }), o('Depends on the situation', { integ: 50, boundary: 60 }, { s: 1 })], { look: 'scenario', line: 'flirting' }),
 
-  // ---------- 5. your lifestyle (deal-breakers research) ----------
-  it('fx_me', 'flex', 'me', 'Which of these are you?', []),
-  it('fx_box', 'flex', 'boxes', 'For a partner: tap to mark Must or Never', []),
-  it('it_kids', 'flex', 'pick', 'Kids someday?', [
-    o('Want kids', { intent_family: 92, v_family: 70 }, { key: 'want' }),
-    o('Don’t want kids', { intent_family: 8 }, { key: 'no' }),
-    o('Open to it', { intent_family: 50 }, { key: 'open' })]),
+  // ---------- 5. values ----------
+  it('va0', 'values', 'rank', 'What matters most to you right now?', [
+    o('Family', {}, { t: 'v_family' }), o('Career and growth', {}, { t: 'v_ambition' }),
+    o('Freedom and travel', {}, { t: 'v_freedom' }), o('Love and partnership', {}, { t: 'v_love' })], { anchor: true }),
+  it('va2', 'values', 'rank', 'And these?', [
+    o('Faith and tradition', {}, { t: 'v_tradition' }), o('Money and security', {}, { t: 'v_security' }),
+    o('Honesty', {}, { t: 'v_honesty' }), o('Helping others', {}, { t: 'b_A' })]),
+  // ids va1 / va6 / va5: the same cards as v6, so older and newer Soul DNA compare on them
+  it('va1', 'values', 'more', 'Which matters more?', [
+    o('A dream job abroad', { v_ambition: 80, home_dir: 85, v_freedom: 65 }), o('Staying close to family', { v_family: 85, home_dir: 15 })], { firm: 'gt_home' }),
+  it('va6', 'values', 'more', 'Which matters more?', [
+    o('My family’s approval of my partner', { v_tradition: 80, v_family: 80 }), o('My own choice', { v_freedom: 85, v_tradition: 25 })], { firm: 'gt_family' }),
+  it('va5', 'values', 'more', 'With money, I’m more likely to', [
+    o('Enjoy it now on experiences', { v_security: 30, gt_money: 40 }), o('Save for later', { v_security: 85, gt_money: 70 })]),
+  it('va7', 'values', 'react', 'A friend asks what you think of their business idea. You think it’s weak.', [
+    o('Tell them honestly', { v_honesty: 85 }), o('Strong parts first, then the weak ones', { v_honesty: 70, read_sense: 70 }),
+    o('Ask questions so they spot it', { read_sense: 75, curiosity: 60 }), o('Back them, they’ll learn by doing', { b_A: 70, v_honesty: 40 })], { look: 'scenario' }),
 
-  // ---------- 6. your day (morning–evening type) ----------
-  it('g_day', 'rhythm', 'photos', 'Build your perfect day', [
-    p('Up with the sunrise', '1522506209496-4536d9020ec4', { chrono: 10 }),
-    p('Slow morning coffee', '1518057111178-44a106bad636', { chrono: 42, energy: 35 }),
-    p('Sleeping in', '1531353826977-0941b4779a1c', { chrono: 85 }),
-    p('Long hours at work', '1758598307046-22f11e2a6917', { v_ambition: 85, gt_career: 70 }),
-    p('Cooking together', '1556911073-38141963c9e0', { v_family: 60, energy: 40 }),
-    p('Reading in a hammock', '1598958288736-97eab7acfa91', { energy: 20, depth: 60 }),
-    p('Gaming night', '1493711662062-fa541adb3fc8', { energy: 35, chrono: 72 }),
-    p('Out with friends', '1639744212655-448c4d874493', { energy: 85, chrono: 65 }),
-    p('Dancing till late', '1708449530105-ea7d453a6f89', { energy: 92, chrono: 88 }),
-    p('Dinner with family', '1533777419517-3e4017e2e15a', { v_family: 80 }),
-    p('A trip somewhere new', '1645111529167-7ed14ce1ae28', { adventure: 85, energy: 65 })], { max: 3 }),
-  it('dy4', 'rhythm', 'react', 'When do you usually fall asleep?', [
-    o('Before 10:30 pm', { chrono: 10 }), o('Around midnight', { chrono: 55 }),
-    o('After 1 am', { chrono: 90 }), o('Late-night calls, then sleep', { chrono: 75, r_seek: 60 })]),
-  it('dy5', 'rhythm', 'react', 'Your ideal weekend?', [
-    o('A trip or an adventure', { adventure: 85, energy: 65 }), o('Recharge at home', { energy: 20 }),
-    o('Time with family', { v_family: 85 }), o('Parties and events', { energy: 90 })]),
+  // ---------- 6. lifestyle ----------
+  it('li1', 'lifestyle', 'slider', 'My body clock', ends('Early bird', { chrono: 10 }, 'Night owl', { chrono: 90 }), { anchor: true }),
+  it('li2', 'lifestyle', 'day', 'Build your ideal day', [], { slots: [
+    { name: 'Morning', options: [o('Sunrise run', { chrono: 15, energy: 75 }), o('Slow breakfast', { chrono: 45 }), o('Sleep in', { chrono: 85 })] },
+    { name: 'Afternoon', options: [o('Work on something', { v_ambition: 70 }), o('Explore somewhere new', { adventure: 80 }), o('Rest at home', { energy: 25 })] },
+    { name: 'Evening', options: [o('Friends out', { energy: 85, b_E: 75 }), o('Family dinner', { v_family: 75 }), o('Movie in', { energy: 30 })] },
+  ] }),
+  it('li3', 'lifestyle', 'more', 'My weekends are', [o('Planned ahead', { b_C: 80, adventure: 35 }), o('Decided on the day', { b_C: 30, adventure: 75 })]),
+  it('li4', 'lifestyle', 'slider', 'My room right now', ends('Neat and organised', { b_C: 85 }, 'Relaxed about mess', { b_C: 25 })),
+  it('li5', 'lifestyle', 'habits', 'Quick taps about you', []),
 
-  // ---------- 7. after a disagreement (Gottman, dual-concern model) ----------
-  it('g_fight', 'conflict', 'photos', 'After a disagreement, which of these is you?', [
-    p('Say it right then', '1626447269096-f8665509589c', { r_fight: 80, r_heat: 75 }),
-    p('Go quiet for a while', '1758524944637-a515455f95ec', { r_withdraw: 85, rec_speed: 30 }),
-    p('Sit down and talk it out', '1713942590288-1468a2d88ee4', { r_fix: 88, r_heat: 25 }),
-    p('Hold hands and make up', '1604881990409-b9f246db39da', { rec_forgive: 85, rec_speed: 78 }),
-    p('Cool off alone first', '1621011563377-38ae7ac65701', { rec_speed: 55, r_withdraw: 55, r_heat: 30 }),
-    p('Say sorry first', '1625690988276-0a7b0cdf3d5d', { rec_apology: 88, rec_forgive: 80, rec_speed: 80 }),
-    p('Text it instead of talking', '1570101945621-945409a6370f', { r_withdraw: 50, r_fix: 50 }),
-    p('Make up with a gesture', '1589095181425-c038b3871b6a', { rec_apology: 70, v_love: 70 }),
-    p('Take time to forgive', '1667053508464-eb11b394df83', { rec_forgive: 20, rec_speed: 18 })], { max: 3 }),
-  it('cf1', 'conflict', 'react', 'They spent a lot of money without telling you.', [
-    o('“Let’s talk about it calmly.”', { r_fix: 85, r_heat: 20 }, { tag: 'solve' }),
-    o('“You never think before you spend!”', { r_fight: 90, r_heat: 75 }, { tag: 'criticise' }),
-    o('“Whatever. Do what you want.”', { r_withdraw: 85, rec_speed: 30 }, { tag: 'stonewall' }),
-    o('“Fine, it’s your money.”', { r_withdraw: 50, dec_lead: 20 }, { tag: 'yield' })]),
-  it('cf3', 'conflict', 'react', 'After a fight, who makes the first move?', [
-    o('Me, with a joke or a hug', { rec_apology: 80, rec_forgive: 80, rec_speed: 85, humor: 65 }, { tag: 'repair' }),
-    o('Whoever was wrong', { rec_apology: 40, rec_forgive: 35 }, { tag: 'score' }),
-    o('I wait for them', { rec_apology: 20, r_withdraw: 60 }, { tag: 'wait' }),
-    o('We both cool off, then talk', { rec_speed: 55, rec_forgive: 70, r_fix: 65 }, { tag: 'repair' })]),
+  // ---------- 7. interests (preference data only: a shared-interests bonus, never a personality trait) ----------
+  it('in1', 'interests', 'tiles', 'Pick 3 you’d happily spend a Sunday on', INTEREST_TILES.map(([label, icon]) => o(label, {}, { tag: label, icon })), { max: 3 }),
+  it('in2', 'interests', 'react', 'Pick one you could talk about for an hour', [
+    o('A film that changed how you think', { depth: 65 }, { tag: 'Movies' }), o('The best trip you’ve taken', { adventure: 70 }, { tag: 'Travel' }),
+    o('An idea you’d build one day', { v_ambition: 65 }, { tag: 'Tech and startups' }), o('Your favourite food spot in the city', {}, { tag: 'Food hunting' })], { look: 'cards' }),
+  it('in3', 'interests', 'rank', 'A free Sunday afternoon', [
+    o('Watch a match', {}, { tag: 'Cricket' }), o('Try a new café', {}, { tag: 'Food hunting' }),
+    o('Learn something new', { curiosity: 75 }), o('A road trip', { adventure: 75 }, { tag: 'Travel' })]),
+
+  // ---------- 8. relationship expectations ----------
+  it('re1', 'expect', 'slider', 'When I like someone, I prefer to', ends('Take it slow and get to know them', { intent_pace: 20 }, 'Know quickly where it’s going', { intent_pace: 85 })),
+  it('re2', 'expect', 'react', 'In the next couple of years, I see myself', [
+    o('Focused on my career first', { v_ambition: 75, intent_serious: 40 }, { key: 'career' }), o('In a steady relationship', { intent_serious: 75 }, { key: 'steady' }),
+    o('Married or close to it', { intent_serious: 90, intent_family: 75 }, { key: 'married' }), o('Open, seeing where life goes', { intent_serious: 35 }, { key: 'open' })], { look: 'fits' }),
+  it('re3', 'expect', 'react', 'Kids someday?', [
+    o('Want kids', { intent_family: 92, v_family: 70 }, { key: 'want' }), o('Don’t want kids', { intent_family: 8 }, { key: 'no' }),
+    o('Open to it', { intent_family: 50 }, { key: 'open' }), o('Prefer not to say', {}, { key: 'private' })], { look: 'fits', noSkip: true }),
+  it('re4', 'expect', 'more', 'I click more with someone who is', [o('Similar to me', { pref_similar: 80 }), o('Different, and balances me out', { pref_similar: 20 })]),
+  it('re5', 'expect', 'needs', 'What do you need in a partner?', []),
 ];
 export const SCENARIO_MAP = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
+export const ANCHORS = SCENARIOS.filter((s) => s.anchor).map((s) => s.id);
+export const NO_SKIP = new Set(['habits', 'needs']);
 
-/** Which loyalty version a person gets: friendship seekers get the friend version, everyone else the partner one. */
-export const loyaltyVariant = (answers) => {
-  const a = answers?.it_look; const oi = a && typeof a === 'object' ? a.o : a;
-  return SCENARIO_MAP.it_look.options[oi]?.key === 'friendship' ? 'friend' : 'partner';
-};
-/** The items a person plays, in order (the loyalty version follows their answer to "What are you looking for?"). */
-export const planFor = (answers) => {
-  const v = loyaltyVariant(answers);
-  return SCENARIOS.filter((s) => !s.variant || s.variant === v).map((s) => s.id);
-};
+// ---------- who plays what ----------
+// The first session: 11 activities, about 3 minutes. One slot after another; where a slot offers several
+// activities, which one a person gets comes from a hash of their id (stable for them, varied across people).
+const FIRST = [
+  ['so1', 'so4'], ['so2'], ['co1', 'co2', 'co3', 'co4', 'co5'],
+  ['cf1'], ['cf2', 'cf3', 'cf4', 'cf5'],
+  ['tb1'], ['tb2', 'tb3', 'tb4', 'tb5', 'lp3'],
+  ['va0'], ['li1'], ['in1'], ['re5'],
+];
+export const FIRST_SIZE = FIRST.length;
+/** Asked the first time someone sends a dating / life-partner Connect request (and in later check-ins). */
+export const COUPLE_FIRST = ['re2', 're3'];
+function hash(s) { let h = 2166136261; for (const c of String(s || '')) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+/** The first session for a person (ids, in order). seed: their user id. */
+export function planFor(seed = '') {
+  const h = hash(typeof seed === 'string' ? seed : '');
+  return FIRST.map((slot, k) => slot[((h >>> ((k % 8) * 4)) + k) % slot.length]);
+}

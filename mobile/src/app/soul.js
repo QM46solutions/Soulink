@@ -1,16 +1,22 @@
-// Soul DNA v6: 7 short rounds, 3 taps each (21 in all), about 4 minutes, no typing.
-// Every round opens with one photo grid ("which of these is you?", pick up to 3, the order you tap is your
-// ranking), then two quick questions. Built on published psychology research ("Why we ask" says what each
-// round measures).
-//   1 Your nature   2 Your feelings   3 What matters most   4 Love and loyalty
-//   5 Your lifestyle   6 Your day   7 After a disagreement
-// Every screen is saved when you tap Next, so you can stop and continue later. Taps only: no swiping, no emoji.
-// Ends with your Soul DNA: how you think (in words), give and take, your spectrum and what wins for you.
+// Soul DNA v7: 8 categories, short playful activities, no right answers.
+// The first session is 11 activities (about 3 minutes): every category, plus 4 "anchor" activities everyone gets.
+// After that, optional check-ins (3 new activities each) and per-category updates refine it, free, any time.
+// Activity formats: choose what you'd do, reaction, conversation cards, pick what matters more, put in order,
+// a slider, build your ideal day, pick 3 (drawn tiles), quick taps about you, and what you need in a partner.
+// Every screen is saved when you tap Next, so you can stop and continue later. Taps only, no typing.
+// Ends with your Soul DNA as tendencies per category, with how sure Soul DNA is, "Does this feel right?" and a way
+// to update any category.
+//   /soul                    first session (or your Soul DNA, when it's done)
+//   /soul?retake=1           Premium: start over
+//   /soul?checkin=1          a check-in (for a v6 Soul DNA: the new first session, to refresh it)
+//   /soul?category=conflict  update one category ("Not quite" / Update answers)
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { retakeSoulDna } from '../lib/retake';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { retakeSoulDna } from '../lib/retake';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { BrandHeader, BrandScreen } from '../components/BrandScreen';
@@ -19,31 +25,32 @@ import { Button, ErrorText } from '../components/ui';
 import { colors, fonts, gradients, space } from '../lib/theme';
 import { SoulDnaIcon } from '../components/LiveIcons';
 
-// ---------- what each round measures (shown under "Why we ask") ----------
+// ---------- what each category measures (shown under "Why we ask") ----------
 const WHY = {
-  personality: ['Your personality (the Big Five)', 'The photos you pick, and the order you pick them in, show how outgoing, organised, open, kind and steady you are.', 'IPIP / Mini-IPIP Big Five (public domain)'],
-  emotion: ['How you handle closeness and feelings', 'How you cope when upset, and your first reaction to distance or closeness. Quick answers are more honest, so how fast you tap is noted.', 'Attachment research (Fraley et al.) and emotion regulation (Gross & John)'],
-  values: ['What matters most, and how firmly', 'Your top 3 show what wins when life pulls two ways. The firmness dial shows whether it’s a preference or a line you won’t cross.', 'Schwartz theory of basic human values'],
-  loyalty: ['What you want, loyalty and trust', 'Your answers are matched with the other person’s, never judged. Nobody is labelled “disloyal”.', 'Investment Model of commitment (Rusbult) and jealousy research'],
-  flex: ['Your lifestyle and deal-breakers', 'A “Never” that the other person has stops a match. Everything starts as Flexible.', 'Relationship deal-breakers research (Jonason et al., 2015)'],
-  rhythm: ['Your daily rhythm', 'Partners whose sleep and free time barely overlap get less time together.', 'Morning–evening type research (Horne & Östberg)'],
-  conflict: ['How you argue and make up', 'Shouting, going silent and holding grudges are warning signs; making up quickly protects a relationship. Shown to someone only after you connect.', 'Gottman’s couples research; dual-concern model of conflict'],
+  social: ['How you like to be with people', 'Big groups or a few close friends, out or in. Neither is better; it shapes who you’ll enjoy time with.', 'Big Five extraversion research (IPIP)'],
+  comm: ['How you talk and listen', 'Whether you say things straight away or wait, and what you love talking about.', 'Communication style research'],
+  conflict: ['How you handle disagreements', 'Talking it through or cooling off first: both work, and knowing each other’s way avoids hurt.', 'Gottman’s couples research; dual-concern model of conflict'],
+  trust: ['Trust, closeness and space', 'How much closeness and reassurance feels right to you. Matched with the other person’s, never judged.', 'Attachment research (Fraley et al.)'],
+  values: ['What matters most to you', 'What wins when life pulls two ways, and how firmly you hold it.', 'Schwartz theory of basic human values'],
+  lifestyle: ['Your rhythm and habits', 'Body clock, plans and everyday habits. Habits are used only for what you and others say they need in a partner.', 'Morning–evening type research (Horne & Östberg)'],
+  interests: ['What you’re into', 'Used for a small shared-interests bonus in your match, never as a personality trait.', 'Shared-activity research'],
+  expect: ['What you want from closeness', 'Your pace and what you need in a partner. A “Never” the other person matches stops a dating or life-partner match.', 'Relationship deal-breakers research (Jonason et al., 2015)'],
 };
+const LEVEL = { early: ['Early read', colors.gold], fairly: ['Fairly sure', colors.aura], sure: ['Sure', colors.mint] };
+const SKIPPABLE = (q) => !q.noSkip;
 
-/** What to do on this screen, step by step; the step you're on is highlighted (index = how many are done). */
+/** What to do on this screen; the step you're on is highlighted (index = how many are done). */
 function stepsFor(q, v) {
+  const has = (x) => Number.isInteger(x);
   switch (q.kind) {
-    case 'photos': {
-      const n = v?.s?.length || 0;
-      if (q.exact) return { list: [`Tap your top ${q.max}, the most important first (${n} of ${q.max})`], at: n >= q.max ? 1 : 0 };
-      return { list: [`Tap the photos that are you, up to ${q.max}. Your first tap counts most.`], at: n ? 1 : 0 };
-    }
-    case 'vs': return { list: ['Tap the one that matters more to you', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
-    case 'loyal': return { list: ['Tap what you would really do', 'Then choose how firm you are on it'], at: !Number.isInteger(v?.o) ? 0 : !Number.isInteger(v?.f) ? 1 : 2 };
-    case 'react': return { list: ['Tap your first reaction. Don’t overthink it.'], at: Number.isInteger(v?.o) ? 1 : 0 };
-    case 'pick': return { list: ['Tap one answer'], at: Number.isInteger(v?.o) ? 1 : 0 };
-    case 'me': return { list: ['Tap every photo that is you'], at: v?.s?.length ? 1 : 0, optional: true };
-    case 'boxes': return { list: ['Tap a chip once for MUST, twice for NEVER, a third time to make it Flexible again'], at: v?.must?.length || v?.never?.length ? 1 : 0, optional: true };
+    case 'react': return { list: [q.look === 'cards' ? 'Tap the card you’d enjoy most' : q.look === 'fits' ? 'Tap what fits you best' : 'Tap what feels most natural. Don’t overthink it.'], at: has(v?.o) ? 1 : 0 };
+    case 'more': return q.dial ? { list: ['Tap the one that matters more to you', 'Then choose how firm you are on it'], at: !has(v?.o) ? 0 : !has(v?.f) ? 1 : 2 } : { list: ['Tap the one that suits you more'], at: has(v?.o) ? 1 : 0 };
+    case 'slider': return { list: ['Tap the point between the two that fits you'], at: has(v?.v) ? 1 : 0 };
+    case 'rank': { const n = v?.r?.length || 0; return { list: [`Tap them in order, most first (${n} of ${q.options.length})`], at: n >= q.options.length ? 1 : 0 }; }
+    case 'day': { const n = (v?.s || []).filter(has).length; return { list: ['Pick one for each part of the day'], at: n >= q.slots.length ? 1 : 0 }; }
+    case 'tiles': { const n = v?.s?.length || 0; return { list: [`Pick up to ${q.max}, your favourite first (${n} of ${q.max})`], at: n ? 1 : 0 }; }
+    case 'habits': { const n = (q.groups || []).filter((g) => has(v?.[g.key])).length; return { list: ['One tap per row. “Prefer not to say” is fine.'], at: n >= (q.groups || []).length ? 1 : 0 }; }
+    case 'needs': return { list: ['Tap a chip to mark it Must, tap again for Nice to have, again for Never (life together only)'], at: 1, optional: true };
     default: return { list: [], at: 0 };
   }
 }
@@ -65,13 +72,11 @@ function Instructions({ list, at, optional }) {
           </View>
         );
       })}
-      {done || optional ? (
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>{done ? 'All set: tap Next' : 'None of these? Just tap Next'}</Text>
-      ) : null}
+      {done && !optional ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>All set: tap Next</Text> : null}
+      {optional ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.mint, marginLeft: 34 }}>Nothing you must have? Just tap Next</Text> : null}
     </View>
   );
 }
-const DIAL_KINDS = ['vs', 'loyal'];
 
 function Bar({ value, style }) {
   return (
@@ -80,12 +85,11 @@ function Bar({ value, style }) {
     </View>
   );
 }
-
 const Kicker = ({ children, style }) => (
   <Text style={[{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: colors.aura, textTransform: 'uppercase', marginBottom: space.md }, style]}>{children}</Text>
 );
 
-/** A tappable box. `tone`: soul (chosen), mint (Must), spark (Never), gold. */
+/** A tappable box. `tone`: soul (chosen), mint (Must), gold (Nice to have), spark (Never). */
 function Tap({ onPress, on, tone = 'soul', style, children, label, disabled }) {
   const c = { soul: colors.soul, mint: colors.mint, spark: colors.spark, gold: colors.gold }[tone];
   return (
@@ -99,8 +103,15 @@ function Tap({ onPress, on, tone = 'soul', style, children, label, disabled }) {
     </Pressable>
   );
 }
-const Label = ({ children, size = 15, center, bold }) => (
-  <Text style={{ color: colors.text, fontFamily: bold ? fonts.semibold : fonts.medium, fontSize: size, lineHeight: size * 1.35, textAlign: center ? 'center' : 'left' }}>{children}</Text>
+const Label = ({ children, size = 15, center, bold, color = colors.text }) => (
+  <Text style={{ color, fontFamily: bold ? fonts.semibold : fonts.medium, fontSize: size, lineHeight: size * 1.35, textAlign: center ? 'center' : 'left' }}>{children}</Text>
+);
+/** A number in a small round badge (picked order, rank). */
+const Badge = ({ n, size = 24 }) => (
+  <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }}>
+    <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+    <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.5, color: '#fff' }}>{n}</Text>
+  </View>
 );
 
 const DIAL_HELP = ['I can bend on this', 'It matters a lot', 'I won’t cross this line'];
@@ -121,71 +132,18 @@ function Dial({ value, onPick, labels }) {
   );
 }
 
-// ---------- the photo grid (3 across) ----------
-/** One photo tile: the photo, a short caption under it; when picked, a coloured frame and its number (1, 2, 3). */
-function PhotoTile({ uri, label, badge, on, faded, onPress }) {
-  const [broken, setBroken] = useState(false);
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}${on ? `, picked ${badge}` : ''}`} accessibilityState={{ selected: !!on }}
-      style={{ width: '31.6%', opacity: faded ? 0.45 : 1 }}>
-      <View style={{ aspectRatio: 1, borderRadius: 14, overflow: 'hidden', borderWidth: on ? 3 : 1, borderColor: on ? colors.soul : colors.border, backgroundColor: colors.inputBg }}>
-        {uri && !broken ? <Image source={{ uri }} onError={() => setBroken(true)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-          : <LinearGradient colors={['rgba(124,92,252,0.30)', 'rgba(255,107,157,0.22)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
-        {on ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(124,92,252,0.18)' }} /> : null}
-        {on ? (
-          <View style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }}>
-            <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{badge}</Text>
-          </View>
-        ) : null}
-      </View>
-      <Text numberOfLines={2} style={{ marginTop: 6, minHeight: 34, fontFamily: on ? fonts.bold : fonts.medium, fontSize: 12.5, lineHeight: 17, color: on ? colors.text : colors.muted, textAlign: 'center' }}>{label}</Text>
-    </Pressable>
-  );
-}
-
-/** Pick up to q.max photos; the order you tap them is your ranking (tap again to take one back). */
-function PhotoGrid({ q, value, onChange }) {
-  const s = value?.s || [];
-  const full = s.length >= q.max;
-  const tap = (k) => {
-    if (s.includes(k)) onChange({ s: s.filter((x) => x !== k) });
-    else if (!full) onChange({ s: [...s, k] });
-  };
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 }}>
-      {q.options.map((label, k) => (
-        <PhotoTile key={label} uri={q.photos?.[k]} label={label} on={s.includes(k)} badge={s.indexOf(k) + 1} faded={full && !s.includes(k)} onPress={() => tap(k)} />
-      ))}
-      {q.options.length % 3 ? <View style={{ width: '31.6%' }} /> : null}
-    </View>
-  );
-}
-
-/** Lifestyle photos: tap every one that is you (no limit). */
-function MeGrid({ q, value, onChange }) {
-  const s = value?.s || [];
-  const tap = (key) => onChange({ s: s.includes(key) ? s.filter((x) => x !== key) : [...s, key] });
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 }}>
-      {q.chips.map((c) => <PhotoTile key={c.key} uri={c.photo} label={c.label} on={s.includes(c.key)} badge="✓" onPress={() => tap(c.key)} />)}
-      {q.chips.length % 3 ? <View style={{ width: '31.6%' }} /> : null}
-    </View>
-  );
-}
-
+// ---------- the activity formats ----------
+/** Choose what you'd do / reaction / choose what fits: a list. Conversation cards: a 2 × 2 grid of cards. */
 function Choices({ q, value, onChange }) {
   const o = value?.o;
-  if (q.kind === 'vs') {
+  if (q.look === 'cards') {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
         {q.options.map((label, k) => (
-          <View key={label} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-            {k === 1 ? <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.dim, marginRight: 8 }}>OR</Text> : null}
-            <Tap on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ flex: 1, minHeight: 110, padding: 14, alignItems: 'center', justifyContent: 'center' }}>
-              <Label size={15.5} center bold>{label}</Label>
-            </Tap>
-          </View>
+          <Tap key={label} on={o === k} onPress={() => onChange({ o: k })} label={label} style={{ width: '48.5%', minHeight: 116, padding: 14, justifyContent: 'space-between' }}>
+            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={o === k ? colors.soul : colors.aura} />
+            <Label size={15} bold>{label}</Label>
+          </Tap>
         ))}
       </View>
     );
@@ -193,7 +151,7 @@ function Choices({ q, value, onChange }) {
   return (
     <View style={{ gap: 9 }}>
       {q.options.map((label, k) => (
-        <Tap key={label} on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ minHeight: 52, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+        <Tap key={label} on={o === k} onPress={() => onChange({ o: k })} label={label} style={{ minHeight: 50, paddingHorizontal: 16, paddingVertical: 11, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 20, height: 20, borderRadius: 10, marginRight: 12, borderWidth: 2, borderColor: o === k ? colors.soul : colors.dim, alignItems: 'center', justifyContent: 'center' }}>
             {o === k ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.soul }} /> : null}
           </View>
@@ -204,53 +162,209 @@ function Choices({ q, value, onChange }) {
   );
 }
 
-/** For a partner: each chip is Flexible, MUST or NEVER. */
-function Boxes({ q, value, onChange }) {
-  const v = value || { must: [], never: [] };
-  const stateOf = (k) => (v.must.includes(k) ? 'must' : v.never.includes(k) ? 'never' : 'flex');
+/** Pick what matters more: two cards side by side. */
+function More({ q, value, onChange }) {
+  const o = value?.o;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {q.options.map((label, k) => (
+        <View key={label} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+          {k === 1 ? <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.dim, marginRight: 8 }}>OR</Text> : null}
+          <Tap on={o === k} onPress={() => onChange({ ...value, o: k })} label={label} style={{ flex: 1, minHeight: 104, padding: 14, alignItems: 'center', justifyContent: 'center' }}>
+            <Label size={15.5} center bold>{label}</Label>
+          </Tap>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** A point between two ends: 5 stops. */
+function Slider({ q, value, onChange }) {
+  const v = value?.v;
+  return (
+    <View style={{ paddingTop: space.sm }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: space.md }}>
+        <View style={{ flex: 1 }}><Label size={14.5} bold color={Number.isInteger(v) && v < 2 ? colors.text : colors.muted}>{q.options[0]}</Label></View>
+        <View style={{ flex: 1 }}><Text style={{ textAlign: 'right', fontFamily: fonts.semibold, fontSize: 14.5, lineHeight: 20, color: Number.isInteger(v) && v > 2 ? colors.text : colors.muted }}>{q.options[1]}</Text></View>
+      </View>
+      <View style={{ height: 44, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', left: 18, right: 18, height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: colors.border }}>
+          <LinearGradient colors={gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, opacity: 0.45 }} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {[0, 1, 2, 3, 4].map((k) => {
+            const on = v === k;
+            const label = k === 0 ? q.options[0] : k === 4 ? q.options[1] : k === 2 ? 'In between' : k === 1 ? `Leaning: ${q.options[0]}` : `Leaning: ${q.options[1]}`;
+            return (
+              <Pressable key={k} onPress={() => onChange({ v: k })} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}
+                style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? '#fff' : colors.inputBg, borderWidth: on ? 4 : 1.5, borderColor: on ? colors.soul : colors.aura }}>
+                {on ? null : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.aura, opacity: 0.6 }} />}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** Put in order: tap them one after another, most first (tap one again to take it back). The last fills itself. */
+function Rank({ q, value, onChange }) {
+  const r = value?.r || [];
   const tap = (k) => {
-    const st = stateOf(k);
-    const must = v.must.filter((x) => x !== k); const never = v.never.filter((x) => x !== k);
-    if (st === 'flex') must.push(k); else if (st === 'must') never.push(k);
-    onChange({ must, never });
+    if (r.includes(k)) { onChange({ r: r.filter((x) => x !== k) }); return; }
+    const next = [...r, k];
+    if (next.length === q.options.length - 1) next.push(q.options.findIndex((_, x) => !next.includes(x)));
+    onChange({ r: next });
   };
   return (
-    <>
-      <View style={{ gap: 6, marginBottom: space.md }}>
-        {[[colors.mint, 'MUST', 'they need to have this'], [colors.spark, 'NEVER', 'a deal-breaker for me'], [colors.dim, 'FLEXIBLE', 'I don’t mind either way']].map(([c, k, t]) => (
-          <View key={k} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ width: 82, fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: c }}>{k}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{t}</Text>
+    <View style={{ gap: 9 }}>
+      {q.options.map((label, k) => {
+        const pos = r.indexOf(k);
+        return (
+          <Tap key={label} on={pos >= 0} onPress={() => tap(k)} label={pos >= 0 ? `${label}, number ${pos + 1}` : label} style={{ minHeight: 50, paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ marginRight: 12 }}>{pos >= 0 ? <Badge n={pos + 1} /> : <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: colors.dim }} />}</View>
+            <View style={{ flex: 1 }}><Label>{label}</Label></View>
+          </Tap>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Build your ideal day: one pick per part of the day. */
+function Day({ q, value, onChange }) {
+  const s = value?.s || [];
+  return (
+    <View style={{ gap: space.lg }}>
+      {q.slots.map((slot, i) => (
+        <View key={slot.name}>
+          <Kicker style={{ marginBottom: 8 }}>{slot.name}</Kicker>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {slot.options.map((label, k) => (
+              <Tap key={label} on={s[i] === k} onPress={() => { const n = [...s]; n[i] = k; onChange({ s: n }); }} label={`${slot.name}: ${label}`}
+                style={{ flex: 1, minHeight: 64, padding: 10, alignItems: 'center', justifyContent: 'center' }}>
+                <Label size={14} center bold>{label}</Label>
+              </Tap>
+            ))}
           </View>
-        ))}
-      </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Pick 3 from a visual set: drawn icon tiles in Soulink's colours (4 across); the order you tap is your ranking. */
+function Tiles({ q, value, onChange }) {
+  const s = value?.s || [];
+  const full = s.length >= q.max;
+  const tap = (k) => { if (s.includes(k)) onChange({ s: s.filter((x) => x !== k) }); else if (!full) onChange({ s: [...s, k] }); };
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
+      {q.options.map((label, k) => {
+        const on = s.includes(k);
+        return (
+          <Pressable key={label} onPress={() => tap(k)} accessibilityRole="button" accessibilityLabel={`${label}${on ? `, pick ${s.indexOf(k) + 1}` : ''}`} accessibilityState={{ selected: on }}
+            style={{ width: '23.5%', opacity: full && !on ? 0.4 : 1 }}>
+            <View style={{ aspectRatio: 1, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: on ? 2.5 : 1, borderColor: on ? colors.soul : colors.border }}>
+              <LinearGradient colors={on ? ['rgba(124,92,252,0.55)', 'rgba(255,107,157,0.45)'] : ['rgba(124,92,252,0.18)', 'rgba(255,107,157,0.10)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              <MaterialCommunityIcons name={q.icons?.[k] || 'star-four-points'} size={28} color={on ? '#fff' : colors.aura} />
+              {on ? <View style={{ position: 'absolute', top: 4, right: 4 }}><Badge n={s.indexOf(k) + 1} size={20} /></View> : null}
+            </View>
+            <Text numberOfLines={2} style={{ marginTop: 5, minHeight: 30, fontFamily: on ? fonts.bold : fonts.medium, fontSize: 11.5, lineHeight: 15, color: on ? colors.text : colors.muted, textAlign: 'center' }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Quick taps about you: one per row, or "Prefer not to say". */
+function Habits({ q, value, onChange }) {
+  const v = value || {};
+  return (
+    <View style={{ gap: space.lg }}>
+      {(q.groups || []).map((g) => (
+        <View key={g.key}>
+          <Kicker style={{ marginBottom: 8 }}>{g.label}</Kicker>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {[...g.options, 'Prefer not to say'].map((label, k) => {
+              const val = k === g.options.length ? -1 : k;
+              return (
+                <Tap key={label} on={v[g.key] === val} onPress={() => onChange({ ...v, [g.key]: val })} label={`${g.label}: ${label}`} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 }}>
+                  <Text style={{ color: val === -1 ? colors.muted : colors.text, fontFamily: fonts.semibold, fontSize: 14 }}>{label}</Text>
+                </Tap>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** What you need in a partner: each chip cycles Doesn't matter → Must → Nice to have → Never (life together only). */
+const NEED_TONE = { must: ['mint', 'MUST', colors.mint], nice: ['gold', 'NICE TO HAVE', colors.gold], never: ['spark', 'NEVER', colors.spark] };
+function Needs({ q, value, onChange }) {
+  const v = value || {};
+  const tap = (c) => {
+    const order = c.group === 'life' ? [undefined, 'must', 'nice', 'never'] : [undefined, 'must', 'nice'];
+    const next = order[(order.indexOf(v[c.key]) + 1) % order.length];
+    const out = { ...v }; if (next) out[c.key] = next; else delete out[c.key];
+    onChange(out);
+  };
+  const group = (key, title) => (
+    <View style={{ marginBottom: space.lg }}>
+      <Kicker style={{ marginBottom: 8 }}>{title}</Kicker>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {q.chips.map((c) => {
-          const st = stateOf(c.key);
+        {(q.chips || []).filter((c) => c.group === key).map((c) => {
+          const st = v[c.key]; const t = NEED_TONE[st];
           return (
-            <Tap key={c.key} on={st !== 'flex'} tone={st === 'never' ? 'spark' : 'mint'} onPress={() => tap(c.key)} label={`${c.label}: ${st}`}
+            <Tap key={c.key} on={!!st} tone={t?.[0]} onPress={() => tap(c)} label={`${c.label}: ${t?.[1] || 'doesn’t matter'}`}
               style={{ paddingHorizontal: 14, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', borderRadius: 999 }}>
               <Text style={{ color: colors.text, fontFamily: fonts.semibold, fontSize: 14 }}>{c.label}</Text>
-              <Text style={{ marginLeft: 7, fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 0.6, color: st === 'must' ? colors.mint : st === 'never' ? colors.spark : colors.dim }}>{st === 'must' ? 'MUST' : st === 'never' ? 'NEVER' : 'FLEXIBLE'}</Text>
+              {t ? <Text style={{ marginLeft: 7, fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 0.6, color: t[2] }}>{t[1]}</Text> : null}
             </Tap>
           );
         })}
       </View>
+    </View>
+  );
+  return (
+    <>
+      <View style={{ gap: 6, marginBottom: space.lg }}>
+        {[[colors.mint, 'MUST', 'they need to be like this'], [colors.gold, 'NICE TO HAVE', 'a plus, not a must'], [colors.spark, 'NEVER', 'a deal-breaker for me']].map(([c, k, t]) => (
+          <View key={k} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ width: 104, fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 0.6, color: c }}>{k}</Text>
+            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{t}</Text>
+          </View>
+        ))}
+      </View>
+      {group('treat', 'How they treat you')}
+      {group('life', 'Life together')}
     </>
   );
 }
 
 /** Is this answer complete enough to move on? */
 const ready = (q, v) => {
-  if (q.kind === 'me' || q.kind === 'boxes') return true; // nothing ticked is a fine answer
+  if (q.kind === 'needs') return true; // nothing marked is a fine answer
   if (!v) return false;
-  if (q.kind === 'photos') return q.exact ? v.s?.length === q.max : v.s?.length > 0;
-  if (!Number.isInteger(v.o)) return false;
-  return DIAL_KINDS.includes(q.kind) ? Number.isInteger(v.f) : true;
+  if (v.skip) return true;
+  switch (q.kind) {
+    case 'react': return Number.isInteger(v.o);
+    case 'more': return Number.isInteger(v.o) && (!q.dial || Number.isInteger(v.f));
+    case 'slider': return Number.isInteger(v.v);
+    case 'rank': return v.r?.length === q.options.length;
+    case 'day': return q.slots.every((_, i) => Number.isInteger(v.s?.[i]));
+    case 'tiles': return v.s?.length > 0;
+    case 'habits': return (q.groups || []).every((g) => Number.isInteger(v[g.key]));
+    default: return false;
+  }
 };
-/** The answer as sent to the server (empty chip games get their empty shape). */
-const finalOf = (q, v) => (q.kind === 'me' ? (v || { s: [] }) : q.kind === 'boxes' ? (v || { must: [], never: [] }) : v);
-/** A round number in a small ring (used instead of icons). */
+const TIMED = ['react', 'more', 'slider', 'rank', 'day', 'tiles'];
+/** A round number in a small ring. */
 const Num = ({ n, done, size = 26 }) => (
   <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: done ? colors.mint : colors.aura, backgroundColor: done ? 'rgba(66,232,192,0.15)' : 'transparent' }}>
     <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.46, color: done ? colors.mint : colors.aura }}>{done ? '✓' : n}</Text>
@@ -273,26 +387,85 @@ function Spectrum({ left, right, value }) {
   );
 }
 
-export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake }) {
+/** One category as a tendency: how sure Soul DNA is, "Does this feel right?", and Update answers. */
+function CategoryRow({ c, felt, onFelt }) {
+  const [label, tone] = c.earlier ? ['From your earlier Soul DNA', colors.dim] : LEVEL[c.level] || ['Not asked yet', colors.dim];
+  const open = () => router.push({ pathname: '/soul', params: { category: c.key } });
+  return (
+    <View style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>{c.label}</Text>
+        <View style={{ borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, borderWidth: 1, borderColor: tone }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 0.4, color: tone }}>{label}</Text>
+        </View>
+      </View>
+      {c.line ? <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 6 }}>{c.line}</Text>
+        : <Text style={{ fontFamily: fonts.body, fontSize: 13.5, lineHeight: 19, color: colors.muted, marginTop: 6 }}>Not enough answers yet.</Text>}
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
+        {c.line && !felt ? (
+          <>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.muted }}>Does this feel right?</Text>
+            <Pressable onPress={() => onFelt(c)} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.mint }}>Yes</Text></Pressable>
+            <Pressable onPress={open} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.spark }}>Not quite</Text></Pressable>
+          </>
+        ) : null}
+        <Pressable onPress={open} hitSlop={8} accessibilityRole="button" style={{ marginLeft: 'auto' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.aura }}>{c.line ? 'Update answers' : 'Answer now'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+const feltKey = (c) => `soulink.soulFelt.${c.key}.${c.line}`;
+
+export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake, refresh }) {
   const glow = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.timing(glow, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(); }, [glow]);
   const scale = glow.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
-  const dims = (me?.dims || []).filter((d) => d.strength != null);
+  const cats = me?.categories || [];
+  const [felt, setFelt] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const keys = cats.filter((c) => c.line).map(feltKey);
+        const got = await AsyncStorage.multiGet(keys);
+        setFelt(Object.fromEntries(got.filter(([, x]) => x).map(([k]) => [k, true])));
+      } catch { /* not kept: ask again */ }
+    })();
+  }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onFelt = (c) => { setFelt((f) => ({ ...f, [feltKey(c)]: true })); AsyncStorage.setItem(feltKey(c), '1').catch(() => {}); };
   return (
     <>
       <BrandHeader size={36} title="Your Soul DNA" />
       <Animated.View style={{ alignItems: 'center', opacity: glow, transform: [{ scale }] }}>
-        <View style={{ width: 130, height: 130, borderRadius: 65, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 120, height: 120, borderRadius: 60, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
           <LinearGradient colors={[...gradients.button]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.35 }} />
-          <SoulDnaIcon size={112} />
+          <SoulDnaIcon size={104} />
         </View>
         <PillTag style={{ alignSelf: 'center', marginTop: space.lg }}>You are</PillTag>
         <GradientText style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 38, textAlign: 'center', marginTop: space.sm }}>{type}</GradientText>
         <Text style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: colors.muted, textAlign: 'center', marginTop: space.sm, paddingHorizontal: space.md }}>{tagline}</Text>
       </Animated.View>
 
-      {me?.summary?.length ? (
+      {refresh ? (
+        <Pressable onPress={() => router.push({ pathname: '/soul', params: { checkin: '1' } })} accessibilityRole="button"
+          style={{ marginTop: space.xl, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)' }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.text }}>Refresh your Soul DNA</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.muted, marginTop: 3 }}>New short activities, about 3 minutes. Optional: your matches keep working, and nothing you answered before is lost.</Text>
+        </Pressable>
+      ) : null}
+
+      {cats.length ? (
         <GlassCard style={{ marginTop: space.xl }}>
+          <Kicker style={{ marginBottom: 4 }}>Your tendencies</Kicker>
+          <Text style={{ fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18, color: colors.muted, marginBottom: space.sm }}>Preferences and tendencies, not fixed judgements. They get surer as you answer more.</Text>
+          {cats.map((c) => <CategoryRow key={c.key} c={c} felt={felt[feltKey(c)]} onFelt={onFelt} />)}
+          <Button small variant="ghost" title="Check-in: 3 more activities" style={{ marginTop: space.md }} onPress={() => router.push({ pathname: '/soul', params: { checkin: '1' } })} />
+        </GlassCard>
+      ) : null}
+
+      {me?.summary?.length ? (
+        <GlassCard style={{ marginTop: space.lg }}>
           <Kicker>How you think</Kicker>
           {me.summary.map((t) => <Text key={t} style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21, color: colors.text, marginBottom: 8 }}>• {t}</Text>)}
         </GlassCard>
@@ -321,23 +494,10 @@ export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake }) 
         </GlassCard>
       ) : null}
 
-      <GlassCard style={{ marginTop: space.lg }}>
-        <Kicker>Your nature & mindset</Kicker>
-        {(me?.spectrum || []).map((x) => <Spectrum key={x.key} left={x.left} right={x.right} value={x.value} />)}
-      </GlassCard>
-
-      {dims.length ? (
+      {me?.spectrum?.length ? (
         <GlassCard style={{ marginTop: space.lg }}>
-          <Kicker>How well Soul DNA knows you{me?.completeness != null ? ` · ${me.completeness}%` : ''}</Kicker>
-          {dims.map((d) => (
-            <View key={d.key} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }}>{d.label}</Text>
-                <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.muted }}>{d.strength}</Text>
-              </View>
-              <Bar value={d.strength / 100} />
-            </View>
-          ))}
+          <Kicker>Your nature & mindset</Kicker>
+          {me.spectrum.map((x) => <Spectrum key={x.key} left={x.left} right={x.right} value={x.value} />)}
         </GlassCard>
       ) : null}
 
@@ -352,17 +512,19 @@ export function DnaResult({ type, tagline, me, labels = {}, onDone, onRetake }) 
         Soul DNA is a matching aid built on published psychology research, not a psychological assessment. Match scores are predicted from your Soul DNA (and, if you allow it, what you're into on Soulink). Your chats and meetups stay private and are never used.
       </Text>
       {onDone ? <Button title="Start connecting" style={{ marginTop: space.lg }} onPress={onDone} /> : null}
-      {onRetake ? <Button variant="ghost" title="Play Soul DNA again" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
+      {onRetake ? <Button variant="ghost" title="Start Soul DNA over" style={{ marginTop: space.sm }} onPress={onRetake} /> : null}
     </>
   );
 }
 
 
-// ---------- the games ----------
+// ---------- the activities ----------
 export default function SoulGames() {
   const { user, setUser } = useAuth();
-  const { retake } = useLocalSearchParams(); // Premium retake: start from the first round
-  const [data, setData] = useState(null); // { sections, questions, plan, upgrade, completed }
+  const { retake, checkin, category } = useLocalSearchParams();
+  const extra = !!(checkin || category); // a check-in or one category's update: saved straight into your Soul DNA
+  const [data, setData] = useState(null); // { sections, questions, plan, upgrade, completed, refresh }
+  const [ids, setIds] = useState([]);     // the activities to play this time
   const [answers, setAnswers] = useState({});
   const [phase, setPhase] = useState('loading'); // loading | intro | play | saving | result
   const [i, setI] = useState(0);
@@ -370,56 +532,69 @@ export default function SoulGames() {
   const [error, setError] = useState(null);
   const [why, setWhy] = useState(false);
   const [busy, setBusy] = useState(false);
-  const shownAt = useRef(Date.now()); // gut-reaction timing: when this screen appeared
-  const firstTap = useRef({});        // item id → ms to the first tap
-  const changes = useRef({});         // item id → times the answer was changed
+  const lastMe = useRef(null);             // the newest Soul DNA, after a check-in answer
+  const shownAt = useRef(Date.now());      // gut-reaction timing: when this screen appeared
+  const firstTap = useRef({});             // item id → ms to the first tap
+  const changes = useRef({});              // item id → times the answer was changed
   useEffect(() => { shownAt.current = Date.now(); firstTap.current = {}; changes.current = {}; setWhy(false); }, [i, phase]);
+
+  const showMine = async () => {
+    const m = await api('/soul/dna/me');
+    if (m.ready) { setResult({ type: m.type, tagline: m.tagline, me: m.me, refresh: m.refresh }); setPhase('result'); return true; }
+    return false;
+  };
 
   useEffect(() => {
     (async () => {
       try {
         const d = await api('/soul/dna');
-        setData(d); setAnswers(d.answers || {});
-        if (d.completed && user?.soulReady && !retake) {
-          const m = await api('/soul/dna/me');
-          if (m.ready) { setResult({ type: m.type, tagline: m.tagline, me: m.me }); setPhase('result'); return; }
+        setData(d);
+        if (extra) {
+          const c = await api(`/soul/dna/checkin${category ? `?category=${encodeURIComponent(category)}` : ''}`);
+          setData({ ...d, questions: [...d.questions.filter((q) => !c.ids.includes(q.id)), ...c.questions] });
+          setIds(c.ids); setAnswers({ ...(d.answers || {}), ...(c.answers || {}) });
+          if (!c.ids.length) { await showMine(); return; }
+          setI(0); setPhase('play'); return;
         }
+        setIds(d.plan); setAnswers(d.answers || {});
+        if (d.completed && user?.soulReady && !retake && !d.retaking) { if (await showMine()) return; }
         setPhase('intro');
       } catch (e) { setError(e.message); setPhase('intro'); }
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [retake, checkin, category]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the loyalty question follows "What are you looking for?", so the plan is worked out from the live answers
-  const plan = useMemo(() => {
-    if (!data) return [];
-    const friend = data.questions.find((q) => q.id === 'it_look')?.options?.[answers.it_look?.o ?? answers.it_look] === 'Friendship';
-    return data.questions.filter((q) => !q.variant || q.variant === (friend ? 'friend' : 'partner')).map((q) => q.id);
-  }, [data, answers.it_look]);
-  const steps = useMemo(() => (data ? plan.map((id) => data.questions.find((q) => q.id === id)).filter(Boolean) : []), [data, plan]);
+  const steps = useMemo(() => (data ? ids.map((id) => data.questions.find((q) => q.id === id)).filter(Boolean) : []), [data, ids]);
   const sections = data?.sections || [];
-  const answered = plan.filter((id) => answers[id] !== undefined).length;
+  const answered = ids.filter((id) => answers[id] !== undefined).length;
   const firstOpen = Math.max(0, steps.findIndex((q) => answers[q.id] === undefined));
 
   const setAnswer = (q, v) => {
     const prev = answers[q.id];
     if (firstTap.current[q.id] == null) firstTap.current[q.id] = Date.now() - shownAt.current;
-    else if (Number.isInteger(prev?.o) && v?.o !== prev.o) changes.current[q.id] = (changes.current[q.id] || 0) + 1; // the dial isn't a change of mind
+    else if (!extra && prev && !prev.skip && JSON.stringify({ ...prev, f: undefined, ms: undefined, ch: undefined }) !== JSON.stringify({ ...v, f: undefined, ms: undefined, ch: undefined })) changes.current[q.id] = (changes.current[q.id] || 0) + 1; // the dial isn't a change of mind
     setAnswers((a) => ({ ...a, [q.id]: v }));
   };
 
-  const save = async (q) => {
-    let v = finalOf(q, answers[q.id]);
-    if (q.kind !== 'me' && q.kind !== 'boxes') {
+  const save = async (q, given) => {
+    let v = given ?? answers[q.id] ?? (q.kind === 'needs' ? {} : null);
+    if (TIMED.includes(q.kind) && !v?.skip) {
       const ms = firstTap.current[q.id]; const ch = changes.current[q.id];
-      v = { ...(typeof v === 'object' ? v : { o: v }), ...(ms != null ? { ms } : {}), ...(ch ? { ch: Math.min(ch, 49) } : {}) };
+      v = { ...v, ...(ms != null ? { ms } : {}), ...(ch ? { ch: Math.min(ch, 49) } : {}) };
     }
-    await api('/soul/dna/answers', { method: 'PUT', body: { answers: { [q.id]: v } } });
+    const r = await api('/soul/dna/answers', { method: 'PUT', body: { answers: { [q.id]: v } } });
+    if (r?.me) lastMe.current = r.me;
     setAnswers((a) => ({ ...a, [q.id]: v }));
   };
 
   const finish = async () => {
     setPhase('saving'); setError(null);
     try {
+      if (extra) {
+        const m = await api('/soul/dna/me');
+        setResult({ type: m.type, tagline: m.tagline, me: lastMe.current || m.me, refresh: m.refresh, updated: true });
+        setPhase('result');
+        return;
+      }
       const r = await api('/soul/dna/complete', { method: 'POST' });
       setUser(r.user);
       setResult({ type: r.soul.type, tagline: r.soul.tagline, me: r.me, fresh: true });
@@ -431,20 +606,21 @@ export default function SoulGames() {
     }
   };
 
-  const next = async () => {
+  const next = async (given) => {
     const q = steps[i];
     if (!q || busy) return;
     setBusy(true); setError(null);
     try {
-      await save(q);
+      await save(q, given);
       if (i + 1 >= steps.length) await finish(); else setI(i + 1);
     } catch (e) {
       setError(e.code === 'premium_required' ? e.message : 'Could not save. Check your connection and tap Next again.');
     } finally { setBusy(false); }
   };
+  const skip = (depends) => next({ skip: true, ...(depends ? { d: 1 } : {}) });
 
   const back = () => {
-    if (phase === 'play') { if (i > 0) setI(i - 1); else setPhase('intro'); return; }
+    if (phase === 'play') { if (i > 0) setI(i - 1); else if (extra) { router.canGoBack() ? router.back() : router.replace('/soul'); } else setPhase('intro'); return; }
     router.canGoBack() ? router.back() : router.replace('/');
   };
 
@@ -453,6 +629,7 @@ export default function SoulGames() {
   if (phase === 'result' && result) {
     return (
       <BrandScreen back center={false}>
+        {result.updated ? <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.mint, textAlign: 'center', marginBottom: space.sm }}>Saved. Your Soul DNA is updated.</Text> : null}
         <DnaResult {...result} onDone={result.fresh ? () => router.back() : null} onRetake={() => retakeSoulDna(user)} />
       </BrandScreen>
     );
@@ -474,18 +651,18 @@ export default function SoulGames() {
     const upgrade = data?.upgrade || user?.soulUpgrade;
     return (
       <BrandScreen back onBack={back}>
-        <BrandHeader size={36} title={retake ? 'Play Soul DNA again' : upgrade ? 'Soul DNA is now shorter' : 'Create your Soul DNA'}
-          subtitle={upgrade
-            ? '7 quick rounds, 21 taps, about 4 minutes. Your current Soul DNA and matches stay until you finish.'
-            : '7 quick rounds, 21 taps, about 4 minutes. Pick the photos that feel like you. No right answers.'} />
+        <BrandHeader size={36} title={retake ? 'Start Soul DNA over' : upgrade ? 'Soul DNA has changed' : 'Create your Soul DNA'}
+          subtitle={upgrade || retake
+            ? `${steps.length} short activities, about 3 minutes. Your current Soul DNA and matches stay until you finish.`
+            : `${steps.length || 11} short activities, about 3 minutes. No right answers: pick what fits you.`} />
         {error ? <ErrorText>{error}</ErrorText> : null}
         <GlassCard>
           {sections.map((s, n) => {
-            const list = plan.filter((id) => data.questions.find((q) => q.id === id)?.section === s.key);
+            const list = ids.filter((id) => data.questions.find((q) => q.id === id)?.section === s.key);
             const done = list.filter((id) => answers[id] !== undefined).length;
             const all = !!list.length && done === list.length;
             return (
-              <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7 }}>
+              <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
                 <View style={{ marginRight: 12 }}><Num n={n + 1} done={all} /></View>
                 <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14.5, color: colors.text }}>{s.title}</Text>
                 <Text style={{ fontFamily: fonts.mono, fontSize: 11.5, color: all ? colors.mint : colors.dim }}>{done}/{list.length}</Text>
@@ -493,11 +670,12 @@ export default function SoulGames() {
             );
           })}
         </GlassCard>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18, color: colors.dim, marginTop: space.md }}>More activities come later as optional check-ins, so Soul DNA gets surer over time.</Text>
         {steps.length ? (
-          <Button title={started ? `Continue (${answered}/${plan.length})` : 'Start'} style={{ marginTop: space.xl }}
-            onPress={() => { setI(answered >= plan.length ? steps.length - 1 : firstOpen); setPhase('play'); }} />
+          <Button title={started ? `Continue (${answered}/${ids.length})` : 'Start'} style={{ marginTop: space.xl }}
+            onPress={() => { setI(answered >= ids.length ? steps.length - 1 : firstOpen); setPhase('play'); }} />
         ) : null}
-        {answered >= plan.length && plan.length ? <Button variant="ghost" title="See my Soul DNA" style={{ marginTop: space.sm }} onPress={finish} /> : null}
+        {answered >= ids.length && ids.length ? <Button variant="ghost" title="See my Soul DNA" style={{ marginTop: space.sm }} onPress={finish} /> : null}
       </BrandScreen>
     );
   }
@@ -505,33 +683,42 @@ export default function SoulGames() {
   const q = steps[Math.min(i, steps.length - 1)];
   const secN = sections.findIndex((s) => s.key === q.section);
   const sec = sections[secN];
-  const inSec = steps.filter((x) => x.section === q.section);
-  const pos = inSec.indexOf(q) + 1;
-  const v = answers[q.id];
+  const v = answers[q.id]?.skip ? undefined : answers[q.id];
   const w = WHY[q.section];
-  const title = q.kind === 'vs' ? 'Which matters more to you?' : q.kind === 'boxes' ? 'What do you need in a partner?' : q.text;
+  const title = q.kind === 'more' && q.text === 'Which matters more?' ? 'Which matters more to you?' : q.text;
+  const lastOne = i + 1 >= steps.length;
   return (
     <BrandScreen back onBack={back} center={false}
-      right={<><Bar value={answered / Math.max(1, plan.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
+      right={<><Bar value={(i + (ready(q, v) ? 1 : 0)) / Math.max(1, steps.length)} style={{ marginHorizontal: space.md }} /><Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 44, textAlign: 'right' }}>{i + 1}/{steps.length}</Text></>}>
       <View style={{ marginTop: space.md, marginBottom: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <View style={{ backgroundColor: 'rgba(255,107,157,0.16)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.spark, textTransform: 'uppercase' }}>{secN + 1} of {sections.length} · {sec?.title}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            {inSec.map((x, k) => <View key={x.id} style={{ width: 16, height: 4, borderRadius: 2, backgroundColor: k < pos ? colors.spark : colors.border }} />)}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.spark, textTransform: 'uppercase' }}>{extra ? (category ? 'Update' : 'Check-in') : `${secN + 1} of ${sections.length}`} · {sec?.title}</Text>
           </View>
         </View>
-        <Text style={{ fontFamily: fonts.displayBold, fontSize: 23, lineHeight: 30, color: colors.text, marginTop: 10 }}>{title}</Text>
+        <Text style={{ fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 29, color: colors.text, marginTop: 10 }}>{title}</Text>
       </View>
       <Instructions {...stepsFor(q, v)} />
       {error ? <ErrorText>{error}</ErrorText> : null}
 
-      {q.kind === 'photos' ? <PhotoGrid q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
-      {q.kind === 'me' ? <MeGrid q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
-      {q.kind === 'boxes' ? <Boxes q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
-      {['pick', 'react', 'vs', 'loyal'].includes(q.kind) ? <Choices q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
-      {DIAL_KINDS.includes(q.kind) && Number.isInteger(v?.o) ? <Dial labels={q.dial} value={v?.f} onPick={(f) => setAnswer(q, { ...v, f })} /> : null}
+      {q.kind === 'react' ? <Choices q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'more' ? <More q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'more' && q.dial && Number.isInteger(v?.o) ? <Dial labels={q.dial} value={v?.f} onPick={(f) => setAnswer(q, { ...v, f })} /> : null}
+      {q.kind === 'slider' ? <Slider q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'rank' ? <Rank q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'day' ? <Day q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'tiles' ? <Tiles q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'habits' ? <Habits q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+      {q.kind === 'needs' ? <Needs q={q} value={v} onChange={(x) => setAnswer(q, x)} /> : null}
+
+      {SKIPPABLE(q) ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 22, marginTop: space.lg }}>
+          {['react', 'more'].includes(q.kind) ? (
+            <Pressable onPress={() => skip(true)} hitSlop={8} disabled={busy} accessibilityRole="button"><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.aura }}>It depends</Text></Pressable>
+          ) : null}
+          <Pressable onPress={() => skip(false)} hitSlop={8} disabled={busy} accessibilityRole="button"><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.muted }}>Skip</Text></Pressable>
+        </View>
+      ) : null}
 
       {why && w ? (
         <View style={{ marginTop: space.lg, padding: 14, borderRadius: 14, backgroundColor: 'rgba(66,232,192,0.10)', borderWidth: 1, borderColor: 'rgba(66,232,192,0.35)' }}>
@@ -540,11 +727,10 @@ export default function SoulGames() {
           <Text style={{ fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 6, fontStyle: 'italic' }}>Based on: {w[2]}</Text>
         </View>
       ) : null}
-      {q.photos || q.kind === 'me' ? <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.dim, marginTop: space.md }}>Photos: Unsplash</Text> : null}
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: space.xl, marginBottom: space.xl }}>
         <Button small variant="ghost" title={why ? 'Hide' : 'Why we ask'} onPress={() => setWhy(!why)} style={{ flex: 1 }} />
-        <Button title={i + 1 >= steps.length ? 'See my Soul DNA' : 'Next'} disabled={!ready(q, v)} loading={busy} onPress={next} style={{ flex: 2 }} />
+        <Button title={lastOne ? (extra ? 'Save' : 'See my Soul DNA') : 'Next'} disabled={!ready(q, v)} loading={busy} onPress={() => next()} style={{ flex: 2 }} />
       </View>
     </BrandScreen>
   );

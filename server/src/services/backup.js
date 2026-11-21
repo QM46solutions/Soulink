@@ -28,7 +28,7 @@ import { signExport, verifyExport } from '../lib/exportSign.js';
 import { exportAccount } from './account.js';
 import { audit } from './audit.js';
 import { HttpError } from '../lib/errors.js';
-import { QUESTIONS, isComplete, validAnswer } from './soulDna.js';
+import { QUESTIONS, isComplete, planFor, validAnswer } from './soulDna.js';
 import { saveCompletedDna } from './soulStore.js';
 
 const QMAP = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
@@ -391,7 +391,7 @@ export async function runRestore(jobId, user, file, req) {
         const good = Object.fromEntries(Object.entries(meta.soulDna.answers).filter(([id, v]) => QMAP[id] && validAnswer(QMAP[id], v)));
         if (Object.keys(good).length) {
           const r = await one(`IF NOT EXISTS (SELECT 1 FROM soul_dna WHERE user_id=$1) INSERT INTO soul_dna (user_id, answers) OUTPUT INSERTED.user_id VALUES ($1, $2)`, [user.id, JSON.stringify(good)]);
-          if (r && isComplete(good)) await saveCompletedDna(user.id, good);
+          if (r && isComplete(good, planFor(String(user.id).toLowerCase()))) await saveCompletedDna(user.id, good);
           if (r) result.soulDna = true;
         }
       } catch { result.notRecovered.push('Soul DNA'); }

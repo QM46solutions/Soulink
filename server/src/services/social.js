@@ -122,6 +122,7 @@ export const meView = (u) => ({
   onboardingDone: u.onboarding_done,
   soulReady: !!u.soul_ready,
   soulUpgrade: !!u.soul_ready && (u.soul_version ?? 4) < 6, // made with an older version: invited to play the new games
+  soulRefresh: !!u.soul_ready && u.soul_version === 6, // made with the v6 games: invited (optional) to refresh with the new activities
   hasLocation: u.lat != null && u.lon != null,
   chatLanguage: u.chat_language || null,
   eventsNotify: !!u.events_notify,

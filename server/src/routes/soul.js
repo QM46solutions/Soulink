@@ -1,13 +1,16 @@
-// Soul DNA v5: 7 short games (plus 3 taps about what you want) build your mind model; answers are saved as you go.
-//  GET  /soul/dna                 the games + my saved answers
-//  PUT  /soul/dna/answers         { answers: { id: answer } }  (shapes per game: see services/mind/scenarios.js)
-//  POST /soul/dna/complete        every game played → Soul DNA ready, Soul type
-//  POST /soul/dna/retake          Premium: start over (your current Soul DNA stays until you finish the new one).
-//                                 Free for anyone whose Soul DNA was made with the old quiz (once, to play the games).
-//  GET  /soul/dna/me              my own Soul DNA (how I think, layers, give and take, spectrum)
-//  GET  /soul/compat/:userId      ?relation=… → full predicted compatibility (+ how they think)
-//  GET  /soul/pair/:userId        ?intent=… → 0-3 quick items about what Soulink can't judge yet for us two
-//  POST /soul/pair/:userId        { answers } → answers merged into my Soul DNA, our score updated
+// Soul DNA v7: 8 categories of short activities. An 11-activity first session builds your Soul DNA; after that,
+// optional check-ins (3 new activities) and per-category updates refine it, free, any time.
+//  GET  /soul/dna                    the activities + my first-session plan + my saved answers
+//  PUT  /soul/dna/answers            { answers: { id: answer } }  (shapes per kind: services/mind/scenarios.js).
+//                                    Before the first session is done: saved. After: merged and Soul DNA rebuilt.
+//  POST /soul/dna/complete           first session played → Soul DNA ready, Soul type
+//  GET  /soul/dna/checkin            ?category=… → 3 activities to refine Soul DNA (one category: its activities)
+//  POST /soul/dna/retake             Premium: start over (your current Soul DNA stays until you finish the new one).
+//                                    Free for anyone whose Soul DNA was made with the old quiz.
+//  GET  /soul/dna/me                 my own Soul DNA (tendencies per category with how sure, how I think, spectrum)
+//  GET  /soul/compat/:userId         ?relation=… → full predicted compatibility (+ how they think)
+//  GET  /soul/pair/:userId           ?intent=… → 0-3 quick items about what Soulink can't judge yet for us two
+//  POST /soul/pair/:userId           { answers } → answers merged into my Soul DNA, our score updated
 import { Router } from 'express';
 import { z } from 'zod';
 import { one, query } from '../db.js';
@@ -16,7 +19,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { meView } from '../services/social.js';
 import { soulTypeOf } from '../services/soulQuiz.js';
-import { CHIPS, DNA_VERSION, QUESTION_IDS, RELATION_KEYS, SECTIONS, answeredCount, cleanAnswers, compat, isComplete, knownAnswers, pairQuestions, planFor, publicQuestions, relationOf, selfView, theirMind, traitsFromAxes } from '../services/soulDna.js';
+import { QUESTION_IDS, RELATION_KEYS, SECTIONS, answeredCount, checkinPlan, cleanAnswers, compat, isComplete, knownAnswers, pairQuestions, planFor, publicQuestions, relationOf, selfView, theirMind, traitsFromAxes } from '../services/soulDna.js';
 import { addAnswers, loadDna, relationBetween, saveCompletedDna, scoreFor } from '../services/soulStore.js';
 import { pinnedCompat, pinsFor } from '../services/soulPins.js';
 import { INTENT_KEYS } from '../services/connections.js';
@@ -31,18 +34,20 @@ async function myRow(userId) {
   return one('SELECT * FROM soul_dna WHERE user_id=$1', [userId]);
 }
 const dnaVersion = (row) => (row?.completed_at ? parse(row.dna, null)?.v ?? null : null);
-/** Finished with the games (v5). A Soul DNA from the old quiz counts as "to be upgraded", not finished. */
-const doneWithGames = (row) => dnaVersion(row) === DNA_VERSION;
-const upgrading = (row) => !!row?.completed_at && dnaVersion(row) !== DNA_VERSION;
+/** Finished: a Soul DNA made with the v6 games or the v7 activities. One from the old quiz (v4 / v5) is "to be
+ *  upgraded": its owner plays the first session. A v6 one keeps working; its owner is invited to refresh it. */
+const doneWithGames = (row) => dnaVersion(row) >= 6;
+const upgrading = (row) => !!row?.completed_at && dnaVersion(row) < 6;
+const seedOf = (req) => String(req.user.id).toLowerCase();
 
 r.get('/dna', ah(async (req, res) => {
   const row = await myRow(req.user.id);
   const answers = knownAnswers(parse(row?.answers));
-  const plan = planFor(answers);
+  const plan = planFor(seedOf(req));
   res.json({
-    sections: SECTIONS, chips: CHIPS, questions: publicQuestions(QUESTION_IDS), plan, answers,
+    sections: SECTIONS, questions: publicQuestions(QUESTION_IDS), plan, answers,
     answered: answeredCount(answers, plan), total: plan.length,
-    completed: doneWithGames(row), upgrade: upgrading(row), canRetake: !!req.user.is_premium,
+    completed: doneWithGames(row), upgrade: upgrading(row), refresh: dnaVersion(row) === 6, retaking: !!parse(row?.answers).__retake, canRetake: !!req.user.is_premium,
   });
 }));
 
@@ -55,40 +60,59 @@ r.post('/dna/retake', ah(async (req, res) => {
   const row = await myRow(req.user.id);
   if (!row?.completed_at || upgrading(row)) return res.json({ ok: true, fresh: true }); // nothing to retake: just play
   if (retakeLocked(req, row)) throw premiumRetake();
-  await query("UPDATE soul_dna SET answers=N'{}', updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1", [req.user.id]);
+  // __retake: answers now go into the new first session; the current Soul DNA stays until it's finished
+  await query(`UPDATE soul_dna SET answers=N'{"__retake":1}', updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1`, [req.user.id]);
   res.json({ ok: true });
 }));
 
 r.put('/dna/answers', ah(async (req, res) => {
   const row = await myRow(req.user.id);
-  if (retakeLocked(req, row)) throw premiumRetake();
   const { answers } = z.object({ answers: z.record(z.string(), z.any()) }).parse(req.body);
-  for (const id of Object.keys(answers)) if (!QSET.has(id)) throw badRequest(`${id} is not one of the games`);
+  for (const id of Object.keys(answers)) if (!QSET.has(id)) throw badRequest(`${id} is not one of the activities`);
   const clean = cleanAnswers(answers);
   for (const id of Object.keys(answers)) if (clean[id] === undefined) throw badRequest(`Invalid answer for ${id}`);
-  const merged = { ...knownAnswers(parse(row?.answers)), ...clean }; // old-quiz answers are dropped once you play
+  const plan = planFor(seedOf(req));
+  // Soul DNA done: a check-in or an update (free, any time): merged in and rebuilt straight away
+  if (doneWithGames(row) && !parse(row?.answers).__retake) {
+    const { dna } = await addAnswers(req.user.id, clean);
+    const merged = { ...knownAnswers(parse(row?.answers)), ...clean };
+    return res.json({ answered: answeredCount(merged, plan), total: plan.length, plan, updated: true, me: selfView(dna) });
+  }
+  const merged = { ...knownAnswers(parse(row?.answers)), ...(parse(row?.answers).__retake ? { __retake: 1 } : {}), ...clean }; // old-quiz answers are dropped once you play
   if (row) await query('UPDATE soul_dna SET answers=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [req.user.id, JSON.stringify(merged)]);
   else await query('INSERT INTO soul_dna (user_id, answers) VALUES ($1, $2)', [req.user.id, JSON.stringify(merged)]);
-  const plan = planFor(merged);
-  res.json({ answered: answeredCount(merged, plan), total: plan.length, plan, added: [] });
+  res.json({ answered: answeredCount(merged, plan), total: plan.length, plan });
+}));
+
+// a check-in: 3 activities you haven't done, from the categories Soul DNA is least sure about; or one category's
+// activities (its "Not quite" / Update answers)
+r.get('/dna/checkin', ah(async (req, res) => {
+  const { category } = z.object({ category: z.enum(SECTIONS.map((x) => x.key)).optional() }).parse(req.query);
+  const row = await myRow(req.user.id);
+  const answers = knownAnswers(parse(row?.answers));
+  const m = await loadDna([req.user.id]);
+  const dna = m.get(seedOf(req)) || null;
+  // a v6 Soul DNA refreshing for the first time gets the new first session
+  const fresh = dna && dna.v === 6 && !category ? planFor(seedOf(req)).filter((id) => answers[id] === undefined) : null;
+  const ids = fresh?.length ? fresh : checkinPlan(dna, answers, 3, category || null);
+  res.json({ ids, questions: publicQuestions(ids), answers: Object.fromEntries(ids.filter((id) => answers[id] !== undefined).map((id) => [id, answers[id]])) });
 }));
 
 r.post('/dna/complete', ah(async (req, res) => {
   const row = await myRow(req.user.id);
   const answers = knownAnswers(parse(row?.answers));
-  const plan = planFor(answers);
-  if (!isComplete(answers, plan)) throw badRequest(`Play every game first (${plan.filter((id) => answers[id] === undefined).length} left)`, 'incomplete');
-  const mine = Object.fromEntries(plan.map((id) => [id, answers[id]])); // only this person's loyalty version counts
-  const { user, dna, type, tagline } = await saveCompletedDna(req.user.id, mine);
+  const plan = planFor(seedOf(req));
+  if (!isComplete(answers, plan)) throw badRequest(`Finish the activities first (${plan.filter((id) => answers[id] === undefined).length} left)`, 'incomplete');
+  const { user, dna, type, tagline } = await saveCompletedDna(req.user.id, answers, null); // a fresh first session
   res.json({ user: meView(user), soul: { type, tagline }, me: selfView(dna) });
 }));
 
 r.get('/dna/me', ah(async (req, res) => {
   const m = await loadDna([req.user.id]);
-  const dna = m.get(String(req.user.id).toLowerCase());
+  const dna = m.get(seedOf(req));
   if (!dna) return res.json({ ready: false });
   const { type, tagline } = soulTypeOf(traitsFromAxes(dna));
-  res.json({ ready: true, type, tagline, me: selfView(dna), upgrade: dna.v !== DNA_VERSION });
+  res.json({ ready: true, type, tagline, me: selfView(dna), upgrade: dna.v < 6, refresh: dna.v === 6, version: dna.v });
 }));
 
 // Full match picture. Headline scores are free; the breakdown is Premium (free while testing).

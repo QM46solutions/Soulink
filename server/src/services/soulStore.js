@@ -1,7 +1,7 @@
-// Loading Soul DNA (v4 and v5 mind models) from the database and scoring pairs.
+// Loading Soul DNA (v4 to v7 mind models) from the database and scoring pairs.
 // Predicted from Soul DNA (+ what people are into inside Soulink, with their consent); chats and meetups stay private.
 import { many, one, query, tx } from '../db.js';
-import { buildAxes, compat, compatAll, DNA_VERSION, DNA_VERSIONS, QUESTIONS, isComplete, knownAnswers, relationOf, setRarity, theirMind, traitsFromAxes } from './soulDna.js';
+import { baseOf, buildAxes, compat, compatAll, DNA_VERSIONS, QUESTIONS, knownAnswers, relationOf, setRarity, theirMind, traitsFromAxes } from './soulDna.js';
 import { TRAITS, soulTypeOf } from './soulQuiz.js';
 import { applyPinsAll, pinsFor } from './soulPins.js';
 import { interestsFor } from './signals.js';
@@ -20,7 +20,8 @@ export async function loadDna(ids) {
   }
   if (out.size) {
     const interests = await interestsFor([...out.keys()]);
-    for (const [k, d] of out) d.interests = interests.get(k) || [];
+    // what they're into: their profile + Soulink activity (with consent) + their Soul DNA interest picks
+    for (const [k, d] of out) d.interests = [...new Set([...(interests.get(k) || []), ...(d.interestsDna || []).map((t) => String(t).toLowerCase())])];
   }
   return out;
 }
@@ -53,9 +54,14 @@ export async function headline(aId, bId) {
   return { relation, all: applyPinsAll(compatAll(A, B), pins), mind: theirMind(B) };
 }
 
-/** Builds and saves a person's Soul DNA from their answers (+ classic traits + Soul type). Returns { user, dna, type, tagline }. */
-export async function saveCompletedDna(userId, answers) {
-  const dna = buildAxes(answers);
+/** Builds and saves a person's Soul DNA from their answers (+ classic traits + Soul type). Returns { user, dna, type, tagline }.
+ *  base: an older Soul DNA it carries on from (see mind/model.js); by default whatever the saved one carries. */
+export async function saveCompletedDna(userId, answers, base) {
+  if (base === undefined) {
+    const row = await one('SELECT dna FROM soul_dna WHERE user_id=$1 AND completed_at IS NOT NULL', [userId]);
+    base = baseOf(parse(row?.dna));
+  }
+  const dna = buildAxes(answers, base);
   const traits = traitsFromAxes(dna);
   const { type, tagline } = soulTypeOf(traits);
   const user = await tx(async (c) => {
@@ -74,12 +80,13 @@ export async function saveCompletedDna(userId, answers) {
   return { user, dna, type, tagline };
 }
 
-/** Extra answers after Soul DNA is done (questions asked when connecting): merged in and the model rebuilt. */
+/** Extra answers after Soul DNA is done (check-ins, updates, questions asked when connecting): merged in and the
+ *  model rebuilt straight away (an older Soul DNA carries on as its base, so nothing is lost). */
 export async function addAnswers(userId, extra) {
-  const row = await one('SELECT answers, completed_at FROM soul_dna WHERE user_id=$1', [userId]);
-  const answers = { ...(parse(row?.answers) || {}), ...extra };
-  // rebuilt only for a Soul DNA made with the games (an old-quiz one stays as it is until the games are played)
-  if (row?.completed_at && isComplete(knownAnswers(answers))) return saveCompletedDna(userId, knownAnswers(answers));
+  const row = await one('SELECT answers, dna, completed_at FROM soul_dna WHERE user_id=$1', [userId]);
+  const answers = { ...knownAnswers(parse(row?.answers) || {}), ...extra };
+  const old = parse(row?.dna);
+  if (row?.completed_at && DNA_VERSIONS.includes(old?.v)) return saveCompletedDna(userId, answers, baseOf(old));
   if (row) await query('UPDATE soul_dna SET answers=$2, updated_at=SYSDATETIMEOFFSET() WHERE user_id=$1', [userId, JSON.stringify(answers)]);
   else await query('INSERT INTO soul_dna (user_id, answers) VALUES ($1, $2)', [userId, JSON.stringify(answers)]);
   return null;
@@ -87,12 +94,12 @@ export async function addAnswers(userId, extra) {
 
 /** How common each answer on the value cards and loyalty questions is, among everyone who has played the games
  *  (for rarity weighting: sharing a rare answer counts for more). Refreshed hourly; needs 20+ players to kick in. */
-const RARE_IDS = QUESTIONS.filter((q) => q.kind === 'vs' || q.kind === 'loyal' || q.kind === 'photos').map((q) => q.id);
+const RARE_IDS = QUESTIONS.filter((q) => q.kind === 'more' || q.kind === 'tiles' || q.options.some((x) => x.s != null)).map((q) => q.id);
 export async function refreshRarity() {
   const rows = await many("SELECT TOP 5000 dna FROM soul_dna WHERE completed_at IS NOT NULL ORDER BY completed_at DESC");
   const count = {}; let players = 0;
   for (const r of rows) {
-    const d = parse(r.dna); if (d?.v !== DNA_VERSION || !d.picks) continue;
+    const d = parse(r.dna); if (!(d?.v >= 6) || !d.picks) continue;
     players += 1;
     for (const id of RARE_IDS) {
       const p = d.picks[id]; if (!p) continue;

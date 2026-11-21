@@ -6,6 +6,7 @@ import { router, useFocusEffect, useNavigation } from 'expo-router';
 import NotificationBell from '../../components/NotificationBell';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../lib/api';
 import PostCard from '../../components/PostCard';
 import { FeedAd } from '../../components/AdCards';
@@ -51,18 +52,35 @@ export default function Home() {
   }, [navigation, user.soulReady]);
   // Moments row (stories) on top; friends' profile posts below
   // Soul DNA made with the old quiz: a gentle nudge to play the new games (matches keep working meanwhile)
+  // Soul DNA made with the v6 games: an optional, dismissible invite to refresh it with the new activities
+  const [refreshHidden, setRefreshHidden] = useState(true);
+  useEffect(() => { if (user.soulRefresh) AsyncStorage.getItem('soulink.soulRefreshHidden').then((x) => setRefreshHidden(!!x)).catch(() => setRefreshHidden(false)); }, [user.soulRefresh]);
+  const refresh = user.soulRefresh && !refreshHidden ? (
+    <View style={{ marginHorizontal: space.lg, marginBottom: space.md, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)', flexDirection: 'row', alignItems: 'center' }}>
+      <Pressable onPress={() => router.push({ pathname: '/soul', params: { checkin: '1' } })} accessibilityRole="button" style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        <SoulDnaIcon size={38} />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Refresh your Soul DNA</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>New short activities, about 3 minutes. Optional: nothing is lost.</Text>
+        </View>
+      </Pressable>
+      <Pressable onPress={() => { setRefreshHidden(true); AsyncStorage.setItem('soulink.soulRefreshHidden', '1').catch(() => {}); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Not now">
+        <Ionicons name="close" size={18} color={colors.muted} />
+      </Pressable>
+    </View>
+  ) : null;
   const upgrade = user.soulUpgrade ? (
     <Pressable onPress={() => router.push('/soul')} accessibilityRole="button"
       style={{ marginHorizontal: space.lg, marginBottom: space.md, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(176,143,255,0.45)', backgroundColor: 'rgba(124,92,252,0.12)', flexDirection: 'row', alignItems: 'center' }}>
       <SoulDnaIcon size={38} />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Soul DNA is now shorter</Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>7 rounds, 21 taps, about 4 minutes. Play once for sharper matches.</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text }}>Soul DNA has changed</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 2 }}>11 short activities, about 3 minutes. Play once for sharper matches.</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.aura} />
     </Pressable>
   ) : null;
-  const composer = <>{upgrade}<MomentsBar me={user} groups={moments} /></>;
+  const composer = <>{upgrade}{refresh}<MomentsBar me={user} groups={moments} /></>;
 
   const load = useCallback(async () => {
     api('/moments/feed').then((m) => setMoments(m.groups)).catch(() => {});

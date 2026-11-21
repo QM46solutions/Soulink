@@ -1,91 +1,95 @@
-// Soul DNA v6: a model of how a person thinks, acts and reacts, and how two such minds fit — built from 7 short
-// categories × 3 taps (a photo grid + two quick questions each) instead of a long quiz.
+// Soul DNA v7: a model of how a person thinks, acts and reacts, and how two such minds fit — built from 8 fixed
+// categories, each with a bank of short, playful activities: an 11-activity first session, then optional check-ins.
 // This file is the front door the rest of the server uses; the logic lives in ./mind/:
-//   mind/scenarios.js  the games: items, what each choice means (traits), deal-breaker chips
-//   mind/model.js      answers → mind model (confidence, gut-reaction timing, firmness, consistency checks)
+//   mind/scenarios.js  the categories, the activity bank, what each answer means (traits), the first-session plan
+//   mind/model.js      answers (+ an older Soul DNA) → mind model (confidence, timing, firmness, check-in picks)
 //   mind/match.js      two minds → compatibility, a different logic per relation type (life partner = a simulation)
-//   mind/summary.js    the mind model in plain words ("how you think")
+//   mind/summary.js    the mind model in plain words: tendencies per category, with how sure Soul DNA is
 // Everything runs on the server only: the app never receives the traits, weights or rules.
-import { CHIPS, CHIP_KEYS, FIRM, LAYERS, ME_CHIP_KEYS, SCENARIOS, planFor } from './mind/scenarios.js';
-import { CHOICE_KINDS, DIAL_KINDS, buildMind, corePlan, CORE_SIZE, extendPart, extendPlan, nextScenarios, optionOf } from './mind/model.js';
+import { COUPLE_FIRST, FIRM, HABITS, HABIT_KEYS, LAYERS, NEEDS, NEED_LEVELS, NEED_MAP, NO_SKIP, SCENARIOS, planFor, FIRST_SIZE } from './mind/scenarios.js';
+import { CHOICE_KINDS, DNA_V, baseOf, buildMind, checkinPlan, nextScenarios, optionOf } from './mind/model.js';
 import { compat as compatMinds, compatAll as compatAllMinds, DIMS, FOCUS, RELATIONS, RELATION_KEYS, relationOf, setRarity } from './mind/match.js';
-import { classicTraits, howTheyThink, selfView as selfViewMind } from './mind/summary.js';
+import { categories, classicTraits, howTheyThink, selfView as selfViewMind } from './mind/summary.js';
 
-export { DIMS, RELATIONS, RELATION_KEYS, relationOf, CORE_SIZE, corePlan, extendPart, extendPlan, planFor, setRarity, CHIPS };
-export const DNA_VERSION = 6;
-/** Soul DNA versions that can still be matched (an older Soul DNA keeps working until its owner plays again). */
-export const DNA_VERSIONS = [4, 5, 6];
+export { DIMS, RELATIONS, RELATION_KEYS, relationOf, planFor, setRarity, baseOf, checkinPlan, categories };
+export const DNA_VERSION = DNA_V;
+/** Soul DNA versions that can still be matched (an older Soul DNA keeps working; its owner is invited to refresh). */
+export const DNA_VERSIONS = [4, 5, 6, 7];
+export const CORE_SIZE = FIRST_SIZE;
 
 export const SECTIONS = LAYERS;
 export const QUESTIONS = SCENARIOS.map((s) => ({ ...s, section: s.layer, type: CHOICE_KINDS.includes(s.kind) ? 'choice' : s.kind }));
 export const QUESTION_IDS = QUESTIONS.map((q) => q.id);
 const QMAP = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
 
-/** Photos come from Unsplash (free for commercial use), resized by their CDN to a small square tile. */
-const photoUrl = (id) => `https://images.unsplash.com/photo-${id}?w=360&h=360&fit=crop&crop=faces,entropy&q=70&fm=jpg&auto=format`;
 const okTiming = (v) => (v.ms == null || (Number.isFinite(v.ms) && v.ms >= 0 && v.ms < 3_600_000)) && (v.ch == null || (Number.isInteger(v.ch) && v.ch >= 0 && v.ch < 50));
-const chipList = (x, keys = CHIP_KEYS) => Array.isArray(x) && x.length <= keys.length && x.every((k) => keys.includes(k)) && new Set(x).size === x.length;
+const idx = (x, n) => Number.isInteger(x) && x >= 0 && x < n;
+const distinct = (xs) => new Set(xs).size === xs.length;
 
-/** One answer, checked against its item's kind (see mind/scenarios.js for the shapes). */
+/** One answer, checked against its activity's kind (see mind/scenarios.js for the shapes). */
 export function validAnswer(q, v) {
-  if (!q) return false;
-  if (q.kind === 'photos') {
-    if (!v || typeof v !== 'object' || !Array.isArray(v.s)) return false;
-    const n = q.options.length; const max = q.max || 3;
-    const okLen = q.exact ? v.s.length === max : v.s.length >= 1 && v.s.length <= max;
-    return okLen && v.s.every((k) => Number.isInteger(k) && k >= 0 && k < n) && new Set(v.s).size === v.s.length && okTiming(v);
+  if (!q || v == null || typeof v !== 'object' || Array.isArray(v)) return false;
+  if (!okTiming(v)) return false;
+  if (v.skip === true) return !NO_SKIP.has(q.kind) && !q.noSkip;
+  switch (q.kind) {
+    case 'react': return idx(v.o, q.options.length);
+    case 'more': return idx(v.o, 2) && (!q.firm || idx(v.f, FIRM.level.length));
+    case 'slider': return idx(v.v, 5);
+    case 'rank': return Array.isArray(v.r) && v.r.length === q.options.length && v.r.every((k) => idx(k, q.options.length)) && distinct(v.r);
+    case 'day': return Array.isArray(v.s) && v.s.length === q.slots.length && v.s.every((k, i) => idx(k, q.slots[i].options.length));
+    case 'tiles': return Array.isArray(v.s) && v.s.length >= 1 && v.s.length <= (q.max || 3) && v.s.every((k) => idx(k, q.options.length)) && distinct(v.s);
+    case 'habits': return HABITS.every((h) => v[h.key] === -1 || idx(v[h.key], h.options.length));
+    case 'needs': return Object.entries(v).every(([k, lvl]) => ['ms', 'ch'].includes(k) || (NEED_MAP[k] && NEED_LEVELS.includes(lvl) && !(lvl === 'never' && NEED_MAP[k].group !== 'life')));
+    default: return false;
   }
-  if (q.kind === 'me') return !!v && typeof v === 'object' && chipList(v.s, ME_CHIP_KEYS);
-  if (q.kind === 'boxes') return !!v && typeof v === 'object' && chipList(v.must || []) && chipList(v.never || []) && !(v.must || []).some((k) => (v.never || []).includes(k));
-  const o = optionOf(v);
-  if (!Number.isInteger(o) || o < 0 || o >= q.options.length) return false;
-  if (typeof v === 'object') {
-    if (!okTiming(v)) return false;
-    if (DIAL_KINDS.includes(q.kind) && !(Number.isInteger(v.f) && v.f >= 0 && v.f < FIRM.level.length)) return false;
-  } else if (DIAL_KINDS.includes(q.kind)) return false; // the firmness dial is part of the answer
-  return true;
 }
-/** Answers kept (valid ones only), normalised. */
+/** Answers kept (valid ones only), normalised to their shape. */
 export function cleanAnswers(answers) {
   const out = {};
   for (const [id, v] of Object.entries(answers || {})) {
     const q = QMAP[id];
     if (!validAnswer(q, v)) continue;
-    const t = typeof v === 'object' ? { ...(v.ms != null ? { ms: Math.round(v.ms) } : {}), ...(v.ch ? { ch: v.ch } : {}) } : {};
-    if (q.kind === 'photos') out[id] = { s: [...v.s], ...t };
-    else if (q.kind === 'me') out[id] = { s: [...v.s] };
-    else if (q.kind === 'boxes') out[id] = { must: [...(v.must || [])], never: [...(v.never || [])] };
-    else out[id] = typeof v === 'object' ? { o: v.o, ...(DIAL_KINDS.includes(q.kind) ? { f: v.f } : {}), ...t } : v;
+    const t = { ...(v.ms != null ? { ms: Math.round(v.ms) } : {}), ...(v.ch ? { ch: v.ch } : {}) };
+    if (v.skip) { out[id] = { skip: true, ...(v.d ? { d: 1 } : {}), ...t }; continue; }
+    switch (q.kind) {
+      case 'react': out[id] = { o: v.o, ...t }; break;
+      case 'more': out[id] = { o: v.o, ...(q.firm ? { f: v.f } : {}), ...t }; break;
+      case 'slider': out[id] = { v: v.v, ...t }; break;
+      case 'rank': out[id] = { r: [...v.r], ...t }; break;
+      case 'day': case 'tiles': out[id] = { s: [...v.s], ...t }; break;
+      case 'habits': out[id] = Object.fromEntries(HABIT_KEYS.map((k) => [k, v[k]])); break;
+      case 'needs': out[id] = Object.fromEntries(Object.entries(v).filter(([k]) => NEED_MAP[k])); break;
+      default: break;
+    }
   }
   return out;
 }
-/** Only answers to today's games (older Soul DNA answers are dropped once someone starts playing). */
+/** Only answers to today's activities (older Soul DNA answers live on in the Soul DNA itself, as its base). */
 export const knownAnswers = (answers) => Object.fromEntries(Object.entries(answers || {}).filter(([id]) => QMAP[id]));
-export const answeredCount = (answers, plan = planFor(answers)) => plan.filter((id) => answers?.[id] !== undefined).length;
-/** Every game of the person's own plan played. */
-export const isComplete = (answers, plan = planFor(answers || {})) => plan.every((id) => answers?.[id] !== undefined);
+export const answeredCount = (answers, plan) => plan.filter((id) => answers?.[id] !== undefined).length;
+/** The whole first session played. */
+export const isComplete = (answers, plan) => plan.every((id) => answers?.[id] !== undefined);
 
-/** The games as sent to the app: text, photos and kind only, never what a choice means. */
+/** The activities as sent to the app: text, choices and kind only, never what a choice means. */
 export const publicQuestions = (ids = QUESTION_IDS) => ids.filter((id) => QMAP[id]).map((id) => {
   const q = QMAP[id];
   return {
     id: q.id, section: q.section, kind: q.kind, type: q.type, text: q.text,
     options: q.options.map((x) => x.label),
-    ...(q.options.some((x) => x.photo) ? { photos: q.options.map((x) => (x.photo ? photoUrl(x.photo) : null)) } : {}),
-    ...(q.kind === 'photos' ? { max: q.max || 3, ...(q.exact ? { exact: true } : {}) } : {}),
-    ...(q.variant ? { variant: q.variant } : {}),
-    ...(DIAL_KINDS.includes(q.kind) ? { dial: FIRM.labels } : {}),
-    ...(q.kind === 'me' ? { chips: CHIPS.filter((c) => c.photo).map((c) => ({ key: c.key, label: c.me, photo: photoUrl(c.photo) })) } : {}),
-    ...(q.kind === 'boxes' ? { chips: CHIPS.map((c) => ({ key: c.key, label: c.label })) } : {}),
+    ...(q.look ? { look: q.look } : {}),
+    ...(q.anchor ? { anchor: true } : {}),
+    ...(NO_SKIP.has(q.kind) || q.noSkip ? { noSkip: true } : {}),
+    ...(q.firm ? { dial: FIRM.labels } : {}),
+    ...(q.kind === 'tiles' ? { max: q.max || 3, icons: q.options.map((x) => x.icon) } : {}),
+    ...(q.kind === 'day' ? { slots: q.slots.map((s) => ({ name: s.name, options: s.options.map((x) => x.label) })) } : {}),
+    ...(q.kind === 'habits' ? { groups: HABITS } : {}),
+    ...(q.kind === 'needs' ? { chips: NEEDS.map((n) => ({ key: n.key, label: n.label, group: n.group })) } : {}),
   };
 });
 
 // ---------- the mind model ----------
-/** Answers → Soul DNA (kept as buildAxes: the name the rest of the server uses). Only the person's own plan counts. */
-export const buildAxes = (answers) => {
-  const plan = new Set(planFor(answers || {}));
-  return buildMind(Object.fromEntries(Object.entries(answers || {}).filter(([id]) => plan.has(id))));
-};
+/** Answers (+ an older Soul DNA it carries on from) → Soul DNA (kept as buildAxes: the name the server uses). */
+export const buildAxes = (answers, base = null) => buildMind(knownAnswers(answers || {}), base);
 export const traitsFromAxes = (dna) => classicTraits(dna);
 export const selfView = (dna) => selfViewMind(dna);
 export const theirMind = (dna) => howTheyThink(dna, false);
@@ -93,30 +97,38 @@ export const compat = (A, B, relation) => compatMinds(A, B, relation);
 export const compatAll = (A, B) => compatAllMinds(A, B);
 
 /**
- * Request-time questions: up to `n` single-tap items for `asker` about what the app can't judge yet for this pair
- * and this relation. Everyone plays every game now, so this is usually empty.
+ * Request-time questions: up to `n` single-tap activities for `asker` about what the app can't judge yet for this
+ * pair and relation. A first dating / life-partner request asks about life stage and kids first.
  */
 export function pairQuestions(askerAnswers, A, B, relation, n = 3) {
   const focus = FOCUS[relation] || FOCUS.friendship;
+  const couple = relation === 'dating' || relation === 'lifepartner';
   const unsure = {};
   for (const [t, w] of Object.entries(focus)) {
     const u = Math.max(1 - (A.traits?.[t]?.c ?? 0), 1 - (B.traits?.[t]?.c ?? 0));
     if (u > 0.45) unsure[t] = w * u;
   }
-  if (!Object.keys(unsure).length) return [];
-  return nextScenarios(A, askerAnswers, n, Object.fromEntries(Object.keys(focus).map((t) => [t, unsure[t] ?? 0.05])));
+  const first = couple && !A.intent?.stage ? COUPLE_FIRST.filter((id) => !(id === 're3' && A.intent?.kids)) : [];
+  return nextScenarios(A, askerAnswers, n, unsure, first);
 }
 
-/** Deterministic full answer set (demo accounts and tests). Different k → a different person. Covers both loyalty versions. */
+/** Deterministic full answer set (demo accounts and tests). Different k → a different person. Every activity. */
 export function sampleAnswers(k = 0) {
   const out = {};
   QUESTIONS.forEach((q, i) => {
-    const n = q.options.length;
-    if (q.kind === 'photos') { const a = (i + k) % n; out[q.id] = { s: [a, (a + 1 + (k % 3)) % n, (a + 5) % n] }; }
-    else if (q.kind === 'me') out[q.id] = { s: ME_CHIP_KEYS.filter((_, j) => (j + k) % 3 === 0) };
-    else if (q.kind === 'boxes') out[q.id] = { must: [], never: [] };
-    else if (DIAL_KINDS.includes(q.kind)) out[q.id] = { o: (i + k) % n, f: (i + k) % 3 === 2 ? 1 : (i + k) % 3 };
-    else out[q.id] = (i + k) % n;
+    const n = q.options.length; const j = i + k;
+    switch (q.kind) {
+      case 'react': out[q.id] = { o: j % n }; break;
+      case 'more': out[q.id] = { o: j % 2, ...(q.firm ? { f: j % 3 } : {}) }; break;
+      case 'slider': out[q.id] = { v: j % 5 }; break;
+      case 'rank': { const r = [0, 1, 2, 3].map((x) => (x + j) % 4); out[q.id] = { r }; break; }
+      case 'day': out[q.id] = { s: q.slots.map((s, x) => (j + x) % s.options.length) }; break;
+      case 'tiles': out[q.id] = { s: [j % n, (j + 5) % n, (j + 11) % n] }; break;
+      case 'habits': out[q.id] = Object.fromEntries(HABITS.map((h, x) => [h.key, (j + x) % h.options.length])); break;
+      case 'needs': out[q.id] = { word: 'must', talk: 'nice', ...(k % 2 ? { no_smoke: 'must' } : {}) }; break;
+      default: break;
+    }
   });
   return out;
 }
+export const optionIndex = optionOf;

@@ -1,3 +1,4 @@
+import { NEEDS } from './scenarios.js';
 // Soul DNA v4: how two minds fit. Each relation type has its own logic:
 //   friendship   vibe and interests first; differences are fine
 //   dating       vibe, chemistry, and wanting the same thing right now
@@ -20,7 +21,7 @@ let RARITY = {};
 export const setRarity = (map) => { RARITY = map && typeof map === 'object' ? map : {}; };
 const VALUE_ITEMS = ['g_values', 'va1', 'va2', 'va3', 'va4', 'va5', 'va6'];
 const VALUE_TOPIC = { g_values: 'what matters most', va1: 'a career abroad or staying near family', va2: 'money or time for life', va3: 'your own rules or tradition', va4: 'hard truths or keeping the peace', va5: 'spending or saving', va6: 'family approval of a partner' };
-const CHIP_LABEL = { smoke: 'smoking', drink: 'drinking', pets: 'pets', kids: 'wanting kids', family_home: 'living with family after marriage', relocate: 'moving cities', veg: 'being vegetarian', faith: 'practising a faith', nightlife: 'night-outs' };
+const CHIP_LABEL = { drink_often: 'drinking often', smoke: 'smoking', drink: 'drinking', pets: 'pets', kids: 'wanting kids', family_home: 'living with family after marriage', relocate: 'moving cities', veg: 'being vegetarian', faith: 'practising a faith', nightlife: 'night-outs' };
 const LINE_TOPIC = { lp1: 'an ex getting in touch', lp2: 'phone privacy', lp3: 'flirting', lp4: 'close friends of the opposite gender', lp5: 'sticking together in hard times', lp6: 'standing up for each other', lp7: 'owning up to mistakes', lf1: 'taking sides', lf2: 'keeping secrets', lf3: 'helping with money', lf4: 'standing up for each other', lf5: 'staying in touch', lf6: 'being upfront', lf7: 'making up' };
 /** Same answers on the value cards (and the same photos in the values grid), weighted by how rare they are
  *  (null when fewer than 2 are shared to compare). RARITY for a photo grid = the share of players who picked it. */
@@ -43,6 +44,35 @@ function linesFit(A, B) {
   const d = (A.lines || []).filter((l) => b[l.id]).map((l) => Math.abs(l.s - b[l.id].s));
   return d.length >= 3 ? clamp(100 - avg(d) * 32) : null;
 }
+const NEED_LABEL = Object.fromEntries(NEEDS.map((n) => [n.key, n.label.charAt(0).toLowerCase() + n.label.slice(1)]));
+const needLabel = (k) => CHIP_LABEL[k] || NEED_LABEL[k] || k;
+/** Does Y have what X's Must / Never chip k is about? true / false, or null when Soul DNA can't tell.
+ *  Works with v6 chips (smoke, veg, family_home…) and v7 partner needs (no_smoke, same_food, talk…). */
+function hasIt(X, Y, k) {
+  const me = Y.life?.me || []; const known = !!Y.life?.played;
+  const sure = (t) => (Y.traits?.[t]?.c ?? 0) >= 0.3;
+  const need = NEEDS.find((n) => n.key === k);
+  if (need?.group === 'treat') {
+    const [t, at, low] = need.trait;
+    if (!sure(t)) return null;
+    return low ? sureVal(Y, t) <= at : sureVal(Y, t) >= at;
+  }
+  switch (k) {
+    case 'kids': return Y.intent?.kids ? Y.intent.kids === 'want' : known ? me.includes('kids') : null;
+    case 'near_family': case 'family_home': return me.includes('family_home') ? true : sure('home_dir') ? sureVal(Y, 'home_dir') <= 40 : null;
+    case 'relocate': return me.includes('relocate') ? true : sure('home_dir') ? sureVal(Y, 'home_dir') >= 60 : null;
+    case 'no_smoke': return known ? !me.includes('smoke') : null;
+    case 'light_drink': return known ? !me.includes('drink_often') : null;
+    case 'same_food': {
+      if (!known || !X.life?.played) return null;
+      const veg = (P) => (P.life?.food != null ? (P.life.food === -1 ? null : P.life.food === 0 || P.life.food === 3) : P.life?.me?.includes('veg'));
+      const a = veg(X); const b = veg(Y);
+      return a == null || b == null ? null : a === b;
+    }
+    case 'nightlife': return known ? me.includes('nightlife') : null;
+    default: return known ? me.includes(k) : null; // smoke, drink, pets, veg, faith
+  }
+}
 /** Deal-breakers and watch-outs that come straight from the games (intent, chips, non-negotiable lines and values). */
 function gameChecks(A, B, relation, deal, watch, soft) {
   const couple = relation === 'dating' || relation === 'lifepartner';
@@ -56,9 +86,9 @@ function gameChecks(A, B, relation, deal, watch, soft) {
   if (ia.time && ib.time && relation === 'lifepartner' && ((ia.time === 'soon' && ib.time === 'never') || (ia.time === 'never' && ib.time === 'soon'))) deal.push('when to settle down');
   if (couple) {
     for (const [X, Y] of [[A, B], [B, A]]) {
-      if (!X.life?.played || !Y.life?.played) continue;
-      for (const k of X.life.never || []) if ((Y.life.me || []).includes(k)) deal.push(`${CHIP_LABEL[k] || k} (a “Never” for one of you)`);
-      for (const k of X.life.must || []) if (!(Y.life.me || []).includes(k)) soft.push(`${CHIP_LABEL[k] || k} (a “Must” for one of you)`);
+      if (!X.life?.played) continue;
+      for (const k of X.life.never || []) if (hasIt(X, Y, k) === true) deal.push(`${needLabel(k)} (a “Never” for one of you)`);
+      for (const k of X.life.must || []) if (hasIt(X, Y, k) === false) soft.push(`${needLabel(k)} (a “Must” for one of you)`);
     }
   }
   // a crossed non-negotiable: one of you marked it Non-negotiable and the other holds the opposite at least Firmly.
