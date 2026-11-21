@@ -5,7 +5,7 @@
 // only if the person chooses it as their profile picture).
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { clientKey } from '../lib/clientKey.js';
+import { limitedMessage, userKey } from '../lib/clientKey.js';
 import { z } from 'zod';
 import { many, one, tx } from '../db.js';
 import { config } from '../config.js';
@@ -99,7 +99,7 @@ export async function assessFrame(buf, { accurate = false } = {}) {
 
 // Live check, called about once a second while the camera is open
 r.post('/check',
-  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 5000 : config.testing ? 20000 : 900, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 5000 : config.testing ? 20000 : 900, keyGenerator: userKey, message: limitedMessage, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frame: f } = z.object({ frame }).parse(req.body);
     const t0 = Date.now();
@@ -111,7 +111,7 @@ r.post('/check',
 );
 
 r.post('/enroll',
-  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : config.testing ? 300 : 20, keyGenerator: clientKey, standardHeaders: true, legacyHeaders: false }),
+  rateLimit({ windowMs: 15 * 60_000, limit: config.env === 'test' ? 1000 : config.testing ? 300 : 20, keyGenerator: userKey, message: limitedMessage, standardHeaders: true, legacyHeaders: false }),
   ah(async (req, res) => {
     const { frames, useAsAvatar } = z.object({ frames: z.array(frame).length(3), useAsAvatar: z.boolean().optional() }).parse(req.body);
     if (req.user.face_verified) return res.json({ user: meView(req.user), already: true });

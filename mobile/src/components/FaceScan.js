@@ -64,6 +64,13 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
   const [error, setError] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [coach, setCoach] = useState(null); // { text, good }
+  const [checkingSince, setCheckingSince] = useState(0);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (phase !== 'checking') return undefined;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
   const [blocked, setBlocked] = useState(false); // camera permission turned off for good: only phone Settings can fix it
   const cam = useRef(null);
   const running = useRef(false);
@@ -80,9 +87,12 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
 
   const snap = async () => {
     if (!cam.current) throw new Error('camera not ready');
-    const pic = await cam.current.takePictureAsync({ quality: 0.6, shutterSound: false });
-    const small = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
-    return small.base64;
+    // two sizes: a small one for the live check (fast to send and check; the server looks at 320 px anyway)
+    // and the 480 px one kept for the final fingerprint when the pose is right
+    const pic = await cam.current.takePictureAsync({ quality: 0.5, shutterSound: false });
+    const keep = await manipulateAsync(pic.uri, [{ resize: { width: 480 } }], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
+    const check = await manipulateAsync(keep.uri, [{ resize: { width: 320 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+    return { keep: keep.base64, check: check.base64 };
   };
 
   // Some phones (mostly Android) never say the camera is ready: try taking photos anyway after a while
@@ -127,7 +137,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           let shot; let c;
           try {
             shot = await snap();
-            c = await api('/face/check', { method: 'POST', body: { frame: shot }, timeoutMs: 20000 });
+            c = await api('/face/check', { method: 'POST', body: { frame: shot.check }, timeoutMs: 20000 });
             hiccups = 0;
           } catch (e) {
             if (!mine()) return;
@@ -151,7 +161,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           const inPose = i === 0 ? Math.abs(yaw) <= STRAIGHT : i === 1 ? turned : turned && Math.sign(yaw) !== firstTurn;
           if (inPose) {
             if (i === 1) firstTurn = Math.sign(yaw);
-            frames.push(shot);
+            frames.push(shot.keep);
             setShots(frames.length);
             setPose(Math.min(frames.length, POSES.length - 1));
             setCoach({ text: 'Got it', good: true });
@@ -163,7 +173,7 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
             setCoach({ text: Math.abs(yaw) > 0.08 ? 'A little more…' : POSES[i].say, good: true });
           }
         }
-        setPhase('checking');
+        setPhase('checking'); setCheckingSince(Date.now());
         let r;
         try {
           r = await api('/face/enroll', { method: 'POST', body: { frames, useAsAvatar: false }, timeoutMs: 150000 });
@@ -283,7 +293,13 @@ export default function FaceScan({ onVerified, alreadyVerified }) {
           </>
         )}
       </View>
-      {phase === 'scanning' && coach ? <CoachPill text={coach.text} good={coach.good} /> : (
+      {phase === 'checking' ? (
+        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>
+          {Date.now() - checkingSince < 15000 ? 'Your scan is done. This takes a few seconds.'
+            : Date.now() - checkingSince < 45000 ? 'Still checking. Others are signing up too, so this can take up to a minute.'
+              : 'Almost there. Please keep Soulink open.'}
+        </Text>
+      ) : phase === 'scanning' && coach ? <CoachPill text={coach.text} good={coach.good} /> : (
         <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, textAlign: 'center', marginTop: 6 }}>
           Good light, face inside the circle, only you in view.
         </Text>

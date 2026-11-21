@@ -95,8 +95,8 @@ export async function analyzeFaces(buf) {
   try {
     // Accurate detector first. Turned heads are sometimes missed by it even though the live check saw
     // the face, so fall back to a looser setting and then to the fast detector (same fingerprint model).
+    // (one accurate pass at a low threshold instead of two: the second pass doubled the time for turned heads)
     const tries = [
-      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }),
       new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }),
       new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 }),
       new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.25 }),
@@ -106,6 +106,8 @@ export async function analyzeFaces(buf) {
       found = await faceapi.detectAllFaces(t, opt).withFaceLandmarks().withFaceDescriptors();
       if (found.length) break;
     }
+    // With the low threshold, a weak extra "face" next to a clear one is noise: keep the clear ones
+    if (found.length > 1 && found.some((f) => f.detection.score >= 0.4)) found = found.filter((f) => f.detection.score >= 0.4);
     // Ignore tiny background "faces" (posters, reflections) much smaller than the main one
     if (found.length > 1) {
       const big = Math.max(...found.map((f) => f.detection.box.width));
