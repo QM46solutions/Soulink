@@ -21,6 +21,7 @@ import { ACTIVE, Action, LIKE_EMOJI, StateIcon } from './PostCard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, MAX_FONT_SCALE, space, btnH } from '../lib/theme';
 import { feedback } from '../lib/feedback';
+import { PAID_IN_APP } from '../lib/paid';
 import { setSparksMuted, toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 import ReportModal from './ReportModal';
 import SparkFullscreen from './SparkFullscreen';
@@ -151,7 +152,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
   const menu = spark.mine
     ? [
       { label: 'Edit caption', onPress: () => { setDraft(caption); setEditOpen(true); } },
-      { label: 'Spread around', onPress: () => setSpreadOpen(true) },
+      ...(PAID_IN_APP ? [{ label: 'Spread around', onPress: () => setSpreadOpen(true) }] : []),
       { label: 'Copy link', onPress: copyLink },
       { label: 'Delete', destructive: true, onPress: () => del() },
     ]
@@ -258,12 +259,12 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
             label={spark.mine ? `${offenses} offense marks on your Spark` : offended ? 'Remove offense mark' : 'Mark as offensive'}>
             <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={26} effect="stamp" tick={ticks.offense} />
           </Action>
-          <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'} hitSlop={6}
+          {!spark.mine || PAID_IN_APP ? <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'} hitSlop={6}
             style={{ width: 42, height: 42, borderRadius: 21, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: spark.mine ? 16 : 0 }}>
             <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <MaterialCommunityIcons name="bullhorn-variant" size={20} color="#14121f" />
-          </Pressable>
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityLabel="More options" style={{ marginTop: spark.mine ? 0 : 16 }}>
+          </Pressable> : null}
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityLabel="More options" style={{ marginTop: spark.mine && PAID_IN_APP ? 0 : 16 }}>
             <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
           </Pressable>
         </View>
@@ -395,12 +396,12 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
           <StateIcon name="alert-circle" on={offended} color={ACTIVE.offense} size={24} effect="stamp" tick={ticks.offense} />
         </Action>
         <View style={{ flex: 1 }} />
-          <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'}
+          {!spark.mine || PAID_IN_APP ? <Pressable onPress={() => (spark.mine ? setSpreadOpen(true) : setShareMenu(true))} accessibilityLabel={spark.mine ? 'Spread around' : 'Spread it around'}
             style={({ hovered }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, height: 38, borderRadius: 19, overflow: 'hidden', opacity: hovered ? 0.9 : 1 })}>
             <LinearGradient colors={['#f5c842', '#ff6b9d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <MaterialCommunityIcons name="bullhorn-variant" size={17} color="#14121f" style={{ marginRight: 6 }} />
             <Text style={{ fontFamily: fonts.bold, color: '#14121f', fontSize: 13.5 }}>Spread</Text>
-          </Pressable>
+          </Pressable> : null}
       </View>
       {hasSheet || tryable || (spark.category === 'news' && d.source) ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>

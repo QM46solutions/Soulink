@@ -10,6 +10,7 @@ import MatchPanel from '../../components/MatchPanel';
 import ConnectSheet from '../../components/ConnectSheet';
 import { Incoming } from '../connections/requests';
 import PaidMessageSheet from '../../components/PaidMessageSheet';
+import { PAID_IN_APP } from '../../lib/paid';
 import { PostGrid } from '../../components/PostCard';
 import ReportModal from '../../components/ReportModal';
 import ActionSheet from '../../components/ActionSheet';
@@ -130,7 +131,7 @@ export default function UserProfile() {
   // Premium one-message sheet (₹500), which explains itself. Blocked: no message icon.
   let messageBtn = null;
   if (!rel.isMe && (conn?.connected || conn?.request?.status === 'held')) messageBtn = <ProfileAction icon="chatbubble-ellipses-outline" label="Message" onPress={openChat} />;
-  else if (!rel.isMe && !conn?.blocked) messageBtn = <ProfileAction icon="chatbubble-ellipses-outline" label="Send one Premium message" onPress={() => { if (!needSoul()) setPaidOpen(true); }} />;
+  else if (PAID_IN_APP && !rel.isMe && !conn?.blocked) messageBtn = <ProfileAction icon="chatbubble-ellipses-outline" label="Send one Premium message" onPress={() => { if (!needSoul()) setPaidOpen(true); }} />;
   // Public profiles: Follow (see their posts and Sparks, no request, no chat) comes first. Private: Connect only.
   const following = rel.following === 'accepted' && rel.followKind === 'follow';
   const followBtn = !rel.isMe && !target.isPrivate && !conn?.connected && !conn?.iConnect ? (
