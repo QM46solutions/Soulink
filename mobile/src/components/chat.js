@@ -1,7 +1,7 @@
 // Chat building blocks: group avatar, inbox row, message bubbles (text, photo, voice, system),
 // typing dots and the composer (text, photo, voice note).
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import { galleryAccess } from '../lib/gallery';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { api, mediaUrl } from '../lib/api';
 import { bgOf } from '../lib/moments';
-import { colors, fonts, gradients, radius, space } from '../lib/theme';
+import { colors, fonts, gradients, space } from '../lib/theme';
 import { ago, clock, duration } from '../lib/time';
 import { Avatar, VerifiedBadge } from './ui';
 import { SoulmojiPhoto, SoulmojiSticker } from './soulmoji';

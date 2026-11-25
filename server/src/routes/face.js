@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { analyzeFaces, faceDistance, quickFaces } from '../services/faceEngine.js';
 import { meView } from '../services/social.js';
 import { openFace, sealFace } from '../lib/faceCrypto.js';
-import { blockedMessage, faceBanned, MESSAGES } from '../services/lifecycle.js';
+import { blockedMessage, faceBanned } from '../services/lifecycle.js';
 import { audit } from '../services/audit.js';
 import { deleteAccount } from '../services/account.js';
 

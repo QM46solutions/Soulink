@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 
 let muted = false;
 const listeners = new Set();
-export const sparksMuted = () => muted;
 export function setSparksMuted(v) {
   if (muted === !!v) return;
   muted = !!v;

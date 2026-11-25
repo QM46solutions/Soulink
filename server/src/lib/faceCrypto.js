@@ -13,7 +13,6 @@ const faceKey = () => {
   const k = Buffer.from(process.env.FACE_KEY, 'base64');
   return k.length === 32 ? k : null;
 };
-const key = () => faceKey() || legacyKey(); // the key new values are locked with
 
 function seal(vector, k) {
   const iv = crypto.randomBytes(12);

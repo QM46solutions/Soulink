@@ -2,7 +2,7 @@
 // prepared on the server, then saved where you choose), Restore My Data, Backup History, and how backups work.
 // Leaving this screen never stops a backup being prepared: it is on the server, and shows here when you come back.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, ScrollView, Text, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { notice } from '../../lib/confirm';
@@ -10,7 +10,7 @@ import { backupHistory, canSaveToFolder, downloadBackup, exportStatus, requestEx
 import { Button, ErrorText, s } from '../../components/ui';
 import { InfoRow, Note, Section } from '../../components/SettingsUI';
 import { Body, Card, CardTitle, Progress, Stat, day, mb } from '../../components/BackupUI';
-import { colors, fonts, space } from '../../lib/theme';
+import { colors, space } from '../../lib/theme';
 
 const STATUS = { queued: 'Preparing', running: 'Preparing', ready: 'Ready', validated: 'Not confirmed', done: 'Completed', failed: 'Failed', expired: 'Expired', interrupted: 'Interrupted' };
 const COLOR = { ready: colors.mint, done: colors.mint, failed: colors.danger, interrupted: colors.gold, expired: colors.dim };

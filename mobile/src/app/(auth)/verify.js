@@ -1,7 +1,6 @@
 // Step 2 of sign-in: the 6-digit code. It checks itself as soon as the 6th digit is typed (no button to press).
 // New people then go to "Create your soul profile"; returning people go straight to Home and stay logged in until they
 // log out. The screen reads the same for both: the code request never says whether an account exists.
-import { notice } from '../../lib/confirm';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';

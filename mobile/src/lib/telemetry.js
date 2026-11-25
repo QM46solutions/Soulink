@@ -24,7 +24,6 @@ const device = safe(() => String(Device.modelName || '').slice(0, 80)) || undefi
 /** The details every item carries (no personal data). */
 export const diagnostics = () => ({ platform, ...(appVersion ? { appVersion } : {}), ...(build ? { build } : {}), ...(osVersion ? { osVersion } : {}), ...(device ? { device } : {}) });
 let currentScreen = null; // route pattern of the screen on view (set by useScreenTimings)
-export const screenNow = () => currentScreen;
 
 // ---------- screen load times ----------
 const MAX_MS = 20000; // slower than this = the person probably left the app; not counted

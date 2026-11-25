@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useBottomInset } from '../../lib/keyboard';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -21,7 +21,6 @@ export default function NewMessage() {
   const [groupName, setGroupName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const t = useRef(null);
 
   // You can only chat with people you're connected with, so this lists your connections (filtered as you type)
   const [connections, setConnections] = useState(null);

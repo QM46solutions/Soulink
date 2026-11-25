@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
-import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { ah, badRequest, forbidden, notFound } from '../lib/errors.js';
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, notify } from '../services/social.js';
 import { connectionBetween } from '../services/connections.js';

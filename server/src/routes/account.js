@@ -8,7 +8,7 @@
 //  POST   /account/sessions/end-others                     log out of every other device
 import { Router } from 'express';
 import { z } from 'zod';
-import { many, one, query } from '../db.js';
+import { many, one } from '../db.js';
 import { ah } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { meView, userCard } from '../services/social.js';

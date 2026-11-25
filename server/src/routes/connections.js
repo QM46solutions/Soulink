@@ -8,7 +8,7 @@ import { ah, badRequest, conflict, forbidden, notFound } from '../lib/errors.js'
 import { requireAuth, requireSoul } from '../middleware/auth.js';
 import { isBlockedEither, meView, notify, userCard } from '../services/social.js';
 import { COOLDOWN, HOLD_DAYS, INTENTS, INTENT_KEYS, KNOWN_AS, closeHeldChat, connectionBetween, pairOf } from '../services/connections.js';
-import { directKey, getOrCreateDirect, postMessage, systemMessage } from './conversations.js';
+import { directKey, getOrCreateDirect, systemMessage } from './conversations.js';
 import { scoreFor } from '../services/soulStore.js';
 import { nudgeDueTimer } from '../services/dueTimer.js';
 import { connectGate } from '../services/privacy.js';
@@ -18,7 +18,6 @@ r.use(requireAuth);
 
 const uuid = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'Invalid id');
 const intent = z.enum(INTENT_KEYS);
-const list = (v) => (Array.isArray(v) ? v : (() => { try { return JSON.parse(v || '[]'); } catch { return []; } })());
 const daysAgo = (d) => new Date(Date.now() - d * 86400000);
 
 /** Soul Score for a pair, for the kind of connection asked for (Soul DNA v2). */

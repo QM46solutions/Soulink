@@ -130,7 +130,6 @@ export const THEMES = {
 
 const THEME_OF = { life_partner: 'eternal', dating: 'romantic', situationship: 'moonlit', friendship: 'platonic', vibing: 'chill', networking: 'formal', buddy: 'buddy' };
 export const themeFor = (intent) => THEMES[THEME_OF[intent]] || THEMES.cosmic;
-export const vibeOf = (score, intent) => themeFor(intent).vibe(score);
 
 function ringColor(stops, i) {
   const t = i / (N - 1);

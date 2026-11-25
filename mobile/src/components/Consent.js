@@ -1,5 +1,5 @@
 // The "I agree" checkbox: 18+, Terms, Privacy Policy, and (on the face scan) consent to the face fingerprint.
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, space } from '../lib/theme';

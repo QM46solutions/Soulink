@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { SoulRequestsList } from '../connections/requests';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
 import { Avatar, Empty, ErrorText, s } from '../../components/ui';

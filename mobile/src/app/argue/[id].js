@@ -1,7 +1,7 @@
 // One argument. Together mode: "pass the phone to X" → X gives their side privately → next person.
 // Invite mode: give your side; see who's still thinking. Then the Referee thinks and gives the verdict.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,7 +46,6 @@ const HOW = {
 
 function Verdict({ c }) {
   const v = c.verdict;
-  const won = (seat) => v.winnerSeats.includes(seat);
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(pop, { toValue: 1, friction: 6, useNativeDriver: true }).start(); }, [pop]);
   const score = (seat) => (v.people.find((q) => q.seat === seat) || {}).fairness ?? 0;

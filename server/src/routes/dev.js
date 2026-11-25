@@ -1,7 +1,7 @@
 // Laptop-only test helpers. Never available in production, and refused for anything coming through
 // the phone link or the network: only requests made directly on this laptop are accepted.
 import { Router } from 'express';
-import { many, one, query, tx } from '../db.js';
+import { one, query, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, forbidden } from '../lib/errors.js';
 import { startSession } from '../services/sessions.js';

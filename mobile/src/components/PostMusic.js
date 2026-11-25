@@ -7,14 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { api, mediaUrl, uploadFile } from '../lib/api';
 import { BottomSheet } from './PostSheets';
-import MusicPicker, { pickAudioFile } from './MusicPicker';
+import MusicPicker from './MusicPicker';
 import { Button } from './ui';
 import { colors, fonts, space } from '../lib/theme';
 
 const CLIP_SECONDS = 30;
 let playing = null; // only one post's music plays at a time
 
-export const pickAudio = pickAudioFile;
 
 export function MusicChip({ music }) {
   const player = useAudioPlayer(music?.url ? { uri: mediaUrl(music.url) } : null, { updateInterval: 300 });

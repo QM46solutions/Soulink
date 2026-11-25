@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { one, query, tx } from '../db.js';
+import { one, tx } from '../db.js';
 import { config } from '../config.js';
-import { ah, badRequest, notFound, tooMany, unauthorized, HttpError } from '../lib/errors.js';
+import { ah, badRequest, unauthorized, HttpError } from '../lib/errors.js';
 import { normalizeEmail, normalizePhone } from '../lib/auth.js';
 import { startSession, endSession } from '../services/sessions.js';
 import { assertChannelOpen, checkCode, isReview, issueCode, realDelivery } from '../services/otp.js';
 import { audit } from '../services/audit.js';
 import { securityLog, clientIp } from '../lib/log.js';
 import { disconnectSession } from '../realtime.js';
-import { blockedMessage, contactBanned, reactivateOnLogin, MESSAGES } from '../services/lifecycle.js';
+import { blockedMessage, contactBanned, reactivateOnLogin } from '../services/lifecycle.js';
 import { requireAuth } from '../middleware/auth.js';
 import { meView } from '../services/social.js';
 import { expireSignup, isExpiredSignup, isRealMember } from '../services/signupCleanup.js';

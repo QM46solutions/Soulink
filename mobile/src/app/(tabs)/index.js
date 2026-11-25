@@ -1,10 +1,9 @@
 // Home. Step 1 for every new person: create your Soul DNA (connecting is locked until then).
 // After that: posts from your connections, newest first, or a clear "no connections yet" state.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Animated, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import NotificationBell from '../../components/NotificationBell';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../lib/api';
@@ -12,11 +11,10 @@ import PostCard from '../../components/PostCard';
 import { FeedAd } from '../../components/AdCards';
 import { useAds, withAds } from '../../lib/ads';
 import MomentsBar from '../../components/MomentsBar';
-import { AuraAvatar } from '../../components/ProfileHeader';
 import { useAuth } from '../../lib/auth';
 import { Button } from '../../components/ui';
 import { GlassCard } from '../../components/brand';
-import { colors, fonts, gradients, space } from '../../lib/theme';
+import { colors, fonts, space } from '../../lib/theme';
 import { LiveFrame, RadarIcon, SoulDnaIcon } from '../../components/LiveIcons';
 
 function CenterCard({ icon, live, title, text, children }) {

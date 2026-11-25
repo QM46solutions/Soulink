@@ -2,8 +2,6 @@ import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScalesIcon } from '../../components/LiveIcons';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -13,7 +11,7 @@ import { AnonRow } from '../../components/anon';
 import ActionSheet from '../../components/ActionSheet';
 import { confirm } from '../../lib/confirm';
 import { Empty, ErrorText, Loading } from '../../components/ui';
-import { colors, fonts, gradients, radius, space } from '../../lib/theme';
+import { colors, fonts, radius, space } from '../../lib/theme';
 import { fmtDate } from '../../lib/intents';
 
 function Tab({ label, count, active, onPress }) {
@@ -28,7 +26,6 @@ function Tab({ label, count, active, onPress }) {
 
 // Argue Referee lives here now: a floating scales button at the bottom right of Messages (like Instagram's Instants)
 function ArgueButton() {
-  const insets = useSafeAreaInsets();
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', right: space.lg, bottom: 16, alignItems: 'center' }}>
       <Pressable onPress={() => router.push('/argue')} accessibilityRole="button" accessibilityLabel="Argue Referee"

@@ -4,7 +4,7 @@ import FitContent from '../../components/FitContent';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LegalLinks } from '../../components/Consent';
 import { router } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import ContactEntry from '../../components/ContactEntry';
 import { LinkLine } from '../../components/BrandScreen';
 import { GlassCard, GradientText, MonoTag, PillTag } from '../../components/brand';

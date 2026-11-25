@@ -2,7 +2,7 @@
 //   LikesSheet    – who gave it a 👌🏻
 //   CommentsSheet – all comments + a box to add yours
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
 import { CommentBox, CommentList, useComments } from './Comments';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,16 +12,6 @@ import { useSafeClose } from '../lib/safeClose';
 import { useBottomInset } from '../lib/keyboard';
 import { Avatar, VerifiedBadge } from './ui';
 import { colors, fonts, space } from '../lib/theme';
-
-const WRAP = Platform.OS === 'web' ? { wordBreak: 'break-word', overflowWrap: 'anywhere' } : {};
-function ago(iso) {
-  const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (s < 60) return 'now';
-  const m = Math.round(s / 60); if (m < 60) return `${m}m`;
-  const h = Math.round(m / 60); if (h < 24) return `${h}h`;
-  const d = Math.round(h / 24); if (d < 7) return `${d}d`;
-  return `${Math.round(d / 7)}w`;
-}
 
 /** Bottom sheet frame: dim background (tap to close), grab handle, title, content up to ~75% of the screen. */
 export function BottomSheet({ visible, onClose, title, children, tall }) {

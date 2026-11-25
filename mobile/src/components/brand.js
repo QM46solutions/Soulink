@@ -72,16 +72,6 @@ export const Starfield = memo(function Starfield({ density = 90, glow = true }) 
   );
 });
 
-/** Screen wrapper with the starfield behind it. */
-export function SpaceScreen({ children, style, glow = true, density }) {
-  return (
-    <View style={[{ flex: 1, backgroundColor: colors.void }, style]}>
-      <Starfield glow={glow} density={density} />
-      {children}
-    </View>
-  );
-}
-
 /** Text filled with the brand gradient (white → aura → spark), like the site's headlines. */
 export function GradientText({ children, style, colors: c = gradients.wordmark, numberOfLines, allowFontScaling = true }) {
   if (Platform.OS === 'web') {
@@ -139,16 +129,6 @@ function Brackets() {
       <View style={[b, { bottom: 10, left: 10, borderBottomWidth: 1.5, borderLeftWidth: 1.5 }]} />
       <View style={[b, { bottom: 10, right: 10, borderBottomWidth: 1.5, borderRightWidth: 1.5 }]} />
     </>
-  );
-}
-
-/** Big outlined section number ("01", "02") + uppercase kicker, like the site's feature sections. */
-export function SectionKicker({ num, label, color = colors.aura }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.sm }}>
-      {num ? <Text style={{ fontFamily: fonts.display, fontSize: 13, color: colors.dim, marginRight: 8 }}>{num}</Text> : null}
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 2.2, textTransform: 'uppercase', color }}>{label}</Text>
-    </View>
   );
 }
 

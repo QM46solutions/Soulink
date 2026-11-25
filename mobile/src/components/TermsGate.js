@@ -1,6 +1,6 @@
 // Shown once to people who joined before the current Terms: they must agree to keep using Soulink.
 import { useState } from 'react';
-import { Modal, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { TERMS_VERSION } from '../lib/legal';

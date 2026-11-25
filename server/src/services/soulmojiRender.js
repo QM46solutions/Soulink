@@ -45,9 +45,6 @@ function sample(img, x, y, out, o) {
 }
 
 // Catmull-Rom bicubic sample: keeps skin texture, hair and eyes sharp when pixels move
-function cubic(p0, p1, p2, p3, t) {
-  return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)));
-}
 const cw = (t) => [((-0.5 * t + 1) * t - 0.5) * t, (1.5 * t - 2.5) * t * t + 1, ((-1.5 * t + 2) * t + 0.5) * t, (0.5 * t - 0.5) * t * t];
 function sampleCubic(img, x, y, out, o) {
   const { width: w, height: h, data } = img;
@@ -409,7 +406,6 @@ export function renderMood(img, lm, mood, override) {
   const u = [(eyeL[0] - eyeR[0]) / d, (eyeL[1] - eyeR[1]) / d]; // along the eyes
   const v = [-u[1], u[0]];                                       // down the face
   const at = (p, a, b) => [p[0] + (a * u[0] + b * v[0]) * d, p[1] + (a * u[1] + b * v[1]) * d];
-  const W = img.width; const H = img.height;
 
   // 1) control points: 68 landmarks + an inner ring (moves with the head) + an outer ring (stays still)
   const centre = avg(lm);

@@ -9,4 +9,3 @@ export const PHONE = {
   top: 59,
   bottom: 34,
 };
-export const APP_AREA = { width: PHONE.width, height: PHONE.height - PHONE.top - PHONE.bottom };
