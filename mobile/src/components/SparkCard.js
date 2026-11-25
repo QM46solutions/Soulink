@@ -1,7 +1,7 @@
 // One Spark in the Sparks tab: author, category, the video, and the category's extras
 // (📍 place for travel, recipe card + "I tried it" for cooking, the acting prompt / script, workout card + "I did it" for fitness,
 // headline + topic + source for news).
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -48,7 +48,16 @@ function SparkStill({ spark, height, fill }) {
 }
 
 /** near: false = far from the screen in a long list; shows the cover instead of loading the video. */
-export default function SparkCard({ spark, onDeleted, active = true, variant = 'card', height = 640, near = true }) {
+export default function SparkCard({ spark, onDeleted, active = true, variant = 'card', height = 640, near = true, warm = false }) {
+  // the video link: refreshed from the server if it stops working (links expire after 1-2 hours)
+  const [videoUri, setVideoUri] = useState(spark.videoUrl);
+  useEffect(() => { setVideoUri(spark.videoUrl); }, [spark.videoUrl]);
+  const freshLink = useRef(0);
+  const refreshLink = () => {
+    if (Date.now() - freshLink.current < 30_000) return; freshLink.current = Date.now();
+    api(`/sparks/${spark.id}`).then((r) => { if (r?.spark?.videoUrl) setVideoUri(r.spark.videoUrl); }).catch(() => {});
+  };
+  const posterUri = mediaUrl(spark.details?.edit?.poster || spark.details?.poster) || undefined;
   const cat = catOf(spark.category);
   const d = spark.details || {};
   const [reacted, setReacted] = useState(spark.reacted);
@@ -222,7 +231,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
         {spark.voice
           ? <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg }}><MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={onFirstPlay} /></View>
           : !near ? <SparkStill spark={spark} height={height} fill />
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} fill autoPlay height={height} onFirstPlay={onFirstPlay}
+          : <SparkVideo uri={videoUri} poster={posterUri} warm={warm} onBroken={refreshLink} musicUri={spark.music?.url} edit={d.edit} active={active && !full} fill autoPlay height={height} onFirstPlay={onFirstPlay}
               muted={muted} onAutoMuted={() => setSparksMuted(true)} onDoubleTap={doubleTapLike}
               mini onToggleMute={toggleSparksMuted} onOpen={() => setFull(true)} timeRef={timeRef} miniBottom={18} />}
 
@@ -351,7 +360,7 @@ export default function SparkCard({ spark, onDeleted, active = true, variant = '
         {spark.voice
           ? <MicVoice uri={spark.videoUrl} topic={spark.micTopic} onFirstPlay={() => api(`/sparks/${spark.id}/view`, { method: 'POST' }).catch(() => {})} />
           : !near ? <SparkStill spark={spark} height={520} />
-          : <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={d.edit} active={active && !full} autoPlay onFirstPlay={onFirstPlay}
+          : <SparkVideo uri={videoUri} poster={posterUri} warm={warm} onBroken={refreshLink} musicUri={spark.music?.url} edit={d.edit} active={active && !full} autoPlay onFirstPlay={onFirstPlay}
               mini muted={muted} onToggleMute={toggleSparksMuted} onAutoMuted={() => setSparksMuted(true)} onOpen={() => setFull(true)} onDoubleTap={doubleTapLike} timeRef={timeRef} />}
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
           opacity: burst.interpolate({ inputRange: [0, 0.2, 1, 2], outputRange: [0, 1, 1, 0] }),

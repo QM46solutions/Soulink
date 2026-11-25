@@ -30,6 +30,7 @@ export default function Sparks() {
   const [refreshing, setRefreshing] = useState(false);
   const [pageH, setPageH] = useState(0);
   const [page, setPage] = useState(0); // which full-screen page is showing: that Spark plays
+  const settled = useRef(0); if (page >= 0) settled.current = page; // the last page the feed stopped on (not -1 mid-swipe)
   const listRef = useRef(null);
   const [mode, setMode] = useState('reels'); // 'reels' | 'list' (remembered on this phone)
   useEffect(() => { AsyncStorage.getItem('soulink.sparksView').then((v) => { if (v === 'list' || v === 'reels') setMode(v); }).catch(() => {}); }, []);
@@ -119,7 +120,7 @@ export default function Sparks() {
           keyExtractor={(s) => s.key || s.id}
           ListHeaderComponent={chips}
           renderItem={({ item, index }) => (item.__ad ? <SparkAd ad={item.__ad} />
-            : <SparkCard spark={item} active={listActive === item.id} near={Math.abs(index - listAt) <= 2} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+            : <SparkCard spark={item} active={listActive === item.id} near={Math.abs(index - listAt) <= 2} warm={index === listAt + 1} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
           extraData={listActive}
           initialNumToRender={3}
           maxToRenderPerBatch={3}
@@ -147,7 +148,7 @@ export default function Sparks() {
             keyExtractor={(s) => s.key || s.id}
             renderItem={({ item, index }) => (item.__ad
               ? <View style={{ height: pageH, justifyContent: 'center' }}><SparkAd ad={item.__ad} /></View>
-              : <SparkCard spark={item} variant="reel" height={pageH} active={index === page} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
+              : <SparkCard spark={item} variant="reel" height={pageH} active={index === page} near={Math.abs(index - settled.current) <= 2} warm={Math.abs(index - settled.current) === 1} onDeleted={(id) => setList((l) => l.filter((x) => x.id !== id))} />)}
             pagingEnabled
             snapToInterval={pageH}
             snapToAlignment="start"
@@ -160,7 +161,7 @@ export default function Sparks() {
             extraData={page}
             onEndReached={loadMore}
             onEndReachedThreshold={1.5}
-            windowSize={3}
+            windowSize={web ? 5 : 3}
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             removeClippedSubviews={!web}

@@ -3,7 +3,7 @@
 // music (from its start point) and a voiceover, mixed with the video's own sound.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mediaUrl } from '../lib/api';
 import { fadeAt, videoCss, zoomCss } from '../lib/sparkEdit';
@@ -23,7 +23,7 @@ let current = null; // { owner, pause } of the Spark playing now: one Spark play
 // mini: the feed look: only a pause / play button in the middle and sound on / off in the bottom-right corner;
 // a tap anywhere else calls onOpen (open the Spark big). timeRef gets the current second; startAt starts there.
 export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onAutoMuted, onDoubleTap,
-  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14 }) {
+  controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14, poster, warm = false, onBroken }) {
   const video = useRef(null); const audio = useRef(null); const voice = useRef(null); const shade = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [soundOff, setSoundOff] = useState(false); // autoplay had to start muted
@@ -34,6 +34,9 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   const [shown, setShown] = useState(false); const hideTimer = useRef(null); const scrubbing = useRef(false);
   const [userPaused, setUserPaused] = useState(false); // paused with a tap in the middle (mini): show the pause sign
   const [resumed, setResumed] = useState(false); const resumedT = useRef(null); // a play sign, for a moment, after that
+  // loading: the video is fetching (a spinner shows over the cover instead of a black screen); broke: it failed even after a retry
+  const [loading, setLoading] = useState(true); const [broke, setBroke] = useState(false); const retried = useRef(false);
+  const wantRef = useRef(false); wantRef.current = autoPlay && active && !userPaused; // should be playing now
   const self = useRef({}); // identifies this player (pause() is a new function every render)
   const src = local ? uri : mediaUrl(uri);
   const music = musicUri ? (local ? musicUri : mediaUrl(musicUri)) : null;
@@ -126,7 +129,10 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
   useEffect(() => {
     const v = video.current;
     if (!v || typeof IntersectionObserver === 'undefined') return undefined;
-    const io = new IntersectionObserver(([en]) => { if (!en.isIntersecting || en.intersectionRatio < 0.5) pause(); }, { threshold: [0, 0.5] });
+    const io = new IntersectionObserver(([en]) => {
+      if (!en.isIntersecting || en.intersectionRatio < 0.5) { if (!wantRef.current) pause(); return; }
+      if (wantRef.current && v.paused) play();
+    }, { threshold: [0, 0.5, 0.9] });
     io.observe(v);
     const hide = () => { if (document.visibilityState === 'hidden') pause(); };
     document.addEventListener('visibilitychange', hide);
@@ -200,15 +206,29 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     resumedT.current = setTimeout(() => setResumed(false), 650);
   };
   useEffect(() => () => { clearTimeout(tapTimer.current); clearTimeout(resumedT.current); }, []);
+  useEffect(() => { setLoading(true); setBroke(false); retried.current = false; if (wantRef.current) setTimeout(() => { if (wantRef.current) play(); }, 0); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a video that fails (a dropped connection, a link that expired while the tab sat open): try once more, then ask for a fresh link
+  const onError = () => {
+    const v = video.current; if (!v) return;
+    if (!retried.current) { retried.current = true; setTimeout(() => { try { v.load(); if (wantRef.current) play(); } catch { /* gone */ } }, 700); return; }
+    setLoading(false); setBroke(true); onBroken?.();
+  };
   return (
     <Pressable onPress={onTap} style={{ height, backgroundColor: '#000', borderRadius: fill ? 0 : 20, overflow: 'hidden' }} accessibilityLabel={soundOff ? 'Turn sound on' : playing ? 'Pause' : 'Play'}>
-      <video ref={video} src={src} playsInline preload={active && autoPlay ? 'auto' : 'metadata'} onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
+      <video ref={video} src={src} poster={poster || undefined} playsInline preload={(active && autoPlay) || warm ? 'auto' : 'metadata'}
+        onWaiting={() => setLoading(true)} onCanPlay={() => setLoading(false)} onPlaying={() => { setLoading(false); setBroke(false); }} onError={onError} onLoadedMetadata={onMeta} onTimeUpdate={onTime} onEnded={onEnded}
         onPause={() => { const v = video.current; if (!v?.paused || v.ended) return; audio.current?.pause(); voice.current?.pause(); setPlaying(false); }}
         style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', display: 'block', filter: videoCss(e), ...zoomCss(e.zoom) }} />
       {music ? <audio ref={audio} src={music} loop preload="auto" /> : null}
       {vo ? <audio ref={voice} src={vo} preload="auto" /> : null}
       {fading ? <div ref={shade} style={{ position: 'absolute', inset: 0, background: '#000', opacity: playing ? 0 : 0, pointerEvents: 'none' }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />
+      {active && autoPlay && (loading || broke) && !userPaused ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          {broke ? <Text style={{ color: '#fff', fontSize: 13, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 }}>Reconnecting…</Text>
+            : <ActivityIndicator size="large" color="rgba(255,255,255,0.85)" />}
+        </View>
+      ) : null}
       {controls ? (
         <SparkControls visible={ctlVisible} playing={playing} cur={cur} dur={dur} muted={muted || (soundOff && !onAutoMuted)} fullscreen={fullscreen}
           onPlayPause={() => { if (playing) { pause(); flash(true); } else { play(); flash(); } }}
@@ -238,7 +258,7 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>Tap for sound</Text>
         </View>
       ) : null}
-      {!playing && !controls && !mini ? (
+      {!playing && !controls && !mini && !(active && autoPlay && loading) ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="play" size={34} color="#fff" style={{ marginLeft: 4 }} />
