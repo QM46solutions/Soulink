@@ -11,6 +11,7 @@ import { Animated, Modal, PanResponder, Platform, Pressable, View, useWindowDime
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SparkVideo from './SparkVideo';
+import { mediaUrl } from '../lib/api';
 import { toggleSparksMuted, useSparksMuted } from '../lib/sparkSound';
 
 // a native module: app builds from version 5 have it. Older installs that get this code over the air don't, so it
@@ -75,7 +76,7 @@ export default function SparkFullscreen({ visible, onClose, spark, onFirstPlay, 
             edge the phone's bottom (navigation bar), so the picture and its controls keep clear of both */}
         <Animated.View style={{ width: w, height: h, transform: [shift, ...(turned ? [{ rotate: '90deg' }] : [])],
           paddingLeft: turned ? insets.top : landscape ? insets.left : 0, paddingRight: turned ? insets.bottom : landscape ? insets.right : 0 }}>
-          <SparkVideo uri={spark.videoUrl} musicUri={spark.music?.url} edit={spark.details?.edit} height={h} fill autoPlay active controls fullscreen startAt={startAt}
+          <SparkVideo uri={spark.videoUrl} poster={mediaUrl(spark.details?.edit?.poster || spark.details?.poster) || undefined} musicUri={spark.music?.url} edit={spark.details?.edit} height={h} fill autoPlay active controls fullscreen startAt={startAt}
             muted={muted} onToggleMute={toggleSparksMuted} onFullscreen={close} onFirstPlay={onFirstPlay} controlsInset={turned ? 0 : insets.bottom} />
           <View pointerEvents="box-none" style={{ position: 'absolute', top: turned ? 12 : (landscape ? 12 : insets.top + 8), right: turned ? insets.bottom + 12 : (landscape ? insets.right + 12 : 12), flexDirection: 'row' }}>
             {!landscape ? <Btn icon="phone-rotate-landscape" label={turned ? 'Turn back upright' : 'Turn sideways for landscape'} onPress={() => setRot((r) => !r)} mci /> : null}

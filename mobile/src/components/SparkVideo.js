@@ -9,7 +9,8 @@
 // background (home button, another app, screen locked) stops every Spark, video and music, at once; coming back,
 // only the Spark on screen carries on (video and music together).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Platform, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -53,7 +54,7 @@ function sparkAudioMode() {
 // mini: the feed look: a plain video with only sound on / off in the bottom-right corner. A tap in the middle pauses
 // it (a pause sign shows while it's paused; another tap there plays it again); a tap anywhere else calls onOpen
 // (open the Spark big). timeRef gets the current second; startAt starts there.
-export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onDoubleTap,
+export default function SparkVideo({ poster, warm = false, onBroken, uri, musicUri, voiceUri, height = 520, onFirstPlay, local, edit, active = true, fill = false, autoPlay = false, muted = false, onDoubleTap,
   controls = false, onToggleMute, onFullscreen, fullscreen = false, onControls, mini = false, onOpen, timeRef, startAt, miniBottom = 14, controlsInset = 0 }) {
   const e = edit || {};
   const src = local ? uri : mediaUrl(uri);
@@ -79,6 +80,9 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
 
   // keep what's downloaded on the phone: opening the Spark big, or watching it again, plays from that copy
   const source = local ? src : { uri: src, useCaching: true };
+  const [loading, setLoading] = useState(true); const [broke, setBroke] = useState(false); const retried = useRef(false);
+  const [frameOn, setFrameOn] = useState(false); // the first picture is on screen: the cover can go
+  useEffect(() => { setLoading(true); setBroke(false); setFrameOn(false); retried.current = false; }, [src]);
   const player = useVideoPlayer(source, (p) => {
     p.loop = false; p.timeUpdateEventInterval = 0.1; p.playbackRate = rate; p.preservesPitch = true;
     p.volume = Math.min(1, vol.video); p.muted = vol.video === 0;
@@ -156,7 +160,16 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
     const a = player.addListener('timeUpdate', onTime);
     const b = player.addListener('playToEnd', onEnd);
     const c = player.addListener('playingChange', onPlaying);
-    return () => { a.remove(); b.remove(); c.remove(); };
+    // loading / failed: a spinner over the cover while it fetches; a failed video retries once, then asks for a fresh link
+    const st = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') { setLoading(false); setBroke(false); }
+      else if (status === 'loading') setLoading(true);
+      else if (status === 'error') {
+        if (!retried.current) { retried.current = true; setTimeout(() => { try { player.replace(source); if (autoRef.current) player.play(); } catch { /* released */ } }, 700); }
+        else { setLoading(false); setBroke(true); onBroken?.(); }
+      }
+    });
+    return () => { a.remove(); b.remove(); c.remove(); st.remove(); };
   }, [player, t0, t1, fading, timedText, playing, controls, dur]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // stop when scrolled away, when another screen opens, or when the app goes to the background
@@ -244,8 +257,16 @@ export default function SparkVideo({ uri, musicUri, voiceUri, height = 520, onFi
         {/* full screen can be turned sideways and a Spark can be zoomed / cropped (transforms): Android's default video
             surface ignores transforms (the frame turned, the picture didn't), a texture view turns and zooms with it */}
         <VideoView playsInline player={player} style={{ flex: 1, backgroundColor: '#000' }} contentFit="contain" nativeControls={false} allowsPictureInPicture={false}
-          surfaceType={fullscreen || z ? 'textureView' : 'surfaceView'} />
+          surfaceType={fullscreen || z ? 'textureView' : 'surfaceView'} onFirstFrameRender={() => setFrameOn(true)} />
       </View>
+      {/* the cover picture until the video's first picture is on screen (no black square while it loads) */}
+      {poster && !frameOn ? <Image pointerEvents="none" source={{ uri: poster }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="contain" /> : null}
+      {active && autoPlay && (loading || broke) && !userPaused ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          {broke ? <Text style={{ color: '#fff', fontSize: 13, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 }}>Reconnecting…</Text>
+            : <ActivityIndicator size="large" color="rgba(255,255,255,0.85)" />}
+        </View>
+      ) : null}
       {fading ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', opacity: shade }} /> : null}
       <SparkOverlays edit={e} time={timedText ? time : null} />
       {controls ? (
