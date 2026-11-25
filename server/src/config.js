@@ -97,7 +97,6 @@ if (isPublicProduction) {
   if (!['resend', 'gmail'].includes(config.emailProvider)) problems.push('EMAIL_PROVIDER must be a real provider (resend or gmail)');
   if ([config.emailProvider, config.emailFallbackProvider].includes('resend') && !process.env.RESEND_API_KEY) problems.push('RESEND_API_KEY must be set');
   if ([config.emailProvider, config.emailFallbackProvider].includes('gmail') && !(process.env.GMAIL_SERVICE_ACCOUNT && process.env.GMAIL_SENDER)) problems.push('GMAIL_SERVICE_ACCOUNT and GMAIL_SENDER must be set');
-  if (!config.signupEmailRequired) problems.push('SIGNUP_EMAIL_REQUIRED must be true');
   if (!process.env.FACE_KEY || Buffer.from(process.env.FACE_KEY, 'base64').length !== 32) problems.push('FACE_KEY must be 32 random bytes, base64');
   if (config.premiumFreeTrial) problems.push('PREMIUM_FREE_TRIAL must be false');
   if (problems.length) throw new Error(`Soulink will not start in production:\n - ${problems.join('\n - ')}`);

@@ -106,6 +106,8 @@ export const meView = (u) => ({
   emailVerified: !!u.email_verified_at,
   // every account needs an email, except the store reviewer's test number (it can't receive one)
   needsEmail: !u.email && !isReview(u.phone),
+  // signed up with email: the app asks for a mobile number right after the account is made
+  needsPhone: !u.phone && !u.phone_pending && !isReview(u.email),
   phoneVerified: !!u.phone_verified_at,
   // a number added while SMS codes are off: shown in Settings, confirmed by a code later, never used to sign in
   phonePending: u.phone_pending || null,

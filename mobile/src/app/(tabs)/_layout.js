@@ -20,19 +20,21 @@ import SoulinkTitleButton from '../../components/SoulinkTitleButton';
 
 const icon = (name) => ({ focused }) => <TabIcon name={name} focused={focused} />;
 
-// Accounts made before email was mandatory: remind once per app launch to add and confirm an email (it's how they
-// sign in on a new phone and recover the account). No code is sent until they enter the address themselves.
+// Right after the account is made (and once per app launch until it's done): confirm the other contact. Signed up
+// with a phone → add an email; with an email → add a mobile number. No code is sent until they enter it themselves.
 let emailReminded = false;
 function useEmailReminder(user) {
   useEffect(() => {
-    if (emailReminded || !user?.onboardingDone || !user.needsEmail) return undefined;
+    if (emailReminded || !user?.onboardingDone || !(user.needsEmail || user.needsPhone)) return undefined;
     const t = setTimeout(async () => {
       emailReminded = true;
-      const yes = await confirm('Add your email', "Every Soulink account now needs an email. It's how you sign in on a new phone and get back into your account. It takes a minute: we'll send it a 6-digit code.", { confirmText: 'Add now', cancelText: 'Later' });
+      const yes = user.needsEmail
+        ? await confirm('Verify your email', "Your account is ready. Now add and confirm your email: it's how you sign in on a new phone and get back into your account. We'll send it a 6-digit code.", { confirmText: 'Verify now', cancelText: 'Later' })
+        : await confirm('Verify your mobile number', "Your account is ready. Now add and confirm your mobile number: it keeps your account safe and lets you sign in with a code by SMS.", { confirmText: 'Verify now', cancelText: 'Later' });
       if (yes) router.push('/settings/sign-in');
     }, 1500);
     return () => clearTimeout(t);
-  }, [user?.onboardingDone, user?.needsEmail]);
+  }, [user?.onboardingDone, user?.needsEmail, user?.needsPhone]);
 }
 
 // After logging in: explain notifications and ask once on this phone. Only "Allow" shows the phone's own question,
@@ -41,7 +43,7 @@ function useEmailReminder(user) {
 let pushAsked = false;
 function usePushAsk(user) {
   useEffect(() => {
-    if (pushAsked || !user?.id || !user.onboardingDone || user.needsEmail) return undefined; // the email reminder goes first
+    if (pushAsked || !user?.id || !user.onboardingDone || user.needsEmail || user.needsPhone) return undefined; // the email reminder goes first
     const t = setTimeout(async () => {
       pushAsked = true;
       const next = await pushAfterLogin();

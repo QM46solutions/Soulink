@@ -125,17 +125,16 @@ test('a half-made email sign-up does not block adding that email to a finished a
   assert.equal((await query('SELECT COUNT(*) AS n FROM users WHERE id=$1', [half.id])).rows[0].n, 0);
 });
 
-test('a new account cannot finish its profile without an email', async () => {
+test('one verified contact is enough to finish the profile; the other is asked for afterwards', async () => {
   config.signupEmailRequired = true;
   const r = await api().post('/auth/otp/request').send({ phone: '9876500001' }).expect(200);
   const t = (await api().post('/auth/otp/verify').send({ phone: '9876500001', code: r.body.devCode }).expect(200)).body.token;
   const h = { Authorization: `Bearer ${t}` };
   const body = { username: 'needs.email', displayName: 'Needs Email', birthDate: '1995-05-10' };
-  const no = await api().post('/users/me/complete-onboarding').set(h).send(body).expect(400);
-  assert.equal(no.body.error.code, 'email_required');
+  const done = await api().post('/users/me/complete-onboarding').set(h).send(body).expect(200);
+  assert.equal(done.body.user.needsEmail, true);
   const e = await api().post('/account/email/request').set(h).send({ email: 'needs@example.com' }).expect(200);
   await api().post('/account/email/verify').set(h).send({ email: 'needs@example.com', code: e.body.devCode }).expect(200);
-  await api().post('/users/me/complete-onboarding').set(h).send(body).expect(200);
 });
 
 test('email providers: fallback when the first fails, Gmail message headers cannot be injected', async () => {

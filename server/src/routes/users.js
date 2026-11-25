@@ -1,6 +1,5 @@
 import { TRANSLATE_LANGS } from '../services/soulmojiAi.js';
 import { Router } from 'express';
-import { isReview } from '../services/otp.js';
 import { pulseFor, recordProfileView } from '../services/pulse.js';
 import { prefsOf } from '../services/push.js';
 import { z } from 'zod';
@@ -132,8 +131,8 @@ r.post('/me/complete-onboarding', ah(async (req, res) => {
   const { acceptTerms, termsVersion } = data; delete data.acceptTerms; delete data.termsVersion;
   if (data.isPrivate === undefined) data.isPrivate = true; // new accounts are private unless the person chose public
   if (config.faceRequired && !req.user.face_verified) throw badRequest('Complete the face scan first', 'face_required');
-  // every account has a confirmed email (it can only be set through a code sent to it): sign-in and recovery
-  if (config.signupEmailRequired && !req.user.email && !isReview(req.user.phone)) throw badRequest('Add and confirm your email first', 'email_required');
+  // One confirmed contact (the email or phone the sign-in code went to) is enough to create the account; the app
+  // asks for the other one right after the profile is made (meView: needsEmail / needsPhone).
   await assertUsernameFree(data.username, req.user.id);
   if (ageFrom(data.birthDate) < config.minAge) throw badRequest(`You must be ${config.minAge} or older to use Soulink`, 'underage');
   const entries = withCityCoords(data, Object.entries(data));
