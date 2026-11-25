@@ -1,3 +1,4 @@
+import '../lib/webInteractions'; // must run before any list is drawn (web)
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
