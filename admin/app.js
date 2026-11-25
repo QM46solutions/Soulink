@@ -124,13 +124,30 @@
   function shell() {
     let g = ''; let nav = '';
     PAGES.filter(can).forEach((p) => { if (p.g !== g) { g = p.g; nav += `<div class="nav-h">${g}</div>`; } nav += `<a href="#${p.id}" data-id="${p.id}"><svg viewBox="0 0 24 24">${ic[p.i]}</svg>${p.t}<span class="ct" data-ct="${p.id}" hidden></span></a>`; });
+    // Phone: bottom tab bar with the first 4 pages this person can open, plus "More" for the full menu
+    const tabs = PAGES.filter(can).filter((p) => ['overview', 'issues', 'ads', 'events', 'revenue', 'safety', 'releases'].includes(p.id)).slice(0, 4);
+    const tabbar = `<nav class="tabbar" aria-label="Main">${tabs.map((p) => `<a href="#${p.id}" data-id="${p.id}"><svg viewBox="0 0 24 24">${ic[p.i]}</svg><span>${p.t.split(' ')[0]}</span></a>`).join('')}<button id="moreBtn" aria-label="More pages"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button></nav><div class="scrim" id="scrim" hidden></div>`;
     $('#root').innerHTML = `<div class="app"><aside class="rail" id="rail"><div class="brand"><img class="logo" src="logo.png" alt="Soulink" width="34" height="34"><div>Soulink<small>TEAM CONSOLE</small></div></div>
       <nav class="nav">${nav}</nav><div class="who"><b>${esc(me.name)}</b><span>${ROLE[me.role]}</span><br><button id="out">Sign out</button></div></aside>
-      <main><div class="top"><button class="btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="sp"></div><span class="live" id="live" hidden></span><span class="stamp" id="stamp"></span><button class="btn sm" id="refresh">↻ Refresh</button></div><div id="view"></div></main></div>`;
+      <main><div class="top"><button class="btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="sp"></div><span class="live" id="live" hidden></span><span class="stamp" id="stamp"></span><button class="btn sm" id="refresh">↻ Refresh</button></div><div id="view"></div></main></div>${tabbar}`;
     $('#out').onclick = () => { timers.forEach(clearInterval); timers = []; saveToken(null); me = null; showAuth(); };
-    $('#menuBtn').onclick = () => $('#rail').classList.toggle('open');
+    const menu = (open) => { $('#rail').classList.toggle('open', open); $('#scrim').hidden = !open; };
+    $('#menuBtn').onclick = () => menu(!$('#rail').classList.contains('open'));
+    $('#moreBtn').onclick = () => menu(!$('#rail').classList.contains('open'));
+    $('#scrim').onclick = () => menu(false);
+    // Phone tables become cards: give each cell its column name
+    new MutationObserver(() => labelTables($('#view'))).observe($('#view'), { childList: true, subtree: true });
     $('#refresh').onclick = () => render();
     window.onhashchange = () => { st.cust = null; st.ev = null; render(); };
+  }
+  function labelTables(root) {
+    if (!root) return;
+    root.querySelectorAll('table').forEach((t) => {
+      const head = t.querySelector('tr'); if (!head || !head.querySelector('th')) return;
+      head.classList.add('thead');
+      const names = [...head.children].map((th) => th.textContent.trim());
+      t.querySelectorAll('tr').forEach((tr) => { if (tr === head) return; [...tr.children].forEach((td, i) => { if (td.tagName === 'TD' && !td.hasAttribute('data-label') && names[i] && !td.hasAttribute('colspan')) td.setAttribute('data-label', names[i]); }); });
+    });
   }
   let shown = null; // the page on screen
   async function render(opts = {}) {
@@ -146,8 +163,8 @@
       return;
     }
     shown = id;
-    document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.id === id));
-    $('#title').textContent = p.t; $('#sub').textContent = p.s; $('#rail')?.classList.remove('open');
+    document.querySelectorAll('.nav a, .tabbar a').forEach((a) => a.classList.toggle('on', a.dataset.id === id));
+    $('#title').textContent = p.t; $('#sub').textContent = p.s; $('#rail')?.classList.remove('open'); if ($('#scrim')) $('#scrim').hidden = true;
     v.innerHTML = '<div class="loading">Loading live numbers…</div>';
     try { v.innerHTML = await VIEWS[id](); stamp(); AFTER[id]?.(); }
     catch (e) { v.innerHTML = `<div class="panel"><b>Couldn’t load this page.</b><p class="mu">${esc(e.message)}</p><button class="btn" onclick="location.reload()">Reload</button></div>`; }
