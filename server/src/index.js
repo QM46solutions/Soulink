@@ -22,7 +22,8 @@ import { expireBackupJobs, recoverBackupJobs } from './services/backup.js';
 import { sealPlainFaces } from './lib/faceCrypto.js';
 import { localAiStatus } from './services/referee.js';
 import { startMetrics } from './services/metrics.js';
-import { moveStoredFilesToBlob } from './providers/storage.js';
+import { moveStoredFilesToBlob, removeFile } from './providers/storage.js';
+import { purgeOldIdProofs } from './services/events.js';
 import { emailConfigProblems } from './providers/email.js';
 
 const cloud = !!process.env.RENDER_EXTERNAL_URL || config.env === 'production';
@@ -56,7 +57,7 @@ const server = http.createServer(createApp());
 // Background jobs (30-day deletions, purges, copyright restores and reminders) run only while people are using
 // Soulink, at most once an hour. The free Azure database pauses itself when nobody uses it; a job that woke it
 // every hour would keep it awake all month and use up the free allowance in days.
-const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); remindLegalDeadlines(); purgeDeletedAccounts(); purgeAuditLog(); purgeTelemetry(); expireBackupJobs().catch(() => {}); };
+const jobs = () => { moveStoredFilesToBlob(50).catch(() => {}); purgeUnfinishedSignups().catch(() => {}); refreshRarity().catch(() => {}); runScheduledDeletions(); purgeExpiredBans(); runCopyrightRestores(); remindPendingReports(); remindLegalDeadlines(); purgeDeletedAccounts(); purgeAuditLog(); purgeTelemetry(); expireBackupJobs().catch(() => {}); purgeOldIdProofs(removeFile).catch(() => {}); };
 let lastJobs = 0;
 setInterval(() => { if (recentlyActive(10 * 60_000) && isDbReady() && Date.now() - lastJobs > 3600_000) { lastJobs = Date.now(); jobs(); } }, 60_000).unref?.();
 startHoldTimer(); // Hold reminders + auto-suspend, checked every minute

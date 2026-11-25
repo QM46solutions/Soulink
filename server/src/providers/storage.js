@@ -22,6 +22,7 @@ ALLOWED.document = {
 ALLOWED.video = { 'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/webm': '.webm', 'video/x-m4v': '.m4v', 'video/3gpp': '.3gp' };
 ALLOWED.spark = { ...ALLOWED.video, ...ALLOWED.audio };
 ALLOWED.post = { ...ALLOWED.image, ...ALLOWED.video }; // posts: photos and videos
+ALLOWED.idproof = { ...ALLOWED.image, 'application/pdf': '.pdf' }; // event registration: a photo or PDF of a government ID
 
 export const mediaKind = (mimetype) => (ALLOWED.image[mimetype] ? 'image' : ALLOWED.audio[mimetype] ? 'voice' : null);
 

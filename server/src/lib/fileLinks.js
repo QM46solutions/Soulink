@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { config } from '../config.js';
 
 const SECRET = () => process.env.FILE_LINK_SECRET || `soulink-file-links:${config.jwtSecret}`;
-const PUBLIC_DIRS = ['/uploads/ads/'];
+const PUBLIC_DIRS = ['/uploads/ads/', '/uploads/events/']; // ad pictures and event covers are meant to be seen
 export const isPublicFile = (p) => PUBLIC_DIRS.some((d) => p.startsWith(d));
 
 const sign = (path, exp, who) => crypto.createHmac('sha256', SECRET()).update(`${path}|${exp}|${who}`).digest('base64url').slice(0, 24);

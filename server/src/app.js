@@ -44,6 +44,7 @@ import privacyRoutes from './routes/privacy.js';
 import consoleRoutes from './routes/console.js';
 import telemetryRoutes from './routes/telemetry.js';
 import appVersionRoutes from './routes/appVersion.js';
+import eventRoutes from './routes/events.js';
 import { timeRequests } from './services/metrics.js';
 import { securityLog, clientIp } from './lib/log.js';
 
@@ -195,6 +196,7 @@ export function createApp() {
   app.use('/music', musicRoutes); // song search (login) + /music/play/<ref> for players (public)
   app.use('/places', placesRoutes); // public (no login): must come before safetyRoutes, which requires login for everything under '/'
   app.use('/share', shareRoutes); // public: a shared post / Spark, 15-second preview without an account (also before safetyRoutes)
+  app.use('/events', eventRoutes); // Soul Events (the payment page is public; the rest needs login): before safetyRoutes
   app.use('/push', pushRoutes); // /push/renew is public (the service worker has no login): also before safetyRoutes
   app.use('/', safetyRoutes);
   app.use('/notifications', notificationRoutes);

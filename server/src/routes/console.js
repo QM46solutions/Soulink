@@ -17,6 +17,7 @@ import { normalizeEmail, normalizePhone } from '../lib/auth.js';
 import { expireSignup, isRealMember } from '../services/signupCleanup.js';
 import { sendEmail } from '../providers/email.js';
 import { banAccount, BAN_DAYS } from '../services/lifecycle.js';
+import consoleEvents from './consoleEvents.js';
 import { actOnOrder, addOrder, CATEGORIES, GRIEVANCE_EMAIL, grievanceView, legalSummary, ORDER_HOURS, orderView, updateGrievance } from '../services/legal.js';
 
 const r = Router();
@@ -549,5 +550,8 @@ r.post('/ads/bookings/:id/:action', requireConsole('ads'), ah(async (req, res) =
   }
   log(req, `${action[0].toUpperCase() + action.slice(1)}d "${b.name}"`); res.json({ ok: true });
 }));
+
+// ---------- Soul Events ----------
+r.use('/events', consoleEvents);
 
 export default r;

@@ -133,6 +133,10 @@ function RootStack() {
         <Stack.Screen name="follows/[id]" options={{ title: '' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="ads/mine" options={{ title: 'My ads' }} />
+        <Stack.Screen name="events/[id]" options={{ title: '' }} />
+        <Stack.Screen name="events/ticket/[id]" options={{ title: 'Your ticket' }} />
+        <Stack.Screen name="events/tickets" options={{ title: 'My tickets' }} />
+        <Stack.Screen name="events/scan" options={{ title: 'Gate check-in' }} />
         <Stack.Screen name="admin/copyright" options={{ title: 'Copyright reports' }} />
         <Stack.Screen name="soul-filters" options={{ title: 'Soul Filters' }} />
         <Stack.Screen name="create-post" options={{ title: 'New post', presentation: 'modal' }} />

@@ -118,7 +118,7 @@ export default function TabsLayout() {
       {/* Messages: normal icon with unread badge, opens the inbox */}
       <Tabs.Screen name="inbox" options={{ tabBarButton: (props) => <MessagesTabButton {...props} /> }} />
       {/* Soulink Events opens from the "Soulink" title at the top of Home; Notifications from the bell */}
-      <Tabs.Screen name="events" options={{ title: 'Soulink Events', href: null }} />
+      <Tabs.Screen name="events" options={{ title: 'Soul Events', href: null }} />
       <Tabs.Screen name="discover" options={{ title: 'Discover new souls', href: null }} />
       <Tabs.Screen name="activity" options={{ title: 'Notifications', href: null }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} /> }} />

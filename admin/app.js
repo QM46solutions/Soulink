@@ -96,7 +96,8 @@
     bug: '<rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 8V5M9 5l1.5 1.5M15 5l-1.5 1.5M3 13h4M17 13h4M4 19l3-2M20 19l-3-2"/>', tag: '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     mega: '<path d="M3 10v4l11 5V5z"/><path d="M14 8a4 4 0 0 1 0 8M6 14l1 6h3l-1-5"/>', cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
     scale: '<path d="M12 3v18M5 21h14M4 7h16M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>', shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', funnel: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
-    rupee: '<path d="M6 4h12M6 8h12M14 20L7 12h3a4 4 0 0 0 0-8"/>', key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>', card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>'
+    rupee: '<path d="M6 4h12M6 8h12M14 20L7 12h3a4 4 0 0 0 0-8"/>', key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>', card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
+    ticket: '<path d="M3 8a2 2 0 0 0 0 4v0a2 2 0 0 1 0 4v2h18v-2a2 2 0 0 1 0-4 2 2 0 0 0 0-4V6H3z"/><path d="M14 6v12" stroke-dasharray="2 2"/>'
   };
   const PAGES = [
     { id: 'overview', t: 'Overview', i: 'home', g: 'App', roles: ['owner', 'viewer', 'support', 'ads'], s: 'The big picture of Soulink right now' },
@@ -109,6 +110,7 @@
     { id: 'ads', t: 'Ads & customers', i: 'mega', g: 'Business', roles: ['owner', 'ads', 'viewer'], s: 'Customers, their bookings, payments and ad performance' },
     { id: 'book', t: 'New ad booking', i: 'cal', g: 'Business', roles: ['owner', 'ads'], s: 'Book hours for a customer: placement, cities and schedule' },
     { id: 'rates', t: 'Ad rate card', i: 'card', g: 'Business', roles: ['owner', 'ads', 'viewer'], s: 'Hourly prices per placement and city' },
+    { id: 'events', t: 'Soul Events', i: 'ticket', g: 'Business', roles: ['owner', 'ads', 'support', 'viewer'], s: 'Events in the app: registrations, payments and gate check-in' },
     { id: 'revenue', t: 'Revenue', i: 'rupee', g: 'Business', roles: ['owner', 'viewer'], s: 'Money in from ads, paid messages and Spreads' },
     { id: 'safety', t: 'Safety & reports', i: 'shield', g: 'Trust', roles: ['owner', 'support'], s: 'Reported users and content, copyright notices and bans' },
     { id: 'legal', t: 'Legal & compliance', i: 'scale', g: 'Trust', roles: ['owner', 'support'], s: 'Complaints to the Grievance Officer, police and court orders, and bans, with their legal deadlines' },
@@ -128,7 +130,7 @@
     $('#out').onclick = () => { timers.forEach(clearInterval); timers = []; saveToken(null); me = null; showAuth(); };
     $('#menuBtn').onclick = () => $('#rail').classList.toggle('open');
     $('#refresh').onclick = () => render();
-    window.onhashchange = () => { st.cust = null; render(); };
+    window.onhashchange = () => { st.cust = null; st.ev = null; render(); };
   }
   let shown = null; // the page on screen
   async function render(opts = {}) {
@@ -155,7 +157,7 @@
   // ---------- live: the strip refreshes every 15 s, the page every 60 s ----------
   // Pages with forms (new booking, rate card, team) never refresh by themselves, and nothing refreshes while
   // a pop-up is open, someone is typing, a customer is open, or the tab is in the background.
-  const AUTO = new Set(['overview', 'users', 'activity', 'growth', 'performance', 'issues', 'releases', 'revenue', 'safety', 'legal', 'ads']);
+  const AUTO = new Set(['overview', 'users', 'activity', 'growth', 'performance', 'issues', 'releases', 'revenue', 'safety', 'legal', 'ads', 'events']);
   function canAutoRefresh() {
     if (document.hidden || !me || document.querySelector('.modal')) return false;
     const f = document.activeElement; if (f && /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)) return false;
