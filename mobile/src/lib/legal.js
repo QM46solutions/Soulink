@@ -9,7 +9,7 @@ export const LEGAL = {
   company: 'QM46 Solutions Private Limited',
   brand: 'Soulink',
   address: 'Flat No. 501, Plot No. 31 & 48, Sri Venkateshwara Nilyam, L B Nagar, Hyderabad 500074, Telangana, India', // registered office
-  grievanceOfficer: 'Sai Raghava Ragishetty',
+  grievanceOfficer: 'Nikhil Cheedella',
   grievanceEmail: 'quantum46solutions@gmail.com',
   grievancePhone: '+91 81438 88593',
   founder: 'Nikhil Cheedella',

@@ -37,7 +37,7 @@ td,th{padding:13px 16px;border-bottom:1px solid var(--line);text-align:left;font
 footer{margin:56px 0 40px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}footer a{color:var(--aura)}
 </style></head><body><div class="w">
 <header><p class="logo">Soulink</p><p class="tag">A social app to make friends and real connections in India. People are matched by how they think and react (their Soul DNA), not by followers or swiping.</p>
-<a class="btn" href="/">Open Soulink</a><a class="btn o" href="https://play.google.com/store/apps/details?id=app.soulink.mobile">Get it on Google Play</a></header>
+<a class="btn" href="/">Open Soulink</a><a class="btn o" href="https://qm46.in">About QM46 Solutions</a></header>
 
 <div class="k">WHAT YOU CAN DO</div>
 <div class="g">
