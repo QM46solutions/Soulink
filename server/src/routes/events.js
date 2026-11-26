@@ -9,7 +9,7 @@
 //  GET  /events/registrations/:id        one registration (ticket QR once paid)
 //  Staff (Soulink team): POST /events/check-in { code, eventId? } · GET /events/:id/attendees
 //  Public (opened in the browser): GET /events/pay/:id?k=&r=  ·  POST /events/pay/:id/verify
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { many, one, query } from '../db.js';
 import { ah, badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
@@ -57,14 +57,21 @@ r.get('/pay/:id', ah(async (req, res) => {
   const id = uuid.parse(req.params.id);
   const back = okReturn(req.query.r, req);
   res.set('Cache-Control', 'no-store');
-  res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com; img-src * data:; style-src 'unsafe-inline'");
+  // Razorpay's card / net-banking step opens the bank page in a pop-up that inherits this page's security headers:
+  // a strict content policy left it blank, and the default opener policy cut the pop-up off from the checkout.
+  res.removeHeader('Content-Security-Policy');
+  res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   if (!payTokenOk(id, req.query.k)) return res.status(403).send(page('Link expired', `<h1>This payment link has expired</h1><p>Go back to Soulink and tap Pay again.</p><a class="b" href="${esc(back)}">Back to Soulink</a>`));
   const x = await one(`SELECT r.*, e.title, e.starts_at FROM event_registrations r JOIN soul_events e ON e.id = r.event_id WHERE r.id = $1`, [id]);
   if (!x) return res.status(404).send(page('Not found', '<h1>Registration not found</h1>'));
   const ret = `${back}${back.includes('?') ? '&' : '?'}reg=${x.id}`;
   if (x.status === 'paid') return res.send(page('Paid', `<h1>You're in!</h1><p>Your ticket for ${esc(x.title)} is in the Soulink app.</p><a class="b" href="${esc(ret)}">Open my ticket</a>`));
   if (!razorpayOn() || !x.rzp_order_id) return res.status(409).send(page('Payment', `<h1>Payment isn't ready</h1><p>Go back to Soulink and tap Pay again.</p><a class="b" href="${esc(back)}">Back to Soulink</a>`));
-  const opts = { key: razorpayKeyId(), order_id: x.rzp_order_id, amount: x.amount * 100, currency: 'INR', name: 'Soulink Events', description: x.title.slice(0, 250),
+  // redirect mode: the whole page goes to the bank and comes back to /callback (no pop-ups, which phones often block)
+  const api = req.originalUrl.startsWith('/api/') ? '/api' : '';
+  const callback = `${req.protocol}://${req.get('host')}${api}${req.baseUrl}/pay/${x.id}/callback?k=${encodeURIComponent(String(req.query.k))}&r=${encodeURIComponent(back)}`;
+  const opts = { key: razorpayKeyId(), order_id: x.rzp_order_id, callback_url: callback, redirect: true, amount: x.amount * 100, currency: 'INR', name: 'Soulink Events', description: x.title.slice(0, 250),
     prefill: { name: x.full_name, contact: x.phone }, notes: { registration: x.id }, theme: { color: '#7c5cfc' } };
   res.send(page('Pay for ' + x.title, `<h1>${esc(x.title)}</h1><p>₹${Number(x.amount).toLocaleString('en-IN')} · ${esc(x.full_name)}</p>
 ${razorpayKeyId().startsWith('rzp_test_') ? '<span class="t">TEST MODE · NO REAL MONEY</span>' : ''}
@@ -81,6 +88,30 @@ o.modal={ondismiss:function(){m.className='';m.textContent='Payment not finished
 var rz=new Razorpay(o);rz.on('payment.failed',function(r){m.className='e';m.textContent=(r.error&&r.error.description)||'The payment failed. Try again.';});
 document.getElementById('go').onclick=function(){rz.open();};rz.open();
 </script>`));
+}));
+
+// Razorpay sends the person back here (form POST) after the bank page: check the signature, issue the ticket, return to the app.
+r.post('/pay/:id/callback', express.urlencoded({ extended: true, limit: '20kb' }), ah(async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const back = okReturn(req.query.r, req);
+  const ret = `${back}${back.includes('?') ? '&' : '?'}reg=${id}`;
+  res.set('Cache-Control', 'no-store');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  const b = req.body || {};
+  const x = await one('SELECT * FROM event_registrations WHERE id = $1', [id]);
+  if (!x) return res.status(404).send(page('Not found', '<h1>Registration not found</h1>'));
+  const retry = `${req.baseUrl}/pay/${id}?k=${encodeURIComponent(String(req.query.k || ''))}&r=${encodeURIComponent(back)}`;
+  if (x.status !== 'paid') {
+    const ok = b.razorpay_payment_id && b.razorpay_order_id === x.rzp_order_id && signatureOk(b.razorpay_order_id, b.razorpay_payment_id, b.razorpay_signature);
+    if (!ok) {
+      const why = b['error[description]'] || b.error?.description || 'The payment did not go through.';
+      return res.send(page('Payment failed', `<h1>Payment not completed</h1><p class="e">${esc(String(why).slice(0, 200))}</p><p>No money was taken. If it was, your ticket will appear in Soulink shortly.</p>
+<a class="b" href="${esc(payTokenOk(id, req.query.k) ? (req.originalUrl.startsWith('/api/') ? '/api' : '') + retry : back)}">Try again</a><a class="b" style="background:#2a2740" href="${esc(back)}">Back to Soulink</a>`));
+    }
+    await markPaid(id, { mode: 'live', paymentId: b.razorpay_payment_id });
+  }
+  res.send(page('Paid', `<h1>You're in! 🎉</h1><p>Your QR ticket is ready in the Soulink app.</p><a class="b" href="${esc(ret)}">Open my ticket</a>
+<script>setTimeout(function(){location.href=${JSON.stringify(ret).replace(/</g, '\\u003c')};},600);</script>`));
 }));
 
 r.post('/pay/:id/verify', ah(async (req, res) => {
