@@ -45,6 +45,7 @@ import consoleRoutes from './routes/console.js';
 import telemetryRoutes from './routes/telemetry.js';
 import appVersionRoutes from './routes/appVersion.js';
 import eventRoutes from './routes/events.js';
+import { aboutPage } from './routes/site.js';
 import { timeRequests } from './services/metrics.js';
 import { securityLog, clientIp } from './lib/log.js';
 
@@ -66,6 +67,8 @@ export function createApp() {
     const team = process.env.APPLE_TEAM_ID;
     res.json(team ? { applinks: { details: [{ appIDs: [`${team}.${APP_ID}`], components: [{ '/': '/p/*' }, { '/': '/s/*' }, { '/': '/join/*' }] }] } } : { applinks: { details: [] } });
   });
+  // public business page (no login): what Soulink is, prices, events, contact, policies
+  app.get(['/about', '/api/about'], (req, res, next) => aboutPage(req, res).catch(next));
   if (web) {
     const site = express.Router();
     site.use(express.static(config.webDir, { maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('.html') || file.endsWith('sw.js') || file.endsWith('manifest.json')) res.setHeader('Cache-Control', 'no-cache'); } }));

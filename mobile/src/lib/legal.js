@@ -13,7 +13,7 @@ export const LEGAL = {
   grievanceEmail: 'quantum46solutions@gmail.com',
   grievancePhone: '+91 81438 88593',
   founder: 'Nikhil Cheedella',
-  updated: '13 November 2026',
+  updated: '26 November 2026',
 };
 
 const G = LEGAL;
@@ -53,7 +53,7 @@ export const DOCS = {
         'If your content is removed, you can ask our Grievance Officer to review the decision.',
       ]],
       ['Paid features', [
-        'Some features cost money: Premium, a one-time message to someone you are not connected with, Spread around (promoting your Spark) and Soul Shop items. Prices are shown in rupees, including GST, before you pay. Payments are handled by our payment partner; we never store your card or bank details.',
+        'Some features cost money: Premium, a one-time message to someone you are not connected with, Spread around (promoting your Spark), Soul Shop items and tickets to Soul Events. Prices are shown in rupees, including GST, before you pay. Payments are handled by our payment partner; we never store your card or bank details.',
         'Refunds and cancellations follow our Refund Policy.',
       ]],
       ['Ads and promotions', [
@@ -154,6 +154,11 @@ export const DOCS = {
       ['One-time message (₹500)', ['If the message could not be delivered because of a fault on our side, we refund it in full. Once delivered it cannot be refunded.']],
       ['Spread around', ['You can stop a Spread at any time. If you stop it within 24 hours of starting, or if your Spark is removed by us without breaking the rules, we refund the unused days.']],
       ['Soul Shop', ['Items can be returned unused within 7 days of delivery for a full refund. Damaged or wrong items are replaced or refunded.']],
+      ['Soul Events tickets', [
+        'Cancel up to 48 hours before the event starts for a full refund. Within 48 hours of the start, tickets cannot be refunded.',
+        'If we cancel an event, every paid ticket is refunded in full automatically. If we change its date, time or venue, you can keep your ticket or ask for a full refund.',
+        'Tickets are for the person who registered (entry is checked against the ID you uploaded) and cannot be transferred or resold. A ticket that was not used is not refunded.',
+      ]],
       ['How refunds work', [`Write to ${G.grievanceEmail} with your username and payment reference. Approved refunds go back to the original payment method within 7 working days.`]],
     ],
   },
