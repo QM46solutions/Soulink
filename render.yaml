@@ -1,0 +1,120 @@
+# Render (paid Standard plan since 21 Nov 2026: 1 CPU, 2 GB, never sleeps): one web service = the Soulink web app + its API on one https address.
+# The code comes from the "deploy" branch, which GitHub builds automatically (.github/workflows/deploy.yml).
+# Secrets marked sync:false are typed in once in the Render dashboard (see docs/CLOUD-HOSTING.md).
+services:
+  - type: web
+    name: soulink
+    runtime: node
+    plan: standard
+    region: singapore
+    branch: deploy
+    autoDeploy: true
+    buildCommand: npm ci --omit=dev --no-audit --no-fund
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Standard plan = 2 GB: room for the face check and video work, with headroom for the rest of the process
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=1536
+      - key: WEB_DIR
+        value: web
+      - key: STORAGE
+        value: db
+      - key: AI_PROVIDER
+        value: basic
+      # login codes by SMS through Message Central VerifyNow (its customer id + password are set in the dashboard)
+      - key: SMS_PROVIDER
+        value: messagecentral
+      - key: MESSAGECENTRAL_CUSTOMER_ID
+        sync: false
+      - key: MESSAGECENTRAL_PASSWORD
+        sync: false
+      - key: DB_PORT
+        value: "1433"
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERT
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_SERVER
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ACCESS_CODE
+        sync: false
+      # optional: Microsoft Translator free tier (F0) key + region, used first by the chat translator
+      - key: AZURE_TRANSLATOR_KEY
+        sync: false
+      - key: AZURE_TRANSLATOR_REGION
+        sync: false
+      # Voice translator: Azure AI Speech free tier (F0): key + region (centralindia)
+      - key: AZURE_SPEECH_KEY
+        sync: false
+      - key: AZURE_SPEECH_REGION
+        value: centralindia
+      # Soulmoji AI on Azure Container Apps (soulmoji-cloud/AZURE-SETUP.md): its address + the shared secret.
+      # With both set, SOULMOJI_ENGINE=ai makes benchmark-quality Soulmojis; without them it stays on the built-in engine.
+      - key: SOULMOJI_ENGINE
+        value: ai
+      - key: SOULMOJI_AI_FEATURES
+        value: edit
+      - key: SOULMOJI_AI_URL
+        sync: false
+      - key: SOULMOJI_AI_TOKEN
+        sync: false
+      - key: ADMIN_USERNAMES
+        sync: false
+      # Soulink Studio video builder + Azure Blob storage (docs/VIDEO-BUILDER.md). Typed in once in the Render dashboard.
+      # STORAGE above stays "db" until these are in; then it changes to "blob" in this file.
+      - key: AZURE_STORAGE_CONNECTION_STRING
+        sync: false
+      - key: AZURE_STORAGE_CONTAINER
+        value: media
+      - key: BUILDER_URL
+        sync: false
+      - key: BUILDER_TOKEN
+        sync: false
+      # moves files saved in the database to Blob, a few at a time, each one checked before the database copy is removed
+      - key: BLOB_MIGRATE
+        value: "off"
+      # Google Play / App Store reviewers: one test number + its fixed 6-digit code (skips the face scan)
+      - key: REVIEW_PHONE
+        sync: false
+      - key: REVIEW_CODE
+        sync: false
+      # Sign-in codes by email (Resend). Set these three in the Render dashboard; see docs/AUTH-SETUP.md
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Optional: Gmail API (Google Workspace only) as the provider or as EMAIL_FALLBACK_PROVIDER
+      - key: EMAIL_FALLBACK_PROVIDER
+        sync: false
+      - key: GMAIL_SERVICE_ACCOUNT
+        sync: false
+      - key: GMAIL_SENDER
+        sync: false
+      # Update App: the iPhone app's numeric Apple ID once it's on the App Store (then Update App opens its listing)
+      - key: APP_STORE_ID
+        sync: false
+      # No free Premium for public users (Premium features only; login is always free)
+      - key: PREMIUM_FREE_TRIAL
+        value: "false"
+      # Phone sign-in is live (Message Central, tested 20 Nov 2026)
+      - key: PHONE_LOGIN
+        value: "true"
+      # Team test numbers / emails (comma-separated) that may sign in while phone codes are off, and see the
+      # code on screen in test mode. Must be empty before public launch.
+      - key: TEST_LOGIN_TARGETS
+        sync: false
