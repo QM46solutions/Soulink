@@ -51,7 +51,7 @@ footer{margin:56px 0 40px;padding-top:24px;border-top:1px solid var(--line);colo
 <p class="m">Soulink is free to join and use. These extras are optional. All prices are in Indian rupees and include GST. Payments are processed securely by Razorpay; we never store card or bank details.</p>
 <table>
 <tr><th>Product</th><th>What you get</th><th>Price</th></tr>
-<tr><td>Soul Events ticket</td><td>Entry to one event for one person (QR ticket, ID checked at the gate). Each event shows its own price before you pay.</td><td class="p">From ₹499 per event</td></tr>
+<tr><td>Soul Events ticket</td><td>Entry to one event for one person (QR ticket, ID checked at the gate). Each event shows its own price before you pay.</td><td class="p">${events.length ? `From ${rs(Math.min(...events.map((e) => Number(e.price))))} per event` : 'Shown on each event'}</td></tr>
 <tr><td>One-time message</td><td>Send one message to someone you are not connected with; it lands in their Requests.</td><td class="p">₹500 per message</td></tr>
 <tr><td>Spread around</td><td>Promote your post or Spark to more people in your city.</td><td class="p">${esc(spread)}</td></tr>
 <tr><td>Premium</td><td>Your full Soul DNA report, why you matched with someone, and editing your Soul DNA.</td><td class="p">Price shown in the app before you buy</td></tr>
